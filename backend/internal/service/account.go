@@ -1768,6 +1768,18 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	}
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:
+		// A normal Chat Completions request can be served either by the native
+		// endpoint or, when that endpoint is unavailable, by the existing
+		// Responses compatibility bridge. Only reject an APIKey account after
+		// both endpoint probes conclusively report unsupported.
+		if a.Platform == PlatformOpenAI && a.Type == AccountTypeAPIKey {
+			chatSupport := openai_compat.ResolveChatCompletionsSupport(a.Extra)
+			responsesSupport := openai_compat.ResolveResponsesSupport(a.Extra)
+			if chatSupport == openai_compat.ChatCompletionsSupportNo &&
+				responsesSupport == openai_compat.ResponsesSupportNo {
+				return false
+			}
+		}
 	case OpenAIEndpointCapabilityLive:
 		return a.Platform == PlatformOpenAI &&
 			a.Type == AccountTypeOAuth &&

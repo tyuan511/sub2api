@@ -86,3 +86,36 @@ func TestNormalizeResponsesSupportMode(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveChatCompletionsSupport(t *testing.T) {
+	tests := []struct {
+		name  string
+		extra map[string]any
+		want  AccountChatCompletionsSupport
+	}{
+		{name: "nil extra", extra: nil, want: ChatCompletionsSupportUnknown},
+		{name: "missing", extra: map[string]any{}, want: ChatCompletionsSupportUnknown},
+		{name: "supported", extra: map[string]any{ExtraKeyChatCompletionsSupported: true}, want: ChatCompletionsSupportYes},
+		{name: "unsupported", extra: map[string]any{ExtraKeyChatCompletionsSupported: false}, want: ChatCompletionsSupportNo},
+		{name: "wrong type", extra: map[string]any{ExtraKeyChatCompletionsSupported: "true"}, want: ChatCompletionsSupportUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResolveChatCompletionsSupport(tt.extra); got != tt.want {
+				t.Fatalf("ResolveChatCompletionsSupport(%v) = %v, want %v", tt.extra, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldUseChatCompletionsAPI(t *testing.T) {
+	if !ShouldUseChatCompletionsAPI(map[string]any{ExtraKeyChatCompletionsSupported: true}) {
+		t.Fatal("supported Chat Completions endpoint should be selected")
+	}
+	if ShouldUseChatCompletionsAPI(map[string]any{ExtraKeyChatCompletionsSupported: false}) {
+		t.Fatal("unsupported Chat Completions endpoint should not be selected")
+	}
+	if ShouldUseChatCompletionsAPI(nil) {
+		t.Fatal("unknown Chat Completions endpoint should preserve legacy routing")
+	}
+}

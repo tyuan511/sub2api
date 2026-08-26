@@ -1246,6 +1246,55 @@ func shouldForwardOpenAIResponsesViaRawChatCompletions(account *Account) bool {
 	return !openai_compat.ShouldUseResponsesAPI(account.Extra)
 }
 
+// shouldForwardOpenAIChatCompletionsViaRawChatCompletions decides how an
+// OpenAI-compatible APIKey account should serve an inbound /v1/chat/completions request.
+//
+// When the new Chat Completions capability probe is positive, preserve the
+// client's protocol and avoid an unnecessary CC -> Responses conversion. If
+// the probe is negative but Responses is available, retain the compatibility
+// conversion. Unknown Chat capability intentionally keeps the legacy routing
+// until the account has been probed. Explicit force_* Responses modes continue
+// to take precedence over automatic capability routing.
+func shouldForwardOpenAIChatCompletionsViaRawChatCompletions(account *Account) bool {
+	if account == nil || account.Type != AccountTypeAPIKey {
+		return false
+	}
+	// 国产供应商已经按 credentials.api_protocol 实现了自己的原生路由；
+	// 继续复用旧判断，避免双端点探针覆盖 fixed chat/adaptive 的协议语义。
+	if account.IsCNProvider() {
+		return shouldForwardOpenAIResponsesViaRawChatCompletions(account)
+	}
+	if account.Platform != PlatformOpenAI {
+		return false
+	}
+
+	mode := openai_compat.ResponsesSupportModeAuto
+	if account.Extra != nil {
+		if raw, ok := account.Extra[openai_compat.ExtraKeyResponsesMode].(string); ok {
+			mode = openai_compat.NormalizeResponsesSupportMode(raw)
+		}
+	}
+	switch mode {
+	case openai_compat.ResponsesSupportModeForceResponses:
+		return false
+	case openai_compat.ResponsesSupportModeForceChatCompletions:
+		return true
+	}
+
+	switch openai_compat.ResolveChatCompletionsSupport(account.Extra) {
+	case openai_compat.ChatCompletionsSupportYes:
+		return true
+	case openai_compat.ChatCompletionsSupportNo:
+		// If Responses is unavailable too, preserve the existing best-effort
+		// fallback to Chat Completions rather than turning the request into a
+		// guaranteed local routing failure.
+		return !openai_compat.ShouldUseResponsesAPI(account.Extra)
+	default:
+		// Missing/unknown Chat probe: preserve the pre-probe behavior.
+		return !openai_compat.ShouldUseResponsesAPI(account.Extra)
+	}
+}
+
 func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
 	// Determine target URL based on account type
 	var targetURL string

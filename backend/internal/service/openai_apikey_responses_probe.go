@@ -73,6 +73,26 @@ func openaiResponsesProbePayload(modelID string) []byte {
 	return body
 }
 
+// openaiChatCompletionsProbePayload constructs a deliberately small native
+// Chat Completions request. Unlike the Responses capability probe it does not
+// require tool-call semantics; a successful HTTP response is sufficient to
+// establish that the endpoint can accept ordinary completions traffic.
+func openaiChatCompletionsProbePayload(modelID string) []byte {
+	if strings.TrimSpace(modelID) == "" {
+		modelID = openai.DefaultTestModel
+	}
+	body, _ := json.Marshal(map[string]any{
+		"model": modelID,
+		"messages": []map[string]any{{
+			"role":    "user",
+			"content": "Reply with OK.",
+		}},
+		"max_tokens": 1,
+		"stream":     false,
+	})
+	return body
+}
+
 // selectResponsesProbeModel 选出用于探测的上游模型。
 //
 // 工具能力探测必须用上游真实存在的模型——用占位模型(DefaultTestModel)打第三方
@@ -243,6 +263,146 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 		"probe_done: account_id=%d base_url=%s probe_model=%s status=%d supported=%v",
 		accountID, normalizedBaseURL, probeModel, resp.StatusCode, supported,
 	)
+}
+
+// ProbeOpenAIAPIKeyEndpointSupport probes both native OpenAI-compatible text
+// endpoints and persists the two independent capability flags. It is used by
+// account create/update hooks; the legacy Responses-only method above remains
+// available for callers that intentionally want a single probe.
+func (s *AccountTestService) ProbeOpenAIAPIKeyEndpointSupport(ctx context.Context, accountID int64) {
+	account, err := s.accountRepo.GetByID(ctx, accountID)
+	if err != nil {
+		logger.LegacyPrintf("service.openai_probe", "probe_load_account_failed: account_id=%d err=%v", accountID, err)
+		return
+	}
+	if account.Type != AccountTypeAPIKey {
+		return
+	}
+	if account.IsCNProvider() {
+		// CN providers retain their explicit protocol handling and the existing
+		// Responses probe policy; they do not use the OpenAI dual-endpoint probe.
+		s.ProbeOpenAIAPIKeyResponsesSupport(ctx, accountID)
+		return
+	}
+	if account.Platform != PlatformOpenAI {
+		return
+	}
+
+	apiKey := account.GetOpenAIApiKey()
+	if apiKey == "" {
+		logger.LegacyPrintf("service.openai_probe", "probe_skip_no_apikey: account_id=%d", accountID)
+		return
+	}
+	baseURL := account.GetOpenAIBaseURL()
+	if baseURL == "" {
+		baseURL = "https://api.openai.com"
+	}
+	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
+	if err != nil {
+		logger.LegacyPrintf("service.openai_probe", "probe_invalid_baseurl: account_id=%d base_url=%q err=%v", accountID, baseURL, err)
+		return
+	}
+	probeModel := selectResponsesProbeModel(account)
+
+	type endpointProbe struct {
+		name    string
+		url     string
+		payload []byte
+		key     string
+	}
+	probes := []endpointProbe{
+		{
+			name:    "chat_completions",
+			url:     buildOpenAIChatCompletionsURL(normalizedBaseURL),
+			payload: openaiChatCompletionsProbePayload(probeModel),
+			key:     openai_compat.ExtraKeyChatCompletionsSupported,
+		},
+		{
+			name:    "responses",
+			url:     buildOpenAIResponsesURL(normalizedBaseURL),
+			payload: openaiResponsesProbePayload(probeModel),
+			key:     openai_compat.ExtraKeyResponsesSupported,
+		},
+	}
+
+	updates := make(map[string]any, len(probes))
+	for _, probe := range probes {
+		supported, conclusive, status := s.probeOpenAIAPIKeyEndpoint(ctx, account, apiKey, probe.name, probe.url, probe.payload)
+		if conclusive {
+			updates[probe.key] = supported
+			logger.LegacyPrintf("service.openai_probe", "probe_done: account_id=%d endpoint=%s base_url=%s probe_model=%s status=%d supported=%v", accountID, probe.name, normalizedBaseURL, probeModel, status, supported)
+		}
+	}
+	if len(updates) == 0 {
+		return
+	}
+	if err := s.accountRepo.UpdateExtra(ctx, accountID, updates); err != nil {
+		logger.LegacyPrintf("service.openai_probe", "probe_persist_failed: account_id=%d updates=%v err=%v", accountID, updates, err)
+	}
+}
+
+// probeOpenAIAPIKeyEndpoint sends one bounded capability request. Network and
+// response-body failures leave the corresponding flag unchanged. HTTP 404/405
+// are the only definitive endpoint-absent signals; other non-2xx statuses are
+// treated conservatively as endpoint-present, matching the existing Responses
+// probe policy for authentication and transient upstream failures.
+func (s *AccountTestService) probeOpenAIAPIKeyEndpoint(
+	ctx context.Context,
+	account *Account,
+	apiKey string,
+	endpointName string,
+	probeURL string,
+	payload []byte,
+) (supported, conclusive bool, status int) {
+	if s == nil || s.httpUpstream == nil || account == nil {
+		return false, false, 0
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, openaiResponsesProbeTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(probeCtx, http.MethodPost, probeURL, bytes.NewReader(payload))
+	if err != nil {
+		logger.LegacyPrintf("service.openai_probe", "probe_build_request_failed: endpoint=%s url=%s err=%v", endpointName, probeURL, err)
+		return false, false, 0
+	}
+	req = req.WithContext(WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileOpenAI))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+	applyOpenAICodexProbeHeaders(req.Header)
+	account.ApplyHeaderOverrides(req.Header)
+
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+	resp, err := s.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, s.tlsFPProfileService.ResolveTLSProfile(account))
+	if err != nil {
+		logger.LegacyPrintf("service.openai_probe", "probe_request_failed: endpoint=%s account_id=%d url=%s err=%v", endpointName, account.ID, probeURL, err)
+		return false, false, 0
+	}
+	defer func() { _ = resp.Body.Close() }()
+	bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, responsesProbeMaxBodyBytes))
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, responsesProbeMaxBodyBytes))
+	if readErr != nil {
+		logger.LegacyPrintf("service.openai_probe", "probe_read_body_failed: endpoint=%s account_id=%d url=%s err=%v", endpointName, account.ID, probeURL, readErr)
+		return false, false, resp.StatusCode
+	}
+
+	status = resp.StatusCode
+	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
+		return false, true, status
+	}
+	// A successful Chat Completions response proves the endpoint is usable;
+	// non-2xx business/auth responses conservatively prove only that the route
+	// exists, just as the Responses probe does.
+	if endpointName == "chat_completions" {
+		return true, true, status
+	}
+	if !responsesProbeVerdictIsConclusive(status, bodyBytes) {
+		logger.LegacyPrintf("service.openai_probe", "probe_inconclusive_keep_unknown: endpoint=%s account_id=%d url=%s status=%d", endpointName, account.ID, probeURL, status)
+		return false, false, status
+	}
+	return decideResponsesProbeSupport(status, bodyBytes), true, status
 }
 
 // responsesProbeVerdictIsConclusive 判断本次探测响应是否足以对「上游是否支持带工具的

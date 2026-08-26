@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestProbeOpenAIAPIKeyResponsesSupportUsesCodexProbeHeaders(t *testing.T) {
@@ -157,4 +159,120 @@ func TestSelectResponsesProbeModel(t *testing.T) {
 		"model_mapping": map[string]any{"a": "gpt-*"},
 	}}
 	require.Equal(t, openai.DefaultTestModel, selectResponsesProbeModel(acctAllWild))
+}
+
+func probeHTTPResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
+
+func TestProbeOpenAIAPIKeyEndpointSupportPersistsIndependentCapabilities(t *testing.T) {
+	account := newResponsesProbeAccount(4300)
+	updates := make(chan map[string]any, 1)
+	repo := &snapshotUpdateAccountRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
+		updateExtraCalls:      updates,
+	}
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		probeHTTPResponse(http.StatusOK, `{"id":"chatcmpl_probe","choices":[]}`),
+		probeHTTPResponse(http.StatusOK, `{"status":"completed","output":[{"type":"function_call","name":"probe_ping"}]}`),
+	}}
+	svc := &AccountTestService{
+		accountRepo:  repo,
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+
+	svc.ProbeOpenAIAPIKeyEndpointSupport(context.Background(), account.ID)
+
+	got := <-updates
+	require.Equal(t, true, got[openai_compat.ExtraKeyChatCompletionsSupported])
+	require.Equal(t, true, got[openai_compat.ExtraKeyResponsesSupported])
+	require.Len(t, upstream.requests, 2)
+	require.Equal(t, "https://compat-upstream.example/v1/chat/completions", upstream.requests[0].URL.String())
+	require.Equal(t, "https://compat-upstream.example/v1/responses", upstream.requests[1].URL.String())
+	require.Equal(t, "gpt-5.4", gjson.GetBytes(upstream.bodies[0], "model").String())
+	require.Equal(t, "user", gjson.GetBytes(upstream.bodies[0], "messages.#(role==\"user\").role").String())
+}
+
+func TestProbeOpenAIAPIKeyEndpointSupportDoesNotCoupleEndpointResults(t *testing.T) {
+	cases := []struct {
+		name          string
+		chatStatus    int
+		chatBody      string
+		responsesBody string
+		responsesCode int
+		wantChat      bool
+		wantResponses bool
+	}{
+		{
+			name:          "chat absent responses present",
+			chatStatus:    http.StatusNotFound,
+			chatBody:      `{"error":{"message":"Not Found"}}`,
+			responsesCode: http.StatusOK,
+			responsesBody: `{"status":"completed","output":[{"type":"function_call"}]}`,
+			wantChat:      false,
+			wantResponses: true,
+		},
+		{
+			name:          "chat present responses absent",
+			chatStatus:    http.StatusOK,
+			chatBody:      `{"choices":[]}`,
+			responsesCode: http.StatusMethodNotAllowed,
+			responsesBody: `{"error":{"message":"Method Not Allowed"}}`,
+			wantChat:      true,
+			wantResponses: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			account := newResponsesProbeAccount(4301)
+			updates := make(chan map[string]any, 1)
+			repo := &snapshotUpdateAccountRepo{
+				stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
+				updateExtraCalls:      updates,
+			}
+			upstream := &httpUpstreamRecorder{responses: []*http.Response{
+				probeHTTPResponse(tc.chatStatus, tc.chatBody),
+				probeHTTPResponse(tc.responsesCode, tc.responsesBody),
+			}}
+			svc := &AccountTestService{
+				accountRepo:  repo,
+				httpUpstream: upstream,
+				cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+			}
+
+			svc.ProbeOpenAIAPIKeyEndpointSupport(context.Background(), account.ID)
+
+			got := <-updates
+			require.Equal(t, tc.wantChat, got[openai_compat.ExtraKeyChatCompletionsSupported])
+			require.Equal(t, tc.wantResponses, got[openai_compat.ExtraKeyResponsesSupported])
+		})
+	}
+}
+
+func TestProbeOpenAIAPIKeyEndpointSupportNetworkFailureKeepsFlagsUnknown(t *testing.T) {
+	account := newResponsesProbeAccount(4302)
+	updates := make(chan map[string]any, 1)
+	repo := &snapshotUpdateAccountRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
+		updateExtraCalls:      updates,
+	}
+	svc := &AccountTestService{
+		accountRepo:  repo,
+		httpUpstream: &httpUpstreamRecorder{err: errors.New("dial failed")},
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+
+	svc.ProbeOpenAIAPIKeyEndpointSupport(context.Background(), account.ID)
+
+	select {
+	case got := <-updates:
+		t.Fatalf("network failure must not persist capability flags: %#v", got)
+	default:
+	}
 }

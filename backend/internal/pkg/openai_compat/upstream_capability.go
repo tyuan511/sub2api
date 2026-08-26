@@ -58,6 +58,20 @@ const ExtraKeyResponsesMode = "openai_responses_mode"
 // 值类型为 bool：true=支持、false=不支持、键缺失=未探测。
 const ExtraKeyResponsesSupported = "openai_responses_supported"
 
+// ExtraKeyChatCompletionsSupported 是 accounts.extra 中存储上游
+// /v1/chat/completions 能力探测结果的键名。缺失表示尚未探测。
+const ExtraKeyChatCompletionsSupported = "openai_chat_completions_supported"
+
+// AccountChatCompletionsSupport 描述账号上游对 OpenAI Chat Completions API
+// 的有效支持状态。单独保存该状态，使支持两个协议的上游可以按入站协议直转。
+type AccountChatCompletionsSupport int
+
+const (
+	ChatCompletionsSupportUnknown AccountChatCompletionsSupport = iota
+	ChatCompletionsSupportYes
+	ChatCompletionsSupportNo
+)
+
 // NormalizeResponsesSupportMode 归一化账号级 Responses API 路由覆盖模式。
 // 缺失或非法值按 auto 处理，以保持存量行为。
 func NormalizeResponsesSupportMode(mode string) ResponsesSupportMode {
@@ -99,6 +113,34 @@ func ResolveResponsesSupport(extra map[string]any) AccountResponsesSupport {
 		return ResponsesSupportYes
 	}
 	return ResponsesSupportNo
+}
+
+// ResolveChatCompletionsSupport 从账号 extra 中读取 Chat Completions 探测结果。
+// 缺失或类型不匹配时返回 Unknown，保持旧账号的兼容行为。
+func ResolveChatCompletionsSupport(extra map[string]any) AccountChatCompletionsSupport {
+	if extra == nil {
+		return ChatCompletionsSupportUnknown
+	}
+	v, ok := extra[ExtraKeyChatCompletionsSupported]
+	if !ok {
+		return ChatCompletionsSupportUnknown
+	}
+	supported, ok := v.(bool)
+	if !ok {
+		return ChatCompletionsSupportUnknown
+	}
+	if supported {
+		return ChatCompletionsSupportYes
+	}
+	return ChatCompletionsSupportNo
+}
+
+// ShouldUseChatCompletionsAPI reports whether an OpenAI APIKey account's
+// upstream has been confirmed to support the native Chat Completions endpoint.
+// Unknown deliberately returns false; callers should use the existing fallback
+// behavior until the new probe has produced a conclusive result.
+func ShouldUseChatCompletionsAPI(extra map[string]any) bool {
+	return ResolveChatCompletionsSupport(extra) == ChatCompletionsSupportYes
 }
 
 // ShouldUseResponsesAPI 判断 OpenAI APIKey 账号的入站 /v1/chat/completions 请求
