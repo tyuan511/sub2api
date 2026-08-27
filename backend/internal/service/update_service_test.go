@@ -12,10 +12,13 @@ import (
 )
 
 type updateServiceCacheStub struct {
-	data string
+	data     string
+	getCalls int
+	setCalls int
 }
 
 func (s *updateServiceCacheStub) GetUpdateInfo(context.Context) (string, error) {
+	s.getCalls++
 	if s.data == "" {
 		return "", errors.New("cache miss")
 	}
@@ -23,6 +26,7 @@ func (s *updateServiceCacheStub) GetUpdateInfo(context.Context) (string, error) 
 }
 
 func (s *updateServiceCacheStub) SetUpdateInfo(_ context.Context, data string, _ time.Duration) error {
+	s.setCalls++
 	s.data = data
 	return nil
 }
@@ -31,13 +35,17 @@ type updateServiceGitHubClientStub struct {
 	release        *GitHubRelease
 	recentReleases []*GitHubRelease
 	recentErr      error
+	latestCalls    int
+	recentCalls    int
 }
 
 func (s *updateServiceGitHubClientStub) FetchLatestRelease(context.Context, string) (*GitHubRelease, error) {
+	s.latestCalls++
 	return s.release, nil
 }
 
 func (s *updateServiceGitHubClientStub) FetchRecentReleases(context.Context, string, int) ([]*GitHubRelease, error) {
+	s.recentCalls++
 	return s.recentReleases, s.recentErr
 }
 
@@ -67,6 +75,31 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrNoUpdateAvailable))
 	require.ErrorIs(t, err, ErrNoUpdateAvailable)
+}
+
+func TestForkUpdateServiceDoesNotCheckOfficialReleases(t *testing.T) {
+	cache := &updateServiceCacheStub{data: `{"latest":"9.9.9","timestamp":9999999999}`}
+	github := &updateServiceGitHubClientStub{
+		release: &GitHubRelease{TagName: "v9.9.9"},
+	}
+	svc := NewForkUpdateService(cache, github, "0.1.183-cache-snapshot", "release")
+
+	info, err := svc.CheckUpdate(context.Background(), true)
+
+	require.NoError(t, err)
+	require.Equal(t, "0.1.183-cache-snapshot", info.CurrentVersion)
+	require.Equal(t, "0.1.183-cache-snapshot", info.LatestVersion)
+	require.False(t, info.HasUpdate)
+	require.False(t, info.OfficialUpdateCheckEnabled)
+	require.Zero(t, cache.getCalls, "disabled checks must not read stale release data from Redis")
+	require.Zero(t, cache.setCalls, "disabled checks must not write release data to Redis")
+	require.Zero(t, github.latestCalls, "disabled checks must not call GitHub latest release")
+
+	require.ErrorIs(t, svc.PerformUpdate(context.Background()), ErrOfficialUpdateCheckDisabled)
+	_, err = svc.ListRollbackVersions(context.Background())
+	require.ErrorIs(t, err, ErrOfficialUpdateCheckDisabled)
+	require.ErrorIs(t, svc.RollbackToVersion(context.Background(), "0.1.182"), ErrOfficialUpdateCheckDisabled)
+	require.Zero(t, github.recentCalls, "disabled checks must not call GitHub release history")
 }
 
 func newRollbackTestService(current string, releases []*GitHubRelease) *UpdateService {

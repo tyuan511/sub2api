@@ -31,6 +31,9 @@ export default {
     refresh: 'Refresh',
     sourceMode: 'Source Build',
     sourceModeHint: 'Source build, use git pull to update',
+    officialUpdateCheckDisabled: 'Official update check is disabled',
+    officialUpdateCheckDisabledHint:
+      'This is a custom build. Merge upstream changes manually and redeploy; online updates and official release rollback are disabled.',
     updateNow: 'Update Now',
     updating: 'Updating...',
     updateComplete: 'Update Complete',

@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	ErrNoUpdateAvailable         = infraerrors.Conflict("ALREADY_UP_TO_DATE", "no update available; current version is latest")
-	ErrRollbackVersionNotAllowed = infraerrors.BadRequest("ROLLBACK_VERSION_NOT_ALLOWED", "version is not in the allowed rollback list")
+	ErrNoUpdateAvailable           = infraerrors.Conflict("ALREADY_UP_TO_DATE", "no update available; current version is latest")
+	ErrOfficialUpdateCheckDisabled = infraerrors.Conflict("OFFICIAL_UPDATE_CHECK_DISABLED", "official update checking is disabled for this custom build; merge upstream changes manually")
+	ErrRollbackVersionNotAllowed   = infraerrors.BadRequest("ROLLBACK_VERSION_NOT_ALLOWED", "version is not in the allowed rollback list")
 )
 
 const (
@@ -61,31 +62,46 @@ type GitHubReleaseClient interface {
 
 // UpdateService handles software updates
 type UpdateService struct {
-	cache          UpdateCache
-	githubClient   GitHubReleaseClient
-	currentVersion string
-	buildType      string // "source" for manual builds, "release" for CI builds
+	cache                      UpdateCache
+	githubClient               GitHubReleaseClient
+	currentVersion             string
+	buildType                  string // "source" for manual builds, "release" for CI builds
+	officialUpdateCheckEnabled bool
 }
 
 // NewUpdateService creates a new UpdateService
 func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, buildType string) *UpdateService {
+	return newUpdateService(cache, githubClient, version, buildType, true)
+}
+
+// NewForkUpdateService creates an UpdateService for a custom fork. Official
+// GitHub release checks, online upgrades, and release-based rollbacks are
+// disabled so upstream releases cannot overwrite a custom build. The local
+// .backup rollback remains available through Rollback.
+func NewForkUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, buildType string) *UpdateService {
+	return newUpdateService(cache, githubClient, version, buildType, false)
+}
+
+func newUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, buildType string, officialUpdateCheckEnabled bool) *UpdateService {
 	return &UpdateService{
-		cache:          cache,
-		githubClient:   githubClient,
-		currentVersion: version,
-		buildType:      buildType,
+		cache:                      cache,
+		githubClient:               githubClient,
+		currentVersion:             version,
+		buildType:                  buildType,
+		officialUpdateCheckEnabled: officialUpdateCheckEnabled,
 	}
 }
 
 // UpdateInfo contains update information
 type UpdateInfo struct {
-	CurrentVersion string       `json:"current_version"`
-	LatestVersion  string       `json:"latest_version"`
-	HasUpdate      bool         `json:"has_update"`
-	ReleaseInfo    *ReleaseInfo `json:"release_info,omitempty"`
-	Cached         bool         `json:"cached"`
-	Warning        string       `json:"warning,omitempty"`
-	BuildType      string       `json:"build_type"` // "source" or "release"
+	CurrentVersion             string       `json:"current_version"`
+	LatestVersion              string       `json:"latest_version"`
+	HasUpdate                  bool         `json:"has_update"`
+	ReleaseInfo                *ReleaseInfo `json:"release_info,omitempty"`
+	Cached                     bool         `json:"cached"`
+	Warning                    string       `json:"warning,omitempty"`
+	BuildType                  string       `json:"build_type"` // "source" or "release"
+	OfficialUpdateCheckEnabled bool         `json:"official_update_check_enabled"`
 }
 
 // ReleaseInfo contains GitHub release details
@@ -131,6 +147,10 @@ type GitHubAsset struct {
 
 // CheckUpdate checks for available updates
 func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInfo, error) {
+	if !s.officialUpdateCheckEnabled {
+		return s.localUpdateInfo(), nil
+	}
+
 	// Try cache first
 	if !force {
 		if cached, err := s.getFromCache(ctx); err == nil && cached != nil {
@@ -147,11 +167,12 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 			return cached, nil
 		}
 		return &UpdateInfo{
-			CurrentVersion: s.currentVersion,
-			LatestVersion:  s.currentVersion,
-			HasUpdate:      false,
-			Warning:        err.Error(),
-			BuildType:      s.buildType,
+			CurrentVersion:             s.currentVersion,
+			LatestVersion:              s.currentVersion,
+			HasUpdate:                  false,
+			Warning:                    err.Error(),
+			BuildType:                  s.buildType,
+			OfficialUpdateCheckEnabled: true,
 		}, nil
 	}
 
@@ -160,9 +181,25 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 	return info, nil
 }
 
+// localUpdateInfo reports the build version without consulting Redis or
+// GitHub. It is used by custom forks that manage upstream merges manually.
+func (s *UpdateService) localUpdateInfo() *UpdateInfo {
+	return &UpdateInfo{
+		CurrentVersion:             s.currentVersion,
+		LatestVersion:              s.currentVersion,
+		HasUpdate:                  false,
+		BuildType:                  s.buildType,
+		OfficialUpdateCheckEnabled: false,
+	}
+}
+
 // PerformUpdate downloads and applies the update
 // Uses atomic file replacement pattern for safe in-place updates
 func (s *UpdateService) PerformUpdate(ctx context.Context) error {
+	if !s.officialUpdateCheckEnabled {
+		return ErrOfficialUpdateCheckDisabled
+	}
+
 	info, err := s.CheckUpdate(ctx, true)
 	if err != nil {
 		return err
@@ -307,6 +344,10 @@ func (s *UpdateService) Rollback() error {
 // strictly older than the current version (the current version itself is excluded),
 // newest first. Draft and prerelease entries are skipped.
 func (s *UpdateService) ListRollbackVersions(ctx context.Context) ([]RollbackVersion, error) {
+	if !s.officialUpdateCheckEnabled {
+		return nil, ErrOfficialUpdateCheckDisabled
+	}
+
 	releases, err := s.fetchRollbackCandidates(ctx)
 	if err != nil {
 		return nil, err
@@ -327,6 +368,10 @@ func (s *UpdateService) ListRollbackVersions(ctx context.Context) ([]RollbackVer
 // The target must be one of the versions returned by ListRollbackVersions;
 // anything else (including the current version) is rejected.
 func (s *UpdateService) RollbackToVersion(ctx context.Context, version string) error {
+	if !s.officialUpdateCheckEnabled {
+		return ErrOfficialUpdateCheckDisabled
+	}
+
 	target := strings.TrimPrefix(strings.TrimSpace(version), "v")
 	if target == "" {
 		return ErrRollbackVersionNotAllowed
@@ -427,8 +472,9 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 			HTMLURL:     release.HTMLURL,
 			Assets:      assets,
 		},
-		Cached:    false,
-		BuildType: s.buildType,
+		Cached:                     false,
+		BuildType:                  s.buildType,
+		OfficialUpdateCheckEnabled: true,
 	}, nil
 }
 
@@ -613,12 +659,13 @@ func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
 	}
 
 	return &UpdateInfo{
-		CurrentVersion: s.currentVersion,
-		LatestVersion:  cached.Latest,
-		HasUpdate:      compareVersions(s.currentVersion, cached.Latest) < 0,
-		ReleaseInfo:    cached.ReleaseInfo,
-		Cached:         true,
-		BuildType:      s.buildType,
+		CurrentVersion:             s.currentVersion,
+		LatestVersion:              cached.Latest,
+		HasUpdate:                  compareVersions(s.currentVersion, cached.Latest) < 0,
+		ReleaseInfo:                cached.ReleaseInfo,
+		Cached:                     true,
+		BuildType:                  s.buildType,
+		OfficialUpdateCheckEnabled: true,
 	}, nil
 }
 

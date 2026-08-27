@@ -43,6 +43,7 @@ export const useAppStore = defineStore('app', () => {
   const hasUpdate = ref<boolean>(false)
   const buildType = ref<string>('source')
   const releaseInfo = ref<ReleaseInfo | null>(null)
+  const officialUpdateCheckEnabled = ref<boolean>(true)
 
   // Auto-incrementing ID for toasts
   let toastIdCounter = 0
@@ -249,7 +250,8 @@ export const useAppStore = defineStore('app', () => {
         has_update: hasUpdate.value,
         build_type: buildType.value,
         release_info: releaseInfo.value || undefined,
-        cached: true
+        cached: true,
+        official_update_check_enabled: officialUpdateCheckEnabled.value
       }
     }
 
@@ -266,6 +268,9 @@ export const useAppStore = defineStore('app', () => {
       hasUpdate.value = data.has_update
       buildType.value = data.build_type || 'source'
       releaseInfo.value = data.release_info || null
+      // Treat a missing field as enabled for compatibility with older
+      // backends. Custom fork builds explicitly return false here.
+      officialUpdateCheckEnabled.value = data.official_update_check_enabled !== false
       versionLoaded.value = true
       return data
     } catch (error) {
@@ -460,6 +465,7 @@ export const useAppStore = defineStore('app', () => {
     hasUpdate,
     buildType,
     releaseInfo,
+    officialUpdateCheckEnabled,
 
     // Computed
     hasActiveToasts,

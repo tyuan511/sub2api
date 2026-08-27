@@ -10,7 +10,13 @@
             ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50'
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-800 dark:text-dark-400 dark:hover:bg-dark-700'
         ]"
-        :title="hasUpdate ? t('version.updateAvailable') : t('version.upToDate')"
+        :title="
+          officialUpdateCheckDisabled
+            ? t('version.officialUpdateCheckDisabled')
+            : hasUpdate
+              ? t('version.updateAvailable')
+              : t('version.upToDate')
+        "
       >
         <span v-if="currentVersion" class="font-medium">v{{ currentVersion }}</span>
         <span
@@ -87,9 +93,9 @@
                     >v{{ currentVersion }}</span
                   >
                   <span v-else class="text-2xl font-bold text-gray-400 dark:text-dark-500">--</span>
-                  <!-- Show check mark when up to date -->
+                  <!-- Show check mark when the enabled update check found no update -->
                   <span
-                    v-if="!hasUpdate"
+                    v-if="!hasUpdate && !officialUpdateCheckDisabled"
                     class="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
                   >
                     <svg
@@ -107,7 +113,9 @@
                 </div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
                   {{
-                    hasUpdate
+                    officialUpdateCheckDisabled
+                      ? t('version.officialUpdateCheckDisabled')
+                      : hasUpdate
                       ? t('version.latestVersion') + ': v' + latestVersion
                       : t('version.upToDate')
                   }}
@@ -395,9 +403,25 @@
 
                   <transition name="rollback">
                     <div v-if="rollbackPanelOpen" class="mt-2 space-y-2">
+                      <!-- Custom fork: upstream release history is intentionally disabled. -->
+                      <div
+                        v-if="officialUpdateCheckDisabled"
+                        class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 dark:border-amber-800/50 dark:bg-amber-900/20"
+                      >
+                        <Icon
+                          name="exclamationTriangle"
+                          size="xs"
+                          :stroke-width="2"
+                          class="mt-0.5 flex-shrink-0 text-amber-500 dark:text-amber-400"
+                        />
+                        <p class="text-xs leading-4 text-amber-700 dark:text-amber-300">
+                          {{ t('version.officialUpdateCheckDisabledHint') }}
+                        </p>
+                      </div>
+
                       <!-- Source build: online rollback unavailable, use git instead -->
                       <div
-                        v-if="!isReleaseBuild"
+                        v-else-if="!isReleaseBuild"
                         class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-800/50 dark:bg-blue-900/20"
                       >
                         <svg
@@ -676,6 +700,7 @@ const latestVersion = computed(() => appStore.latestVersion)
 const hasUpdate = computed(() => appStore.hasUpdate)
 const releaseInfo = computed(() => appStore.releaseInfo)
 const buildType = computed(() => appStore.buildType)
+const officialUpdateCheckDisabled = computed(() => !appStore.officialUpdateCheckEnabled)
 
 // Update process states (local to this component)
 const updating = ref(false)
@@ -789,6 +814,7 @@ async function toggleRollbackPanel() {
   if (
     rollbackPanelOpen.value &&
     isReleaseBuild.value &&
+    !officialUpdateCheckDisabled.value &&
     rollbackVersions.value.length === 0 &&
     !rollbackVersionsLoading.value
   ) {
