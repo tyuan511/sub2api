@@ -10,6 +10,8 @@ const messages: Record<string, string> = {
   'usage.in': 'In',
   'usage.out': 'Out',
   'usage.cacheTotal': 'Cache',
+  'usage.cacheHitRate': 'Hit rate',
+  'usage.cacheHitRateHint': 'Cache hit rate formula',
   'usage.cacheBreakdown': 'Cache Token Breakdown',
   'usage.cacheCreationTokensLabel': 'Cache Creation',
   'usage.cacheReadTokensLabel': 'Cache Read',
@@ -44,10 +46,11 @@ const stats = {
 }
 
 describe('UsageStatsCards', () => {
-  it('shows cache token breakdown values', () => {
+  it('shows cache token breakdown values and cache hit rate', () => {
     const wrapper = mount(UsageStatsCards, {
       props: {
         stats,
+        showCacheHitRate: true,
       },
       global: {
         stubs: {
@@ -63,5 +66,22 @@ describe('UsageStatsCards', () => {
     expect(text).toContain('12')
     expect(text).toContain('Cache Read')
     expect(text).toContain('22')
+    expect(text).toContain('Hit rate: 16.42%')
+  })
+
+  it('shows a placeholder when there are no prompt tokens', () => {
+    const wrapper = mount(UsageStatsCards, {
+      props: {
+        stats: { ...stats, total_input_tokens: 0, total_cache_creation_tokens: 0, total_cache_read_tokens: 0 },
+        showCacheHitRate: true,
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Hit rate: -')
   })
 })

@@ -55,6 +55,12 @@
               </span>
             </span>
           </span>
+          <template v-if="showCacheHitRate">
+            <span>/</span>
+            <span class="tabular-nums" :title="t('usage.cacheHitRateHint')">
+              {{ t('usage.cacheHitRate') }}: {{ formatCacheHitRate(cacheHitRate) }}
+            </span>
+          </template>
         </p>
       </div>
     </div>
@@ -99,9 +105,11 @@ const props = withDefaults(defineProps<{
   stats: (AdminUsageStatsResponse | UsageStatsResponse) | null
   showAccountCost?: boolean
   strikeStandardCost?: boolean
+  showCacheHitRate?: boolean
 }>(), {
   showAccountCost: true,
   strikeStandardCost: false,
+  showCacheHitRate: false,
 })
 
 const { t } = useI18n()
@@ -112,6 +120,18 @@ const totalAccountCost = computed(() => {
 })
 const showAccountCost = computed(() => props.showAccountCost)
 const strikeStandardCost = computed(() => props.strikeStandardCost)
+const showCacheHitRate = computed(() => props.showCacheHitRate)
+
+const cacheHitRate = computed(() => {
+  if (!props.stats) return null
+
+  const inputTokens = props.stats.total_input_tokens || 0
+  const cacheReadTokens = props.stats.total_cache_read_tokens || 0
+  const cacheCreationTokens = props.stats.total_cache_creation_tokens || 0
+  const promptTokens = inputTokens + cacheReadTokens + cacheCreationTokens
+
+  return promptTokens > 0 ? (cacheReadTokens / promptTokens) * 100 : null
+})
 
 const formatDuration = (ms: number) =>
   ms < 1000 ? `${ms.toFixed(0)}ms` : `${(ms / 1000).toFixed(2)}s`
@@ -122,6 +142,9 @@ const formatTokens = (value: number) => {
   if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K'
   return value.toLocaleString()
 }
+
+const formatCacheHitRate = (value: number | null) =>
+  value == null ? '-' : `${value.toFixed(2)}%`
 
 const cacheLabel = () => t('usage.cacheTotal')
 const cacheDetailLabel = () => t('usage.cacheBreakdown')
