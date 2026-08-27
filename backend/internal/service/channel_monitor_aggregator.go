@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 // 渠道监控聚合层：把 latest + availability 拼成 admin/user 视图所需的 summary / detail。
@@ -68,11 +69,12 @@ func (s *ChannelMonitorService) ListUserView(ctx context.Context) ([]*UserMonito
 	summaries := s.BatchMonitorStatusSummary(ctx, ids, primaryByID, extrasByID)
 	latestMap := s.batchLatest(ctx, ids)
 	timelineMap := s.batchTimeline(ctx, ids, primaryByID)
+	cacheHitRates := s.batchGroupCacheHitRates(ctx, collectGroupNames(monitors))
 
 	views := make([]*UserMonitorView, 0, len(monitors))
 	for _, m := range monitors {
 		primaryLatest := pickLatest(latestMap[m.ID], m.PrimaryModel)
-		views = append(views, buildUserViewFromSummary(m, summaries[m.ID], primaryLatest, timelineMap[m.ID]))
+		views = append(views, buildUserViewFromSummary(m, summaries[m.ID], primaryLatest, timelineMap[m.ID], cacheHitRates[strings.TrimSpace(m.GroupName)]))
 	}
 	return views, nil
 }
@@ -88,6 +90,58 @@ func collectMonitorIndexes(monitors []*ChannelMonitor) ([]int64, map[int64]strin
 		extrasByID[m.ID] = m.ExtraModels
 	}
 	return ids, primaryByID, extrasByID
+}
+
+// collectGroupNames 提取用户监控视图需要的去重分组名称，空名称不参与用量查询。
+func collectGroupNames(monitors []*ChannelMonitor) []string {
+	seen := make(map[string]struct{}, len(monitors))
+	names := make([]string, 0, len(monitors))
+	for _, m := range monitors {
+		name := strings.TrimSpace(m.GroupName)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	return names
+}
+
+// batchGroupCacheHitRates 批量读取用户视图所需的 7/15/30 天分组缓存命中率。
+// 用量查询失败仅记录日志，不影响渠道状态页面的主体渲染。
+func (s *ChannelMonitorService) batchGroupCacheHitRates(
+	ctx context.Context,
+	groupNames []string,
+) map[string]map[int]*float64 {
+	out := make(map[string]map[int]*float64, len(groupNames))
+	if len(groupNames) == 0 {
+		return out
+	}
+	for _, windowDays := range []int{monitorAvailability7Days, monitorAvailability15Days, monitorAvailability30Days} {
+		statsByGroup, err := s.repo.ComputeCacheHitRatesForGroups(ctx, groupNames, windowDays)
+		if err != nil {
+			slog.Warn("channel_monitor: batch group cache hit rate failed", "window_days", windowDays, "error", err)
+			continue
+		}
+		for name, stats := range statsByGroup {
+			if stats == nil {
+				continue
+			}
+			totalPromptTokens := stats.InputTokens + stats.CacheReadTokens + stats.CacheCreationTokens
+			if totalPromptTokens <= 0 {
+				continue
+			}
+			rate := stats.CacheHitRatePct
+			if out[name] == nil {
+				out[name] = make(map[int]*float64, 3)
+			}
+			out[name][windowDays] = &rate
+		}
+	}
+	return out
 }
 
 // batchLatest 批量取 latest per model，失败仅日志（与现有 BatchMonitorStatusSummary 一致，不阻断列表渲染）。
@@ -229,6 +283,7 @@ func buildUserViewFromSummary(
 	summary MonitorStatusSummary,
 	primaryLatest *ChannelMonitorLatest,
 	timelineEntries []*ChannelMonitorHistoryEntry,
+	cacheHitRates map[int]*float64,
 ) *UserMonitorView {
 	view := &UserMonitorView{
 		ID:               m.ID,
@@ -242,6 +297,9 @@ func buildUserViewFromSummary(
 		ExtraModels:      summary.ExtraModels,
 		Timeline:         buildTimelinePoints(timelineEntries),
 	}
+	view.CacheHitRate7d = cacheHitRates[monitorAvailability7Days]
+	view.CacheHitRate15d = cacheHitRates[monitorAvailability15Days]
+	view.CacheHitRate30d = cacheHitRates[monitorAvailability30Days]
 	if primaryLatest != nil {
 		view.PrimaryPingLatencyMs = primaryLatest.PingLatencyMs
 		view.LatestQuota = primaryLatest.Quota

@@ -41,6 +41,7 @@
         :item="item"
         :window="window"
         :availability-value="resolveAvailability(item)"
+        :cache-hit-rate="resolveCacheHitRate(item)"
         :countdown-seconds="countdownSeconds"
         @click="emit('cardClick', item)"
       />
@@ -77,5 +78,11 @@ function resolveAvailability(item: UserMonitorView): number | null {
   const primary = detail.models.find(m => m.model === item.primary_model)
   if (!primary) return null
   return props.window === '15d' ? primary.availability_15d ?? null : primary.availability_30d ?? null
+}
+
+function resolveCacheHitRate(item: UserMonitorView): number | null {
+  if (props.window === '7d') return item.cache_hit_rate_7d ?? null
+  if (props.window === '15d') return item.cache_hit_rate_15d ?? null
+  return item.cache_hit_rate_30d ?? null
 }
 </script>

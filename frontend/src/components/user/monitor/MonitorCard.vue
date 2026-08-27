@@ -65,6 +65,7 @@
     <MonitorAvailabilityRow
       :window-label="availabilityLabel"
       :value="availabilityValue"
+      :cache-hit-rate="cacheHitRate"
       :samples-label="extraModelsCountLabel"
     />
 
@@ -107,6 +108,7 @@ const props = defineProps<{
   item: UserMonitorView
   window: '7d' | '15d' | '30d'
   availabilityValue: number | null
+  cacheHitRate: number | null
   countdownSeconds: number
 }>()
 

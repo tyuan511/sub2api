@@ -153,13 +153,27 @@ type UserMonitorView struct {
 	PrimaryModel         string
 	PrimaryStatus        string
 	PrimaryLatencyMs     *int
-	PrimaryPingLatencyMs *int    // 主模型最近一次 ping 延迟
-	Availability7d       float64 // 0-100
+	PrimaryPingLatencyMs *int     // 主模型最近一次 ping 延迟
+	Availability7d       float64  // 0-100
+	CacheHitRate7d       *float64 // 分组 7 天缓存命中率；无用量记录时为 nil
+	CacheHitRate15d      *float64 // 分组 15 天缓存命中率；无用量记录时为 nil
+	CacheHitRate30d      *float64 // 分组 30 天缓存命中率；无用量记录时为 nil
 	ExtraModels          []ExtraModelStatus
 	Timeline             []UserMonitorTimelinePoint // 主模型最近 N 个历史点（按 checked_at DESC，最新在前）
 	// LatestQuota 主模型最近一次配额快照；channel_monitor_show_quota=false
 	// 时由 handler 服务端剥离。
 	LatestQuota *domain.MonitorQuotaSnapshot
+}
+
+// GroupCacheHitRate 分组在指定时间窗口内的缓存输入统计。
+// 命中率按 cache_read_tokens / (input_tokens + cache_read_tokens + cache_creation_tokens) 计算，
+// 与用户/管理员用量趋势中的口径保持一致。
+type GroupCacheHitRate struct {
+	Requests            int64
+	InputTokens         int64
+	CacheReadTokens     int64
+	CacheCreationTokens int64
+	CacheHitRatePct     float64
 }
 
 // UserMonitorTimelinePoint 用户视图 timeline 单点数据（去除 message 以减小响应体）。

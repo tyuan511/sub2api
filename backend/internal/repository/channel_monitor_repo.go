@@ -604,6 +604,66 @@ func (r *channelMonitorRepository) ComputeAvailabilityForMonitors(ctx context.Co
 	return out, nil
 }
 
+// ComputeCacheHitRatesForGroups 批量计算分组在指定时间窗口内的缓存命中率。
+// 只返回当前未删除的分组；没有 usage_logs 的分组也会返回一条零统计记录，
+// 由 service 层将其转换为 nil，避免把“没有数据”误显示成 0%。
+func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
+	ctx context.Context,
+	groupNames []string,
+	windowDays int,
+) (map[string]*service.GroupCacheHitRate, error) {
+	out := make(map[string]*service.GroupCacheHitRate, len(groupNames))
+	if len(groupNames) == 0 {
+		return out, nil
+	}
+	if windowDays <= 0 {
+		windowDays = 7
+	}
+
+	const q = `
+		SELECT g.name,
+		       COUNT(u.id)                         AS requests,
+		       COALESCE(SUM(u.input_tokens), 0)    AS input_tokens,
+		       COALESCE(SUM(u.cache_read_tokens), 0) AS cache_read_tokens,
+		       COALESCE(SUM(u.cache_creation_tokens), 0) AS cache_creation_tokens
+		FROM groups g
+		LEFT JOIN usage_logs u
+		  ON u.group_id = g.id
+		 AND u.created_at >= NOW() - ($2::int || ' days')::interval
+		WHERE g.name = ANY($1)
+		  AND g.deleted_at IS NULL
+		GROUP BY g.name
+	`
+	rows, err := r.db.QueryContext(ctx, q, pq.Array(groupNames), windowDays)
+	if err != nil {
+		return nil, fmt.Errorf("query group cache hit rates: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var name string
+		stats := &service.GroupCacheHitRate{}
+		if err := rows.Scan(
+			&name,
+			&stats.Requests,
+			&stats.InputTokens,
+			&stats.CacheReadTokens,
+			&stats.CacheCreationTokens,
+		); err != nil {
+			return nil, fmt.Errorf("scan group cache hit rate: %w", err)
+		}
+		totalPromptTokens := stats.InputTokens + stats.CacheReadTokens + stats.CacheCreationTokens
+		if totalPromptTokens > 0 {
+			stats.CacheHitRatePct = float64(stats.CacheReadTokens) * 100.0 / float64(totalPromptTokens)
+		}
+		out[name] = stats
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ---------- 聚合维护 ----------
 
 // UpsertDailyRollupsFor 把 targetDate 当天（[targetDate, targetDate+1d)）的明细
