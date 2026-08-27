@@ -46,6 +46,11 @@ type ChannelMonitorRepository interface {
 	// ComputeCacheHitRatesForGroups 批量计算分组在指定窗口内的缓存命中率。
 	// 返回值按分组名称索引；没有请求记录的分组不会出现在结果中。
 	ComputeCacheHitRatesForGroups(ctx context.Context, groupNames []string, windowDays int) (map[string]*GroupCacheHitRate, error)
+	// RefreshGroupCacheHitRateSnapshots 在监控周期内计算并持久化分组缓存命中率快照。
+	// 实现应一次更新固定的 7/15/30 天窗口，避免页面读取时扫描 usage_logs。
+	RefreshGroupCacheHitRateSnapshots(ctx context.Context, groupNames []string) error
+	// ListGroupCacheHitRateSnapshots 读取已持久化的分组缓存命中率快照。
+	ListGroupCacheHitRateSnapshots(ctx context.Context, groupNames []string) (map[string]map[int]*GroupCacheHitRateSnapshot, error)
 	// ListRecentHistoryForMonitors 批量取多个 monitor 各自主模型（primaryModels[monitorID]）最近 perMonitorLimit 条历史。
 	// 返回的 entry 已按 checked_at DESC 排序（最新在前），不含 message 字段。
 	ListRecentHistoryForMonitors(ctx context.Context, ids []int64, primaryModels map[int64]string, perMonitorLimit int) (map[int64][]*ChannelMonitorHistoryEntry, error)
@@ -693,6 +698,13 @@ func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *Chan
 	if err := s.repo.MarkChecked(ctx, m.ID, time.Now()); err != nil {
 		slog.Error("channel_monitor: mark checked failed",
 			"monitor_id", m.ID, "error", err)
+	}
+	if groupName := strings.TrimSpace(m.GroupName); groupName != "" {
+		if err := s.repo.RefreshGroupCacheHitRateSnapshots(ctx, []string{groupName}); err != nil {
+			// 缓存命中率是监控页面的附加指标，快照失败不应影响本次探活结果。
+			slog.Warn("channel_monitor: refresh group cache hit rate snapshots failed",
+				"monitor_id", m.ID, "group_name", groupName, "error", err)
+		}
 	}
 }
 

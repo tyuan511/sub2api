@@ -176,6 +176,19 @@ type GroupCacheHitRate struct {
 	CacheHitRatePct     float64
 }
 
+// GroupCacheHitRateSnapshot 是监控周期计算后持久化的分组缓存命中率。
+// 页面读取的是这个快照，而不是在每次请求时重新扫描 usage_logs。
+type GroupCacheHitRateSnapshot struct {
+	GroupName           string
+	WindowDays          int
+	Requests            int64
+	InputTokens         int64
+	CacheReadTokens     int64
+	CacheCreationTokens int64
+	CacheHitRatePct     float64
+	ComputedAt          time.Time
+}
+
 // UserMonitorTimelinePoint 用户视图 timeline 单点数据（去除 message 以减小响应体）。
 type UserMonitorTimelinePoint struct {
 	Status        string    `json:"status"`

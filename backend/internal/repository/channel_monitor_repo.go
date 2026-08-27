@@ -664,6 +664,118 @@ func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
 	return out, nil
 }
 
+// RefreshGroupCacheHitRateSnapshots 在监控周期内计算并持久化 7/15/30 天分组缓存命中率。
+// 计算发生在 RunCheck 完成后，用户页面只读取结果快照，不会在请求路径扫描 usage_logs。
+func (r *channelMonitorRepository) RefreshGroupCacheHitRateSnapshots(
+	ctx context.Context,
+	groupNames []string,
+) error {
+	if len(groupNames) == 0 {
+		return nil
+	}
+
+	const q = `
+		WITH windows AS (
+			SELECT unnest($2::int[]) AS window_days
+		), stats AS (
+			SELECT g.name,
+			       w.window_days,
+			       COUNT(u.id) AS requests,
+			       COALESCE(SUM(u.input_tokens), 0) AS input_tokens,
+			       COALESCE(SUM(u.cache_read_tokens), 0) AS cache_read_tokens,
+			       COALESCE(SUM(u.cache_creation_tokens), 0) AS cache_creation_tokens
+			FROM groups g
+			CROSS JOIN windows w
+			LEFT JOIN usage_logs u
+			  ON u.group_id = g.id
+			 AND u.created_at >= NOW() - (w.window_days::text || ' days')::interval
+			WHERE g.name = ANY($1)
+			  AND g.deleted_at IS NULL
+			GROUP BY g.name, w.window_days
+		)
+		INSERT INTO channel_monitor_cache_hit_rate_snapshots (
+			group_name, window_days, requests, input_tokens,
+			cache_read_tokens, cache_creation_tokens, cache_hit_rate_pct, computed_at
+		)
+		SELECT name,
+		       window_days,
+		       requests,
+		       input_tokens,
+		       cache_read_tokens,
+		       cache_creation_tokens,
+		       CASE
+			   WHEN input_tokens + cache_read_tokens + cache_creation_tokens > 0
+			   THEN cache_read_tokens * 100.0 /
+				    (input_tokens + cache_read_tokens + cache_creation_tokens)
+			   ELSE 0
+		       END,
+		       NOW()
+		FROM stats
+		ON CONFLICT (group_name, window_days) DO UPDATE SET
+			requests = EXCLUDED.requests,
+			input_tokens = EXCLUDED.input_tokens,
+			cache_read_tokens = EXCLUDED.cache_read_tokens,
+			cache_creation_tokens = EXCLUDED.cache_creation_tokens,
+			cache_hit_rate_pct = EXCLUDED.cache_hit_rate_pct,
+			computed_at = EXCLUDED.computed_at
+	`
+	if _, err := r.db.ExecContext(ctx, q, pq.Array(groupNames), pq.Array([]int{
+		7,
+		15,
+		30,
+	})); err != nil {
+		return fmt.Errorf("refresh group cache hit rate snapshots: %w", err)
+	}
+	return nil
+}
+
+// ListGroupCacheHitRateSnapshots 批量读取分组缓存命中率快照。
+func (r *channelMonitorRepository) ListGroupCacheHitRateSnapshots(
+	ctx context.Context,
+	groupNames []string,
+) (map[string]map[int]*service.GroupCacheHitRateSnapshot, error) {
+	out := make(map[string]map[int]*service.GroupCacheHitRateSnapshot, len(groupNames))
+	if len(groupNames) == 0 {
+		return out, nil
+	}
+
+	const q = `
+		SELECT group_name, window_days, requests, input_tokens,
+		       cache_read_tokens, cache_creation_tokens, cache_hit_rate_pct, computed_at
+		FROM channel_monitor_cache_hit_rate_snapshots
+		WHERE group_name = ANY($1)
+	`
+	rows, err := r.db.QueryContext(ctx, q, pq.Array(groupNames))
+	if err != nil {
+		return nil, fmt.Errorf("list group cache hit rate snapshots: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		snapshot := &service.GroupCacheHitRateSnapshot{}
+		if err := rows.Scan(
+			&snapshot.GroupName,
+			&snapshot.WindowDays,
+			&snapshot.Requests,
+			&snapshot.InputTokens,
+			&snapshot.CacheReadTokens,
+			&snapshot.CacheCreationTokens,
+			&snapshot.CacheHitRatePct,
+			&snapshot.ComputedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan group cache hit rate snapshot: %w", err)
+		}
+		if out[snapshot.GroupName] == nil {
+			out[snapshot.GroupName] = make(map[int]*service.GroupCacheHitRateSnapshot, 3)
+		}
+		out[snapshot.GroupName][snapshot.WindowDays] = snapshot
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ---------- 聚合维护 ----------
 
 // UpsertDailyRollupsFor 把 targetDate 当天（[targetDate, targetDate+1d)）的明细

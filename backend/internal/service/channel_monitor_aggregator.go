@@ -55,7 +55,8 @@ func (s *ChannelMonitorService) BatchMonitorStatusSummary(
 //	1 次查 monitors；
 //	1 次批量 latest（含 ping_latency_ms）；
 //	1 次批量 7d availability；
-//	1 次批量 timeline（主模型最近 N 条）。
+//	1 次批量 timeline（主模型最近 N 条）；
+//	1 次读取监控周期已计算的分组缓存命中率快照。
 func (s *ChannelMonitorService) ListUserView(ctx context.Context) ([]*UserMonitorView, error) {
 	monitors, err := s.repo.ListEnabled(ctx)
 	if err != nil {
@@ -110,8 +111,8 @@ func collectGroupNames(monitors []*ChannelMonitor) []string {
 	return names
 }
 
-// batchGroupCacheHitRates 批量读取用户视图所需的 7/15/30 天分组缓存命中率。
-// 用量查询失败仅记录日志，不影响渠道状态页面的主体渲染。
+// batchGroupCacheHitRates 批量读取监控周期已持久化的 7/15/30 天分组缓存命中率。
+// 页面刷新只读取快照，不再扫描 usage_logs；读取失败仅记录日志，不影响主体渲染。
 func (s *ChannelMonitorService) batchGroupCacheHitRates(
 	ctx context.Context,
 	groupNames []string,
@@ -120,21 +121,17 @@ func (s *ChannelMonitorService) batchGroupCacheHitRates(
 	if len(groupNames) == 0 {
 		return out
 	}
-	for _, windowDays := range []int{monitorAvailability7Days, monitorAvailability15Days, monitorAvailability30Days} {
-		statsByGroup, err := s.repo.ComputeCacheHitRatesForGroups(ctx, groupNames, windowDays)
-		if err != nil {
-			slog.Warn("channel_monitor: batch group cache hit rate failed", "window_days", windowDays, "error", err)
-			continue
-		}
-		for name, stats := range statsByGroup {
-			if stats == nil {
+	snapshotsByGroup, err := s.repo.ListGroupCacheHitRateSnapshots(ctx, groupNames)
+	if err != nil {
+		slog.Warn("channel_monitor: batch group cache hit rate snapshots failed", "error", err)
+		return out
+	}
+	for name, snapshots := range snapshotsByGroup {
+		for windowDays, snapshot := range snapshots {
+			if snapshot == nil || snapshot.InputTokens+snapshot.CacheReadTokens+snapshot.CacheCreationTokens <= 0 {
 				continue
 			}
-			totalPromptTokens := stats.InputTokens + stats.CacheReadTokens + stats.CacheCreationTokens
-			if totalPromptTokens <= 0 {
-				continue
-			}
-			rate := stats.CacheHitRatePct
+			rate := snapshot.CacheHitRatePct
 			if out[name] == nil {
 				out[name] = make(map[int]*float64, 3)
 			}
