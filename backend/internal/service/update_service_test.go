@@ -82,13 +82,13 @@ func TestForkUpdateServiceDoesNotCheckOfficialReleases(t *testing.T) {
 	github := &updateServiceGitHubClientStub{
 		release: &GitHubRelease{TagName: "v9.9.9"},
 	}
-	svc := NewForkUpdateService(cache, github, "0.1.183-cache-snapshot", "release")
+	svc := NewForkUpdateService(cache, github, "20260827.1343", "release")
 
 	info, err := svc.CheckUpdate(context.Background(), true)
 
 	require.NoError(t, err)
-	require.Equal(t, "0.1.183-cache-snapshot", info.CurrentVersion)
-	require.Equal(t, "0.1.183-cache-snapshot", info.LatestVersion)
+	require.Equal(t, "20260827.1343", info.CurrentVersion)
+	require.Equal(t, "20260827.1343", info.LatestVersion)
 	require.False(t, info.HasUpdate)
 	require.False(t, info.OfficialUpdateCheckEnabled)
 	require.Zero(t, cache.getCalls, "disabled checks must not read stale release data from Redis")
