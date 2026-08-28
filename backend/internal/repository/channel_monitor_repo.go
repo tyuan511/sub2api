@@ -209,6 +209,10 @@ func (r *channelMonitorRepository) List(ctx context.Context, params service.Chan
 func (r *channelMonitorRepository) ListEnabled(ctx context.Context) ([]*service.ChannelMonitor, error) {
 	rows, err := r.client.ChannelMonitor.Query().
 		Where(channelmonitor.EnabledEQ(true)).
+		// The user-facing V1 status page preserves this order when rendering
+		// monitor cards. Name is the requested primary sort; ID makes equal
+		// names deterministic across refreshes and query plans.
+		Order(dbent.Asc(channelmonitor.FieldName), dbent.Asc(channelmonitor.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list enabled monitors: %w", err)
