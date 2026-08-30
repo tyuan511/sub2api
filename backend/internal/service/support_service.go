@@ -18,8 +18,10 @@ import (
 	"strings"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/admintelegrambinding"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
@@ -765,48 +767,46 @@ func (s *SupportService) HideAttachment(ctx context.Context, adminID, attachment
 }
 
 func (s *SupportService) UnreadCount(ctx context.Context, readerID int64, isAdmin bool) (int, error) {
-	if isAdmin {
-		tickets, err := s.client.SupportTicket.Query().All(ctx)
-		if err != nil {
-			return 0, err
-		}
-		total := 0
-		for _, ticketEntity := range tickets {
-			readID := int64(0)
-			read, err := s.client.SupportTicketRead.Query().Where(supportticketread.TicketIDEQ(ticketEntity.ID), supportticketread.ReaderIDEQ(readerID)).Only(ctx)
-			if err == nil {
-				readID = read.LastReadMessageID
-			} else if !ent.IsNotFound(err) {
-				return 0, err
-			}
-			count, err := s.client.SupportTicketMessage.Query().Where(supportticketmessage.TicketIDEQ(ticketEntity.ID), supportticketmessage.IDGT(readID), supportticketmessage.SenderIDNEQ(readerID)).Count(ctx)
-			if err != nil {
-				return 0, err
-			}
-			total += count
-		}
-		return total, nil
+	query := s.client.SupportTicketMessage.Query().Where(
+		supportticketmessage.SenderIDNEQ(readerID),
+		supportMessageAfterReadCursor(readerID),
+	)
+	if !isAdmin {
+		query.Where(
+			supportticketmessage.KindEQ(SupportMessagePublic),
+			supportMessageOwnedBy(readerID),
+		)
 	}
-	tickets, err := s.client.SupportTicket.Query().Where(supportticket.UserIDEQ(readerID)).All(ctx)
-	if err != nil {
-		return 0, err
+	return query.Count(ctx)
+}
+
+func supportMessageAfterReadCursor(readerID int64) predicate.SupportTicketMessage {
+	return func(messages *entsql.Selector) {
+		reads := entsql.Table(supportticketread.Table)
+		readAtOrAfterMessage := messages.New().
+			Select(reads.C(supportticketread.FieldID)).
+			From(reads).
+			Where(entsql.And(
+				entsql.ColumnsEQ(reads.C(supportticketread.FieldTicketID), messages.C(supportticketmessage.FieldTicketID)),
+				entsql.EQ(reads.C(supportticketread.FieldReaderID), readerID),
+				entsql.ColumnsGTE(reads.C(supportticketread.FieldLastReadMessageID), messages.C(supportticketmessage.FieldID)),
+			))
+		messages.Where(entsql.NotExists(readAtOrAfterMessage))
 	}
-	total := 0
-	for _, ticketEntity := range tickets {
-		readID := int64(0)
-		read, err := s.client.SupportTicketRead.Query().Where(supportticketread.TicketIDEQ(ticketEntity.ID), supportticketread.ReaderIDEQ(readerID)).Only(ctx)
-		if err == nil {
-			readID = read.LastReadMessageID
-		} else if !ent.IsNotFound(err) {
-			return 0, err
-		}
-		count, err := s.client.SupportTicketMessage.Query().Where(supportticketmessage.TicketIDEQ(ticketEntity.ID), supportticketmessage.IDGT(readID), supportticketmessage.SenderIDNEQ(readerID), supportticketmessage.KindEQ(SupportMessagePublic)).Count(ctx)
-		if err != nil {
-			return 0, err
-		}
-		total += count
+}
+
+func supportMessageOwnedBy(userID int64) predicate.SupportTicketMessage {
+	return func(messages *entsql.Selector) {
+		tickets := entsql.Table(supportticket.Table)
+		ownedTicket := messages.New().
+			Select(tickets.C(supportticket.FieldID)).
+			From(tickets).
+			Where(entsql.And(
+				entsql.ColumnsEQ(tickets.C(supportticket.FieldID), messages.C(supportticketmessage.FieldTicketID)),
+				entsql.EQ(tickets.C(supportticket.FieldUserID), userID),
+			))
+		messages.Where(entsql.Exists(ownedTicket))
 	}
-	return total, nil
 }
 
 func SupportUserChannel(userID int64) string { return fmt.Sprintf("support:realtime:user:%d", userID) }
