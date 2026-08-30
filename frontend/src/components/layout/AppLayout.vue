@@ -19,21 +19,25 @@
         <slot />
       </main>
     </div>
+
+    <SupportWidget v-if="authStore.user && !isAdmin" />
   </div>
 </template>
 
 <script setup lang="ts">
 import '@/styles/onboarding.css'
-import { computed, onMounted } from 'vue'
-import { useAppStore } from '@/stores'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { useAppStore, useSupportStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+import SupportWidget from '@/components/support/SupportWidget.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const supportStore = useSupportStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
@@ -46,7 +50,10 @@ const onboardingStore = useOnboardingStore()
 
 onMounted(() => {
   onboardingStore.setReplayCallback(replayTour)
+  supportStore.connect(authStore.isAdmin)
 })
+
+onBeforeUnmount(() => supportStore.stop())
 
 defineExpose({ replayTour })
 </script>

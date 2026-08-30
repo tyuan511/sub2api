@@ -17,6 +17,9 @@ func RegisterUserRoutes(
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
 ) {
+	// Telegram validates this endpoint with its configured secret header.
+	v1.POST("/integrations/telegram/webhook", h.Support.TelegramWebhook)
+
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
@@ -117,6 +120,18 @@ func RegisterUserRoutes(
 		{
 			announcements.GET("", h.Announcement.List)
 			announcements.POST("/:id/read", h.Announcement.MarkRead)
+		}
+
+		// 内置工单
+		support := authenticated.Group("/support")
+		{
+			support.GET("", h.Support.List)
+			support.POST("", middleware.RequestBodyLimit(service.SupportMaxRequestBodyBytes), h.Support.Create)
+			support.GET("/unread-count", h.Support.UnreadCount)
+			support.GET("/ws", h.Support.WebSocket)
+			support.GET("/attachments/:id", h.Support.Attachment)
+			support.GET("/:id", h.Support.Get)
+			support.POST("/:id/replies", middleware.RequestBodyLimit(service.SupportMaxRequestBodyBytes), h.Support.Reply)
 		}
 
 		// 卡密兑换

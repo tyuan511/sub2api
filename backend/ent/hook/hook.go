@@ -45,6 +45,18 @@ func (f AccountGroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AccountGroupMutation", m)
 }
 
+// The AdminTelegramBindingFunc type is an adapter to allow the use of ordinary
+// function as AdminTelegramBinding mutator.
+type AdminTelegramBindingFunc func(context.Context, *ent.AdminTelegramBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AdminTelegramBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AdminTelegramBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AdminTelegramBindingMutation", m)
+}
+
 // The AnnouncementFunc type is an adapter to allow the use of ordinary
 // function as Announcement mutator.
 type AnnouncementFunc func(context.Context, *ent.AnnouncementMutation) (ent.Value, error)
@@ -367,6 +379,66 @@ func (f SubscriptionPlanFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.V
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SubscriptionPlanMutation", m)
+}
+
+// The SupportNotificationOutboxFunc type is an adapter to allow the use of ordinary
+// function as SupportNotificationOutbox mutator.
+type SupportNotificationOutboxFunc func(context.Context, *ent.SupportNotificationOutboxMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SupportNotificationOutboxFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SupportNotificationOutboxMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SupportNotificationOutboxMutation", m)
+}
+
+// The SupportTicketFunc type is an adapter to allow the use of ordinary
+// function as SupportTicket mutator.
+type SupportTicketFunc func(context.Context, *ent.SupportTicketMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SupportTicketFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SupportTicketMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SupportTicketMutation", m)
+}
+
+// The SupportTicketAttachmentFunc type is an adapter to allow the use of ordinary
+// function as SupportTicketAttachment mutator.
+type SupportTicketAttachmentFunc func(context.Context, *ent.SupportTicketAttachmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SupportTicketAttachmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SupportTicketAttachmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SupportTicketAttachmentMutation", m)
+}
+
+// The SupportTicketMessageFunc type is an adapter to allow the use of ordinary
+// function as SupportTicketMessage mutator.
+type SupportTicketMessageFunc func(context.Context, *ent.SupportTicketMessageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SupportTicketMessageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SupportTicketMessageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SupportTicketMessageMutation", m)
+}
+
+// The SupportTicketReadFunc type is an adapter to allow the use of ordinary
+// function as SupportTicketRead mutator.
+type SupportTicketReadFunc func(context.Context, *ent.SupportTicketReadMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SupportTicketReadFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SupportTicketReadMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SupportTicketReadMutation", m)
 }
 
 // The TLSFingerprintProfileFunc type is an adapter to allow the use of ordinary
