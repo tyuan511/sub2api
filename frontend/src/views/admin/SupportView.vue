@@ -135,7 +135,7 @@
                 </div>
               </div>
               <div class="relative min-h-0 flex-1">
-                <textarea v-model="reply" maxlength="10000" class="h-full w-full resize-none border-0 bg-transparent px-4 pb-12 pt-1 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="输入消息，Enter 发送" :disabled="sending" @keydown.enter.exact.prevent="sendReply"></textarea>
+                <textarea v-model="reply" maxlength="10000" class="h-full w-full resize-none border-0 bg-transparent px-4 pb-12 pt-1 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="输入消息，Enter 发送" :disabled="sending" @keydown.enter.exact="handleReplyEnter"></textarea>
                 <button class="chat-send-button absolute bottom-3 right-4 rounded-md px-5 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50" type="submit" :disabled="sending || (!reply.trim() && !files.length)">
                   {{ sending ? '发送中...' : '发送' }}
                 </button>
@@ -191,6 +191,7 @@ import { getSupportAttachmentBlob, type SupportMessage, type SupportTicket, type
 import { getAdminSupportTicket, listAdminSupport, replyAdminSupportTicket, searchAdminSupportUsers, startAdminSupportConversation, getTelegramConfig, saveTelegramConfig, getTelegramBinding, createTelegramBindLink, updateTelegramBinding, deleteTelegramBinding, testTelegramBinding, type SupportUserSearchItem, type TelegramBinding, type TelegramConfig } from '@/api/admin/support'
 import { useAppStore } from '@/stores/app'
 import { useSupportStore } from '@/stores/support'
+import { isIMECompositionKeyEvent } from '@/utils/keyboard'
 
 const appStore = useAppStore()
 const supportStore = useSupportStore()
@@ -380,6 +381,12 @@ function removeFile(index: number) {
   filePreviews.value.splice(index, 1)
   files.value.splice(index, 1)
   if (!files.value.length && fileInput.value) fileInput.value.value = ''
+}
+
+function handleReplyEnter(event: KeyboardEvent) {
+  if (isIMECompositionKeyEvent(event)) return
+  event.preventDefault()
+  void sendReply()
 }
 
 async function sendReply() {

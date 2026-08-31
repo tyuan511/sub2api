@@ -287,7 +287,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		return nil, err
 	}
 	supportService := service.NewSupportService(client, redisClient, supportAttachmentStore)
-	supportTelegramService := service.ProvideSupportTelegramService(client, redisClient, supportService, settingRepository, settingService, secretEncryptor)
+	supportTelegramService := service.ProvideSupportTelegramService(client, redisClient, supportService, settingRepository, secretEncryptor)
 	supportHandler := admin.NewSupportHandler(supportService, supportTelegramService)
 	upstreamBillingProbeService := service.ProvideUpstreamBillingProbeService(accountRepository, accountTestService, settingService, leaderLockCache, db)
 	ollamaCloudUsageService := service.ProvideOllamaCloudUsageService(accountRepository, httpUpstream, settingService, secretEncryptor, configConfig, leaderLockCache, db)

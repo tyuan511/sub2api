@@ -70,4 +70,16 @@ describe('FastVibe source theme', () => {
     expect(workspace).not.toContain('useRoute')
     expect(workspace).not.toContain('useRouter')
   })
+
+  it('does not submit support messages while an IME composition is active', () => {
+    const userSupport = read('src/components/support/SupportWidget.vue')
+    const adminSupport = read('src/views/admin/SupportView.vue')
+
+    for (const source of [userSupport, adminSupport]) {
+      expect(source).not.toContain('@keydown.enter.exact.prevent')
+      expect(source).toContain('isIMECompositionKeyEvent(event)')
+    }
+    expect(userSupport).toContain('@keydown.enter.exact="handleMessageEnter"')
+    expect(adminSupport).toContain('@keydown.enter.exact="handleReplyEnter"')
+  })
 })

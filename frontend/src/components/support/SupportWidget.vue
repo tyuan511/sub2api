@@ -76,7 +76,7 @@
               class="h-full w-full resize-none border-0 bg-transparent px-3 pb-10 pt-0 text-sm leading-5 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100"
               :disabled="sending"
               placeholder="输入消息，Enter 发送"
-              @keydown.enter.exact.prevent="sendMessage"
+              @keydown.enter.exact="handleMessageEnter"
             ></textarea>
             <button class="support-send-button absolute bottom-2.5 right-3 rounded-md px-4 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50" type="submit" :disabled="sending || (!draft.trim() && !files.length)">
               {{ sending ? '发送中...' : '发送' }}
@@ -108,6 +108,7 @@ import SupportImagePreview from '@/components/support/SupportImagePreview.vue'
 import { createSupportTicket, getSupportAttachmentBlob, getSupportTicket, listSupport, replySupportTicket, type SupportMessage, type SupportTicket } from '@/api/support'
 import { useAppStore } from '@/stores/app'
 import { useSupportStore } from '@/stores/support'
+import { isIMECompositionKeyEvent } from '@/utils/keyboard'
 
 const appStore = useAppStore()
 const supportStore = useSupportStore()
@@ -215,6 +216,12 @@ function removeFile(index: number) {
   filePreviews.value.splice(index, 1)
   files.value.splice(index, 1)
   if (!files.value.length && fileInput.value) fileInput.value.value = ''
+}
+
+function handleMessageEnter(event: KeyboardEvent) {
+  if (isIMECompositionKeyEvent(event)) return
+  event.preventDefault()
+  void sendMessage()
 }
 
 async function sendMessage() {

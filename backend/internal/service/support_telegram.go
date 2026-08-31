@@ -49,23 +49,22 @@ type supportTelegramRuntimeConfig struct {
 }
 
 type SupportTelegramService struct {
-	client         *ent.Client
-	redis          *redis.Client
-	support        *SupportService
-	settings       SettingRepository
-	settingService *SettingService
-	encryptor      SecretEncryptor
-	httpClient     *http.Client
-	stop           chan struct{}
+	client     *ent.Client
+	redis      *redis.Client
+	support    *SupportService
+	settings   SettingRepository
+	encryptor  SecretEncryptor
+	httpClient *http.Client
+	stop       chan struct{}
 }
 
-func NewSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, settingService *SettingService, encryptor SecretEncryptor) *SupportTelegramService {
-	return &SupportTelegramService{client: client, redis: redisClient, support: support, settings: settings, settingService: settingService,
+func NewSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, encryptor SecretEncryptor) *SupportTelegramService {
+	return &SupportTelegramService{client: client, redis: redisClient, support: support, settings: settings,
 		encryptor: encryptor, httpClient: &http.Client{Timeout: 15 * time.Second}, stop: make(chan struct{})}
 }
 
-func ProvideSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, settingService *SettingService, encryptor SecretEncryptor) *SupportTelegramService {
-	svc := NewSupportTelegramService(client, redisClient, support, settings, settingService, encryptor)
+func ProvideSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, encryptor SecretEncryptor) *SupportTelegramService {
+	svc := NewSupportTelegramService(client, redisClient, support, settings, encryptor)
 	svc.Start()
 	return svc
 }
@@ -363,7 +362,7 @@ type supportTelegramNotificationPayload struct {
 	UserEmail string `json:"user_email"`
 }
 
-func formatSupportTelegramNotification(eventType string, payload supportTelegramNotificationPayload, frontendURL string) string {
+func formatSupportTelegramNotification(eventType string, payload supportTelegramNotificationPayload) string {
 	action := "发起会话"
 	if eventType == "user_reply" {
 		action = "回复"
@@ -376,11 +375,7 @@ func formatSupportTelegramNotification(eventType string, payload supportTelegram
 	if len(content) > 240 {
 		content = append(content[:240], []rune("...")...)
 	}
-	text := fmt.Sprintf("[用户 %s %s]\n%s", identity, action, string(content))
-	if base := strings.TrimRight(frontendURL, "/"); base != "" {
-		text += fmt.Sprintf("\n%s/admin/support?user_id=%d", base, payload.UserID)
-	}
-	return text
+	return fmt.Sprintf("[用户 %s %s]\n%s", identity, action, string(content))
 }
 
 func (s *SupportTelegramService) HandleWebhook(ctx context.Context, secretHeader string, body []byte) error {
@@ -576,8 +571,8 @@ func (s *SupportTelegramService) deliverOutbox(ctx context.Context, item *ent.Su
 		s.failOutbox(ctx, item, err, 0)
 		return
 	}
-	text := formatSupportTelegramNotification(item.EventType, payload, s.settingService.GetFrontendURL(ctx))
-	result, err := s.call(ctx, cfg.BotToken, "sendMessage", map[string]any{"chat_id": binding.ChatID, "text": text, "disable_web_page_preview": true})
+	text := formatSupportTelegramNotification(item.EventType, payload)
+	result, err := s.call(ctx, cfg.BotToken, "sendMessage", map[string]any{"chat_id": binding.ChatID, "text": text})
 	if err != nil {
 		retry := 0
 		if result != nil {
