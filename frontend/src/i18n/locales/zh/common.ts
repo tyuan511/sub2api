@@ -160,7 +160,6 @@ export default {
     dashboard: '仪表盘',
     announcements: '公告',
     support: '联系客服',
-    supportManagement: '客服对话',
     apiKeys: 'API 密钥',
     batchImage: '批量生图',
     usage: '使用记录',

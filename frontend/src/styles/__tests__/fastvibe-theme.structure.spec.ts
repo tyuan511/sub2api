@@ -51,8 +51,23 @@ describe('FastVibe source theme', () => {
     }
     expect(userSupport).not.toContain('--support-canvas: #')
     expect(adminWorkspace).not.toContain('--chat-canvas: #')
-    expect(adminWorkspace).toContain("embedded ? 'border-0 rounded-none shadow-none'")
-    expect(adminWorkspace).toContain(':z-index="embedded ? 90 : 50"')
-    expect(adminWorkspace).toContain('<button v-if="!embedded"')
+    expect(adminWorkspace).toContain(':z-index="90"')
+  })
+
+  it('exposes the admin support workspace only through the floating widget', () => {
+    const sidebar = read('src/components/layout/AppSidebar.vue')
+    const router = read('src/router/index.ts')
+    const widget = read('src/components/support/AdminSupportWidget.vue')
+    const workspace = read('src/views/admin/SupportView.vue')
+
+    expect(sidebar).not.toContain("path: '/admin/support'")
+    expect(sidebar).not.toContain('nav.supportManagement')
+    expect(router).not.toContain("path: '/admin/support'")
+    expect(router).not.toContain("name: 'AdminSupport'")
+    expect(widget).toContain('<SupportView ref="supportViewRef" />')
+    expect(workspace).not.toContain('embedded')
+    expect(workspace).not.toContain('AppLayout')
+    expect(workspace).not.toContain('useRoute')
+    expect(workspace).not.toContain('useRouter')
   })
 })

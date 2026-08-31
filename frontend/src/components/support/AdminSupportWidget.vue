@@ -63,7 +63,7 @@
           </header>
 
           <div class="min-h-0 flex-1">
-            <SupportView ref="supportViewRef" embedded />
+            <SupportView ref="supportViewRef" />
           </div>
         </section>
       </transition>

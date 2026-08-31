@@ -1,12 +1,10 @@
 <template>
-  <component :is="embedded ? 'div' : AppLayout" :class="embedded ? 'h-full min-h-0' : undefined">
+  <div class="h-full min-h-0">
     <div
-      class="flex min-h-0 flex-col overflow-hidden"
-      :class="embedded ? 'h-full' : 'h-[calc(100dvh-6rem)] lg:h-[calc(100dvh-8rem)]'"
+      class="flex h-full min-h-0 flex-col overflow-hidden"
     >
       <section
-        class="chat-workspace flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
-        :class="embedded ? 'border-0 rounded-none shadow-none' : 'rounded-lg border border-gray-200 shadow-sm dark:border-dark-700'"
+        class="chat-workspace flex min-h-0 flex-1 flex-col overflow-hidden border-0 shadow-none lg:flex-row"
       >
         <aside class="chat-contact-panel flex h-[238px] min-h-0 w-full shrink-0 flex-col border-b border-gray-200 dark:border-dark-700 lg:h-auto lg:w-[318px] lg:border-b-0 lg:border-r">
           <div class="flex h-16 shrink-0 items-center border-b border-gray-200 px-3 dark:border-dark-700">
@@ -15,12 +13,6 @@
                 <Icon name="search" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input v-model="search" class="h-full w-full border-0 bg-transparent pl-9 pr-2 text-sm text-gray-800 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="搜索用户名或邮箱" @keyup.enter="searchUsers()" />
               </div>
-              <button v-if="!embedded" type="button" class="flex h-full w-9 shrink-0 items-center justify-center border-l border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-primary-600 dark:border-dark-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-primary-400" title="Telegram 通知" aria-label="Telegram 通知" @click="openTelegram">
-                <Icon name="paperPlane" size="sm" />
-              </button>
-              <button v-if="!embedded" type="button" class="flex h-full w-9 shrink-0 items-center justify-center border-l border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:border-dark-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white" title="刷新全部对话" aria-label="刷新全部对话" @click="refreshList">
-                <Icon name="refresh" size="sm" :class="loading || searchingUsers ? 'animate-spin' : ''" />
-              </button>
             </div>
           </div>
 
@@ -164,7 +156,7 @@
       :show="showTelegram"
       title="Telegram 客服通知"
       width="wide"
-      :z-index="embedded ? 90 : 50"
+      :z-index="90"
       @close="showTelegram = false"
     >
       <div class="space-y-6">
@@ -187,13 +179,11 @@
         </section>
       </div>
     </BaseDialog>
-  </component>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import SupportImagePreview from '@/components/support/SupportImagePreview.vue'
@@ -202,15 +192,8 @@ import { getAdminSupportTicket, listAdminSupport, replyAdminSupportTicket, searc
 import { useAppStore } from '@/stores/app'
 import { useSupportStore } from '@/stores/support'
 
-const props = withDefaults(defineProps<{ embedded?: boolean }>(), {
-  embedded: false
-})
-
-const embedded = computed(() => props.embedded)
 const appStore = useAppStore()
 const supportStore = useSupportStore()
-const route = useRoute()
-const router = useRouter()
 const loading = ref(false)
 const detailLoading = ref(false)
 const page = ref(1)
@@ -243,13 +226,6 @@ const telegramSaving = ref(false)
 const telegramConfig = ref<TelegramConfig>()
 const binding = ref<TelegramBinding>()
 const telegramForm = reactive({ enabled: false, bot_token: '', webhook_base_url: '' })
-
-function requestedUserID() {
-  if (embedded.value) return undefined
-  const raw = Array.isArray(route.query.user_id) ? route.query.user_id[0] : route.query.user_id
-  const value = Number(raw)
-  return Number.isFinite(value) && value > 0 ? value : undefined
-}
 
 function revokeImages() {
   closeImagePreview()
@@ -313,15 +289,9 @@ async function load(silent: boolean | Event = false) {
   try {
     Object.assign(result, await listAdminSupport({ page: page.value, page_size: 20 }))
     if (pendingUser.value) return
-    const requested = requestedUserID()
-    let target = result.items.find((item) => item.user_id === requested) || result.items.find((item) => item.id === selectedID.value) || result.items[0]
-    if (!result.items.some((item) => item.user_id === requested) && requested && !search.value) {
-      const routed = await listAdminSupport({ user_id: requested, page: 1, page_size: 1 })
-      target = routed.items[0]
-    }
+    const target = result.items.find((item) => item.id === selectedID.value) || result.items[0]
     if (target) {
       selectedID.value = target.id
-      if (!embedded.value && String(route.query.user_id || '') !== String(target.user_id)) await router.replace({ query: { ...route.query, ticket: undefined, user_id: String(target.user_id) } })
       await loadTicket(target.id, isSilent)
     } else {
       selectedID.value = undefined
@@ -335,26 +305,23 @@ async function load(silent: boolean | Event = false) {
   }
 }
 
-async function selectTicket(id: number, userID?: number) {
+async function selectTicket(id: number) {
   if (selectedID.value === id && ticket.value?.id === id) return
   pendingUser.value = undefined
   selectedID.value = id
-  const targetUserID = userID || result.items.find((item) => item.id === id)?.user_id
-  if (!embedded.value) await router.replace({ query: { ...route.query, ticket: undefined, user_id: targetUserID ? String(targetUserID) : undefined } })
   await loadTicket(id)
 }
 
 async function selectSearchUser(item: SupportUserSearchItem) {
   if (item.ticket_id) {
     pendingUser.value = undefined
-    await selectTicket(item.ticket_id, item.user_id)
+    await selectTicket(item.ticket_id)
     return
   }
   selectedID.value = undefined
   ticket.value = undefined
   pendingUser.value = item
   revokeImages()
-  if (!embedded.value) await router.replace({ query: { ...route.query, ticket: undefined, user_id: undefined } })
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -427,7 +394,6 @@ async function sendReply() {
       selectedID.value = ticket.value.id
       search.value = ''
       userSearchResults.value = []
-      if (!embedded.value) await router.replace({ query: { ...route.query, ticket: undefined, user_id: String(ticket.value.user_id) } })
     }
     reply.value = ''
     clearFiles()
@@ -563,13 +529,6 @@ watch(search, (value) => {
   }
   searchingUsers.value = true
   searchTimer = setTimeout(() => { void searchUsers() }, 250)
-})
-watch(() => route.query.user_id, (value) => {
-  if (embedded.value) return
-  const id = Array.isArray(value) ? Number(value[0]) : Number(value)
-  if (id > 0 && id !== ticket.value?.user_id) {
-    void load(true)
-  }
 })
 onMounted(() => { void load(); window.addEventListener('support-realtime', realtime) })
 onBeforeUnmount(() => {

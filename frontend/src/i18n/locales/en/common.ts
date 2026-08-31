@@ -160,7 +160,6 @@ export default {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     support: 'Support',
-    supportManagement: 'Support Chat',
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
     usage: 'Usage',
