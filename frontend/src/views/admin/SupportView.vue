@@ -4,7 +4,10 @@
       class="flex min-h-0 flex-col overflow-hidden"
       :class="embedded ? 'h-full' : 'h-[calc(100dvh-6rem)] lg:h-[calc(100dvh-8rem)]'"
     >
-      <section class="chat-workspace flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 shadow-sm dark:border-dark-700 lg:flex-row">
+      <section
+        class="chat-workspace flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
+        :class="embedded ? 'border-0 rounded-none shadow-none' : 'rounded-lg border border-gray-200 shadow-sm dark:border-dark-700'"
+      >
         <aside class="chat-contact-panel flex h-[238px] min-h-0 w-full shrink-0 flex-col border-b border-gray-200 dark:border-dark-700 lg:h-auto lg:w-[318px] lg:border-b-0 lg:border-r">
           <div class="flex h-16 shrink-0 items-center border-b border-gray-200 px-3 dark:border-dark-700">
             <div class="flex h-9 min-w-0 flex-1 overflow-hidden rounded-md bg-white ring-1 ring-inset ring-gray-200 transition focus-within:ring-2 focus-within:ring-primary-500 dark:bg-dark-900 dark:ring-dark-700">

@@ -51,5 +51,6 @@ describe('FastVibe source theme', () => {
     }
     expect(userSupport).not.toContain('--support-canvas: #')
     expect(adminWorkspace).not.toContain('--chat-canvas: #')
+    expect(adminWorkspace).toContain("embedded ? 'border-0 rounded-none shadow-none'")
   })
 })
