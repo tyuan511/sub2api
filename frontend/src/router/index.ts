@@ -549,6 +549,12 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/support',
+    name: 'AdminSupport',
+    component: () => import('@/views/admin/SupportView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: '客服对话' }
+  },
+  {
     path: '/admin/proxies',
     name: 'AdminProxies',
     component: () => import('@/views/admin/ProxiesView.vue'),

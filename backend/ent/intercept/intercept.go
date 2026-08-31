@@ -10,6 +10,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/admintelegrambinding"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
@@ -39,6 +40,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/supportnotificationoutbox"
+	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketread"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -185,6 +191,33 @@ func (f TraverseAccountGroup) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.AccountGroupQuery", q)
+}
+
+// The AdminTelegramBindingFunc type is an adapter to allow the use of ordinary function as a Querier.
+type AdminTelegramBindingFunc func(context.Context, *ent.AdminTelegramBindingQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f AdminTelegramBindingFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.AdminTelegramBindingQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.AdminTelegramBindingQuery", q)
+}
+
+// The TraverseAdminTelegramBinding type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAdminTelegramBinding func(context.Context, *ent.AdminTelegramBindingQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAdminTelegramBinding) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAdminTelegramBinding) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.AdminTelegramBindingQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.AdminTelegramBindingQuery", q)
 }
 
 // The AnnouncementFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -916,6 +949,141 @@ func (f TraverseSubscriptionPlan) Traverse(ctx context.Context, q ent.Query) err
 	return fmt.Errorf("unexpected query type %T. expect *ent.SubscriptionPlanQuery", q)
 }
 
+// The SupportNotificationOutboxFunc type is an adapter to allow the use of ordinary function as a Querier.
+type SupportNotificationOutboxFunc func(context.Context, *ent.SupportNotificationOutboxQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f SupportNotificationOutboxFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.SupportNotificationOutboxQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.SupportNotificationOutboxQuery", q)
+}
+
+// The TraverseSupportNotificationOutbox type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseSupportNotificationOutbox func(context.Context, *ent.SupportNotificationOutboxQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseSupportNotificationOutbox) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseSupportNotificationOutbox) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.SupportNotificationOutboxQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.SupportNotificationOutboxQuery", q)
+}
+
+// The SupportTicketFunc type is an adapter to allow the use of ordinary function as a Querier.
+type SupportTicketFunc func(context.Context, *ent.SupportTicketQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f SupportTicketFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.SupportTicketQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketQuery", q)
+}
+
+// The TraverseSupportTicket type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseSupportTicket func(context.Context, *ent.SupportTicketQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseSupportTicket) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseSupportTicket) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.SupportTicketQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketQuery", q)
+}
+
+// The SupportTicketAttachmentFunc type is an adapter to allow the use of ordinary function as a Querier.
+type SupportTicketAttachmentFunc func(context.Context, *ent.SupportTicketAttachmentQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f SupportTicketAttachmentFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.SupportTicketAttachmentQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketAttachmentQuery", q)
+}
+
+// The TraverseSupportTicketAttachment type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseSupportTicketAttachment func(context.Context, *ent.SupportTicketAttachmentQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseSupportTicketAttachment) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseSupportTicketAttachment) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.SupportTicketAttachmentQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketAttachmentQuery", q)
+}
+
+// The SupportTicketMessageFunc type is an adapter to allow the use of ordinary function as a Querier.
+type SupportTicketMessageFunc func(context.Context, *ent.SupportTicketMessageQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f SupportTicketMessageFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.SupportTicketMessageQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketMessageQuery", q)
+}
+
+// The TraverseSupportTicketMessage type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseSupportTicketMessage func(context.Context, *ent.SupportTicketMessageQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseSupportTicketMessage) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseSupportTicketMessage) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.SupportTicketMessageQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketMessageQuery", q)
+}
+
+// The SupportTicketReadFunc type is an adapter to allow the use of ordinary function as a Querier.
+type SupportTicketReadFunc func(context.Context, *ent.SupportTicketReadQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f SupportTicketReadFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.SupportTicketReadQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketReadQuery", q)
+}
+
+// The TraverseSupportTicketRead type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseSupportTicketRead func(context.Context, *ent.SupportTicketReadQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseSupportTicketRead) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseSupportTicketRead) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.SupportTicketReadQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.SupportTicketReadQuery", q)
+}
+
 // The TLSFingerprintProfileFunc type is an adapter to allow the use of ordinary function as a Querier.
 type TLSFingerprintProfileFunc func(context.Context, *ent.TLSFingerprintProfileQuery) (ent.Value, error)
 
@@ -1168,6 +1336,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.AccountQuery, predicate.Account, account.OrderOption]{typ: ent.TypeAccount, tq: q}, nil
 	case *ent.AccountGroupQuery:
 		return &query[*ent.AccountGroupQuery, predicate.AccountGroup, accountgroup.OrderOption]{typ: ent.TypeAccountGroup, tq: q}, nil
+	case *ent.AdminTelegramBindingQuery:
+		return &query[*ent.AdminTelegramBindingQuery, predicate.AdminTelegramBinding, admintelegrambinding.OrderOption]{typ: ent.TypeAdminTelegramBinding, tq: q}, nil
 	case *ent.AnnouncementQuery:
 		return &query[*ent.AnnouncementQuery, predicate.Announcement, announcement.OrderOption]{typ: ent.TypeAnnouncement, tq: q}, nil
 	case *ent.AnnouncementReadQuery:
@@ -1222,6 +1392,16 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.SettingQuery, predicate.Setting, setting.OrderOption]{typ: ent.TypeSetting, tq: q}, nil
 	case *ent.SubscriptionPlanQuery:
 		return &query[*ent.SubscriptionPlanQuery, predicate.SubscriptionPlan, subscriptionplan.OrderOption]{typ: ent.TypeSubscriptionPlan, tq: q}, nil
+	case *ent.SupportNotificationOutboxQuery:
+		return &query[*ent.SupportNotificationOutboxQuery, predicate.SupportNotificationOutbox, supportnotificationoutbox.OrderOption]{typ: ent.TypeSupportNotificationOutbox, tq: q}, nil
+	case *ent.SupportTicketQuery:
+		return &query[*ent.SupportTicketQuery, predicate.SupportTicket, supportticket.OrderOption]{typ: ent.TypeSupportTicket, tq: q}, nil
+	case *ent.SupportTicketAttachmentQuery:
+		return &query[*ent.SupportTicketAttachmentQuery, predicate.SupportTicketAttachment, supportticketattachment.OrderOption]{typ: ent.TypeSupportTicketAttachment, tq: q}, nil
+	case *ent.SupportTicketMessageQuery:
+		return &query[*ent.SupportTicketMessageQuery, predicate.SupportTicketMessage, supportticketmessage.OrderOption]{typ: ent.TypeSupportTicketMessage, tq: q}, nil
+	case *ent.SupportTicketReadQuery:
+		return &query[*ent.SupportTicketReadQuery, predicate.SupportTicketRead, supportticketread.OrderOption]{typ: ent.TypeSupportTicketRead, tq: q}, nil
 	case *ent.TLSFingerprintProfileQuery:
 		return &query[*ent.TLSFingerprintProfileQuery, predicate.TLSFingerprintProfile, tlsfingerprintprofile.OrderOption]{typ: ent.TypeTLSFingerprintProfile, tq: q}, nil
 	case *ent.UsageCleanupTaskQuery:

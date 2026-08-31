@@ -148,6 +148,7 @@ var ProviderSet = wire.NewSet(
 
 	// Image storage (async image task result offload)
 	ProvideImageStorageFactory,
+	ProvideSupportAttachmentStore,
 
 	// HTTP service ports (DI Strategy A: return interface directly)
 	NewTurnstileVerifier,

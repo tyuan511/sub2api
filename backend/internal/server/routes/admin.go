@@ -130,6 +130,30 @@ func RegisterAdminRoutes(
 
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
+
+		registerSupportRoutes(admin, h)
+	}
+}
+
+func registerSupportRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	support := admin.Group("/support")
+	{
+		support.GET("", h.Admin.Support.List)
+		support.GET("/users", h.Admin.Support.SearchUsers)
+		support.POST("/conversations", middleware.RequestBodyLimit(service.SupportMaxRequestBodyBytes), h.Admin.Support.StartConversation)
+		support.GET("/unread-count", h.Admin.Support.UnreadCount)
+		support.GET("/ws", h.Admin.Support.WebSocket)
+		support.GET("/attachments/:id", h.Admin.Support.Attachment)
+		support.PATCH("/attachments/:id", h.Admin.Support.HideAttachment)
+		support.GET("/telegram/config", h.Admin.Support.GetTelegramConfig)
+		support.PUT("/telegram/config", h.Admin.Support.SaveTelegramConfig)
+		support.GET("/telegram/binding", h.Admin.Support.GetTelegramBinding)
+		support.POST("/telegram/binding/link", h.Admin.Support.CreateTelegramBindLink)
+		support.PUT("/telegram/binding", h.Admin.Support.UpdateTelegramBinding)
+		support.DELETE("/telegram/binding", h.Admin.Support.DeleteTelegramBinding)
+		support.POST("/telegram/binding/test", h.Admin.Support.TestTelegramBinding)
+		support.GET("/:id", h.Admin.Support.Get)
+		support.POST("/:id/replies", middleware.RequestBodyLimit(service.SupportMaxRequestBodyBytes), h.Admin.Support.Reply)
 	}
 }
 
