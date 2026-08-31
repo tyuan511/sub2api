@@ -25,6 +25,25 @@
             </span>
             <button
               type="button"
+              class="admin-support-window-action flex h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none"
+              aria-label="Telegram 通知"
+              title="Telegram 通知"
+              @click="openTelegramSettings"
+            >
+              <Icon name="paperPlane" size="sm" />
+            </button>
+            <button
+              type="button"
+              class="admin-support-window-action flex h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none disabled:cursor-wait disabled:opacity-60"
+              aria-label="刷新全部对话"
+              title="刷新全部对话"
+              :disabled="refreshing"
+              @click="refreshConversations"
+            >
+              <Icon name="refresh" size="sm" :class="refreshing ? 'animate-spin' : ''" />
+            </button>
+            <button
+              type="button"
               class="admin-support-window-action hidden h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none sm:flex"
               :aria-label="maximized ? '还原客服窗口' : '全屏显示客服窗口'"
               :title="maximized ? '还原' : '放大'"
@@ -44,7 +63,7 @@
           </header>
 
           <div class="min-h-0 flex-1">
-            <SupportView embedded />
+            <SupportView ref="supportViewRef" embedded />
           </div>
         </section>
       </transition>
@@ -78,6 +97,28 @@ const SupportView = defineAsyncComponent(() => import('@/views/admin/SupportView
 const supportStore = useSupportStore()
 const open = ref(false)
 const maximized = ref(false)
+const refreshing = ref(false)
+
+interface SupportWorkspaceHandle {
+  openTelegram: () => Promise<void>
+  refreshList: () => Promise<void>
+}
+
+const supportViewRef = ref<SupportWorkspaceHandle>()
+
+function openTelegramSettings() {
+  void supportViewRef.value?.openTelegram()
+}
+
+async function refreshConversations() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try {
+    await supportViewRef.value?.refreshList()
+  } finally {
+    refreshing.value = false
+  }
+}
 
 function toggle() {
   open.value = !open.value
@@ -89,7 +130,7 @@ function close() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && open.value) close()
+  if (event.key === 'Escape' && open.value && !document.body.classList.contains('modal-open')) close()
 }
 
 onMounted(() => window.addEventListener('keydown', handleKeydown))

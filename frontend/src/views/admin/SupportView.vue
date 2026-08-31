@@ -15,10 +15,10 @@
                 <Icon name="search" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input v-model="search" class="h-full w-full border-0 bg-transparent pl-9 pr-2 text-sm text-gray-800 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="搜索用户名或邮箱" @keyup.enter="searchUsers()" />
               </div>
-              <button type="button" class="flex h-full w-9 shrink-0 items-center justify-center border-l border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-primary-600 dark:border-dark-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-primary-400" title="Telegram 通知" aria-label="Telegram 通知" @click="openTelegram">
+              <button v-if="!embedded" type="button" class="flex h-full w-9 shrink-0 items-center justify-center border-l border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-primary-600 dark:border-dark-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-primary-400" title="Telegram 通知" aria-label="Telegram 通知" @click="openTelegram">
                 <Icon name="paperPlane" size="sm" />
               </button>
-              <button type="button" class="flex h-full w-9 shrink-0 items-center justify-center border-l border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:border-dark-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white" title="刷新全部对话" aria-label="刷新全部对话" @click="refreshList">
+              <button v-if="!embedded" type="button" class="flex h-full w-9 shrink-0 items-center justify-center border-l border-gray-200 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:border-dark-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white" title="刷新全部对话" aria-label="刷新全部对话" @click="refreshList">
                 <Icon name="refresh" size="sm" :class="loading || searchingUsers ? 'animate-spin' : ''" />
               </button>
             </div>
@@ -160,7 +160,13 @@
 
     <SupportImagePreview :src="previewImageURL" :alt="previewImageName" @close="closeImagePreview" />
 
-    <BaseDialog :show="showTelegram" title="Telegram 客服通知" width="wide" @close="showTelegram = false">
+    <BaseDialog
+      :show="showTelegram"
+      title="Telegram 客服通知"
+      width="wide"
+      :z-index="embedded ? 90 : 50"
+      @close="showTelegram = false"
+    >
       <div class="space-y-6">
         <section class="space-y-4">
           <div class="flex items-center justify-between"><div><h4 class="font-medium text-gray-900 dark:text-white">通知机器人</h4><p class="text-sm text-gray-500">配置全局 Bot，并通过 webhook 接收管理员绑定。</p></div><label class="flex items-center gap-2 text-sm"><input v-model="telegramForm.enabled" type="checkbox" class="h-4 w-4" />启用</label></div>
@@ -373,11 +379,11 @@ async function searchUsers(silent = false) {
   }
 }
 
-function refreshList() {
+async function refreshList() {
   if (search.value.trim()) {
-    void searchUsers()
+    await searchUsers()
   } else {
-    void load()
+    await load()
   }
 }
 
@@ -544,6 +550,9 @@ const realtime = () => {
   void load(true)
   if (search.value.trim()) void searchUsers(true)
 }
+
+defineExpose({ openTelegram, refreshList })
+
 watch(search, (value) => {
   if (searchTimer) clearTimeout(searchTimer)
   if (!value.trim()) {

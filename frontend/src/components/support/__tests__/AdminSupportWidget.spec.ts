@@ -7,8 +7,13 @@ vi.mock('@/stores/support', () => ({
   useSupportStore: () => ({ unreadCount: 7 })
 }))
 
+const openTelegram = vi.fn()
+const refreshList = vi.fn()
+
 afterEach(() => {
   document.body.innerHTML = ''
+  document.body.classList.remove('modal-open')
+  vi.clearAllMocks()
 })
 
 function mountWidget() {
@@ -17,7 +22,10 @@ function mountWidget() {
     global: {
       stubs: {
         Icon: { template: '<span data-icon />' },
-        SupportView: { template: '<div data-support-view />' }
+        SupportView: {
+          template: '<div data-support-view />',
+          methods: { openTelegram, refreshList }
+        }
       }
     }
   })
@@ -57,5 +65,30 @@ describe('AdminSupportWidget', () => {
     await new Promise((resolve) => setTimeout(resolve, 200))
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('keeps the workspace open when Escape belongs to a nested dialog', async () => {
+    mountWidget()
+    document.body.querySelector<HTMLButtonElement>('[aria-label="打开客服工作台"]')!.click()
+    await nextTick()
+
+    document.body.classList.add('modal-open')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
+  })
+
+  it('moves Telegram settings and refresh actions into the window header', async () => {
+    mountWidget()
+    document.body.querySelector<HTMLButtonElement>('[aria-label="打开客服工作台"]')!.click()
+    await nextTick()
+
+    document.body.querySelector<HTMLButtonElement>('[aria-label="Telegram 通知"]')!.click()
+    document.body.querySelector<HTMLButtonElement>('[aria-label="刷新全部对话"]')!.click()
+    await nextTick()
+
+    expect(openTelegram).toHaveBeenCalledOnce()
+    expect(refreshList).toHaveBeenCalledOnce()
   })
 })
