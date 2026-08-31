@@ -5,19 +5,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 主色调 - Teal/Cyan 青色系
+        // FastVibe brand blue
         primary: {
-          50: '#f0fdfa',
-          100: '#ccfbf1',
-          200: '#99f6e4',
-          300: '#5eead4',
-          400: '#2dd4bf',
-          500: '#14b8a6',
-          600: '#0d9488',
-          700: '#0f766e',
-          800: '#115e59',
-          900: '#134e4a',
-          950: '#042f2e'
+          50: '#f1f5ff',
+          100: '#dfe8ff',
+          200: '#c7d7ff',
+          300: '#9fbbff',
+          400: '#7ea6ff',
+          500: '#2f6fed',
+          600: '#245bcc',
+          700: '#1e4aa7',
+          800: '#1d4087',
+          900: '#1d376d',
+          950: '#17274c'
         },
         // 辅助色 - 深蓝灰
         accent: {
@@ -33,23 +33,37 @@ export default {
           900: '#0f172a',
           950: '#020617'
         },
-        // 深色模式背景
-        dark: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
+        gray: {
+          50: '#f6f8fb',
+          100: '#eef2f7',
+          200: '#cbd5e1',
+          300: '#aab6c5',
           400: '#94a3b8',
           500: '#64748b',
           600: '#475569',
           700: '#334155',
           800: '#1e293b',
-          900: '#0f172a',
-          950: '#020617'
+          900: '#111827',
+          950: '#0c0f14'
+        },
+        // FastVibe dark surfaces
+        dark: {
+          50: '#f3f6fb',
+          100: '#e8edf4',
+          200: '#d6dee8',
+          300: '#bac4d2',
+          400: '#98a5b5',
+          500: '#64748b',
+          600: '#2b3545',
+          700: '#1e2633',
+          800: '#171d27',
+          900: '#11161e',
+          950: '#0c0f14'
         }
       },
       fontFamily: {
         sans: [
+          'Noto Sans SC',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -62,25 +76,24 @@ export default {
           'Microsoft YaHei',
           'sans-serif'
         ],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+        mono: ['DM Mono', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
       },
       boxShadow: {
-        glass: '0 8px 32px rgba(0, 0, 0, 0.08)',
-        'glass-sm': '0 4px 16px rgba(0, 0, 0, 0.06)',
-        glow: '0 0 20px rgba(20, 184, 166, 0.25)',
-        'glow-lg': '0 0 40px rgba(20, 184, 166, 0.35)',
-        card: '0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)',
-        'card-hover': '0 10px 40px rgba(0, 0, 0, 0.08)',
+        glass: '0 14px 36px rgba(30, 64, 175, 0.08)',
+        'glass-sm': '0 8px 24px rgba(30, 64, 175, 0.06)',
+        glow: '0 10px 28px rgba(47, 111, 237, 0.18)',
+        'glow-lg': '0 14px 36px rgba(47, 111, 237, 0.2)',
+        card: 'none',
+        'card-hover': '0 8px 24px rgba(30, 64, 175, 0.08)',
         'inner-glow': 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-primary': 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+        'gradient-primary': 'linear-gradient(135deg, #2f6fed 0%, #245bcc 100%)',
         'gradient-dark': 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
         'gradient-glass':
           'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
-        'mesh-gradient':
-          'radial-gradient(at 40% 20%, rgba(20, 184, 166, 0.12) 0px, transparent 50%), radial-gradient(at 80% 0%, rgba(6, 182, 212, 0.08) 0px, transparent 50%), radial-gradient(at 0% 50%, rgba(20, 184, 166, 0.08) 0px, transparent 50%)'
+        'mesh-gradient': 'none'
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
@@ -118,14 +131,21 @@ export default {
           '100%': { backgroundPosition: '200% 0' }
         },
         glow: {
-          '0%': { boxShadow: '0 0 20px rgba(20, 184, 166, 0.25)' },
-          '100%': { boxShadow: '0 0 30px rgba(20, 184, 166, 0.4)' }
+          '0%': { boxShadow: '0 10px 24px rgba(47, 111, 237, 0.14)' },
+          '100%': { boxShadow: '0 12px 30px rgba(47, 111, 237, 0.2)' }
         }
       },
       backdropBlur: {
         xs: '2px'
       },
       borderRadius: {
+        DEFAULT: '4px',
+        sm: '4px',
+        md: '6px',
+        lg: '6px',
+        xl: '6px',
+        '2xl': '6px',
+        '3xl': '6px',
         '4xl': '2rem'
       }
     }

@@ -100,4 +100,9 @@ describe('MonitorCard quota snapshot visibility', () => {
     expect(wrapper.text()).toContain('claude-sonnet-4-5')
     expect(wrapper.text()).not.toContain('monitorCommon.checkMode.quota')
   })
+
+  it('does not show the group name beside the model', () => {
+    const wrapper = mountCard(makeItem({ group_name: 'internal-pro-group' }))
+    expect(wrapper.text()).not.toContain('internal-pro-group')
+  })
 })
