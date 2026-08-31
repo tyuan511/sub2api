@@ -18,6 +18,7 @@
     </div>
 
     <SupportWidget v-if="authStore.user && !isAdmin" />
+    <AdminSupportWidget v-if="authStore.user && isAdmin" />
   </div>
 </template>
 
@@ -30,6 +31,7 @@ import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+import AdminSupportWidget from '@/components/support/AdminSupportWidget.vue'
 import SupportWidget from '@/components/support/SupportWidget.vue'
 
 const appStore = useAppStore()

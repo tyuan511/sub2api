@@ -39,4 +39,17 @@ describe('FastVibe source theme', () => {
     expect(appLayout).toContain('class="app-shell')
     expect(appLayout).not.toContain('bg-mesh-gradient')
   })
+
+  it('keeps both support workspaces tied to the global FastVibe theme tokens', () => {
+    const userSupport = read('src/components/support/SupportWidget.vue')
+    const adminSupport = read('src/components/support/AdminSupportWidget.vue')
+    const adminWorkspace = read('src/views/admin/SupportView.vue')
+
+    for (const source of [userSupport, adminSupport, adminWorkspace]) {
+      expect(source).toContain('var(--fv-surface')
+      expect(source).toContain('var(--fv-accent')
+    }
+    expect(userSupport).not.toContain('--support-canvas: #')
+    expect(adminWorkspace).not.toContain('--chat-canvas: #')
+  })
 })

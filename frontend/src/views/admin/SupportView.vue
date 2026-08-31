@@ -1,6 +1,9 @@
 <template>
-  <AppLayout>
-    <div class="flex h-[calc(100dvh-6rem)] min-h-0 flex-col overflow-hidden lg:h-[calc(100dvh-8rem)]">
+  <component :is="embedded ? 'div' : AppLayout" :class="embedded ? 'h-full min-h-0' : undefined">
+    <div
+      class="flex min-h-0 flex-col overflow-hidden"
+      :class="embedded ? 'h-full' : 'h-[calc(100dvh-6rem)] lg:h-[calc(100dvh-8rem)]'"
+    >
       <section class="chat-workspace flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 shadow-sm dark:border-dark-700 lg:flex-row">
         <aside class="chat-contact-panel flex h-[238px] min-h-0 w-full shrink-0 flex-col border-b border-gray-200 dark:border-dark-700 lg:h-auto lg:w-[318px] lg:border-b-0 lg:border-r">
           <div class="flex h-16 shrink-0 items-center border-b border-gray-200 px-3 dark:border-dark-700">
@@ -28,7 +31,7 @@
                   :key="item.user_id"
                   type="button"
                   class="group flex h-[72px] w-full items-center gap-3 border-b border-gray-100 px-3 text-left transition dark:border-dark-800"
-                  :class="(item.ticket_id && selectedID === item.ticket_id) || pendingUser?.user_id === item.user_id ? 'bg-[#dedede] dark:bg-dark-700' : 'hover:bg-[#ededed] dark:hover:bg-dark-800'"
+                  :class="(item.ticket_id && selectedID === item.ticket_id) || pendingUser?.user_id === item.user_id ? 'chat-contact-row-active' : 'chat-contact-row-idle'"
                   @click="selectSearchUser(item)"
                 >
                   <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm font-semibold text-white shadow-sm" :class="avatarClass(item.user_id)">{{ userInitial(item) }}</span>
@@ -50,7 +53,7 @@
                 :key="item.id"
                 type="button"
                 class="group flex h-[72px] w-full items-center gap-3 border-b border-gray-100 px-3 text-left transition dark:border-dark-800"
-                :class="selectedID === item.id ? 'bg-[#dedede] dark:bg-dark-700' : 'hover:bg-[#ededed] dark:hover:bg-dark-800'"
+                :class="selectedID === item.id ? 'chat-contact-row-active' : 'chat-contact-row-idle'"
                 @click="selectTicket(item.id)"
               >
                 <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm font-semibold text-white shadow-sm" :class="avatarClass(item.user_id)">{{ userInitial(item) }}</span>
@@ -138,7 +141,7 @@
               </div>
               <div class="relative min-h-0 flex-1">
                 <textarea v-model="reply" maxlength="10000" class="h-full w-full resize-none border-0 bg-transparent px-4 pb-12 pt-1 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="输入消息，Enter 发送" :disabled="sending" @keydown.enter.exact.prevent="sendReply"></textarea>
-                <button class="absolute bottom-3 right-4 rounded-md bg-[#e9e9e9] px-5 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-[#dcdcdc] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-dark-100 dark:hover:bg-dark-600" type="submit" :disabled="sending || (!reply.trim() && !files.length)">
+                <button class="chat-send-button absolute bottom-3 right-4 rounded-md px-5 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50" type="submit" :disabled="sending || (!reply.trim() && !files.length)">
                   {{ sending ? '发送中...' : '发送' }}
                 </button>
               </div>
@@ -175,7 +178,7 @@
         </section>
       </div>
     </BaseDialog>
-  </AppLayout>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -190,6 +193,11 @@ import { getAdminSupportTicket, listAdminSupport, replyAdminSupportTicket, searc
 import { useAppStore } from '@/stores/app'
 import { useSupportStore } from '@/stores/support'
 
+const props = withDefaults(defineProps<{ embedded?: boolean }>(), {
+  embedded: false
+})
+
+const embedded = computed(() => props.embedded)
 const appStore = useAppStore()
 const supportStore = useSupportStore()
 const route = useRoute()
@@ -228,6 +236,7 @@ const binding = ref<TelegramBinding>()
 const telegramForm = reactive({ enabled: false, bot_token: '', webhook_base_url: '' })
 
 function requestedUserID() {
+  if (embedded.value) return undefined
   const raw = Array.isArray(route.query.user_id) ? route.query.user_id[0] : route.query.user_id
   const value = Number(raw)
   return Number.isFinite(value) && value > 0 ? value : undefined
@@ -303,7 +312,7 @@ async function load(silent: boolean | Event = false) {
     }
     if (target) {
       selectedID.value = target.id
-      if (String(route.query.user_id || '') !== String(target.user_id)) await router.replace({ query: { ...route.query, ticket: undefined, user_id: String(target.user_id) } })
+      if (!embedded.value && String(route.query.user_id || '') !== String(target.user_id)) await router.replace({ query: { ...route.query, ticket: undefined, user_id: String(target.user_id) } })
       await loadTicket(target.id, isSilent)
     } else {
       selectedID.value = undefined
@@ -322,7 +331,7 @@ async function selectTicket(id: number, userID?: number) {
   pendingUser.value = undefined
   selectedID.value = id
   const targetUserID = userID || result.items.find((item) => item.id === id)?.user_id
-  await router.replace({ query: { ...route.query, ticket: undefined, user_id: targetUserID ? String(targetUserID) : undefined } })
+  if (!embedded.value) await router.replace({ query: { ...route.query, ticket: undefined, user_id: targetUserID ? String(targetUserID) : undefined } })
   await loadTicket(id)
 }
 
@@ -336,7 +345,7 @@ async function selectSearchUser(item: SupportUserSearchItem) {
   ticket.value = undefined
   pendingUser.value = item
   revokeImages()
-  await router.replace({ query: { ...route.query, ticket: undefined, user_id: undefined } })
+  if (!embedded.value) await router.replace({ query: { ...route.query, ticket: undefined, user_id: undefined } })
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -409,7 +418,7 @@ async function sendReply() {
       selectedID.value = ticket.value.id
       search.value = ''
       userSearchResults.value = []
-      await router.replace({ query: { ...route.query, ticket: undefined, user_id: String(ticket.value.user_id) } })
+      if (!embedded.value) await router.replace({ query: { ...route.query, ticket: undefined, user_id: String(ticket.value.user_id) } })
     }
     reply.value = ''
     clearFiles()
@@ -544,6 +553,7 @@ watch(search, (value) => {
   searchTimer = setTimeout(() => { void searchUsers() }, 250)
 })
 watch(() => route.query.user_id, (value) => {
+  if (embedded.value) return
   const id = Array.isArray(value) ? Number(value[0]) : Number(value)
   if (id > 0 && id !== ticket.value?.user_id) {
     void load(true)
@@ -560,17 +570,20 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .chat-workspace {
-  --chat-canvas: #f3f3f3;
-  --chat-panel: #f7f7f7;
-  --chat-surface: #ffffff;
-  --chat-incoming: #ffffff;
+  --chat-canvas: var(--fv-page);
+  --chat-panel: var(--fv-surface-2);
+  --chat-surface: var(--fv-surface);
+  --chat-incoming: var(--fv-surface);
+  color: var(--fv-text);
   background: var(--chat-surface);
+  border-color: var(--fv-line);
 }
 
 .chat-contact-panel,
 .chat-conversation-header,
 .chat-composer {
   background: var(--chat-panel);
+  border-color: var(--fv-line-soft);
 }
 
 .chat-message-stream {
@@ -603,10 +616,21 @@ onBeforeUnmount(() => {
   margin-left: auto;
 }
 
-:global(.dark) .chat-workspace {
-  --chat-canvas: #171a1f;
-  --chat-panel: #20242b;
-  --chat-surface: #20242b;
-  --chat-incoming: #2a3038;
+.chat-contact-row-active {
+  background: var(--fv-accent-soft);
+}
+
+.chat-contact-row-idle:hover {
+  background: var(--fv-accent-wash);
+}
+
+.chat-send-button {
+  color: var(--fv-text-soft);
+  background: var(--fv-surface-3);
+}
+
+.chat-send-button:hover:not(:disabled) {
+  color: var(--fv-text);
+  background: var(--fv-accent-soft);
 }
 </style>

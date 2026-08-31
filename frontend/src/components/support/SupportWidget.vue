@@ -3,7 +3,7 @@
     <transition name="support-widget">
       <section
         v-if="open"
-        class="support-chat flex h-[min(620px,calc(100dvh-6rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-gray-200 shadow-2xl dark:border-dark-700"
+        class="support-chat flex h-[min(620px,calc(100dvh-6rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden border"
         aria-label="联系客服"
       >
         <header class="support-chat-header flex h-14 shrink-0 items-center justify-between border-b border-gray-200 px-3.5 dark:border-dark-700">
@@ -78,7 +78,7 @@
               placeholder="输入消息，Enter 发送"
               @keydown.enter.exact.prevent="sendMessage"
             ></textarea>
-            <button class="absolute bottom-2.5 right-3 rounded-md bg-[#e9e9e9] px-4 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-[#dcdcdc] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-dark-100 dark:hover:bg-dark-600" type="submit" :disabled="sending || (!draft.trim() && !files.length)">
+            <button class="support-send-button absolute bottom-2.5 right-3 rounded-md px-4 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50" type="submit" :disabled="sending || (!draft.trim() && !files.length)">
               {{ sending ? '发送中...' : '发送' }}
             </button>
           </div>
@@ -89,14 +89,14 @@
     <SupportImagePreview :src="previewImageURL" :alt="previewImageName" @close="closeImagePreview" />
 
     <button
-      class="group relative flex items-center gap-2 rounded-full bg-primary-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition hover:bg-primary-700 hover:shadow-xl hover:shadow-primary-600/30 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2"
+      class="support-launcher group relative flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white transition focus:outline-none"
       :aria-expanded="open"
       aria-label="联系客服"
       @click="toggle"
     >
       <Icon :name="open ? 'x' : 'chatBubble'" size="md" />
       <span>联系客服</span>
-      <span v-if="supportStore.unreadCount && !open" class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-dark-950">{{ Math.min(supportStore.unreadCount, 99) }}</span>
+      <span v-if="supportStore.unreadCount && !open" class="support-unread absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{{ Math.min(supportStore.unreadCount, 99) }}</span>
     </button>
   </div>
 </template>
@@ -274,15 +274,20 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .support-chat {
-  --support-canvas: #f3f3f3;
-  --support-panel: #f7f7f7;
-  --support-incoming: #ffffff;
+  --support-canvas: var(--fv-page);
+  --support-panel: var(--fv-surface-2);
+  --support-incoming: var(--fv-surface);
+  color: var(--fv-text);
   background: var(--support-panel);
+  border-color: var(--fv-line);
+  border-radius: var(--fv-radius);
+  box-shadow: var(--fv-shadow);
 }
 
 .support-chat-header,
 .support-composer {
   background: var(--support-panel);
+  border-color: var(--fv-line-soft);
 }
 
 .support-message-stream {
@@ -315,10 +320,33 @@ onBeforeUnmount(() => {
   margin-left: auto;
 }
 
-:global(.dark) .support-chat {
-  --support-canvas: #171a1f;
-  --support-panel: #20242b;
-  --support-incoming: #2a3038;
+.support-send-button {
+  color: var(--fv-text-soft);
+  background: var(--fv-surface-3);
+}
+
+.support-send-button:hover:not(:disabled) {
+  color: var(--fv-text);
+  background: var(--fv-accent-soft);
+}
+
+.support-launcher {
+  background: var(--fv-accent);
+  box-shadow: var(--fv-shadow-accent);
+}
+
+.support-launcher:hover {
+  background: var(--fv-accent-hover);
+  transform: translateY(-1px);
+}
+
+.support-launcher:focus-visible {
+  outline: 2px solid var(--fv-accent);
+  outline-offset: 3px;
+}
+
+.support-unread {
+  box-shadow: 0 0 0 2px var(--fv-page);
 }
 
 .support-widget-enter-active,
