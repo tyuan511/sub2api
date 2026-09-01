@@ -11,8 +11,6 @@ DATA_DIR="${ROOT_DIR}/.dev/data"
 COMPOSE_FILE="${ROOT_DIR}/deploy/docker-compose.dev.yml"
 BACKEND_LOG="${ROOT_DIR}/.dev/backend.log"
 FRONTEND_LOG="${ROOT_DIR}/.dev/frontend.log"
-CADDY_LOG="${ROOT_DIR}/.dev/caddy.log"
-CADDYFILE="${ROOT_DIR}/deploy/Caddyfile.dev"
 
 info() { printf '\033[1;34m[dev]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[dev] error:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -22,7 +20,6 @@ docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required (do
 command -v go >/dev/null 2>&1 || die "Go is required to run the backend."
 command -v pnpm >/dev/null 2>&1 || die "pnpm is required to run the frontend."
 command -v curl >/dev/null 2>&1 || die "curl is required for the backend readiness check."
-command -v caddy >/dev/null 2>&1 || die "Caddy is required for local HTTPS. Install it with: brew install caddy"
 command -v lsof >/dev/null 2>&1 || die "lsof is required to check local port conflicts."
 
 mkdir -p "${ROOT_DIR}/.dev" "${DATA_DIR}" "${ROOT_DIR}/deploy/postgres_data" "${ROOT_DIR}/deploy/redis_data"
@@ -76,7 +73,6 @@ set +a
 
 export DATA_DIR
 export AUTO_SETUP=true
-export CHANNEL_MONITOR_ALLOW_LOCAL_ENDPOINTS=true
 export SERVER_HOST="${SERVER_HOST:-127.0.0.1}"
 export SERVER_PORT="${SERVER_PORT:-8080}"
 export FRONTEND_PORT="${FRONTEND_PORT:-3000}"
@@ -117,13 +113,12 @@ stop_matching_processes() {
 stop_stale_dev_processes() {
   # Match only commands tied to this checkout. Other projects sharing a port
   # are left alone and reported by ensure_port_free below.
-  stop_matching_processes "caddy run --config .*Caddyfile.dev"
   stop_matching_processes "${ROOT_DIR}/frontend/node_modules/.*/vite"
   stop_matching_processes "${ROOT_DIR}/backend.*go run ./cmd/server"
   # The `go run` parent command may not include the checkout path in `ps`.
   # These ports are dedicated to this dev stack, so clear any remaining
   # listeners before starting fresh child processes.
-  for port in "${SERVER_PORT}" "${FRONTEND_PORT}" 8443; do
+  for port in "${SERVER_PORT}" "${FRONTEND_PORT}"; do
     while read -r pid; do
       [[ -z "${pid}" || "${pid}" == "$$" ]] && continue
       info "Stopping stale process ${pid} listening on port ${port}"
@@ -144,7 +139,6 @@ cleanup() {
   trap - INT TERM EXIT
   [[ -n "${BACKEND_PID:-}" ]] && kill "${BACKEND_PID}" 2>/dev/null || true
   [[ -n "${FRONTEND_PID:-}" ]] && kill "${FRONTEND_PID}" 2>/dev/null || true
-  [[ -n "${CADDY_PID:-}" ]] && kill "${CADDY_PID}" 2>/dev/null || true
 }
 trap cleanup INT TERM EXIT
 
@@ -156,7 +150,6 @@ docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --wait postgr
 stop_stale_dev_processes
 ensure_port_free "${SERVER_PORT}" "Backend"
 ensure_port_free "${FRONTEND_PORT}" "Frontend"
-ensure_port_free 8443 "HTTPS"
 
 info "Starting backend at http://${SERVER_HOST}:${SERVER_PORT}"
 (cd "${ROOT_DIR}/backend" && go run ./cmd/server) >"${BACKEND_LOG}" 2>&1 &
@@ -172,15 +165,8 @@ info "Starting frontend at http://localhost:${FRONTEND_PORT}"
 (cd "${ROOT_DIR}/frontend" && pnpm dev --host 0.0.0.0 --port "${FRONTEND_PORT}" --strictPort) >"${FRONTEND_LOG}" 2>&1 &
 FRONTEND_PID=$!
 
-info "Starting local HTTPS at https://sub2api.localhost:8443"
-if ! caddy trust >/dev/null 2>&1; then
-  info "Caddy CA trust setup needs permission; run 'caddy trust' once if the browser warns about the certificate."
-fi
-(cd "${ROOT_DIR}" && caddy run --config "${CADDYFILE}" --adapter caddyfile) >"${CADDY_LOG}" 2>&1 &
-CADDY_PID=$!
 
 info "Ready. Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}"
-info "Monitor endpoint: https://sub2api.localhost:8443"
-info "Logs: ${BACKEND_LOG}, ${FRONTEND_LOG}, and ${CADDY_LOG}"
+info "Logs: ${BACKEND_LOG} and ${FRONTEND_LOG}"
 info "Press Ctrl-C to stop the local backend/frontend (database containers remain running)."
 wait "${BACKEND_PID}" "${FRONTEND_PID}"

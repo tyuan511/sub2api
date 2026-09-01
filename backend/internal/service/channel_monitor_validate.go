@@ -119,7 +119,7 @@ func validateJitter(jitterSec, intervalSec int) error {
 }
 
 // validateEndpoint 校验 endpoint：
-//   - scheme 允许 http/https；仅在显式开发开关开启时，http 可访问 localhost/回环地址
+//   - scheme 强制 https（拒绝 http，避免明文凭证 + 部分 SSRF 利用面）
 //   - 必须为 origin（无 path/query/fragment），防止用户填 https://api.openai.com/v1
 //     导致 joinURL 拼出 /v1/v1/chat/completions
 //   - hostname 不能是 localhost/metadata 等已知元数据 hostname
@@ -135,7 +135,7 @@ func validateEndpoint(ep string) error {
 	if err != nil {
 		return ErrChannelMonitorInvalidEndpoint
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
+	if u.Scheme != "https" {
 		return ErrChannelMonitorEndpointScheme
 	}
 	if u.Host == "" {
@@ -155,7 +155,7 @@ func validateEndpoint(ep string) error {
 	if err != nil {
 		return ErrChannelMonitorEndpointUnreachable
 	}
-	if blocked && !(localEndpointsAllowed() && isLocalTestHostname(hostname)) {
+	if blocked {
 		return ErrChannelMonitorEndpointPrivate
 	}
 	return nil

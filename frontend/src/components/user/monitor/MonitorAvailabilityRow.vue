@@ -1,35 +1,35 @@
 <template>
   <div class="mt-3 grid grid-cols-2 gap-3">
-    <div class="rounded-2xl border border-gray-200/80 bg-gray-50/70 p-3.5 dark:border-dark-700/70 dark:bg-dark-900/45">
-      <div class="text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+    <div>
+      <div class="text-[11px] uppercase tracking-widest text-gray-400">
         {{ windowLabel }}
       </div>
-      <div class="mt-2 flex items-baseline gap-0.5">
+      <div class="mt-1 flex items-baseline gap-0.5">
         <span
-          class="text-2xl font-bold tabular-nums leading-none"
+          class="text-3xl font-bold tabular-nums leading-none"
           :style="colorStyle"
         >
           {{ displayValue }}
         </span>
         <span
-        class="text-sm font-semibold leading-none"
+          class="text-base font-semibold leading-none"
           :style="colorStyle"
         >%</span>
       </div>
     </div>
-    <div class="rounded-2xl border border-gray-200/80 bg-gray-50/70 p-3.5 dark:border-dark-700/70 dark:bg-dark-900/45">
-      <div class="text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">
+    <div class="border-l border-gray-100 dark:border-dark-700/60 pl-3">
+      <div class="text-[11px] uppercase tracking-widest text-gray-400">
         {{ t('monitorCommon.cacheHitRate') }}
       </div>
-      <div class="mt-2 flex items-baseline gap-0.5">
+      <div class="mt-1 flex items-baseline gap-0.5">
         <span
-          class="text-2xl font-bold tabular-nums leading-none"
+          class="text-3xl font-bold tabular-nums leading-none"
           :style="cacheColorStyle"
         >
           {{ cacheDisplayValue }}
         </span>
         <span
-        class="text-sm font-semibold leading-none"
+          class="text-base font-semibold leading-none"
           :style="cacheColorStyle"
         >%</span>
       </div>

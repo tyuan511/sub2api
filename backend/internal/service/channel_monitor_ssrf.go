@@ -3,14 +3,11 @@ package service
 import (
 	"context"
 	"net"
-	"os"
 	"strings"
 )
 
 // SSRF 防护 helper：
-//   - validateEndpoint 在 admin 提交时阻止 HTTPS loopback、私网及云元数据 URL；
-//     HTTP 仅在 CHANNEL_MONITOR_ALLOW_LOCAL_ENDPOINTS=true 时对显式
-//     localhost/回环地址开放本地测试例外
+//   - validateEndpoint 在 admin 提交时阻止 http/loopback/私网/云元数据 URL
 //   - safeDialContext 在 socket 层再次校验真实 IP，防止 DNS rebinding
 //
 // 已知 cloud metadata hostname 拒绝列表（小写比较）。
@@ -22,27 +19,6 @@ var monitorBlockedHostnames = map[string]struct{}{
 	"metadata.goog":              {},
 	"instance-data":              {},
 	"instance-data.ec2.internal": {},
-}
-
-// isLocalTestHostname identifies the explicit local targets supported by the
-// development/testing exception. Private DNS names remain blocked.
-func isLocalTestHostname(hostname string) bool {
-	host := strings.ToLower(strings.TrimSpace(hostname))
-	switch host {
-	case "localhost", "localhost.localdomain", "127.0.0.1", "::1":
-		return true
-	default:
-		return strings.HasSuffix(host, ".localhost")
-	}
-}
-
-func localEndpointsAllowed() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CHANNEL_MONITOR_ALLOW_LOCAL_ENDPOINTS"))) {
-	case "1", "true", "yes":
-		return true
-	default:
-		return false
-	}
 }
 
 // CIDR 列表：包含所有需要拒绝的 IPv4/IPv6 段。
@@ -143,17 +119,11 @@ func safeDialContext(ctx context.Context, network, address string) (net.Conn, er
 	// 字面量 IP 走快速路径。
 	if ip := net.ParseIP(host); ip != nil {
 		if isPrivateIP(ip) {
-			if localEndpointsAllowed() && isLocalTestHostname(host) {
-				return monitorDialer.DialContext(ctx, network, address)
-			}
 			return nil, &net.AddrError{Err: "blocked by SSRF policy", Addr: address}
 		}
 		return monitorDialer.DialContext(ctx, network, address)
 	}
 	if isBlockedHostname(host) {
-		if localEndpointsAllowed() && isLocalTestHostname(host) {
-			return monitorDialer.DialContext(ctx, network, address)
-		}
 		return nil, &net.AddrError{Err: "blocked by SSRF policy", Addr: address}
 	}
 	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
