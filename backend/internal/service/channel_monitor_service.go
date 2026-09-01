@@ -83,6 +83,14 @@ type monitorUsageLogWriter interface {
 	CreateMonitor(ctx context.Context, log *UsageLog) error
 }
 
+// monitorUsageGroupResolver is implemented by the channel-monitor repository
+// when it can resolve the configured group name to the current group ID. The
+// resolver is optional so lightweight service tests and alternate adapters do
+// not need a second dependency.
+type monitorUsageGroupResolver interface {
+	ResolveMonitorGroupID(ctx context.Context, groupName string) (*int64, error)
+}
+
 // ChannelMonitorService 渠道监控管理服务。
 type ChannelMonitorService struct {
 	repo      ChannelMonitorRepository
@@ -749,6 +757,25 @@ func (s *ChannelMonitorService) persistMonitorUsageLogs(ctx context.Context, m *
 	}
 	logCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer cancel()
+	var groupID *int64
+	if groupName := strings.TrimSpace(m.GroupName); groupName != "" {
+		if resolver, ok := s.repo.(monitorUsageGroupResolver); ok {
+			resolved, err := resolver.ResolveMonitorGroupID(logCtx, groupName)
+			if err != nil {
+				slog.Warn("channel_monitor: resolve usage group failed",
+					"monitor_id", m.ID, "group_name", groupName, "error", err)
+			} else {
+				groupID = resolved
+			}
+		}
+	}
+	stream := m.Provider == MonitorProviderOpenAI && defaultAPIMode(m.APIMode) == MonitorAPIModeResponses
+	requestType := RequestTypeSync
+	if stream {
+		requestType = RequestTypeStream
+	}
+	billingMode := monitorStringPtr("token")
+	inboundEndpoint := monitorStringPtr("channel-monitor")
 	for idx, result := range results {
 		if result == nil || strings.TrimSpace(result.Model) == "" {
 			continue
@@ -758,20 +785,37 @@ func (s *ChannelMonitorService) persistMonitorUsageLogs(ctx context.Context, m *
 			checkedAt = time.Now()
 		}
 		monitorID := m.ID
+		var usage OpenAIUsage
+		if result.Usage != nil {
+			usage = *result.Usage
+		}
+		upstreamEndpoint := strings.TrimSpace(result.UpstreamEndpoint)
+		if upstreamEndpoint == "" {
+			upstreamEndpoint = monitorDefaultEndpointPath(m.Provider, m.APIMode, result.Model)
+		}
 		monitorLog := &UsageLog{
-			UserID:           m.CreatedBy,
-			RequestID:        fmt.Sprintf("monitor-%d-%d-%d", m.ID, checkedAt.UnixNano(), idx),
-			Model:            result.Model,
-			RequestedModel:   result.Model,
-			OutputTokens:     0,
-			RequestType:      RequestTypeSync,
-			Stream:           false,
-			DurationMs:       result.LatencyMs,
-			FirstTokenMs:     result.FirstTokenMs,
-			UserAgent:        monitorStringPtr("sub2api-channel-monitor"),
-			ChannelMonitorID: &monitorID,
-			IsMonitor:        true,
-			CreatedAt:        checkedAt,
+			UserID:              m.CreatedBy,
+			AccountID:           derefInt64(m.AccountID),
+			RequestID:           fmt.Sprintf("monitor-%d-%d-%d", m.ID, checkedAt.UnixNano(), idx),
+			Model:               result.Model,
+			RequestedModel:      result.Model,
+			InputTokens:         usage.InputTokens,
+			OutputTokens:        usage.OutputTokens,
+			CacheCreationTokens: usage.CacheCreationInputTokens,
+			CacheReadTokens:     usage.CacheReadInputTokens,
+			RequestType:         requestType,
+			Stream:              stream,
+			DurationMs:          result.LatencyMs,
+			FirstTokenMs:        result.FirstTokenMs,
+			UserAgent:           monitorStringPtr("sub2api-channel-monitor"),
+			InboundEndpoint:     inboundEndpoint,
+			UpstreamEndpoint:    monitorStringPtr(upstreamEndpoint),
+			GroupID:             groupID,
+			BillingMode:         billingMode,
+			RateMultiplier:      1,
+			ChannelMonitorID:    &monitorID,
+			IsMonitor:           true,
+			CreatedAt:           checkedAt,
 		}
 		if err := writer.CreateMonitor(logCtx, monitorLog); err != nil {
 			slog.Warn("channel_monitor: persist usage log failed",
@@ -782,6 +826,21 @@ func (s *ChannelMonitorService) persistMonitorUsageLogs(ctx context.Context, m *
 
 func monitorStringPtr(value string) *string {
 	return &value
+}
+
+func derefInt64(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func monitorDefaultEndpointPath(provider, apiMode, model string) string {
+	adapter, _, ok := providerAdapterFor(provider, apiMode)
+	if !ok || adapter.buildPath == nil {
+		return ""
+	}
+	return adapter.buildPath(model)
 }
 
 // runChecksConcurrent 对 primary + extra 模型并发执行检测。

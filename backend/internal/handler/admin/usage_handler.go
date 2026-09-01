@@ -363,6 +363,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		UpstreamModelMismatch: upstreamModelMismatch,
 		StartTime:             &startTime,
 		EndTime:               &endTime,
+		ExcludeMonitor:        true,
 	}
 
 	var stats *usagestats.UsageStats

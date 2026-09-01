@@ -69,7 +69,7 @@ func (r *usageLogRepository) GetAPIKeyStatsAggregated(ctx context.Context, apiKe
 			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
-		WHERE api_key_id = $1 AND created_at >= $2 AND created_at < $3
+		WHERE api_key_id = $1 AND is_monitor = FALSE AND created_at >= $2 AND created_at < $3
 	`
 
 	var stats usagestats.UsageStats
@@ -158,7 +158,7 @@ func (r *usageLogRepository) GetModelStatsAggregated(ctx context.Context, modelN
 			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
-		WHERE %s = $1 AND created_at >= $2 AND created_at < $3
+		WHERE %s = $1 AND is_monitor = FALSE AND created_at >= $2 AND created_at < $3
 	`, rawUsageLogModelColumn)
 
 	var stats usagestats.UsageStats
@@ -503,6 +503,7 @@ func (r *usageLogRepository) GetBatchUserUsageStats(ctx context.Context, userIDs
 		LEFT JOIN groups g ON g.id = ul.group_id
 		LEFT JOIN accounts a ON a.id = ul.account_id
 		WHERE ul.user_id = ANY($1)
+		  AND ul.is_monitor = FALSE
 		  AND ul.created_at >= LEAST($2, $4)
 		  AND ` + usageLogSuccessFilterUL + `
 		GROUP BY ul.user_id, ` + usageLogEffectivePlatformExpr + `
@@ -576,6 +577,7 @@ func (r *usageLogRepository) GetBatchAPIKeyUsageStats(ctx context.Context, apiKe
 			COALESCE(SUM(actual_cost) FILTER (WHERE created_at >= $4), 0) as today_cost
 		FROM usage_logs
 		WHERE api_key_id = ANY($1)
+		  AND is_monitor = FALSE
 		  AND created_at >= LEAST($2, $4)
 		GROUP BY api_key_id
 	`
@@ -631,7 +633,7 @@ func (r *usageLogRepository) GetGlobalStats(ctx context.Context, startTime, endT
 			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
 			COALESCE(AVG(duration_ms), 0) as avg_duration_ms
 		FROM usage_logs
-		WHERE created_at >= $1 AND created_at < $2
+		WHERE is_monitor = FALSE AND created_at >= $1 AND created_at < $2
 	`
 
 	stats := &UsageStats{}

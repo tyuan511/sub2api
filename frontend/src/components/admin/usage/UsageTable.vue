@@ -219,6 +219,12 @@
             <div class="flex items-center gap-1.5">
               <span class="font-medium text-green-600 dark:text-green-400">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
               <span
+                v-if="row.is_monitor"
+                data-testid="usage-monitor-non-billable"
+                class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-300 dark:ring-cyan-400/30"
+                :title="t('usage.monitorNonBillableHint')"
+              >{{ t('usage.monitorNonBillable') }}</span>
+              <span
                 v-if="row.long_context_billing_applied"
                 data-testid="long-context-billing-marker"
                 class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold leading-tight bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-500/30"

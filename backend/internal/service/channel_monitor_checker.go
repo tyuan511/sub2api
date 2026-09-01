@@ -74,6 +74,11 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 	res.LatencyMs = &latencyMs
 	res.FirstTokenMs = callResult.firstTokenMs
 	res.TokensPerSecond = monitorTokensPerSecond(callResult.outputTokens, callResult.firstTokenMs, latencyMs)
+	res.UpstreamEndpoint = callResult.upstreamEndpoint
+	if callResult.usageOK {
+		usage := callResult.usage
+		res.Usage = &usage
+	}
 
 	if err != nil {
 		res.Status = MonitorStatusError
@@ -173,11 +178,14 @@ type providerAdapter struct {
 // probes. Keeping these separate preserves the meaning of latency_ms while
 // allowing the UI to use the same TTFT health bands as usage records.
 type monitorProviderCallResult struct {
-	extractedText string
-	rawBody       string
-	status        int
-	firstTokenMs  *int
-	outputTokens  *int
+	extractedText    string
+	rawBody          string
+	status           int
+	firstTokenMs     *int
+	outputTokens     *int
+	usage            OpenAIUsage
+	usageOK          bool
+	upstreamEndpoint string
 }
 
 // providerAdapters 全部已支持的 provider。键值即 MonitorProvider* 字符串。
@@ -316,27 +324,45 @@ func callProvider(ctx context.Context, provider, endpoint, apiKey, model, prompt
 	}
 	headers := mergeHeaders(adapter.buildHeaders(apiKey), opts)
 	full := joinURL(endpoint, adapter.buildPath(model))
+	upstreamEndpoint := adapter.buildPath(model)
 	if provider == MonitorProviderOpenAI && apiMode == MonitorAPIModeResponses {
-		respBytes, streamText, firstTokenMs, outputTokens, status, err := postStreamingResponses(ctx, full, body, headers)
+		respBytes, streamText, firstTokenMs, outputTokens, usage, usageOK, status, err := postStreamingResponses(ctx, full, body, headers)
 		if err != nil {
-			return monitorProviderCallResult{rawBody: string(respBytes), status: status, firstTokenMs: firstTokenMs, outputTokens: outputTokens}, err
+			return monitorProviderCallResult{rawBody: string(respBytes), status: status, firstTokenMs: firstTokenMs, outputTokens: outputTokens, usage: usage, usageOK: usageOK, upstreamEndpoint: upstreamEndpoint}, err
 		}
 		if status >= 200 && status < 300 {
 			return monitorProviderCallResult{
-				extractedText: streamText,
-				rawBody:       string(respBytes),
-				status:        status,
-				firstTokenMs:  firstTokenMs,
-				outputTokens:  outputTokens,
+				extractedText:    streamText,
+				rawBody:          string(respBytes),
+				status:           status,
+				firstTokenMs:     firstTokenMs,
+				outputTokens:     outputTokens,
+				usage:            usage,
+				usageOK:          usageOK,
+				upstreamEndpoint: upstreamEndpoint,
 			}, nil
 		}
-		return monitorProviderCallResult{rawBody: string(respBytes), status: status, outputTokens: outputTokens}, nil
+		return monitorProviderCallResult{rawBody: string(respBytes), status: status, outputTokens: outputTokens, usage: usage, usageOK: usageOK, upstreamEndpoint: upstreamEndpoint}, nil
 	}
 	respBytes, status, err := postRawJSON(ctx, full, body, headers)
 	if err != nil {
-		return monitorProviderCallResult{rawBody: string(respBytes), status: status}, err
+		return monitorProviderCallResult{rawBody: string(respBytes), status: status, upstreamEndpoint: upstreamEndpoint}, err
 	}
-	return monitorProviderCallResult{extractedText: extractMonitorResponseText(adapter, respBytes), rawBody: string(respBytes), status: status}, nil
+	usage, usageOK := extractMonitorUsage(provider, respBytes)
+	var outputTokens *int
+	if usageOK && usage.OutputTokens > 0 {
+		output := usage.OutputTokens
+		outputTokens = &output
+	}
+	return monitorProviderCallResult{
+		extractedText:    extractMonitorResponseText(adapter, respBytes),
+		rawBody:          string(respBytes),
+		status:           status,
+		outputTokens:     outputTokens,
+		usage:            usage,
+		usageOK:          usageOK,
+		upstreamEndpoint: upstreamEndpoint,
+	}, nil
 }
 
 func extractMonitorResponseText(adapter providerAdapter, respBytes []byte) string {
@@ -344,6 +370,56 @@ func extractMonitorResponseText(adapter providerAdapter, respBytes []byte) strin
 		return adapter.extractText(respBytes)
 	}
 	return gjson.GetBytes(respBytes, adapter.textPath).String()
+}
+
+// extractMonitorUsage accepts the usage shapes emitted by the providers used
+// by channel monitors. OpenAI-compatible and Anthropic responses use the
+// shared token names; Gemini uses usageMetadata with camel-case names.
+func extractMonitorUsage(provider string, body []byte) (OpenAIUsage, bool) {
+	if provider == MonitorProviderGemini {
+		value := gjson.GetBytes(body, "usageMetadata")
+		if !value.Exists() || !value.IsObject() {
+			return OpenAIUsage{}, false
+		}
+		usage := OpenAIUsage{
+			InputTokens:          int(value.Get("promptTokenCount").Int()),
+			OutputTokens:         int(value.Get("candidatesTokenCount").Int()),
+			CacheReadInputTokens: int(value.Get("cachedContentTokenCount").Int()),
+		}
+		return usage, monitorUsageHasTokens(usage)
+	}
+	usage, ok := extractOpenAIUsageFromJSONBytes(body)
+	return usage, ok && monitorUsageHasTokens(usage)
+}
+
+func monitorUsageHasTokens(usage OpenAIUsage) bool {
+	return usage.InputTokens > 0 || usage.OutputTokens > 0 ||
+		usage.CacheCreationInputTokens > 0 || usage.CacheReadInputTokens > 0 ||
+		usage.ImageInputTokens > 0 || usage.ImageOutputTokens > 0
+}
+
+func mergeMonitorUsage(dst *OpenAIUsage, src OpenAIUsage) {
+	if dst == nil {
+		return
+	}
+	if src.InputTokens > 0 {
+		dst.InputTokens = src.InputTokens
+	}
+	if src.OutputTokens > 0 {
+		dst.OutputTokens = src.OutputTokens
+	}
+	if src.CacheCreationInputTokens > 0 {
+		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
+	}
+	if src.CacheReadInputTokens > 0 {
+		dst.CacheReadInputTokens = src.CacheReadInputTokens
+	}
+	if src.ImageInputTokens > 0 {
+		dst.ImageInputTokens = src.ImageInputTokens
+	}
+	if src.ImageOutputTokens > 0 {
+		dst.ImageOutputTokens = src.ImageOutputTokens
+	}
 }
 
 // forceResponsesStreamingBody normalizes a monitor Responses body to the
@@ -371,10 +447,10 @@ func postStreamingResponses(
 	fullURL string,
 	payload []byte,
 	headers map[string]string,
-) (rawBody []byte, streamText string, firstTokenMs *int, outputTokens *int, status int, err error) {
+) (rawBody []byte, streamText string, firstTokenMs *int, outputTokens *int, usage OpenAIUsage, usageOK bool, status int, err error) {
 	req, err := newMonitorJSONRequest(ctx, fullURL, payload, headers)
 	if err != nil {
-		return nil, "", nil, nil, 0, err
+		return nil, "", nil, nil, OpenAIUsage{}, false, 0, err
 	}
 	// Streaming is part of the Responses probe contract; do not let a custom
 	// Accept header downgrade the transport to a buffered JSON response.
@@ -384,7 +460,7 @@ func postStreamingResponses(
 	start := time.Now()
 	resp, err := monitorHTTPClient.Do(req)
 	if err != nil {
-		return nil, "", nil, nil, 0, fmt.Errorf("do request: %w", err)
+		return nil, "", nil, nil, OpenAIUsage{}, false, 0, fmt.Errorf("do request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	status = resp.StatusCode
@@ -392,9 +468,9 @@ func postStreamingResponses(
 	if status < 200 || status >= 300 {
 		body, readErr := io.ReadAll(io.LimitReader(resp.Body, monitorResponseMaxBytes))
 		if readErr != nil {
-			return body, "", nil, nil, status, fmt.Errorf("read body: %w", readErr)
+			return body, "", nil, nil, OpenAIUsage{}, false, status, fmt.Errorf("read body: %w", readErr)
 		}
-		return body, "", nil, nil, status, nil
+		return body, "", nil, nil, OpenAIUsage{}, false, status, nil
 	}
 
 	var raw bytes.Buffer
@@ -414,7 +490,11 @@ func postStreamingResponses(
 			return
 		}
 		eventType = effectiveOpenAISSEEventType(data, eventType)
-		if usage, ok := extractOpenAIUsageFromJSONBytes(data); ok && usage.OutputTokens > 0 {
+		if parsedUsage, ok := extractOpenAIUsageFromJSONBytes(data); ok && monitorUsageHasTokens(parsedUsage) {
+			mergeMonitorUsage(&usage, parsedUsage)
+			usageOK = true
+		}
+		if usageOK && usage.OutputTokens > 0 {
 			tokens := usage.OutputTokens
 			outputTokens = &tokens
 		}
@@ -487,18 +567,18 @@ func postStreamingResponses(
 	frame, ok := parser.Finish()
 	processFrame(frame, ok)
 	if scanErr := scanner.Err(); scanErr != nil {
-		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, fmt.Errorf("read streaming response: %w", scanErr)
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, usage, usageOK, status, fmt.Errorf("read streaming response: %w", scanErr)
 	}
 	if streamErr != nil {
-		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, streamErr
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, usage, usageOK, status, streamErr
 	}
 	if !sawTerminal {
-		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, errors.New("streaming response ended without a terminal event")
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, usage, usageOK, status, errors.New("streaming response ended without a terminal event")
 	}
 	if !hadVisibleOutput {
-		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, errors.New("streaming response contained no visible output")
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, usage, usageOK, status, errors.New("streaming response contained no visible output")
 	}
-	return raw.Bytes(), strings.TrimSpace(text.String()), firstTokenMs, outputTokens, status, nil
+	return raw.Bytes(), strings.TrimSpace(text.String()), firstTokenMs, outputTokens, usage, usageOK, status, nil
 }
 
 // monitorTokensPerSecond converts a Responses usage count and the measured

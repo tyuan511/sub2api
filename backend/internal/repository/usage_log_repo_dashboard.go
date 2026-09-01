@@ -19,10 +19,10 @@ func (r *usageLogRepository) getPerformanceStats(ctx context.Context, userID int
 			COUNT(*) as request_count,
 			COALESCE(SUM(input_tokens + output_tokens), 0) as token_count
 		FROM usage_logs
-		WHERE created_at >= $1`
+		WHERE is_monitor = FALSE AND created_at >= $1`
 	args := []any{fiveMinutesAgo}
 	if userID > 0 {
-		query += " AND user_id = $2 AND is_monitor = FALSE"
+		query += " AND user_id = $2"
 		args = append(args, userID)
 	}
 
@@ -54,7 +54,7 @@ func (r *usageLogRepository) GetUserStats(ctx context.Context, userID int64, sta
 			COALESCE(SUM(output_tokens), 0) as output_tokens,
 			COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens
 		FROM usage_logs
-		WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
+		WHERE user_id = $1 AND is_monitor = FALSE AND created_at >= $2 AND created_at < $3
 	`
 
 	stats := &UserStats{}
@@ -491,6 +491,7 @@ func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID i
 		LEFT JOIN groups g ON g.id = ul.group_id
 		LEFT JOIN accounts a ON a.id = ul.account_id
 		WHERE ul.user_id = $1
+		  AND ul.is_monitor = FALSE
 		  AND ` + usageLogSuccessFilterUL + `
 		GROUP BY ` + usageLogEffectivePlatformExpr + `
 		HAVING ` + usageLogEffectivePlatformExpr + ` IS NOT NULL AND ` + usageLogEffectivePlatformExpr + ` <> ''
@@ -534,7 +535,7 @@ func (r *usageLogRepository) getPerformanceStatsByAPIKey(ctx context.Context, ap
 			COUNT(*) as request_count,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as token_count
 		FROM usage_logs
-		WHERE created_at >= $1 AND api_key_id = $2`
+		WHERE is_monitor = FALSE AND created_at >= $1 AND api_key_id = $2`
 	args := []any{fiveMinutesAgo, apiKeyID}
 
 	var requestCount int64
@@ -566,7 +567,7 @@ func (r *usageLogRepository) GetAPIKeyDashboardStats(ctx context.Context, apiKey
 			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
 			COALESCE(AVG(duration_ms), 0) as avg_duration_ms
 		FROM usage_logs
-		WHERE api_key_id = $1
+		WHERE api_key_id = $1 AND is_monitor = FALSE
 	`
 	if err := scanSingleRow(
 		ctx,
@@ -597,7 +598,7 @@ func (r *usageLogRepository) GetAPIKeyDashboardStats(ctx context.Context, apiKey
 			COALESCE(SUM(total_cost), 0) as today_cost,
 			COALESCE(SUM(actual_cost), 0) as today_actual_cost
 		FROM usage_logs
-		WHERE api_key_id = $1 AND created_at >= $2
+		WHERE api_key_id = $1 AND is_monitor = FALSE AND created_at >= $2
 	`
 	if err := scanSingleRow(
 		ctx,

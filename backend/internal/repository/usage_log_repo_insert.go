@@ -126,9 +126,9 @@ type usageLogInsertPrepared struct {
 }
 
 // CreateMonitor writes an informational usage-log row for an active channel
-// monitor probe. It deliberately uses a small, dedicated INSERT instead of
-// the billing batch path: monitor probes have no downstream API key/account,
-// must not be billed, and should never be attributed to a real customer key.
+// monitor probe. It deliberately uses a dedicated INSERT instead of the
+// billing batch path: monitor probes are never billed, but their upstream
+// usage and request metadata are retained for diagnostics.
 func (r *usageLogRepository) CreateMonitor(ctx context.Context, log *service.UsageLog) error {
 	if r == nil || log == nil || r.sql == nil {
 		return nil
@@ -148,34 +148,72 @@ func (r *usageLogRepository) CreateMonitor(ctx context.Context, log *service.Usa
 	duration := nullInt(log.DurationMs)
 	firstToken := nullInt(log.FirstTokenMs)
 	userAgent := nullString(log.UserAgent)
+	inboundEndpoint := nullString(log.InboundEndpoint)
+	upstreamEndpoint := nullString(log.UpstreamEndpoint)
+	billingMode := nullString(log.BillingMode)
+	apiKeyID := nullableUsageLogID(log.APIKeyID)
+	accountID := nullableUsageLogID(log.AccountID)
+	rateMultiplier := log.RateMultiplier
+	if rateMultiplier <= 0 {
+		rateMultiplier = 1
+	}
 	channelMonitorID := nullInt64(log.ChannelMonitorID)
 
 	_, err := r.sql.ExecContext(ctx, `
 		INSERT INTO usage_logs (
 			user_id,
+			api_key_id,
+			account_id,
 			request_id,
 			model,
 			requested_model,
+			group_id,
+			input_tokens,
 			output_tokens,
+			cache_creation_tokens,
+			cache_read_tokens,
+			input_cost,
+			output_cost,
+			cache_creation_cost,
+			cache_read_cost,
+			total_cost,
+			actual_cost,
+			rate_multiplier,
+			billing_type,
 			request_type,
 			stream,
 			duration_ms,
 			first_token_ms,
 			user_agent,
+			inbound_endpoint,
+			upstream_endpoint,
+			billing_mode,
 			created_at,
 			is_monitor,
 			channel_monitor_id
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, $12)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, TRUE, $29)
 		ON CONFLICT DO NOTHING
-	`, log.UserID, requestID, log.Model, requestedModel, log.OutputTokens,
+	`, log.UserID, apiKeyID, accountID, requestID, log.Model, requestedModel,
+		nullInt64(log.GroupID), log.InputTokens, log.OutputTokens,
+		log.CacheCreationTokens, log.CacheReadTokens,
+		log.InputCost, log.OutputCost, log.CacheCreationCost, log.CacheReadCost,
+		log.TotalCost, log.ActualCost, rateMultiplier, log.BillingType,
 		int16(service.RequestTypeFromInt16(int16(log.EffectiveRequestType()))), log.Stream,
-		duration, firstToken, userAgent, createdAt, channelMonitorID)
+		duration, firstToken, userAgent, inboundEndpoint, upstreamEndpoint, billingMode,
+		createdAt, channelMonitorID)
 	if err != nil {
 		return err
 	}
 	log.IsMonitor = true
 	log.CreatedAt = createdAt
 	return nil
+}
+
+func nullableUsageLogID(value int64) sql.NullInt64 {
+	if value <= 0 {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: value, Valid: true}
 }
 
 type usageLogBatchState struct {

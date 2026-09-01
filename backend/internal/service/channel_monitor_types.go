@@ -143,6 +143,12 @@ type CheckResult struct {
 	PingLatencyMs   *int
 	Message         string
 	CheckedAt       time.Time
+	// Usage is the token usage returned by the upstream probe. It is kept
+	// separate from the health result so callers can persist an informational
+	// usage-log row without entering the normal billing path.
+	Usage *OpenAIUsage
+	// UpstreamEndpoint is the concrete provider path used by this probe.
+	UpstreamEndpoint string
 	// Quota 配额模式附带快照（quota 模式唯一数据；quota_probe 挂在主模型行）。
 	Quota *domain.MonitorQuotaSnapshot
 }

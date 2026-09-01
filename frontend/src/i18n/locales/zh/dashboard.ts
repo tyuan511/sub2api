@@ -352,6 +352,8 @@ export default {
     upstreamEndpoint: '上游端点',
     type: '类型',
     monitor: '监控',
+    monitorNonBillable: '非计费',
+    monitorNonBillableHint: '监控探测仅记录上游用量，不计入用户费用',
     tokens: 'Token',
     cost: '费用',
     firstToken: '首 Token',

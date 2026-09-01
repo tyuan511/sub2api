@@ -70,6 +70,8 @@ const messages: Record<string, string> = {
   'usage.modelVariant': 'Possible version variant',
   'usage.modelMismatch': 'Different model',
   'usage.monitor': 'Monitor',
+  'usage.monitorNonBillable': 'Non-billable',
+  'usage.monitorNonBillableHint': 'Monitor probes are not billed',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -160,6 +162,7 @@ describe('admin UsageTable tooltip', () => {
     })
 
     expect(wrapper.find('[data-testid="usage-monitor-type-badge"]').text()).toContain('Monitor')
+    expect(wrapper.find('[data-testid="usage-monitor-non-billable"]').text()).toContain('Non-billable')
   })
 
   it('marks only usage rows that actually applied long-context billing', () => {

@@ -64,7 +64,8 @@ func (r *usageLogRepository) getAllGroupUsageSummaryFromRollups(ctx context.Cont
 				), 0) AS yesterday_cost
 			FROM usage_logs ul
 			CROSS JOIN state
-			WHERE ul.created_at >= state.tail_start
+			WHERE ul.is_monitor = FALSE
+				AND ul.created_at >= state.tail_start
 			GROUP BY ul.group_id
 		)
 		SELECT
@@ -207,6 +208,7 @@ func (r *dashboardAggregationRepository) syncGroupUsageRollupsInTx(ctx context.C
 			NOW()
 		FROM usage_logs
 		WHERE group_id IS NOT NULL
+			AND is_monitor = FALSE
 			AND created_at >= $1
 			AND created_at < $2
 		GROUP BY 1, 2

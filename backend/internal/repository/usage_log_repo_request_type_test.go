@@ -137,15 +137,32 @@ func TestUsageLogRepositoryCreateMonitorWritesInformationalRow(t *testing.T) {
 
 	mock.ExpectExec("INSERT INTO usage_logs").WithArgs(
 		log.UserID,
+		sqlmock.AnyArg(), // api_key_id
+		sqlmock.AnyArg(), // account_id
 		log.RequestID,
 		log.Model,
 		log.RequestedModel,
+		sqlmock.AnyArg(), // group_id
+		log.InputTokens,
 		log.OutputTokens,
+		log.CacheCreationTokens,
+		log.CacheReadTokens,
+		log.InputCost,
+		log.OutputCost,
+		log.CacheCreationCost,
+		log.CacheReadCost,
+		log.TotalCost,
+		log.ActualCost,
+		sqlmock.AnyArg(), // rate_multiplier
+		log.BillingType,
 		int16(service.RequestTypeSync),
 		log.Stream,
 		sqlmock.AnyArg(), // duration_ms
 		sqlmock.AnyArg(), // first_token_ms
 		sqlmock.AnyArg(), // user_agent
+		sqlmock.AnyArg(), // inbound_endpoint
+		sqlmock.AnyArg(), // upstream_endpoint
+		sqlmock.AnyArg(), // billing_mode
 		createdAt,
 		monitorID,
 	).WillReturnResult(sqlmock.NewResult(1, 1))

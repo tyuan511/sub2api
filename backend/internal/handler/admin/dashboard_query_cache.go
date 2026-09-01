@@ -111,6 +111,7 @@ func (h *DashboardHandler) getUsageTrendCached(
 			UserID: userID, APIKeyID: apiKeyID, AccountID: accountID, GroupID: groupID,
 			Model: model, RequestType: requestType, Stream: stream, NativeCompactionV2: nativeCompactionV2, BillingType: billingType,
 			UpstreamModelMismatch: upstreamModelMismatch,
+			ExcludeMonitor:        true,
 		})
 	})
 	if err != nil {
@@ -150,6 +151,7 @@ func (h *DashboardHandler) getModelStatsCached(
 			UserID: userID, APIKeyID: apiKeyID, AccountID: accountID, GroupID: groupID,
 			RequestType: requestType, Stream: stream, NativeCompactionV2: nativeCompactionV2, BillingType: billingType,
 			UpstreamModelMismatch: upstreamModelMismatch,
+			ExcludeMonitor:        true,
 		}, modelSource)
 	})
 	if err != nil {
@@ -187,6 +189,7 @@ func (h *DashboardHandler) getGroupStatsCached(
 			UserID: userID, APIKeyID: apiKeyID, AccountID: accountID, GroupID: groupID,
 			RequestType: requestType, Stream: stream, NativeCompactionV2: nativeCompactionV2, BillingType: billingType,
 			UpstreamModelMismatch: upstreamModelMismatch,
+			ExcludeMonitor:        true,
 		})
 	})
 	if err != nil {

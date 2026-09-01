@@ -11,6 +11,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitor"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
+	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
@@ -107,6 +108,26 @@ func (r *channelMonitorRepository) GetByID(ctx context.Context, id int64) (*serv
 		return nil, translatePersistenceError(err, service.ErrChannelMonitorNotFound, nil)
 	}
 	return entToServiceMonitor(row), nil
+}
+
+// ResolveMonitorGroupID resolves the configured monitor group name at write
+// time. Channel monitors deliberately store a name (so deleting/renaming a
+// group does not invalidate the monitor), while usage_logs stores the normal
+// foreign-key ID for filtering and association hydration.
+func (r *channelMonitorRepository) ResolveMonitorGroupID(ctx context.Context, groupName string) (*int64, error) {
+	name := strings.TrimSpace(groupName)
+	if name == "" || r == nil || r.client == nil {
+		return nil, nil
+	}
+	row, err := r.client.Group.Query().Where(group.NameEQ(name)).Only(ctx)
+	if dbent.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolve monitor group %q: %w", name, err)
+	}
+	id := row.ID
+	return &id, nil
 }
 
 func (r *channelMonitorRepository) Update(ctx context.Context, m *service.ChannelMonitor) error {

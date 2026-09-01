@@ -347,6 +347,8 @@ export default {
     upstreamEndpoint: 'Upstream Endpoint',
     type: 'Type',
     monitor: 'Monitor',
+    monitorNonBillable: 'Non-billable',
+    monitorNonBillableHint: 'Monitor probes record upstream usage but are not billed to users',
     tokens: 'Tokens',
     cost: 'Cost',
     firstToken: 'First Token',

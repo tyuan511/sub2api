@@ -34,7 +34,7 @@ func (r *usageLogRepository) GetAPIKeyUsageTrend(ctx context.Context, startTime,
 		WITH top_keys AS (
 			SELECT api_key_id
 			FROM usage_logs
-			WHERE created_at >= $1 AND created_at < $2
+			WHERE is_monitor = FALSE AND created_at >= $1 AND created_at < $2
 			GROUP BY api_key_id
 			ORDER BY SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens) DESC
 			LIMIT $3
@@ -47,7 +47,8 @@ func (r *usageLogRepository) GetAPIKeyUsageTrend(ctx context.Context, startTime,
 			COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens
 		FROM usage_logs u
 		LEFT JOIN api_keys k ON u.api_key_id = k.id
-		WHERE u.api_key_id IN (SELECT api_key_id FROM top_keys)
+		WHERE u.is_monitor = FALSE
+		  AND u.api_key_id IN (SELECT api_key_id FROM top_keys)
 		  AND u.created_at >= $4 AND u.created_at < $5
 		GROUP BY date, u.api_key_id, k.name
 		ORDER BY date ASC, tokens DESC
@@ -89,7 +90,7 @@ func (r *usageLogRepository) GetUserUsageTrend(ctx context.Context, startTime, e
 		WITH top_users AS (
 			SELECT user_id
 			FROM usage_logs
-			WHERE created_at >= $1 AND created_at < $2
+			WHERE is_monitor = FALSE AND created_at >= $1 AND created_at < $2
 			GROUP BY user_id
 			ORDER BY SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens) DESC
 			LIMIT $3
@@ -105,7 +106,8 @@ func (r *usageLogRepository) GetUserUsageTrend(ctx context.Context, startTime, e
 			COALESCE(SUM(u.actual_cost), 0) as actual_cost
 		FROM usage_logs u
 		LEFT JOIN users us ON u.user_id = us.id
-		WHERE u.user_id IN (SELECT user_id FROM top_users)
+		WHERE u.is_monitor = FALSE
+		  AND u.user_id IN (SELECT user_id FROM top_users)
 		  AND u.created_at >= $4 AND u.created_at < $5
 		GROUP BY date, u.user_id, us.email, us.username
 		ORDER BY date ASC, tokens DESC
@@ -156,7 +158,7 @@ func (r *usageLogRepository) GetUserSpendingRanking(ctx context.Context, startTi
 				COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens
 			FROM usage_logs u
 			LEFT JOIN users us ON u.user_id = us.id
-			WHERE u.created_at >= $1 AND u.created_at < $2
+			WHERE u.is_monitor = FALSE AND u.created_at >= $1 AND u.created_at < $2
 			GROUP BY u.user_id, us.email, us.username
 		),
 		ranked AS (

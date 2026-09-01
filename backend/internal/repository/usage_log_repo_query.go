@@ -10,6 +10,7 @@ import (
 
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbapikey "github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/channelmonitor"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
@@ -300,6 +301,10 @@ func (r *usageLogRepository) hydrateUsageLogAssociations(ctx context.Context, lo
 	if err != nil {
 		return err
 	}
+	monitors, err := r.loadMonitorUsageMetadata(ctx, ids.monitorIDs)
+	if err != nil {
+		return err
+	}
 
 	for i := range logs {
 		if user, ok := users[logs[i].UserID]; ok {
@@ -321,6 +326,26 @@ func (r *usageLogRepository) hydrateUsageLogAssociations(ctx context.Context, lo
 				logs[i].Subscription = sub
 			}
 		}
+		if logs[i].IsMonitor && logs[i].ChannelMonitorID != nil {
+			if monitor, ok := monitors[*logs[i].ChannelMonitorID]; ok {
+				// A direct monitor probe intentionally has no customer API key.
+				// Supply a clearly labelled virtual association for the admin table
+				// without ever exposing the upstream secret.
+				if logs[i].APIKey == nil {
+					name := "监控探测"
+					if strings.TrimSpace(monitor.Name) != "" {
+						name = "监控 · " + strings.TrimSpace(monitor.Name)
+					}
+					logs[i].APIKey = &service.APIKey{Name: name}
+				}
+				if logs[i].Account == nil && logs[i].AccountID <= 0 {
+					logs[i].Account = &service.Account{Name: "监控直连（无绑定账号）"}
+				}
+				if logs[i].Group == nil && strings.TrimSpace(monitor.GroupName) != "" {
+					logs[i].Group = &service.Group{Name: strings.TrimSpace(monitor.GroupName)}
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -331,6 +356,7 @@ type usageLogIDs struct {
 	accountIDs      []int64
 	groupIDs        []int64
 	subscriptionIDs []int64
+	monitorIDs      []int64
 }
 
 func collectUsageLogIDs(logs []service.UsageLog) usageLogIDs {
@@ -341,6 +367,7 @@ func collectUsageLogIDs(logs []service.UsageLog) usageLogIDs {
 	accountIDs := idSet()
 	groupIDs := idSet()
 	subscriptionIDs := idSet()
+	monitorIDs := idSet()
 
 	for i := range logs {
 		userIDs[logs[i].UserID] = struct{}{}
@@ -352,6 +379,9 @@ func collectUsageLogIDs(logs []service.UsageLog) usageLogIDs {
 		if logs[i].SubscriptionID != nil {
 			subscriptionIDs[*logs[i].SubscriptionID] = struct{}{}
 		}
+		if logs[i].ChannelMonitorID != nil {
+			monitorIDs[*logs[i].ChannelMonitorID] = struct{}{}
+		}
 	}
 
 	return usageLogIDs{
@@ -360,7 +390,28 @@ func collectUsageLogIDs(logs []service.UsageLog) usageLogIDs {
 		accountIDs:      setToSlice(accountIDs),
 		groupIDs:        setToSlice(groupIDs),
 		subscriptionIDs: setToSlice(subscriptionIDs),
+		monitorIDs:      setToSlice(monitorIDs),
 	}
+}
+
+type monitorUsageMetadata struct {
+	Name      string
+	GroupName string
+}
+
+func (r *usageLogRepository) loadMonitorUsageMetadata(ctx context.Context, ids []int64) (map[int64]monitorUsageMetadata, error) {
+	out := make(map[int64]monitorUsageMetadata)
+	if len(ids) == 0 || r.client == nil {
+		return out, nil
+	}
+	rows, err := r.client.ChannelMonitor.Query().Where(channelmonitor.IDIn(ids...)).All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.ID] = monitorUsageMetadata{Name: row.Name, GroupName: row.GroupName}
+	}
+	return out, nil
 }
 
 func (r *usageLogRepository) loadUsers(ctx context.Context, ids []int64) (map[int64]*service.User, error) {

@@ -135,8 +135,13 @@ func TestPersistCheckResultsWritesMarkedMonitorUsageLogs(t *testing.T) {
 	svc.SetUsageLogRepository(usageWriter)
 	checkedAt := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	latency := 123
+	firstToken := 45
+	input := 10
+	output := 4
+	cacheRead := 6
 	svc.persistCheckResults(context.Background(), repo.monitor, []*CheckResult{{
-		Model: "gpt-5.6-sol", Status: MonitorStatusOperational, LatencyMs: &latency, CheckedAt: checkedAt,
+		Model: "gpt-5.6-sol", Status: MonitorStatusOperational, LatencyMs: &latency, FirstTokenMs: &firstToken,
+		UpstreamEndpoint: "/v1/responses", Usage: &OpenAIUsage{InputTokens: input, OutputTokens: output, CacheReadInputTokens: cacheRead}, CheckedAt: checkedAt,
 	}})
 	require.Len(t, usageWriter.monitorLogs, 1)
 	log := usageWriter.monitorLogs[0]
@@ -145,4 +150,9 @@ func TestPersistCheckResultsWritesMarkedMonitorUsageLogs(t *testing.T) {
 	require.Equal(t, int64(7), *log.ChannelMonitorID)
 	require.Equal(t, "gpt-5.6-sol", log.Model)
 	require.Equal(t, 123, *log.DurationMs)
+	require.Equal(t, input, log.InputTokens)
+	require.Equal(t, output, log.OutputTokens)
+	require.Equal(t, cacheRead, log.CacheReadTokens)
+	require.Equal(t, "/v1/responses", *log.UpstreamEndpoint)
+	require.Equal(t, "channel-monitor", *log.InboundEndpoint)
 }
