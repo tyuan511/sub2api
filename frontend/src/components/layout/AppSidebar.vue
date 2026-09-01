@@ -150,18 +150,6 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
-      <!-- Dedicated USDT recharge entry stays at the bottom for quick access. -->
-      <router-link
-        v-if="flagPayment() !== false"
-        to="/usdt-recharge"
-        class="sidebar-link mb-2 w-full"
-        :class="{ 'sidebar-link-active': isActive('/usdt-recharge'), 'sidebar-link-collapsed': sidebarCollapsed }"
-        :title="sidebarCollapsed ? t('nav.usdtRecharge') : undefined"
-        @click="handleMenuItemClick('/usdt-recharge')"
-      >
-        <CoinIcon class="h-5 w-5 flex-shrink-0" />
-        <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.usdtRecharge') }}</span>
-      </router-link>
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
@@ -355,18 +343,6 @@ const GiftIcon = {
         })
       ]
     )
-}
-
-const CoinIcon = {
-  render: () =>
-    h(
-      'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
-      [
-        h('circle', { cx: '12', cy: '12', r: '8.25' }),
-        h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.75 9.75h4.5L12 12l2.25 2.25h-4.5M12 7.5v9' }),
-      ],
-    ),
 }
 
 const UserIcon = {

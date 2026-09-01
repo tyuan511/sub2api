@@ -173,6 +173,14 @@ func (b *Bepusdt) CreatePayment(ctx context.Context, req payment.CreatePaymentRe
 	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("bepusdt create payment: invalid amount %s", req.Amount)
 	}
+	notifyURL := strings.TrimSpace(req.NotifyURL)
+	if notifyURL == "" {
+		notifyURL = strings.TrimSpace(b.config["notifyUrl"])
+	}
+	returnURL := strings.TrimSpace(req.ReturnURL)
+	if returnURL == "" {
+		returnURL = strings.TrimSpace(b.config["returnUrl"])
+	}
 	payload := map[string]any{
 		// BEpusdt decodes amount as float64 before verifying the signature;
 		// sign the same normalized representation it will see (e.g. 50, not 50.00).
@@ -180,9 +188,9 @@ func (b *Bepusdt) CreatePayment(ctx context.Context, req payment.CreatePaymentRe
 		"currencies":   b.config["currencies"],
 		"fiat":         b.fiat(),
 		"name":         strings.TrimSpace(req.Subject),
-		"notify_url":   strings.TrimSpace(req.NotifyURL),
+		"notify_url":   notifyURL,
 		"order_id":     strings.TrimSpace(req.OrderID),
-		"redirect_url": strings.TrimSpace(req.ReturnURL),
+		"redirect_url": returnURL,
 		"timeout":      json.Number(b.config["timeoutSeconds"]),
 	}
 	payload["signature"] = bepusdtSign(payload, b.config["apiToken"])

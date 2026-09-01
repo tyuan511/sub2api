@@ -48,7 +48,7 @@
             <div class="card p-6">
               <AmountInput
                 v-model="amount"
-                :amounts="isUsdtRecharge ? usdtRechargeAmounts : normalRechargeAmounts"
+                :amounts="normalRechargeAmounts"
                 :allow-custom="!isUsdtRecharge"
                 :min="globalMinAmount"
                 :max="globalMaxAmount"
@@ -522,8 +522,7 @@ const visibleMethods = computed(() => {
   return Object.fromEntries(Object.entries(methods).filter(([type]) => type === 'usdt'))
 })
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
-const normalRechargeAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
-const usdtRechargeAmounts = [50, 100, 200, 500, 1000]
+const normalRechargeAmounts = [10, 20, 50, 100, 200, 500]
 
 watch(isUsdtRecharge, (dedicated) => {
   activeTab.value = 'recharge'

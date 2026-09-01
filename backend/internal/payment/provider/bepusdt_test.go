@@ -57,6 +57,28 @@ func TestBepusdtCreatePaymentSignsNormalizedAmount(t *testing.T) {
 	require.Equal(t, "https://pay.test/trade-1", result.PayURL)
 }
 
+func TestBepusdtCreatePaymentUsesConfiguredURLsWhenRequestOmitsThem(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.Equal(t, "https://site.test/notify", body["notify_url"])
+		require.Equal(t, "https://site.test/return", body["redirect_url"])
+		_, _ = w.Write([]byte(`{"status_code":200,"message":"success","data":{"trade_id":"trade-2","payment_url":"https://pay.test/trade-2"}}`))
+	}))
+	defer server.Close()
+
+	provider, err := NewBepusdt("1", map[string]string{
+		"apiBase": server.URL, "apiToken": "token",
+		"notifyUrl": "https://site.test/notify", "returnUrl": "https://site.test/return",
+	})
+	require.NoError(t, err)
+	result, err := provider.CreatePayment(context.Background(), payment.CreatePaymentRequest{
+		OrderID: "order-2", Amount: "50.00", Subject: "Balance",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "trade-2", result.TradeNo)
+}
+
 func TestBepusdtQueryAndNotification(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/v1/pay/info", r.URL.Path)
