@@ -255,6 +255,8 @@ func buildStatusSummary(
 		if l, ok := latestByModel[primary]; ok {
 			summary.PrimaryStatus = l.Status
 			summary.PrimaryLatencyMs = l.LatencyMs
+			summary.PrimaryFirstTokenMs = l.FirstTokenMs
+			summary.PrimaryTokensPerSecond = l.TokensPerSecond
 			// 配额快照只挂主模型行（quota 模式唯一行 / quota_probe 的主行）。
 			summary.LatestQuota = l.Quota
 		}
@@ -267,6 +269,8 @@ func buildStatusSummary(
 		if l, ok := latestByModel[model]; ok {
 			entry.Status = l.Status
 			entry.LatencyMs = l.LatencyMs
+			entry.FirstTokenMs = l.FirstTokenMs
+			entry.TokensPerSecond = l.TokensPerSecond
 		}
 		summary.ExtraModels = append(summary.ExtraModels, entry)
 	}
@@ -283,22 +287,26 @@ func buildUserViewFromSummary(
 	cacheHitRates map[int]*float64,
 ) *UserMonitorView {
 	view := &UserMonitorView{
-		ID:               m.ID,
-		Name:             m.Name,
-		Provider:         m.Provider,
-		GroupName:        m.GroupName,
-		PrimaryModel:     m.PrimaryModel,
-		PrimaryStatus:    summary.PrimaryStatus,
-		PrimaryLatencyMs: summary.PrimaryLatencyMs,
-		Availability7d:   summary.Availability7d,
-		ExtraModels:      summary.ExtraModels,
-		Timeline:         buildTimelinePoints(timelineEntries),
+		ID:                     m.ID,
+		Name:                   m.Name,
+		Provider:               m.Provider,
+		GroupName:              m.GroupName,
+		PrimaryModel:           m.PrimaryModel,
+		PrimaryStatus:          summary.PrimaryStatus,
+		PrimaryLatencyMs:       summary.PrimaryLatencyMs,
+		PrimaryFirstTokenMs:    summary.PrimaryFirstTokenMs,
+		PrimaryTokensPerSecond: summary.PrimaryTokensPerSecond,
+		Availability7d:         summary.Availability7d,
+		ExtraModels:            summary.ExtraModels,
+		Timeline:               buildTimelinePoints(timelineEntries),
 	}
 	view.CacheHitRate7d = cacheHitRates[monitorAvailability7Days]
 	view.CacheHitRate15d = cacheHitRates[monitorAvailability15Days]
 	view.CacheHitRate30d = cacheHitRates[monitorAvailability30Days]
 	if primaryLatest != nil {
 		view.PrimaryPingLatencyMs = primaryLatest.PingLatencyMs
+		view.PrimaryFirstTokenMs = primaryLatest.FirstTokenMs
+		view.PrimaryTokensPerSecond = primaryLatest.TokensPerSecond
 		view.LatestQuota = primaryLatest.Quota
 	}
 	return view
@@ -309,10 +317,12 @@ func buildTimelinePoints(entries []*ChannelMonitorHistoryEntry) []UserMonitorTim
 	out := make([]UserMonitorTimelinePoint, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, UserMonitorTimelinePoint{
-			Status:        e.Status,
-			LatencyMs:     e.LatencyMs,
-			PingLatencyMs: e.PingLatencyMs,
-			CheckedAt:     e.CheckedAt,
+			Status:          e.Status,
+			LatencyMs:       e.LatencyMs,
+			FirstTokenMs:    e.FirstTokenMs,
+			TokensPerSecond: e.TokensPerSecond,
+			PingLatencyMs:   e.PingLatencyMs,
+			CheckedAt:       e.CheckedAt,
 		})
 	}
 	return out
@@ -333,6 +343,8 @@ func mergeModelDetails(
 		if l, ok := latestByModel[model]; ok {
 			d.LatestStatus = l.Status
 			d.LatestLatencyMs = l.LatencyMs
+			d.LatestFirstTokenMs = l.FirstTokenMs
+			d.LatestTokensPerSecond = l.TokensPerSecond
 		}
 		if a, ok := availMap[monitorAvailability7Days][model]; ok {
 			d.Availability7d = a.AvailabilityPct

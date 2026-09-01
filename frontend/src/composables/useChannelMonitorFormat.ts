@@ -186,6 +186,12 @@ export function useChannelMonitorFormat() {
     return String(Math.round(ms))
   }
 
+  /** Format streaming generation throughput with a stable, compact precision. */
+  function formatTokensPerSecond(value: number | null | undefined): string {
+    if (value == null || Number.isNaN(value) || value < 0) return t('monitorCommon.metricEmpty')
+    return value.toFixed(1)
+  }
+
   function formatPercent(v: number | null | undefined): string {
     if (v == null || Number.isNaN(v)) return '-'
     return `${v.toFixed(2)}%`
@@ -220,6 +226,7 @@ export function useChannelMonitorFormat() {
     checkModeBadgeClass,
     providerPickerClass,
     formatLatency,
+    formatTokensPerSecond,
     formatPercent,
     formatAvailability,
     formatRelativeTime,

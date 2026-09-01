@@ -59,7 +59,18 @@ const DataTableStub = defineComponent({
     columns: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
   },
-  template: '<div><div v-for="row in data" :key="row.id" class="provider-cell"><slot name="cell-provider" :row="row" /></div></div>',
+  template: `
+    <div>
+      <div class="column-labels">
+        <span v-for="column in columns" :key="column.key">{{ column.label }}</span>
+      </div>
+      <div v-for="row in data" :key="row.id">
+        <div class="provider-cell"><slot name="cell-provider" :row="row" /></div>
+        <div class="first-token-cell"><slot name="cell-first_token" :row="row" /></div>
+        <div class="token-speed-cell"><slot name="cell-token_speed" :row="row" /></div>
+      </div>
+    </div>
+  `,
 })
 
 function makeMonitor(overrides: Partial<ChannelMonitor> = {}): ChannelMonitor {
@@ -155,5 +166,27 @@ describe('ChannelMonitorView check-mode badge', () => {
       expect(cls).not.toContain('bg-gray-100')
     }
     wrapper.unmount()
+  })
+
+  it('replaces the legacy latency column with TTFT and token speed', async () => {
+    listMonitors.mockResolvedValue({
+      items: [makeMonitor({
+        primary_first_token_ms: 1_702,
+        primary_tokens_per_second: 231,
+      })],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('.column-labels').text()).toContain('admin.channelMonitor.columns.firstToken')
+    expect(wrapper.get('.column-labels').text()).toContain('admin.channelMonitor.columns.tokenSpeed')
+    expect(wrapper.get('.column-labels').text()).not.toContain('admin.channelMonitor.columns.latency')
+    expect(wrapper.get('.first-token-cell').text()).toBe('1702 ms')
+    expect(wrapper.get('.token-speed-cell').text()).toBe('231.0 Token/s')
   })
 })

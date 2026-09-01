@@ -126,16 +126,25 @@
 
         <template #cell-stream="{ row }">
           <div class="flex flex-wrap items-center gap-1">
-            <span data-testid="request-type-badge" class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getRequestTypeBadgeClass(row)">
+	            <span data-testid="request-type-badge" class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getRequestTypeBadgeClass(row)">
               {{ getRequestTypeLabel(row) }}
             </span>
             <span
+              v-if="row.is_monitor"
+              data-testid="usage-monitor-type-badge"
+              class="inline-flex items-center gap-1 rounded-md border border-cyan-400/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300"
+              :title="t('usage.monitor')"
+            >
+              <span class="h-1.5 w-1.5 rounded-full bg-cyan-500 dark:bg-cyan-300" aria-hidden="true" />
+              {{ t('usage.monitor') }}
+            </span>
+	            <span
               v-if="row.native_compaction_v2"
               data-testid="native-compaction-badge"
               class="inline-flex items-center rounded bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-800 dark:bg-teal-900 dark:text-teal-200"
             >
-              {{ t('usage.nativeCompactionV2') }}
-            </span>
+	              {{ t('usage.nativeCompactionV2') }}
+	            </span>
           </div>
         </template>
 

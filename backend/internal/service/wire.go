@@ -993,11 +993,13 @@ func ProvidePaymentOrderExpiryService(paymentSvc *PaymentService, lockCache Lead
 // settingService gates RunCheck via channel_monitor_enabled + channel_monitor_mode.
 func ProvideChannelMonitorService(
 	repo ChannelMonitorRepository,
+	usageLogRepo UsageLogRepository,
 	encryptor SecretEncryptor,
 	settingService *SettingService,
 ) *ChannelMonitorService {
 	svc := NewChannelMonitorService(repo, encryptor)
 	svc.SetRuntimeReader(settingService)
+	svc.SetUsageLogRepository(usageLogRepo)
 	return svc
 }
 

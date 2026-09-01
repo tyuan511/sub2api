@@ -17,11 +17,11 @@
           <tr class="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.model') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestStatus') }}</th>
-            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestLatency') }}</th>
+            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestFirstToken') }}</th>
+            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestTokenSpeed') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability7d') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability15d') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability30d') }}</th>
-            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.avgLatency7d') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -39,11 +39,22 @@
                 {{ statusLabel(m.latest_status) }}
               </span>
             </td>
-            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatLatency(m.latest_latency_ms) }}</td>
+            <td class="py-2 pr-3">
+              <span
+                v-if="m.latest_first_token_ms != null"
+                class="font-medium tabular-nums"
+                :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(m.latest_first_token_ms)]"
+              >
+                {{ formatLatency(m.latest_first_token_ms) }} ms
+              </span>
+              <span v-else class="text-gray-400">{{ formatLatency(null) }}</span>
+            </td>
+            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
+              {{ formatTokensPerSecond(m.latest_tokens_per_second) }} Token/s
+            </td>
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_7d) }}</td>
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_15d) }}</td>
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_30d) }}</td>
-            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatLatency(m.avg_latency_7d_ms) }}</td>
           </tr>
         </tbody>
       </table>
@@ -70,6 +81,7 @@ import {
 } from '@/api/channelMonitor'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
+import { firstTokenSeverity, LATENCY_TEXT_CLASSES } from '@/utils/latencyHealth'
 
 const props = defineProps<{
   show: boolean
@@ -83,7 +95,7 @@ defineEmits<{
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const { statusLabel, statusBadgeClass, formatLatency, formatPercent, formatMonitorModel } = useChannelMonitorFormat()
+const { statusLabel, statusBadgeClass, formatLatency, formatTokensPerSecond, formatPercent, formatMonitorModel } = useChannelMonitorFormat()
 
 const detail = ref<UserMonitorDetail | null>(null)
 const loading = ref(false)

@@ -38,6 +38,16 @@ func (r *runCheckCacheSnapshotRepoStub) MarkChecked(context.Context, int64, time
 	return nil
 }
 
+type monitorUsageWriterStub struct {
+	UsageLogRepository
+	monitorLogs []*UsageLog
+}
+
+func (r *monitorUsageWriterStub) CreateMonitor(_ context.Context, log *UsageLog) error {
+	r.monitorLogs = append(r.monitorLogs, log)
+	return nil
+}
+
 func (r *runCheckCacheSnapshotRepoStub) RefreshGroupCacheHitRateSnapshots(_ context.Context, groups []string) error {
 	r.refreshGroups = append(r.refreshGroups, append([]string(nil), groups...))
 	return nil
@@ -116,4 +126,23 @@ func TestRunCheckRefreshesGroupCacheHitRateSnapshots(t *testing.T) {
 	_, err := svc.RunCheck(context.Background(), 1)
 	require.NoError(t, err)
 	require.Equal(t, [][]string{{"gpt-pro-20x"}}, repo.refreshGroups)
+}
+
+func TestPersistCheckResultsWritesMarkedMonitorUsageLogs(t *testing.T) {
+	repo := &runCheckCacheSnapshotRepoStub{monitor: &ChannelMonitor{ID: 7, CreatedBy: 42}}
+	usageWriter := &monitorUsageWriterStub{}
+	svc := NewChannelMonitorService(repo, nil)
+	svc.SetUsageLogRepository(usageWriter)
+	checkedAt := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	latency := 123
+	svc.persistCheckResults(context.Background(), repo.monitor, []*CheckResult{{
+		Model: "gpt-5.6-sol", Status: MonitorStatusOperational, LatencyMs: &latency, CheckedAt: checkedAt,
+	}})
+	require.Len(t, usageWriter.monitorLogs, 1)
+	log := usageWriter.monitorLogs[0]
+	require.True(t, log.IsMonitor)
+	require.Equal(t, int64(42), log.UserID)
+	require.Equal(t, int64(7), *log.ChannelMonitorID)
+	require.Equal(t, "gpt-5.6-sol", log.Model)
+	require.Equal(t, 123, *log.DurationMs)
 }

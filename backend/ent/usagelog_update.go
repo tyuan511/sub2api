@@ -60,6 +60,12 @@ func (_u *UsageLogUpdate) SetNillableAPIKeyID(v *int64) *UsageLogUpdate {
 	return _u
 }
 
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (_u *UsageLogUpdate) ClearAPIKeyID() *UsageLogUpdate {
+	_u.mutation.ClearAPIKeyID()
+	return _u
+}
+
 // SetAccountID sets the "account_id" field.
 func (_u *UsageLogUpdate) SetAccountID(v int64) *UsageLogUpdate {
 	_u.mutation.SetAccountID(v)
@@ -71,6 +77,12 @@ func (_u *UsageLogUpdate) SetNillableAccountID(v *int64) *UsageLogUpdate {
 	if v != nil {
 		_u.SetAccountID(*v)
 	}
+	return _u
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (_u *UsageLogUpdate) ClearAccountID() *UsageLogUpdate {
+	_u.mutation.ClearAccountID()
 	return _u
 }
 
@@ -206,6 +218,47 @@ func (_u *UsageLogUpdate) AddChannelID(v int64) *UsageLogUpdate {
 // ClearChannelID clears the value of the "channel_id" field.
 func (_u *UsageLogUpdate) ClearChannelID() *UsageLogUpdate {
 	_u.mutation.ClearChannelID()
+	return _u
+}
+
+// SetIsMonitor sets the "is_monitor" field.
+func (_u *UsageLogUpdate) SetIsMonitor(v bool) *UsageLogUpdate {
+	_u.mutation.SetIsMonitor(v)
+	return _u
+}
+
+// SetNillableIsMonitor sets the "is_monitor" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableIsMonitor(v *bool) *UsageLogUpdate {
+	if v != nil {
+		_u.SetIsMonitor(*v)
+	}
+	return _u
+}
+
+// SetChannelMonitorID sets the "channel_monitor_id" field.
+func (_u *UsageLogUpdate) SetChannelMonitorID(v int64) *UsageLogUpdate {
+	_u.mutation.ResetChannelMonitorID()
+	_u.mutation.SetChannelMonitorID(v)
+	return _u
+}
+
+// SetNillableChannelMonitorID sets the "channel_monitor_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableChannelMonitorID(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetChannelMonitorID(*v)
+	}
+	return _u
+}
+
+// AddChannelMonitorID adds value to the "channel_monitor_id" field.
+func (_u *UsageLogUpdate) AddChannelMonitorID(v int64) *UsageLogUpdate {
+	_u.mutation.AddChannelMonitorID(v)
+	return _u
+}
+
+// ClearChannelMonitorID clears the value of the "channel_monitor_id" field.
+func (_u *UsageLogUpdate) ClearChannelMonitorID() *UsageLogUpdate {
+	_u.mutation.ClearChannelMonitorID()
 	return _u
 }
 
@@ -1114,12 +1167,6 @@ func (_u *UsageLogUpdate) check() error {
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "UsageLog.user"`)
 	}
-	if _u.mutation.APIKeyCleared() && len(_u.mutation.APIKeyIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "UsageLog.api_key"`)
-	}
-	if _u.mutation.AccountCleared() && len(_u.mutation.AccountIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "UsageLog.account"`)
-	}
 	return nil
 }
 
@@ -1173,6 +1220,18 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ChannelIDCleared() {
 		_spec.ClearField(usagelog.FieldChannelID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsMonitor(); ok {
+		_spec.SetField(usagelog.FieldIsMonitor, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ChannelMonitorID(); ok {
+		_spec.SetField(usagelog.FieldChannelMonitorID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedChannelMonitorID(); ok {
+		_spec.AddField(usagelog.FieldChannelMonitorID, field.TypeInt64, value)
+	}
+	if _u.mutation.ChannelMonitorIDCleared() {
+		_spec.ClearField(usagelog.FieldChannelMonitorID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ModelMappingChain(); ok {
 		_spec.SetField(usagelog.FieldModelMappingChain, field.TypeString, value)
@@ -1574,6 +1633,12 @@ func (_u *UsageLogUpdateOne) SetNillableAPIKeyID(v *int64) *UsageLogUpdateOne {
 	return _u
 }
 
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (_u *UsageLogUpdateOne) ClearAPIKeyID() *UsageLogUpdateOne {
+	_u.mutation.ClearAPIKeyID()
+	return _u
+}
+
 // SetAccountID sets the "account_id" field.
 func (_u *UsageLogUpdateOne) SetAccountID(v int64) *UsageLogUpdateOne {
 	_u.mutation.SetAccountID(v)
@@ -1585,6 +1650,12 @@ func (_u *UsageLogUpdateOne) SetNillableAccountID(v *int64) *UsageLogUpdateOne {
 	if v != nil {
 		_u.SetAccountID(*v)
 	}
+	return _u
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (_u *UsageLogUpdateOne) ClearAccountID() *UsageLogUpdateOne {
+	_u.mutation.ClearAccountID()
 	return _u
 }
 
@@ -1720,6 +1791,47 @@ func (_u *UsageLogUpdateOne) AddChannelID(v int64) *UsageLogUpdateOne {
 // ClearChannelID clears the value of the "channel_id" field.
 func (_u *UsageLogUpdateOne) ClearChannelID() *UsageLogUpdateOne {
 	_u.mutation.ClearChannelID()
+	return _u
+}
+
+// SetIsMonitor sets the "is_monitor" field.
+func (_u *UsageLogUpdateOne) SetIsMonitor(v bool) *UsageLogUpdateOne {
+	_u.mutation.SetIsMonitor(v)
+	return _u
+}
+
+// SetNillableIsMonitor sets the "is_monitor" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableIsMonitor(v *bool) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetIsMonitor(*v)
+	}
+	return _u
+}
+
+// SetChannelMonitorID sets the "channel_monitor_id" field.
+func (_u *UsageLogUpdateOne) SetChannelMonitorID(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetChannelMonitorID()
+	_u.mutation.SetChannelMonitorID(v)
+	return _u
+}
+
+// SetNillableChannelMonitorID sets the "channel_monitor_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableChannelMonitorID(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetChannelMonitorID(*v)
+	}
+	return _u
+}
+
+// AddChannelMonitorID adds value to the "channel_monitor_id" field.
+func (_u *UsageLogUpdateOne) AddChannelMonitorID(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddChannelMonitorID(v)
+	return _u
+}
+
+// ClearChannelMonitorID clears the value of the "channel_monitor_id" field.
+func (_u *UsageLogUpdateOne) ClearChannelMonitorID() *UsageLogUpdateOne {
+	_u.mutation.ClearChannelMonitorID()
 	return _u
 }
 
@@ -2641,12 +2753,6 @@ func (_u *UsageLogUpdateOne) check() error {
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "UsageLog.user"`)
 	}
-	if _u.mutation.APIKeyCleared() && len(_u.mutation.APIKeyIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "UsageLog.api_key"`)
-	}
-	if _u.mutation.AccountCleared() && len(_u.mutation.AccountIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "UsageLog.account"`)
-	}
 	return nil
 }
 
@@ -2717,6 +2823,18 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.ChannelIDCleared() {
 		_spec.ClearField(usagelog.FieldChannelID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.IsMonitor(); ok {
+		_spec.SetField(usagelog.FieldIsMonitor, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ChannelMonitorID(); ok {
+		_spec.SetField(usagelog.FieldChannelMonitorID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedChannelMonitorID(); ok {
+		_spec.AddField(usagelog.FieldChannelMonitorID, field.TypeInt64, value)
+	}
+	if _u.mutation.ChannelMonitorIDCleared() {
+		_spec.ClearField(usagelog.FieldChannelMonitorID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ModelMappingChain(); ok {
 		_spec.SetField(usagelog.FieldModelMappingChain, field.TypeString, value)

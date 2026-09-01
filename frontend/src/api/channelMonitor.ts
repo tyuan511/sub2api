@@ -11,13 +11,17 @@ export type { Provider, MonitorStatus } from './admin/channelMonitor'
 export interface UserMonitorExtraModel {
   model: string
   status: MonitorStatus
-  latency_ms: number | null
+	latency_ms: number | null
+	first_token_ms?: number | null
+	tokens_per_second?: number | null
 }
 
 export interface MonitorTimelinePoint {
   status: MonitorStatus
-  latency_ms: number | null
-  ping_latency_ms: number | null
+	latency_ms: number | null
+	first_token_ms?: number | null
+	tokens_per_second?: number | null
+	ping_latency_ms: number | null
   checked_at: string
 }
 
@@ -28,8 +32,10 @@ export interface UserMonitorView {
   group_name: string
   primary_model: string
   primary_status: MonitorStatus
-  primary_latency_ms: number | null
-  primary_ping_latency_ms: number | null
+	primary_latency_ms: number | null
+	primary_first_token_ms?: number | null
+	primary_tokens_per_second?: number | null
+	primary_ping_latency_ms: number | null
   availability_7d: number
   cache_hit_rate_7d: number | null
   cache_hit_rate_15d: number | null
@@ -50,7 +56,9 @@ export interface UserMonitorListResponse {
 export interface UserMonitorModelDetail {
   model: string
   latest_status: MonitorStatus
-  latest_latency_ms: number | null
+	latest_latency_ms: number | null
+	latest_first_token_ms?: number | null
+	latest_tokens_per_second?: number | null
   availability_7d: number
   availability_15d: number
   availability_30d: number

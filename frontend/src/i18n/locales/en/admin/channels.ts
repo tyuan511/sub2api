@@ -530,7 +530,8 @@ export default {
         provider: 'Provider',
         primaryModel: 'Primary Model',
         availability7d: '7d Availability',
-        latency: 'Latency (ms)',
+        firstToken: 'First Token / TTFT',
+        tokenSpeed: 'Token Speed',
         enabled: 'Enabled',
         actions: 'Actions'
       },

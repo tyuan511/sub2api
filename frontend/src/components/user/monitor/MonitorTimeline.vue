@@ -38,6 +38,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { MonitorTimelinePoint } from '@/api/channelMonitor'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
+import { firstTokenSeverity, LATENCY_BAR_CLASSES } from '@/utils/latencyHealth'
 
 const props = withDefaults(defineProps<{
   buckets?: MonitorTimelinePoint[]
@@ -51,7 +52,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { t } = useI18n()
-const { statusLabel, formatLatency, formatRelativeTime } = useChannelMonitorFormat()
+const { statusLabel, formatLatency, formatTokensPerSecond, formatRelativeTime } = useChannelMonitorFormat()
 
 interface Bar {
   colorClass: string
@@ -98,15 +99,22 @@ const displayBars = computed<Bar[]>(() => {
 
   for (const point of real) {
     const status = point.status as keyof typeof STATUS_HEIGHT
-    const colorClass = STATUS_COLOR[status] ?? STATUS_COLOR.empty
+    // Responses probes carry TTFT; use the same latency health bands as usage
+    // records. Legacy/non-streaming points retain their status color.
+    const colorClass = point.first_token_ms != null
+      ? LATENCY_BAR_CLASSES[firstTokenSeverity(point.first_token_ms)]
+      : STATUS_COLOR[status] ?? STATUS_COLOR.empty
     const heightPct = STATUS_HEIGHT[status] ?? STATUS_HEIGHT.empty
-    const latency = formatLatency(point.latency_ms)
+    const firstToken = formatLatency(point.first_token_ms)
+    const tokensPerSecond = formatTokensPerSecond(point.tokens_per_second)
     const relative = formatRelativeTime(point.checked_at)
     const label = statusLabel(point.status)
     bars.push({
       colorClass,
       heightPct,
-      title: `${relative} · ${label} · ${latency}ms`,
+      title: point.first_token_ms != null
+        ? `${relative} · ${label} · ${t('monitorCommon.firstToken')} ${firstToken}ms · ${t('monitorCommon.tokenSpeed')} ${tokensPerSecond} Token/s`
+        : `${relative} · ${label}`,
     })
   }
 

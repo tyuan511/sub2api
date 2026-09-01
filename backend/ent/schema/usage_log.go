@@ -33,8 +33,8 @@ func (UsageLog) Fields() []ent.Field {
 	return []ent.Field{
 		// 关联字段
 		field.Int64("user_id"),
-		field.Int64("api_key_id"),
-		field.Int64("account_id"),
+		field.Int64("api_key_id").Optional().Nillable(),
+		field.Int64("account_id").Optional().Nillable(),
 		field.String("request_id").
 			MaxLen(64).
 			NotEmpty(),
@@ -65,6 +65,13 @@ func (UsageLog) Fields() []ent.Field {
 			Optional().
 			Nillable(),
 		field.Int64("channel_id").Optional().Nillable().Comment("渠道 ID"),
+		field.Bool("is_monitor").
+			Default(false).
+			Comment("是否由渠道监控主动探测产生；监控记录不参与计费"),
+		field.Int64("channel_monitor_id").
+			Optional().
+			Nillable().
+			Comment("产生该记录的渠道监控 ID"),
 		field.String("model_mapping_chain").MaxLen(500).Optional().Nillable().Comment("模型映射链"),
 		field.String("billing_tier").MaxLen(50).Optional().Nillable().Comment("计费层级标签"),
 		field.String("billing_mode").MaxLen(20).Optional().Nillable().Comment("计费模式：token/per_request/image"),
@@ -200,12 +207,10 @@ func (UsageLog) Edges() []ent.Edge {
 		edge.From("api_key", APIKey.Type).
 			Ref("usage_logs").
 			Field("api_key_id").
-			Required().
 			Unique(),
 		edge.From("account", Account.Type).
 			Ref("usage_logs").
 			Field("account_id").
-			Required().
 			Unique(),
 		edge.From("group", Group.Type).
 			Ref("usage_logs").

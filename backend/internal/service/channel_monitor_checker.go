@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -67,16 +68,19 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 	mode := bodyOverrideMode(opts)
 
 	start := time.Now()
-	respText, rawBody, statusCode, err := callProvider(ctx, provider, endpoint, apiKey, model, challenge.Prompt, opts)
+	callResult, err := callProvider(ctx, provider, endpoint, apiKey, model, challenge.Prompt, opts)
 	latency := time.Since(start)
 	latencyMs := int(latency / time.Millisecond)
 	res.LatencyMs = &latencyMs
+	res.FirstTokenMs = callResult.firstTokenMs
+	res.TokensPerSecond = monitorTokensPerSecond(callResult.outputTokens, callResult.firstTokenMs, latencyMs)
 
 	if err != nil {
 		res.Status = MonitorStatusError
 		res.Message = truncateMessage(sanitizeErrorMessage(err.Error()))
 		return res
 	}
+	respText, rawBody, statusCode := callResult.extractedText, callResult.rawBody, callResult.status
 	if statusCode < 200 || statusCode >= 300 {
 		// 错误路径：用 rawBody 而非 respText（gjson textPath 抽取在错误响应里通常为空，
 		// 会丢掉真正的上游错误信息，例如 `{"error":{"message":"No available accounts ..."}}`）。
@@ -162,6 +166,18 @@ type providerAdapter struct {
 	buildHeaders func(apiKey string) map[string]string
 	textPath     string // gjson 提取响应文本的 path
 	extractText  func([]byte) string
+}
+
+// monitorProviderCallResult carries both the existing end-to-end latency
+// measurement and the first visible output timestamp for streaming Responses
+// probes. Keeping these separate preserves the meaning of latency_ms while
+// allowing the UI to use the same TTFT health bands as usage records.
+type monitorProviderCallResult struct {
+	extractedText string
+	rawBody       string
+	status        int
+	firstTokenMs  *int
+	outputTokens  *int
 }
 
 // providerAdapters 全部已支持的 provider。键值即 MonitorProvider* 字符串。
@@ -274,34 +290,53 @@ func providerAdapterFor(provider, apiMode string) (providerAdapter, string, bool
 // callProvider 通过 providerAdapters 分发到具体实现。
 // opts 承载用户的自定义 headers / body 覆盖（可为 nil）。
 //
-// 返回值：
-//   - extractedText: 按 textPath 抽出的成功文本，仅在 status 2xx 时有意义；非 2xx 时通常为空串
-//   - rawBody: 完整响应体的字符串形式（已被 monitorResponseMaxBytes 截断），用于错误路径保留上游真实回包
-//   - status: HTTP 状态码
-//   - err: 网络 / 序列化错误
-func callProvider(ctx context.Context, provider, endpoint, apiKey, model, prompt string, opts *CheckOptions) (extractedText, rawBody string, status int, err error) {
+// 返回值包含抽取文本、原始响应、HTTP 状态和流式 Responses 的首个可见输出时间。
+// 对非流式 provider，firstTokenMs 为空；err 仅表示网络/序列化/流读取错误。
+func callProvider(ctx context.Context, provider, endpoint, apiKey, model, prompt string, opts *CheckOptions) (monitorProviderCallResult, error) {
 	requestedAPIMode := checkAPIMode(opts)
 	if err := validateAPIMode(provider, requestedAPIMode); err != nil {
-		return "", "", 0, err
+		return monitorProviderCallResult{}, err
 	}
 	adapter, apiMode, ok := providerAdapterFor(provider, requestedAPIMode)
 	if !ok {
-		return "", "", 0, fmt.Errorf("unsupported provider %q", provider)
+		return monitorProviderCallResult{}, fmt.Errorf("unsupported provider %q", provider)
 	}
 	body, err := buildRequestBody(adapter, provider, apiMode, model, prompt, opts)
 	if err != nil {
-		return "", "", 0, err
+		return monitorProviderCallResult{}, err
+	}
+	// V1 Responses probes intentionally use the same streaming transport as a
+	// normal user request. Replace-mode templates may contain stream:false, but
+	// measuring TTFT requires overriding that one transport flag.
+	if provider == MonitorProviderOpenAI && apiMode == MonitorAPIModeResponses {
+		body, err = forceResponsesStreamingBody(body)
+		if err != nil {
+			return monitorProviderCallResult{}, err
+		}
 	}
 	headers := mergeHeaders(adapter.buildHeaders(apiKey), opts)
 	full := joinURL(endpoint, adapter.buildPath(model))
+	if provider == MonitorProviderOpenAI && apiMode == MonitorAPIModeResponses {
+		respBytes, streamText, firstTokenMs, outputTokens, status, err := postStreamingResponses(ctx, full, body, headers)
+		if err != nil {
+			return monitorProviderCallResult{rawBody: string(respBytes), status: status, firstTokenMs: firstTokenMs, outputTokens: outputTokens}, err
+		}
+		if status >= 200 && status < 300 {
+			return monitorProviderCallResult{
+				extractedText: streamText,
+				rawBody:       string(respBytes),
+				status:        status,
+				firstTokenMs:  firstTokenMs,
+				outputTokens:  outputTokens,
+			}, nil
+		}
+		return monitorProviderCallResult{rawBody: string(respBytes), status: status, outputTokens: outputTokens}, nil
+	}
 	respBytes, status, err := postRawJSON(ctx, full, body, headers)
 	if err != nil {
-		return "", "", status, err
+		return monitorProviderCallResult{rawBody: string(respBytes), status: status}, err
 	}
-	if provider == MonitorProviderOpenAI && apiMode == MonitorAPIModeResponses {
-		return extractOpenAIResponsesText(respBytes), string(respBytes), status, nil
-	}
-	return extractMonitorResponseText(adapter, respBytes), string(respBytes), status, nil
+	return monitorProviderCallResult{extractedText: extractMonitorResponseText(adapter, respBytes), rawBody: string(respBytes), status: status}, nil
 }
 
 func extractMonitorResponseText(adapter providerAdapter, respBytes []byte) string {
@@ -309,6 +344,191 @@ func extractMonitorResponseText(adapter providerAdapter, respBytes []byte) strin
 		return adapter.extractText(respBytes)
 	}
 	return gjson.GetBytes(respBytes, adapter.textPath).String()
+}
+
+// forceResponsesStreamingBody normalizes a monitor Responses body to the
+// streaming transport required for TTFT measurement. It intentionally leaves
+// every other user-supplied field untouched.
+func forceResponsesStreamingBody(body []byte) ([]byte, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("decode responses monitor body for streaming: %w", err)
+	}
+	payload["stream"] = true
+	streamBody, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal responses monitor body for streaming: %w", err)
+	}
+	return streamBody, nil
+}
+
+// postStreamingResponses sends a Responses request with stream=true and
+// incrementally parses SSE frames. The returned firstTokenMs starts at the
+// same point as the normal gateway's request timer and is set on the first
+// visible output event, not on response.created/in_progress preamble events.
+func postStreamingResponses(
+	ctx context.Context,
+	fullURL string,
+	payload []byte,
+	headers map[string]string,
+) (rawBody []byte, streamText string, firstTokenMs *int, outputTokens *int, status int, err error) {
+	req, err := newMonitorJSONRequest(ctx, fullURL, payload, headers)
+	if err != nil {
+		return nil, "", nil, nil, 0, err
+	}
+	// Streaming is part of the Responses probe contract; do not let a custom
+	// Accept header downgrade the transport to a buffered JSON response.
+	req.Header.Set("Accept", "text/event-stream")
+	// Start before Do so TTFT includes connection setup and upstream queueing,
+	// matching the request timer used by the normal gateway path.
+	start := time.Now()
+	resp, err := monitorHTTPClient.Do(req)
+	if err != nil {
+		return nil, "", nil, nil, 0, fmt.Errorf("do request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	status = resp.StatusCode
+
+	if status < 200 || status >= 300 {
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, monitorResponseMaxBytes))
+		if readErr != nil {
+			return body, "", nil, nil, status, fmt.Errorf("read body: %w", readErr)
+		}
+		return body, "", nil, nil, status, nil
+	}
+
+	var raw bytes.Buffer
+	var text strings.Builder
+	var parser openAICompatSSEFrameParser
+	var streamErr error
+	sawTerminal := false
+	hadVisibleOutput := false
+	hadTextDelta := false
+
+	processData := func(eventType string, data []byte) {
+		trimmed := strings.TrimSpace(string(data))
+		if trimmed == "" || trimmed == "[DONE]" {
+			if trimmed == "[DONE]" {
+				sawTerminal = true
+			}
+			return
+		}
+		eventType = effectiveOpenAISSEEventType(data, eventType)
+		if usage, ok := extractOpenAIUsageFromJSONBytes(data); ok && usage.OutputTokens > 0 {
+			tokens := usage.OutputTokens
+			outputTokens = &tokens
+		}
+		if openAIStreamDataStartsVisibleOutput(trimmed, eventType) {
+			hadVisibleOutput = true
+			if firstTokenMs == nil {
+				ms := int(time.Since(start).Milliseconds())
+				firstTokenMs = &ms
+			}
+		}
+		switch eventType {
+		case "response.output_text.delta":
+			if delta := gjson.GetBytes(data, "delta").String(); delta != "" {
+				_, _ = text.WriteString(delta)
+				hadTextDelta = true
+			}
+		case "response.output_text.done":
+			if !hadTextDelta {
+				_, _ = text.WriteString(gjson.GetBytes(data, "text").String())
+			}
+		case "response.completed", "response.done":
+			if !hadTextDelta && text.Len() == 0 {
+				_, _ = text.WriteString(extractOpenAIResponsesText(data))
+			}
+		}
+		if openAIStreamEventTypeIsTerminal(eventType) {
+			sawTerminal = true
+		}
+		if eventType == "error" || eventType == "response.failed" || eventType == "response.incomplete" || eventType == "response.cancelled" || eventType == "response.canceled" {
+			message := extractOpenAISSEErrorMessage(data)
+			if message == "" {
+				message = eventType
+			}
+			streamErr = fmt.Errorf("upstream %s: %s", eventType, message)
+		}
+	}
+
+	processFrame := func(frame openAICompatSSEFrame, ok bool) {
+		if !ok {
+			return
+		}
+		data := strings.TrimSpace(frame.Data)
+		if data == "" {
+			return
+		}
+		if gjson.Valid(data) {
+			processData(frame.EventType, []byte(data))
+			return
+		}
+		for _, line := range strings.Split(data, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" && gjson.Valid(line) {
+				processData(frame.EventType, []byte(line))
+			}
+		}
+	}
+
+	scanner := bufio.NewScanner(io.LimitReader(resp.Body, monitorResponseMaxBytes))
+	scanner.Buffer(make([]byte, 0, 64*1024), defaultMaxLineSize)
+	for scanner.Scan() {
+		line := scanner.Text()
+		_, _ = raw.WriteString(line)
+		_ = raw.WriteByte('\n')
+		// Scanner strips LF but retains CR from CRLF-delimited SSE frames;
+		// normalize before feeding the frame parser so blank lines dispatch.
+		line = strings.TrimSuffix(line, "\r")
+		frame, ok := parser.AddLine(line)
+		processFrame(frame, ok)
+	}
+	frame, ok := parser.Finish()
+	processFrame(frame, ok)
+	if scanErr := scanner.Err(); scanErr != nil {
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, fmt.Errorf("read streaming response: %w", scanErr)
+	}
+	if streamErr != nil {
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, streamErr
+	}
+	if !sawTerminal {
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, errors.New("streaming response ended without a terminal event")
+	}
+	if !hadVisibleOutput {
+		return raw.Bytes(), text.String(), firstTokenMs, outputTokens, status, errors.New("streaming response contained no visible output")
+	}
+	return raw.Bytes(), strings.TrimSpace(text.String()), firstTokenMs, outputTokens, status, nil
+}
+
+// monitorTokensPerSecond converts a Responses usage count and the measured
+// stream timings into generation throughput. The interval starts at the first
+// visible token, so TTFT remains a separate metric. A nil result means the
+// upstream did not provide output-token usage or the interval was too short to
+// produce a meaningful rate.
+func monitorTokensPerSecond(outputTokens *int, firstTokenMs *int, latencyMs int) *float64 {
+	if outputTokens == nil || *outputTokens <= 0 || firstTokenMs == nil || latencyMs <= *firstTokenMs {
+		return nil
+	}
+	generationMs := latencyMs - *firstTokenMs
+	if generationMs <= 0 {
+		return nil
+	}
+	rate := float64(*outputTokens) * 1000 / float64(generationMs)
+	return &rate
+}
+
+func newMonitorJSONRequest(ctx context.Context, fullURL string, payload []byte, headers map[string]string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	return req, nil
 }
 
 func extractAnthropicMonitorText(respBytes []byte) string {
@@ -528,15 +748,11 @@ func hasNonEmptyBodyValue(v any) bool {
 // postRawJSON 发送 POST + 已序列化好的 JSON 字节，限制响应体大小，返回响应字节、HTTP status、错误。
 // adapter 自行 marshal 是为了精确控制字段顺序与类型，所以这里直接收 []byte 而不是 any。
 func postRawJSON(ctx context.Context, fullURL string, payload []byte, headers map[string]string) ([]byte, int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(payload))
+	req, err := newMonitorJSONRequest(ctx, fullURL, payload, headers)
 	if err != nil {
-		return nil, 0, fmt.Errorf("build request: %w", err)
+		return nil, 0, err
 	}
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
 
 	resp, err := monitorHTTPClient.Do(req)
 	if err != nil {

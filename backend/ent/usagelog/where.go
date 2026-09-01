@@ -105,6 +105,16 @@ func ChannelID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldChannelID, v))
 }
 
+// IsMonitor applies equality check predicate on the "is_monitor" field. It's identical to IsMonitorEQ.
+func IsMonitor(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldIsMonitor, v))
+}
+
+// ChannelMonitorID applies equality check predicate on the "channel_monitor_id" field. It's identical to ChannelMonitorIDEQ.
+func ChannelMonitorID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldChannelMonitorID, v))
+}
+
 // ModelMappingChain applies equality check predicate on the "model_mapping_chain" field. It's identical to ModelMappingChainEQ.
 func ModelMappingChain(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldModelMappingChain, v))
@@ -325,6 +335,16 @@ func APIKeyIDNotIn(vs ...int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotIn(FieldAPIKeyID, vs...))
 }
 
+// APIKeyIDIsNil applies the IsNil predicate on the "api_key_id" field.
+func APIKeyIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldAPIKeyID))
+}
+
+// APIKeyIDNotNil applies the NotNil predicate on the "api_key_id" field.
+func APIKeyIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldAPIKeyID))
+}
+
 // AccountIDEQ applies the EQ predicate on the "account_id" field.
 func AccountIDEQ(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldAccountID, v))
@@ -343,6 +363,16 @@ func AccountIDIn(vs ...int64) predicate.UsageLog {
 // AccountIDNotIn applies the NotIn predicate on the "account_id" field.
 func AccountIDNotIn(vs ...int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotIn(FieldAccountID, vs...))
+}
+
+// AccountIDIsNil applies the IsNil predicate on the "account_id" field.
+func AccountIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldAccountID))
+}
+
+// AccountIDNotNil applies the NotNil predicate on the "account_id" field.
+func AccountIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldAccountID))
 }
 
 // RequestIDEQ applies the EQ predicate on the "request_id" field.
@@ -768,6 +798,66 @@ func ChannelIDIsNil() predicate.UsageLog {
 // ChannelIDNotNil applies the NotNil predicate on the "channel_id" field.
 func ChannelIDNotNil() predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotNull(FieldChannelID))
+}
+
+// IsMonitorEQ applies the EQ predicate on the "is_monitor" field.
+func IsMonitorEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldIsMonitor, v))
+}
+
+// IsMonitorNEQ applies the NEQ predicate on the "is_monitor" field.
+func IsMonitorNEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldIsMonitor, v))
+}
+
+// ChannelMonitorIDEQ applies the EQ predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldChannelMonitorID, v))
+}
+
+// ChannelMonitorIDNEQ applies the NEQ predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldChannelMonitorID, v))
+}
+
+// ChannelMonitorIDIn applies the In predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldChannelMonitorID, vs...))
+}
+
+// ChannelMonitorIDNotIn applies the NotIn predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldChannelMonitorID, vs...))
+}
+
+// ChannelMonitorIDGT applies the GT predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldChannelMonitorID, v))
+}
+
+// ChannelMonitorIDGTE applies the GTE predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldChannelMonitorID, v))
+}
+
+// ChannelMonitorIDLT applies the LT predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldChannelMonitorID, v))
+}
+
+// ChannelMonitorIDLTE applies the LTE predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldChannelMonitorID, v))
+}
+
+// ChannelMonitorIDIsNil applies the IsNil predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldChannelMonitorID))
+}
+
+// ChannelMonitorIDNotNil applies the NotNil predicate on the "channel_monitor_id" field.
+func ChannelMonitorIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldChannelMonitorID))
 }
 
 // ModelMappingChainEQ applies the EQ predicate on the "model_mapping_chain" field.

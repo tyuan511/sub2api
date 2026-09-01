@@ -34,6 +34,10 @@ const (
 	FieldUpstreamModelMismatch = "upstream_model_mismatch"
 	// FieldChannelID holds the string denoting the channel_id field in the database.
 	FieldChannelID = "channel_id"
+	// FieldIsMonitor holds the string denoting the is_monitor field in the database.
+	FieldIsMonitor = "is_monitor"
+	// FieldChannelMonitorID holds the string denoting the channel_monitor_id field in the database.
+	FieldChannelMonitorID = "channel_monitor_id"
 	// FieldModelMappingChain holds the string denoting the model_mapping_chain field in the database.
 	FieldModelMappingChain = "model_mapping_chain"
 	// FieldBillingTier holds the string denoting the billing_tier field in the database.
@@ -170,6 +174,8 @@ var Columns = []string{
 	FieldUpstreamResponseModel,
 	FieldUpstreamModelMismatch,
 	FieldChannelID,
+	FieldIsMonitor,
+	FieldChannelMonitorID,
 	FieldModelMappingChain,
 	FieldBillingTier,
 	FieldBillingMode,
@@ -230,6 +236,8 @@ var (
 	UpstreamModelValidator func(string) error
 	// UpstreamResponseModelValidator is a validator for the "upstream_response_model" field. It is called by the builders before save.
 	UpstreamResponseModelValidator func(string) error
+	// DefaultIsMonitor holds the default value on creation for the "is_monitor" field.
+	DefaultIsMonitor bool
 	// ModelMappingChainValidator is a validator for the "model_mapping_chain" field. It is called by the builders before save.
 	ModelMappingChainValidator func(string) error
 	// BillingTierValidator is a validator for the "billing_tier" field. It is called by the builders before save.
@@ -348,6 +356,16 @@ func ByUpstreamModelMismatch(opts ...sql.OrderTermOption) OrderOption {
 // ByChannelID orders the results by the channel_id field.
 func ByChannelID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldChannelID, opts...).ToFunc()
+}
+
+// ByIsMonitor orders the results by the is_monitor field.
+func ByIsMonitor(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsMonitor, opts...).ToFunc()
+}
+
+// ByChannelMonitorID orders the results by the channel_monitor_id field.
+func ByChannelMonitorID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldChannelMonitorID, opts...).ToFunc()
 }
 
 // ByModelMappingChain orders the results by the model_mapping_chain field.

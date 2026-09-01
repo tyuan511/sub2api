@@ -34,7 +34,8 @@
               <tr class="text-gray-400">
                 <th class="py-0.5 pr-2 font-medium">{{ t('admin.channelMonitor.columns.primaryModel') }}</th>
                 <th class="py-0.5 pr-2 font-medium">{{ t('admin.channelMonitor.columns.actions') }}</th>
-                <th class="py-0.5 font-medium">{{ t('admin.channelMonitor.columns.latency') }}</th>
+                <th class="py-0.5 pr-2 font-medium">{{ t('admin.channelMonitor.columns.firstToken') }}</th>
+                <th class="py-0.5 font-medium">{{ t('admin.channelMonitor.columns.tokenSpeed') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -48,7 +49,22 @@
                     {{ statusLabel(m.status) }}
                   </span>
                 </td>
-                <td class="py-0.5 text-gray-100">{{ formatLatency(m.latency_ms) }}</td>
+                <td class="py-0.5 pr-2">
+                  <span
+                    v-if="m.first_token_ms != null"
+                    class="font-medium tabular-nums"
+                    :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(m.first_token_ms)]"
+                  >
+                    {{ formatLatency(m.first_token_ms) }} ms
+                  </span>
+                  <span v-else class="text-gray-500">{{ formatLatency(null) }}</span>
+                </td>
+                <td class="py-0.5 text-gray-100">
+                  <span v-if="m.tokens_per_second != null" class="tabular-nums">
+                    {{ formatTokensPerSecond(m.tokens_per_second) }} Token/s
+                  </span>
+                  <span v-else class="text-gray-500">{{ formatTokensPerSecond(null) }}</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -67,11 +83,12 @@ import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import MonitorQuotaView from '@/components/common/MonitorQuotaView.vue'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
+import { firstTokenSeverity, LATENCY_TEXT_CLASSES } from '@/utils/latencyHealth'
 
 defineProps<{
   row: ChannelMonitor
 }>()
 
 const { t } = useI18n()
-const { statusLabel, statusBadgeClass, formatLatency, formatMonitorModel } = useChannelMonitorFormat()
+const { statusLabel, statusBadgeClass, formatLatency, formatTokensPerSecond, formatMonitorModel } = useChannelMonitorFormat()
 </script>

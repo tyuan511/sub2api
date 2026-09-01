@@ -76,6 +76,13 @@ type channelMonitorRuntimeReader interface {
 	GetChannelMonitorRuntime(ctx context.Context) ChannelMonitorRuntime
 }
 
+// monitorUsageLogWriter is implemented by the usage-log repository. It is
+// intentionally kept separate from UsageLogRepository so monitor probes never
+// enter the normal billing/idempotency path.
+type monitorUsageLogWriter interface {
+	CreateMonitor(ctx context.Context, log *UsageLog) error
+}
+
 // ChannelMonitorService 渠道监控管理服务。
 type ChannelMonitorService struct {
 	repo      ChannelMonitorRepository
@@ -90,6 +97,9 @@ type ChannelMonitorService struct {
 	// 之后构造，构造参数注入会破坏既有依赖顺序）。nil 时 fail-closed：
 	// 配额模式的检测产出「未配置」错误快照，Create/Update 关联账号直接报错。
 	quotaFetcher *ChannelMonitorQuotaFetcher
+	// usageLogRepo is optional for compatibility with lightweight tests. When
+	// wired, active probe results are also persisted as informational usage logs.
+	usageLogRepo UsageLogRepository
 }
 
 const maxChannelMonitorNameRunes = 100
@@ -112,6 +122,15 @@ func (s *ChannelMonitorService) SetRuntimeReader(r channelMonitorRuntimeReader) 
 		return
 	}
 	s.settings = r
+}
+
+// SetUsageLogRepository injects the repository used to record active monitor
+// probes. The setter avoids changing the constructor dependency order.
+func (s *ChannelMonitorService) SetUsageLogRepository(repo UsageLogRepository) {
+	if s == nil {
+		return
+	}
+	s.usageLogRepo = repo
 }
 
 func (s *ChannelMonitorService) probeRuntime(ctx context.Context) ChannelMonitorRuntime {
@@ -681,14 +700,16 @@ func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *Chan
 	rows := make([]*ChannelMonitorHistoryRow, 0, len(results))
 	for _, r := range results {
 		rows = append(rows, &ChannelMonitorHistoryRow{
-			MonitorID:     m.ID,
-			Model:         r.Model,
-			Status:        r.Status,
-			LatencyMs:     r.LatencyMs,
-			PingLatencyMs: r.PingLatencyMs,
-			Message:       r.Message,
-			CheckedAt:     r.CheckedAt,
-			Quota:         r.Quota,
+			MonitorID:       m.ID,
+			Model:           r.Model,
+			Status:          r.Status,
+			LatencyMs:       r.LatencyMs,
+			FirstTokenMs:    r.FirstTokenMs,
+			TokensPerSecond: r.TokensPerSecond,
+			PingLatencyMs:   r.PingLatencyMs,
+			Message:         r.Message,
+			CheckedAt:       r.CheckedAt,
+			Quota:           r.Quota,
 		})
 	}
 	if err := s.repo.InsertHistoryBatch(ctx, rows); err != nil {
@@ -699,6 +720,9 @@ func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *Chan
 		slog.Error("channel_monitor: mark checked failed",
 			"monitor_id", m.ID, "error", err)
 	}
+	if defaultCheckMode(m.CheckMode) != MonitorCheckModeQuota {
+		s.persistMonitorUsageLogs(ctx, m, results)
+	}
 	if groupName := strings.TrimSpace(m.GroupName); groupName != "" {
 		if err := s.repo.RefreshGroupCacheHitRateSnapshots(ctx, []string{groupName}); err != nil {
 			// 缓存命中率是监控页面的附加指标，快照失败不应影响本次探活结果。
@@ -706,6 +730,58 @@ func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *Chan
 				"monitor_id", m.ID, "group_name", groupName, "error", err)
 		}
 	}
+}
+
+// persistMonitorUsageLogs records one non-billable usage row per active probe
+// model. A detached, bounded context ensures a client cancellation cannot
+// erase the monitoring audit trail or delay the result response indefinitely.
+func (s *ChannelMonitorService) persistMonitorUsageLogs(ctx context.Context, m *ChannelMonitor, results []*CheckResult) {
+	if s == nil || s.usageLogRepo == nil || m == nil || m.CreatedBy <= 0 {
+		return
+	}
+	writer, ok := s.usageLogRepo.(monitorUsageLogWriter)
+	if !ok {
+		return
+	}
+	baseCtx := context.Background()
+	if ctx != nil {
+		baseCtx = context.WithoutCancel(ctx)
+	}
+	logCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+	defer cancel()
+	for idx, result := range results {
+		if result == nil || strings.TrimSpace(result.Model) == "" {
+			continue
+		}
+		checkedAt := result.CheckedAt
+		if checkedAt.IsZero() {
+			checkedAt = time.Now()
+		}
+		monitorID := m.ID
+		monitorLog := &UsageLog{
+			UserID:           m.CreatedBy,
+			RequestID:        fmt.Sprintf("monitor-%d-%d-%d", m.ID, checkedAt.UnixNano(), idx),
+			Model:            result.Model,
+			RequestedModel:   result.Model,
+			OutputTokens:     0,
+			RequestType:      RequestTypeSync,
+			Stream:           false,
+			DurationMs:       result.LatencyMs,
+			FirstTokenMs:     result.FirstTokenMs,
+			UserAgent:        monitorStringPtr("sub2api-channel-monitor"),
+			ChannelMonitorID: &monitorID,
+			IsMonitor:        true,
+			CreatedAt:        checkedAt,
+		}
+		if err := writer.CreateMonitor(logCtx, monitorLog); err != nil {
+			slog.Warn("channel_monitor: persist usage log failed",
+				"monitor_id", m.ID, "model", result.Model, "error", err)
+		}
+	}
+}
+
+func monitorStringPtr(value string) *string {
+	return &value
 }
 
 // runChecksConcurrent 对 primary + extra 模型并发执行检测。

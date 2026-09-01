@@ -250,6 +250,12 @@ func (r *channelMonitorRepository) InsertHistoryBatch(ctx context.Context, rows 
 		if row.LatencyMs != nil {
 			c = c.SetLatencyMs(*row.LatencyMs)
 		}
+		if row.FirstTokenMs != nil {
+			c = c.SetFirstTokenMs(*row.FirstTokenMs)
+		}
+		if row.TokensPerSecond != nil {
+			c = c.SetTokensPerSecond(*row.TokensPerSecond)
+		}
 		if row.PingLatencyMs != nil {
 			c = c.SetPingLatencyMs(*row.PingLatencyMs)
 		}
@@ -288,14 +294,16 @@ func (r *channelMonitorRepository) ListHistory(ctx context.Context, monitorID in
 	out := make([]*service.ChannelMonitorHistoryEntry, 0, len(rows))
 	for _, row := range rows {
 		entry := &service.ChannelMonitorHistoryEntry{
-			ID:            row.ID,
-			Model:         row.Model,
-			Status:        string(row.Status),
-			LatencyMs:     row.LatencyMs,
-			PingLatencyMs: row.PingLatencyMs,
-			Message:       row.Message,
-			CheckedAt:     row.CheckedAt,
-			Quota:         row.Quota,
+			ID:              row.ID,
+			Model:           row.Model,
+			Status:          string(row.Status),
+			LatencyMs:       row.LatencyMs,
+			FirstTokenMs:    row.FirstTokenMs,
+			TokensPerSecond: row.TokensPerSecond,
+			PingLatencyMs:   row.PingLatencyMs,
+			Message:         row.Message,
+			CheckedAt:       row.CheckedAt,
+			Quota:           row.Quota,
 		}
 		out = append(out, entry)
 	}
@@ -309,7 +317,7 @@ func (r *channelMonitorRepository) ListHistory(ctx context.Context, monitorID in
 func (r *channelMonitorRepository) ListLatestPerModel(ctx context.Context, monitorID int64) ([]*service.ChannelMonitorLatest, error) {
 	const q = `
 		SELECT DISTINCT ON (model)
-		    model, status, latency_ms, ping_latency_ms, checked_at
+		    model, status, latency_ms, first_token_ms, tokens_per_second, ping_latency_ms, checked_at
 		FROM channel_monitor_histories
 		WHERE monitor_id = $1
 		ORDER BY model, checked_at DESC
@@ -323,11 +331,14 @@ func (r *channelMonitorRepository) ListLatestPerModel(ctx context.Context, monit
 	out := make([]*service.ChannelMonitorLatest, 0)
 	for rows.Next() {
 		l := &service.ChannelMonitorLatest{}
-		var latency, ping sql.NullInt64
-		if err := rows.Scan(&l.Model, &l.Status, &latency, &ping, &l.CheckedAt); err != nil {
+		var latency, firstToken, ping sql.NullInt64
+		var tokensPerSecond sql.NullFloat64
+		if err := rows.Scan(&l.Model, &l.Status, &latency, &firstToken, &tokensPerSecond, &ping, &l.CheckedAt); err != nil {
 			return nil, fmt.Errorf("scan latest row: %w", err)
 		}
 		assignNullInt(&l.LatencyMs, latency)
+		assignNullInt(&l.FirstTokenMs, firstToken)
+		assignNullFloat(&l.TokensPerSecond, tokensPerSecond)
 		assignNullInt(&l.PingLatencyMs, ping)
 		out = append(out, l)
 	}
@@ -341,6 +352,15 @@ func assignNullInt(dst **int, n sql.NullInt64) {
 		return
 	}
 	v := int(n.Int64)
+	*dst = &v
+}
+
+// assignNullFloat 把 sql.NullFloat64 解包到 *float64 指针目标。
+func assignNullFloat(dst **float64, n sql.NullFloat64) {
+	if !n.Valid {
+		return
+	}
+	v := n.Float64
 	*dst = &v
 }
 
@@ -430,7 +450,7 @@ func (r *channelMonitorRepository) ListLatestForMonitorIDs(ctx context.Context, 
 	}
 	const q = `
 		SELECT DISTINCT ON (monitor_id, model)
-		    monitor_id, model, status, latency_ms, ping_latency_ms, checked_at, quota
+		    monitor_id, model, status, latency_ms, first_token_ms, tokens_per_second, ping_latency_ms, checked_at, quota
 		FROM channel_monitor_histories
 		WHERE monitor_id = ANY($1)
 		ORDER BY monitor_id, model, checked_at DESC
@@ -444,12 +464,15 @@ func (r *channelMonitorRepository) ListLatestForMonitorIDs(ctx context.Context, 
 	for rows.Next() {
 		var monitorID int64
 		l := &service.ChannelMonitorLatest{}
-		var latency, ping sql.NullInt64
+		var latency, firstToken, ping sql.NullInt64
+		var tokensPerSecond sql.NullFloat64
 		var quota []byte
-		if err := rows.Scan(&monitorID, &l.Model, &l.Status, &latency, &ping, &l.CheckedAt, &quota); err != nil {
+		if err := rows.Scan(&monitorID, &l.Model, &l.Status, &latency, &firstToken, &tokensPerSecond, &ping, &l.CheckedAt, &quota); err != nil {
 			return nil, fmt.Errorf("scan latest batch row: %w", err)
 		}
 		assignNullInt(&l.LatencyMs, latency)
+		assignNullInt(&l.FirstTokenMs, firstToken)
+		assignNullFloat(&l.TokensPerSecond, tokensPerSecond)
 		assignNullInt(&l.PingLatencyMs, ping)
 		l.Quota = scanMonitorQuota(quota)
 		out[monitorID] = append(out[monitorID], l)
@@ -489,6 +512,8 @@ func (r *channelMonitorRepository) ListRecentHistoryForMonitors(
 		    SELECT h.monitor_id,
 		           h.status,
 		           h.latency_ms,
+		           h.first_token_ms,
+		           h.tokens_per_second,
 		           h.ping_latency_ms,
 		           h.checked_at,
 		           ROW_NUMBER() OVER (PARTITION BY h.monitor_id ORDER BY h.checked_at DESC) AS rn
@@ -496,7 +521,7 @@ func (r *channelMonitorRepository) ListRecentHistoryForMonitors(
 		    JOIN targets t
 		      ON t.monitor_id = h.monitor_id AND t.model = h.model
 		)
-		SELECT monitor_id, status, latency_ms, ping_latency_ms, checked_at
+		SELECT monitor_id, status, latency_ms, first_token_ms, tokens_per_second, ping_latency_ms, checked_at
 		FROM ranked
 		WHERE rn <= $3
 		ORDER BY monitor_id, checked_at DESC
@@ -510,11 +535,14 @@ func (r *channelMonitorRepository) ListRecentHistoryForMonitors(
 	for rows.Next() {
 		var monitorID int64
 		entry := &service.ChannelMonitorHistoryEntry{}
-		var latency, ping sql.NullInt64
-		if err := rows.Scan(&monitorID, &entry.Status, &latency, &ping, &entry.CheckedAt); err != nil {
+		var latency, firstToken, ping sql.NullInt64
+		var tokensPerSecond sql.NullFloat64
+		if err := rows.Scan(&monitorID, &entry.Status, &latency, &firstToken, &tokensPerSecond, &ping, &entry.CheckedAt); err != nil {
 			return nil, fmt.Errorf("scan recent history row: %w", err)
 		}
 		assignNullInt(&entry.LatencyMs, latency)
+		assignNullInt(&entry.FirstTokenMs, firstToken)
+		assignNullFloat(&entry.TokensPerSecond, tokensPerSecond)
 		assignNullInt(&entry.PingLatencyMs, ping)
 		out[monitorID] = append(out[monitorID], entry)
 	}

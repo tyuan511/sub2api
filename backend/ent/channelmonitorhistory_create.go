@@ -56,6 +56,34 @@ func (_c *ChannelMonitorHistoryCreate) SetNillableLatencyMs(v *int) *ChannelMoni
 	return _c
 }
 
+// SetFirstTokenMs sets the "first_token_ms" field.
+func (_c *ChannelMonitorHistoryCreate) SetFirstTokenMs(v int) *ChannelMonitorHistoryCreate {
+	_c.mutation.SetFirstTokenMs(v)
+	return _c
+}
+
+// SetNillableFirstTokenMs sets the "first_token_ms" field if the given value is not nil.
+func (_c *ChannelMonitorHistoryCreate) SetNillableFirstTokenMs(v *int) *ChannelMonitorHistoryCreate {
+	if v != nil {
+		_c.SetFirstTokenMs(*v)
+	}
+	return _c
+}
+
+// SetTokensPerSecond sets the "tokens_per_second" field.
+func (_c *ChannelMonitorHistoryCreate) SetTokensPerSecond(v float64) *ChannelMonitorHistoryCreate {
+	_c.mutation.SetTokensPerSecond(v)
+	return _c
+}
+
+// SetNillableTokensPerSecond sets the "tokens_per_second" field if the given value is not nil.
+func (_c *ChannelMonitorHistoryCreate) SetNillableTokensPerSecond(v *float64) *ChannelMonitorHistoryCreate {
+	if v != nil {
+		_c.SetTokensPerSecond(*v)
+	}
+	return _c
+}
+
 // SetPingLatencyMs sets the "ping_latency_ms" field.
 func (_c *ChannelMonitorHistoryCreate) SetPingLatencyMs(v int) *ChannelMonitorHistoryCreate {
 	_c.mutation.SetPingLatencyMs(v)
@@ -225,6 +253,14 @@ func (_c *ChannelMonitorHistoryCreate) createSpec() (*ChannelMonitorHistory, *sq
 		_spec.SetField(channelmonitorhistory.FieldLatencyMs, field.TypeInt, value)
 		_node.LatencyMs = &value
 	}
+	if value, ok := _c.mutation.FirstTokenMs(); ok {
+		_spec.SetField(channelmonitorhistory.FieldFirstTokenMs, field.TypeInt, value)
+		_node.FirstTokenMs = &value
+	}
+	if value, ok := _c.mutation.TokensPerSecond(); ok {
+		_spec.SetField(channelmonitorhistory.FieldTokensPerSecond, field.TypeFloat64, value)
+		_node.TokensPerSecond = &value
+	}
 	if value, ok := _c.mutation.PingLatencyMs(); ok {
 		_spec.SetField(channelmonitorhistory.FieldPingLatencyMs, field.TypeInt, value)
 		_node.PingLatencyMs = &value
@@ -367,6 +403,54 @@ func (u *ChannelMonitorHistoryUpsert) AddLatencyMs(v int) *ChannelMonitorHistory
 // ClearLatencyMs clears the value of the "latency_ms" field.
 func (u *ChannelMonitorHistoryUpsert) ClearLatencyMs() *ChannelMonitorHistoryUpsert {
 	u.SetNull(channelmonitorhistory.FieldLatencyMs)
+	return u
+}
+
+// SetFirstTokenMs sets the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsert) SetFirstTokenMs(v int) *ChannelMonitorHistoryUpsert {
+	u.Set(channelmonitorhistory.FieldFirstTokenMs, v)
+	return u
+}
+
+// UpdateFirstTokenMs sets the "first_token_ms" field to the value that was provided on create.
+func (u *ChannelMonitorHistoryUpsert) UpdateFirstTokenMs() *ChannelMonitorHistoryUpsert {
+	u.SetExcluded(channelmonitorhistory.FieldFirstTokenMs)
+	return u
+}
+
+// AddFirstTokenMs adds v to the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsert) AddFirstTokenMs(v int) *ChannelMonitorHistoryUpsert {
+	u.Add(channelmonitorhistory.FieldFirstTokenMs, v)
+	return u
+}
+
+// ClearFirstTokenMs clears the value of the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsert) ClearFirstTokenMs() *ChannelMonitorHistoryUpsert {
+	u.SetNull(channelmonitorhistory.FieldFirstTokenMs)
+	return u
+}
+
+// SetTokensPerSecond sets the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsert) SetTokensPerSecond(v float64) *ChannelMonitorHistoryUpsert {
+	u.Set(channelmonitorhistory.FieldTokensPerSecond, v)
+	return u
+}
+
+// UpdateTokensPerSecond sets the "tokens_per_second" field to the value that was provided on create.
+func (u *ChannelMonitorHistoryUpsert) UpdateTokensPerSecond() *ChannelMonitorHistoryUpsert {
+	u.SetExcluded(channelmonitorhistory.FieldTokensPerSecond)
+	return u
+}
+
+// AddTokensPerSecond adds v to the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsert) AddTokensPerSecond(v float64) *ChannelMonitorHistoryUpsert {
+	u.Add(channelmonitorhistory.FieldTokensPerSecond, v)
+	return u
+}
+
+// ClearTokensPerSecond clears the value of the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsert) ClearTokensPerSecond() *ChannelMonitorHistoryUpsert {
+	u.SetNull(channelmonitorhistory.FieldTokensPerSecond)
 	return u
 }
 
@@ -549,6 +633,62 @@ func (u *ChannelMonitorHistoryUpsertOne) UpdateLatencyMs() *ChannelMonitorHistor
 func (u *ChannelMonitorHistoryUpsertOne) ClearLatencyMs() *ChannelMonitorHistoryUpsertOne {
 	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
 		s.ClearLatencyMs()
+	})
+}
+
+// SetFirstTokenMs sets the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsertOne) SetFirstTokenMs(v int) *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.SetFirstTokenMs(v)
+	})
+}
+
+// AddFirstTokenMs adds v to the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsertOne) AddFirstTokenMs(v int) *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.AddFirstTokenMs(v)
+	})
+}
+
+// UpdateFirstTokenMs sets the "first_token_ms" field to the value that was provided on create.
+func (u *ChannelMonitorHistoryUpsertOne) UpdateFirstTokenMs() *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.UpdateFirstTokenMs()
+	})
+}
+
+// ClearFirstTokenMs clears the value of the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsertOne) ClearFirstTokenMs() *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.ClearFirstTokenMs()
+	})
+}
+
+// SetTokensPerSecond sets the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsertOne) SetTokensPerSecond(v float64) *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.SetTokensPerSecond(v)
+	})
+}
+
+// AddTokensPerSecond adds v to the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsertOne) AddTokensPerSecond(v float64) *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.AddTokensPerSecond(v)
+	})
+}
+
+// UpdateTokensPerSecond sets the "tokens_per_second" field to the value that was provided on create.
+func (u *ChannelMonitorHistoryUpsertOne) UpdateTokensPerSecond() *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.UpdateTokensPerSecond()
+	})
+}
+
+// ClearTokensPerSecond clears the value of the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsertOne) ClearTokensPerSecond() *ChannelMonitorHistoryUpsertOne {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.ClearTokensPerSecond()
 	})
 }
 
@@ -907,6 +1047,62 @@ func (u *ChannelMonitorHistoryUpsertBulk) UpdateLatencyMs() *ChannelMonitorHisto
 func (u *ChannelMonitorHistoryUpsertBulk) ClearLatencyMs() *ChannelMonitorHistoryUpsertBulk {
 	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
 		s.ClearLatencyMs()
+	})
+}
+
+// SetFirstTokenMs sets the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsertBulk) SetFirstTokenMs(v int) *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.SetFirstTokenMs(v)
+	})
+}
+
+// AddFirstTokenMs adds v to the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsertBulk) AddFirstTokenMs(v int) *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.AddFirstTokenMs(v)
+	})
+}
+
+// UpdateFirstTokenMs sets the "first_token_ms" field to the value that was provided on create.
+func (u *ChannelMonitorHistoryUpsertBulk) UpdateFirstTokenMs() *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.UpdateFirstTokenMs()
+	})
+}
+
+// ClearFirstTokenMs clears the value of the "first_token_ms" field.
+func (u *ChannelMonitorHistoryUpsertBulk) ClearFirstTokenMs() *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.ClearFirstTokenMs()
+	})
+}
+
+// SetTokensPerSecond sets the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsertBulk) SetTokensPerSecond(v float64) *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.SetTokensPerSecond(v)
+	})
+}
+
+// AddTokensPerSecond adds v to the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsertBulk) AddTokensPerSecond(v float64) *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.AddTokensPerSecond(v)
+	})
+}
+
+// UpdateTokensPerSecond sets the "tokens_per_second" field to the value that was provided on create.
+func (u *ChannelMonitorHistoryUpsertBulk) UpdateTokensPerSecond() *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.UpdateTokensPerSecond()
+	})
+}
+
+// ClearTokensPerSecond clears the value of the "tokens_per_second" field.
+func (u *ChannelMonitorHistoryUpsertBulk) ClearTokensPerSecond() *ChannelMonitorHistoryUpsertBulk {
+	return u.Update(func(s *ChannelMonitorHistoryUpsert) {
+		s.ClearTokensPerSecond()
 	})
 }
 

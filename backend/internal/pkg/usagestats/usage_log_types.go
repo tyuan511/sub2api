@@ -287,6 +287,10 @@ type UsageLogFilters struct {
 	EndTime               *time.Time
 	// ExactTotal requests exact COUNT(*) for pagination. Default false for fast large-table paging.
 	ExactTotal bool
+	// ExcludeMonitor omits informational active channel-monitor probe rows.
+	// User-facing usage pages set this; admin pages leave it false so probes
+	// remain visible for auditing.
+	ExcludeMonitor bool
 }
 
 // UsageStats represents usage statistics

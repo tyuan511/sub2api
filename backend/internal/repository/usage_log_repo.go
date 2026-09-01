@@ -138,6 +138,13 @@ func appendUsageLogModelQueryFilter(query string, args []any, model string, sour
 	return query, args
 }
 
+func appendUsageLogMonitorFilter(conditions []string, filters UsageLogFilters) []string {
+	if filters.ExcludeMonitor {
+		return append(conditions, "is_monitor = FALSE")
+	}
+	return conditions
+}
+
 type usageLogRepository struct {
 	client *dbent.Client
 	sql    sqlExecutor

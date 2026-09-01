@@ -116,6 +116,49 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestUsageLogRepositoryCreateMonitorWritesInformationalRow(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	monitorID := int64(7)
+	duration := 123
+	createdAt := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	log := &service.UsageLog{
+		UserID:           42,
+		RequestID:        "monitor-7-1-0",
+		Model:            "gpt-5.6-sol",
+		RequestedModel:   "gpt-5.6-sol",
+		RequestType:      service.RequestTypeSync,
+		DurationMs:       &duration,
+		UserAgent:        monitorUserAgentPtr("sub2api-channel-monitor"),
+		ChannelMonitorID: &monitorID,
+		CreatedAt:        createdAt,
+	}
+
+	mock.ExpectExec("INSERT INTO usage_logs").WithArgs(
+		log.UserID,
+		log.RequestID,
+		log.Model,
+		log.RequestedModel,
+		log.OutputTokens,
+		int16(service.RequestTypeSync),
+		log.Stream,
+		sqlmock.AnyArg(), // duration_ms
+		sqlmock.AnyArg(), // first_token_ms
+		sqlmock.AnyArg(), // user_agent
+		createdAt,
+		monitorID,
+	).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	require.NoError(t, repo.CreateMonitor(context.Background(), log))
+	require.True(t, log.IsMonitor)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func monitorUserAgentPtr(value string) *string {
+	return &value
+}
+
 func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 	db, mock := newSQLMock(t)
 	repo := &usageLogRepository{sql: db}

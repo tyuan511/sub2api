@@ -125,6 +125,59 @@ type usageLogInsertPrepared struct {
 	args           []any
 }
 
+// CreateMonitor writes an informational usage-log row for an active channel
+// monitor probe. It deliberately uses a small, dedicated INSERT instead of
+// the billing batch path: monitor probes have no downstream API key/account,
+// must not be billed, and should never be attributed to a real customer key.
+func (r *usageLogRepository) CreateMonitor(ctx context.Context, log *service.UsageLog) error {
+	if r == nil || log == nil || r.sql == nil {
+		return nil
+	}
+	if log.UserID <= 0 || strings.TrimSpace(log.RequestID) == "" || strings.TrimSpace(log.Model) == "" {
+		return fmt.Errorf("invalid monitor usage log identity")
+	}
+	createdAt := log.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	requestID := strings.TrimSpace(log.RequestID)
+	requestedModel := strings.TrimSpace(log.RequestedModel)
+	if requestedModel == "" {
+		requestedModel = strings.TrimSpace(log.Model)
+	}
+	duration := nullInt(log.DurationMs)
+	firstToken := nullInt(log.FirstTokenMs)
+	userAgent := nullString(log.UserAgent)
+	channelMonitorID := nullInt64(log.ChannelMonitorID)
+
+	_, err := r.sql.ExecContext(ctx, `
+		INSERT INTO usage_logs (
+			user_id,
+			request_id,
+			model,
+			requested_model,
+			output_tokens,
+			request_type,
+			stream,
+			duration_ms,
+			first_token_ms,
+			user_agent,
+			created_at,
+			is_monitor,
+			channel_monitor_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, $12)
+		ON CONFLICT DO NOTHING
+	`, log.UserID, requestID, log.Model, requestedModel, log.OutputTokens,
+		int16(service.RequestTypeFromInt16(int16(log.EffectiveRequestType()))), log.Stream,
+		duration, firstToken, userAgent, createdAt, channelMonitorID)
+	if err != nil {
+		return err
+	}
+	log.IsMonitor = true
+	log.CreatedAt = createdAt
+	return nil
+}
+
 type usageLogBatchState struct {
 	ID        int64
 	CreatedAt time.Time

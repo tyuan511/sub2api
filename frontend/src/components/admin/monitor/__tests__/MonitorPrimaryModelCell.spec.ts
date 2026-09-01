@@ -51,7 +51,10 @@ function mountCell(row: ChannelMonitor) {
   return mount(MonitorPrimaryModelCell, {
     props: { row },
     global: {
-      stubs: { MonitorQuotaView: true, HelpTooltip: false },
+      stubs: {
+        MonitorQuotaView: true,
+        HelpTooltip: { template: '<div><slot name="trigger" /><slot /></div>' },
+      },
     },
   })
 }
@@ -69,5 +72,25 @@ describe('MonitorPrimaryModelCell placeholder model display', () => {
     }))
     expect(wrapper.text()).toContain('claude-sonnet-4-5')
     expect(wrapper.text()).not.toContain('monitorCommon.checkMode.quota')
+  })
+
+  it('shows TTFT and token speed for extra models instead of legacy latency', () => {
+    const wrapper = mountCell(makeRow({
+      primary_model: 'gpt-5.3-codex-spark',
+      extra_models: ['gpt-5.3-codex'],
+      extra_models_status: [{
+        model: 'gpt-5.3-codex',
+        status: 'operational',
+        latency_ms: 9_999,
+        first_token_ms: 1_693,
+        tokens_per_second: 231,
+      }],
+    }))
+
+    expect(wrapper.text()).toContain('admin.channelMonitor.columns.firstToken')
+    expect(wrapper.text()).toContain('admin.channelMonitor.columns.tokenSpeed')
+    expect(wrapper.text()).toContain('1693 ms')
+    expect(wrapper.text()).toContain('231.0 Token/s')
+    expect(wrapper.text()).not.toContain('9999')
   })
 })

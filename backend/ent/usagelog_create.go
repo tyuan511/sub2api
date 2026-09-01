@@ -39,9 +39,25 @@ func (_c *UsageLogCreate) SetAPIKeyID(v int64) *UsageLogCreate {
 	return _c
 }
 
+// SetNillableAPIKeyID sets the "api_key_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableAPIKeyID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetAPIKeyID(*v)
+	}
+	return _c
+}
+
 // SetAccountID sets the "account_id" field.
 func (_c *UsageLogCreate) SetAccountID(v int64) *UsageLogCreate {
 	_c.mutation.SetAccountID(v)
+	return _c
+}
+
+// SetNillableAccountID sets the "account_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableAccountID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetAccountID(*v)
+	}
 	return _c
 }
 
@@ -123,6 +139,34 @@ func (_c *UsageLogCreate) SetChannelID(v int64) *UsageLogCreate {
 func (_c *UsageLogCreate) SetNillableChannelID(v *int64) *UsageLogCreate {
 	if v != nil {
 		_c.SetChannelID(*v)
+	}
+	return _c
+}
+
+// SetIsMonitor sets the "is_monitor" field.
+func (_c *UsageLogCreate) SetIsMonitor(v bool) *UsageLogCreate {
+	_c.mutation.SetIsMonitor(v)
+	return _c
+}
+
+// SetNillableIsMonitor sets the "is_monitor" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableIsMonitor(v *bool) *UsageLogCreate {
+	if v != nil {
+		_c.SetIsMonitor(*v)
+	}
+	return _c
+}
+
+// SetChannelMonitorID sets the "channel_monitor_id" field.
+func (_c *UsageLogCreate) SetChannelMonitorID(v int64) *UsageLogCreate {
+	_c.mutation.SetChannelMonitorID(v)
+	return _c
+}
+
+// SetNillableChannelMonitorID sets the "channel_monitor_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableChannelMonitorID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetChannelMonitorID(*v)
 	}
 	return _c
 }
@@ -697,6 +741,10 @@ func (_c *UsageLogCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *UsageLogCreate) defaults() {
+	if _, ok := _c.mutation.IsMonitor(); !ok {
+		v := usagelog.DefaultIsMonitor
+		_c.mutation.SetIsMonitor(v)
+	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		v := usagelog.DefaultInputTokens
 		_c.mutation.SetInputTokens(v)
@@ -784,12 +832,6 @@ func (_c *UsageLogCreate) check() error {
 	if _, ok := _c.mutation.UserID(); !ok {
 		return &ValidationError{Name: "user_id", err: errors.New(`ent: missing required field "UsageLog.user_id"`)}
 	}
-	if _, ok := _c.mutation.APIKeyID(); !ok {
-		return &ValidationError{Name: "api_key_id", err: errors.New(`ent: missing required field "UsageLog.api_key_id"`)}
-	}
-	if _, ok := _c.mutation.AccountID(); !ok {
-		return &ValidationError{Name: "account_id", err: errors.New(`ent: missing required field "UsageLog.account_id"`)}
-	}
 	if _, ok := _c.mutation.RequestID(); !ok {
 		return &ValidationError{Name: "request_id", err: errors.New(`ent: missing required field "UsageLog.request_id"`)}
 	}
@@ -820,6 +862,9 @@ func (_c *UsageLogCreate) check() error {
 		if err := usagelog.UpstreamResponseModelValidator(v); err != nil {
 			return &ValidationError{Name: "upstream_response_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_response_model": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.IsMonitor(); !ok {
+		return &ValidationError{Name: "is_monitor", err: errors.New(`ent: missing required field "UsageLog.is_monitor"`)}
 	}
 	if v, ok := _c.mutation.ModelMappingChain(); ok {
 		if err := usagelog.ModelMappingChainValidator(v); err != nil {
@@ -934,12 +979,6 @@ func (_c *UsageLogCreate) check() error {
 	if len(_c.mutation.UserIDs()) == 0 {
 		return &ValidationError{Name: "user", err: errors.New(`ent: missing required edge "UsageLog.user"`)}
 	}
-	if len(_c.mutation.APIKeyIDs()) == 0 {
-		return &ValidationError{Name: "api_key", err: errors.New(`ent: missing required edge "UsageLog.api_key"`)}
-	}
-	if len(_c.mutation.AccountIDs()) == 0 {
-		return &ValidationError{Name: "account", err: errors.New(`ent: missing required edge "UsageLog.account"`)}
-	}
 	return nil
 }
 
@@ -994,6 +1033,14 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ChannelID(); ok {
 		_spec.SetField(usagelog.FieldChannelID, field.TypeInt64, value)
 		_node.ChannelID = &value
+	}
+	if value, ok := _c.mutation.IsMonitor(); ok {
+		_spec.SetField(usagelog.FieldIsMonitor, field.TypeBool, value)
+		_node.IsMonitor = value
+	}
+	if value, ok := _c.mutation.ChannelMonitorID(); ok {
+		_spec.SetField(usagelog.FieldChannelMonitorID, field.TypeInt64, value)
+		_node.ChannelMonitorID = &value
 	}
 	if value, ok := _c.mutation.ModelMappingChain(); ok {
 		_spec.SetField(usagelog.FieldModelMappingChain, field.TypeString, value)
@@ -1166,7 +1213,7 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.APIKeyID = nodes[0]
+		_node.APIKeyID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.AccountIDs(); len(nodes) > 0 {
@@ -1183,7 +1230,7 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.AccountID = nodes[0]
+		_node.AccountID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.GroupIDs(); len(nodes) > 0 {
@@ -1296,6 +1343,12 @@ func (u *UsageLogUpsert) UpdateAPIKeyID() *UsageLogUpsert {
 	return u
 }
 
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (u *UsageLogUpsert) ClearAPIKeyID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldAPIKeyID)
+	return u
+}
+
 // SetAccountID sets the "account_id" field.
 func (u *UsageLogUpsert) SetAccountID(v int64) *UsageLogUpsert {
 	u.Set(usagelog.FieldAccountID, v)
@@ -1305,6 +1358,12 @@ func (u *UsageLogUpsert) SetAccountID(v int64) *UsageLogUpsert {
 // UpdateAccountID sets the "account_id" field to the value that was provided on create.
 func (u *UsageLogUpsert) UpdateAccountID() *UsageLogUpsert {
 	u.SetExcluded(usagelog.FieldAccountID)
+	return u
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (u *UsageLogUpsert) ClearAccountID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldAccountID)
 	return u
 }
 
@@ -1425,6 +1484,42 @@ func (u *UsageLogUpsert) AddChannelID(v int64) *UsageLogUpsert {
 // ClearChannelID clears the value of the "channel_id" field.
 func (u *UsageLogUpsert) ClearChannelID() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldChannelID)
+	return u
+}
+
+// SetIsMonitor sets the "is_monitor" field.
+func (u *UsageLogUpsert) SetIsMonitor(v bool) *UsageLogUpsert {
+	u.Set(usagelog.FieldIsMonitor, v)
+	return u
+}
+
+// UpdateIsMonitor sets the "is_monitor" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateIsMonitor() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldIsMonitor)
+	return u
+}
+
+// SetChannelMonitorID sets the "channel_monitor_id" field.
+func (u *UsageLogUpsert) SetChannelMonitorID(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldChannelMonitorID, v)
+	return u
+}
+
+// UpdateChannelMonitorID sets the "channel_monitor_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateChannelMonitorID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldChannelMonitorID)
+	return u
+}
+
+// AddChannelMonitorID adds v to the "channel_monitor_id" field.
+func (u *UsageLogUpsert) AddChannelMonitorID(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldChannelMonitorID, v)
+	return u
+}
+
+// ClearChannelMonitorID clears the value of the "channel_monitor_id" field.
+func (u *UsageLogUpsert) ClearChannelMonitorID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldChannelMonitorID)
 	return u
 }
 
@@ -2155,6 +2250,13 @@ func (u *UsageLogUpsertOne) UpdateAPIKeyID() *UsageLogUpsertOne {
 	})
 }
 
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (u *UsageLogUpsertOne) ClearAPIKeyID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAPIKeyID()
+	})
+}
+
 // SetAccountID sets the "account_id" field.
 func (u *UsageLogUpsertOne) SetAccountID(v int64) *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
@@ -2166,6 +2268,13 @@ func (u *UsageLogUpsertOne) SetAccountID(v int64) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateAccountID() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateAccountID()
+	})
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (u *UsageLogUpsertOne) ClearAccountID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAccountID()
 	})
 }
 
@@ -2306,6 +2415,48 @@ func (u *UsageLogUpsertOne) UpdateChannelID() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearChannelID() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearChannelID()
+	})
+}
+
+// SetIsMonitor sets the "is_monitor" field.
+func (u *UsageLogUpsertOne) SetIsMonitor(v bool) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetIsMonitor(v)
+	})
+}
+
+// UpdateIsMonitor sets the "is_monitor" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateIsMonitor() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateIsMonitor()
+	})
+}
+
+// SetChannelMonitorID sets the "channel_monitor_id" field.
+func (u *UsageLogUpsertOne) SetChannelMonitorID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetChannelMonitorID(v)
+	})
+}
+
+// AddChannelMonitorID adds v to the "channel_monitor_id" field.
+func (u *UsageLogUpsertOne) AddChannelMonitorID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddChannelMonitorID(v)
+	})
+}
+
+// UpdateChannelMonitorID sets the "channel_monitor_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateChannelMonitorID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateChannelMonitorID()
+	})
+}
+
+// ClearChannelMonitorID clears the value of the "channel_monitor_id" field.
+func (u *UsageLogUpsertOne) ClearChannelMonitorID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearChannelMonitorID()
 	})
 }
 
@@ -3311,6 +3462,13 @@ func (u *UsageLogUpsertBulk) UpdateAPIKeyID() *UsageLogUpsertBulk {
 	})
 }
 
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (u *UsageLogUpsertBulk) ClearAPIKeyID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAPIKeyID()
+	})
+}
+
 // SetAccountID sets the "account_id" field.
 func (u *UsageLogUpsertBulk) SetAccountID(v int64) *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
@@ -3322,6 +3480,13 @@ func (u *UsageLogUpsertBulk) SetAccountID(v int64) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateAccountID() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateAccountID()
+	})
+}
+
+// ClearAccountID clears the value of the "account_id" field.
+func (u *UsageLogUpsertBulk) ClearAccountID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAccountID()
 	})
 }
 
@@ -3462,6 +3627,48 @@ func (u *UsageLogUpsertBulk) UpdateChannelID() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearChannelID() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearChannelID()
+	})
+}
+
+// SetIsMonitor sets the "is_monitor" field.
+func (u *UsageLogUpsertBulk) SetIsMonitor(v bool) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetIsMonitor(v)
+	})
+}
+
+// UpdateIsMonitor sets the "is_monitor" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateIsMonitor() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateIsMonitor()
+	})
+}
+
+// SetChannelMonitorID sets the "channel_monitor_id" field.
+func (u *UsageLogUpsertBulk) SetChannelMonitorID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetChannelMonitorID(v)
+	})
+}
+
+// AddChannelMonitorID adds v to the "channel_monitor_id" field.
+func (u *UsageLogUpsertBulk) AddChannelMonitorID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddChannelMonitorID(v)
+	})
+}
+
+// UpdateChannelMonitorID sets the "channel_monitor_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateChannelMonitorID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateChannelMonitorID()
+	})
+}
+
+// ClearChannelMonitorID clears the value of the "channel_monitor_id" field.
+func (u *UsageLogUpsertBulk) ClearChannelMonitorID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearChannelMonitorID()
 	})
 }
 

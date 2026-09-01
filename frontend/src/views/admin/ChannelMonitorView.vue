@@ -92,8 +92,22 @@
             <span class="text-sm text-gray-900 dark:text-gray-100">{{ formatAvailability(row) }}</span>
           </template>
 
-          <template #cell-latency="{ row }">
-            <span class="text-sm text-gray-900 dark:text-gray-100">{{ formatLatency(row.primary_latency_ms) }}</span>
+          <template #cell-first_token="{ row }">
+            <span
+              v-if="row.primary_first_token_ms != null"
+              class="text-sm font-medium tabular-nums"
+              :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.primary_first_token_ms)]"
+            >
+              {{ formatLatency(row.primary_first_token_ms) }} ms
+            </span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">{{ formatLatency(null) }}</span>
+          </template>
+
+          <template #cell-token_speed="{ row }">
+            <span v-if="row.primary_tokens_per_second != null" class="text-sm tabular-nums text-gray-900 dark:text-gray-100">
+              {{ formatTokensPerSecond(row.primary_tokens_per_second) }} Token/s
+            </span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">{{ formatTokensPerSecond(null) }}</span>
           </template>
 
           <template #cell-enabled="{ row }">
@@ -200,6 +214,7 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
 import MonitorSettingsPanel from '@/features/channel-monitor-v2/MonitorSettingsPanel.vue'
 import { isChannelMonitorV1Mode } from '@/utils/featureFlags'
+import { firstTokenSeverity, LATENCY_TEXT_CLASSES } from '@/utils/latencyHealth'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -211,6 +226,7 @@ const {
   checkModeLabel,
   checkModeBadgeClass,
   formatLatency,
+  formatTokensPerSecond,
   formatAvailability,
 } = useChannelMonitorFormat()
 
@@ -239,7 +255,8 @@ const columns = computed<Column[]>(() => [
   { key: 'provider', label: t('admin.channelMonitor.columns.provider'), sortable: false },
   { key: 'primary_model', label: t('admin.channelMonitor.columns.primaryModel'), sortable: false },
   { key: 'availability_7d', label: t('admin.channelMonitor.columns.availability7d'), sortable: false },
-  { key: 'latency', label: t('admin.channelMonitor.columns.latency'), sortable: false },
+  { key: 'first_token', label: t('admin.channelMonitor.columns.firstToken'), sortable: false },
+  { key: 'token_speed', label: t('admin.channelMonitor.columns.tokenSpeed'), sortable: false },
   { key: 'enabled', label: t('admin.channelMonitor.columns.enabled'), sortable: false },
   { key: 'actions', label: t('admin.channelMonitor.columns.actions'), sortable: false },
 ])

@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -66,6 +67,10 @@ type openAICaptureHandler struct {
 	status                    int
 	rawResponse               string
 	responsesLeadingReasoning bool
+	responsesStreamError      bool
+	responsesOmitTerminal     bool
+	responsesOutputTokens     int
+	responsesDelay            time.Duration
 }
 
 func (h *openAICaptureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +84,15 @@ func (h *openAICaptureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if h.status == 0 {
 		h.status = http.StatusOK
 	}
-	w.Header().Set("Content-Type", "application/json")
+	streamResponses := h.lastPath == providerOpenAIResponsesPath && func() bool {
+		stream, _ := h.lastBody["stream"].(bool)
+		return stream
+	}()
+	if streamResponses {
+		w.Header().Set("Content-Type", "text/event-stream")
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+	}
 	w.WriteHeader(h.status)
 	if h.rawResponse != "" {
 		_, _ = w.Write([]byte(h.rawResponse))
@@ -88,6 +101,32 @@ func (h *openAICaptureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	answer := answerFromOpenAIRequest(parsed)
 	if h.lastPath == providerOpenAIResponsesPath {
+		if streamResponses {
+			if h.responsesStreamError {
+				_, _ = fmt.Fprint(w, "event: response.failed\ndata: {\"type\":\"response.failed\",\"error\":{\"message\":\"provider failed\"}}\n\n")
+				return
+			}
+			_, _ = fmt.Fprint(w, "event: response.created\ndata: {\"type\":\"response.created\"}\n\n")
+			if h.responsesLeadingReasoning {
+				_, _ = fmt.Fprint(w, "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"item\":{\"type\":\"reasoning\",\"summary\":[]}}\n\n")
+			}
+			_, _ = fmt.Fprintf(w, "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":%q}\n\n", answer)
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+			if h.responsesDelay > 0 {
+				time.Sleep(h.responsesDelay)
+			}
+			_, _ = fmt.Fprintf(w, "event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"text\":%q}\n\n", answer)
+			if !h.responsesOmitTerminal {
+				usage := ""
+				if h.responsesOutputTokens > 0 {
+					usage = fmt.Sprintf(",\"usage\":{\"input_tokens\":3,\"output_tokens\":%d}", h.responsesOutputTokens)
+				}
+				_, _ = fmt.Fprintf(w, "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}]%s}}\n\n", usage)
+			}
+			return
+		}
 		output := []map[string]any{}
 		if h.responsesLeadingReasoning {
 			output = append(output, map[string]any{
@@ -307,11 +346,57 @@ func TestRunCheckForModel_OpenAIResponses_DefaultRequest(t *testing.T) {
 	if _, ok := h.lastBody["messages"]; ok {
 		t.Error("responses body must not contain chat messages")
 	}
-	if h.lastBody["stream"] != false {
-		t.Errorf("responses body should set stream=false, got %v", h.lastBody["stream"])
+	if h.lastBody["stream"] != true {
+		t.Errorf("responses body should force stream=true, got %v", h.lastBody["stream"])
+	}
+	if res.FirstTokenMs == nil {
+		t.Fatal("streaming responses request should record first token latency")
+	}
+	if res.LatencyMs == nil || *res.FirstTokenMs > *res.LatencyMs {
+		t.Fatalf("first token latency must not exceed total latency: first=%v total=%v", res.FirstTokenMs, res.LatencyMs)
 	}
 	if h.lastHeaders.Get("Authorization") != "Bearer sk-openai" {
 		t.Errorf("expected bearer auth header, got %q", h.lastHeaders.Get("Authorization"))
+	}
+}
+
+func TestRunCheckForModel_OpenAIResponses_RecordsTokenSpeed(t *testing.T) {
+	h := &openAICaptureHandler{
+		responsesOutputTokens: 12,
+		responsesDelay:        20 * time.Millisecond,
+	}
+	endpoint := setupFakeOpenAI(t, h)
+
+	res := runCheckForModel(context.Background(), MonitorProviderOpenAI, endpoint, "sk-openai", "gpt-test", &CheckOptions{
+		APIMode: MonitorAPIModeResponses,
+	})
+
+	if res.Status != MonitorStatusOperational {
+		t.Fatalf("responses request should pass challenge, got status=%s message=%q", res.Status, res.Message)
+	}
+	if res.FirstTokenMs == nil {
+		t.Fatal("streaming responses request should record first token latency")
+	}
+	if res.TokensPerSecond == nil {
+		t.Fatal("streaming responses usage should record token speed")
+	}
+	if *res.TokensPerSecond <= 0 {
+		t.Fatalf("token speed should be positive, got %v", *res.TokensPerSecond)
+	}
+}
+
+func TestMonitorTokensPerSecondRequiresUsageAndPositiveGenerationWindow(t *testing.T) {
+	tokens := 12
+	first := 100
+	got := monitorTokensPerSecond(&tokens, &first, 400)
+	if got == nil || *got != 40 {
+		t.Fatalf("monitorTokensPerSecond() = %v, want 40", got)
+	}
+	if got := monitorTokensPerSecond(nil, &first, 400); got != nil {
+		t.Fatalf("missing output usage should return nil, got %v", *got)
+	}
+	if got := monitorTokensPerSecond(&tokens, &first, first); got != nil {
+		t.Fatalf("zero generation window should return nil, got %v", *got)
 	}
 }
 
@@ -328,6 +413,68 @@ func TestRunCheckForModel_OpenAIResponses_SkipsLeadingReasoningItem(t *testing.T
 	}
 	if h.lastPath != providerOpenAIResponsesPath {
 		t.Fatalf("expected responses path %q, got %q", providerOpenAIResponsesPath, h.lastPath)
+	}
+	if res.FirstTokenMs == nil {
+		t.Fatal("leading reasoning preamble must not suppress first token measurement")
+	}
+}
+
+func TestRunCheckForModel_OpenAIResponses_ReplaceForcesStreaming(t *testing.T) {
+	h := &openAICaptureHandler{}
+	endpoint := setupFakeOpenAI(t, h)
+
+	res := runCheckForModel(context.Background(), MonitorProviderOpenAI, endpoint, "sk-openai", "gpt-test", &CheckOptions{
+		APIMode:          MonitorAPIModeResponses,
+		BodyOverrideMode: MonitorBodyOverrideModeReplace,
+		BodyOverride: map[string]any{
+			"model":        "gpt-test",
+			"instructions": "return a response",
+			"input":        "hello",
+			"stream":       false,
+		},
+		ExtraHeaders: map[string]string{"Accept": "application/json"},
+	})
+
+	if res.Status != MonitorStatusOperational {
+		t.Fatalf("replace-mode streaming response should pass, got status=%s message=%q", res.Status, res.Message)
+	}
+	if h.lastBody["stream"] != true {
+		t.Fatalf("replace-mode responses body should force stream=true, got %v", h.lastBody["stream"])
+	}
+	if got := h.lastHeaders.Get("Accept"); got != "text/event-stream" {
+		t.Fatalf("responses probe should force SSE Accept header, got %q", got)
+	}
+}
+
+func TestRunCheckForModel_OpenAIResponses_StreamError(t *testing.T) {
+	h := &openAICaptureHandler{responsesStreamError: true}
+	endpoint := setupFakeOpenAI(t, h)
+
+	res := runCheckForModel(context.Background(), MonitorProviderOpenAI, endpoint, "sk-openai", "gpt-test", &CheckOptions{
+		APIMode: MonitorAPIModeResponses,
+	})
+
+	if res.Status != MonitorStatusError {
+		t.Fatalf("stream error should be recorded as error, got status=%s message=%q", res.Status, res.Message)
+	}
+	if !strings.Contains(res.Message, "provider failed") {
+		t.Fatalf("stream error message should preserve provider detail, got %q", res.Message)
+	}
+}
+
+func TestRunCheckForModel_OpenAIResponses_MissingTerminalFails(t *testing.T) {
+	h := &openAICaptureHandler{responsesOmitTerminal: true}
+	endpoint := setupFakeOpenAI(t, h)
+
+	res := runCheckForModel(context.Background(), MonitorProviderOpenAI, endpoint, "sk-openai", "gpt-test", &CheckOptions{
+		APIMode: MonitorAPIModeResponses,
+	})
+
+	if res.Status != MonitorStatusError {
+		t.Fatalf("stream without terminal event should be recorded as error, got status=%s message=%q", res.Status, res.Message)
+	}
+	if !strings.Contains(res.Message, "terminal event") {
+		t.Fatalf("missing terminal error should be explicit, got %q", res.Message)
 	}
 }
 

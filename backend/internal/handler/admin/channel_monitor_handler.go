@@ -86,27 +86,29 @@ type channelMonitorUpdateRequest struct {
 }
 
 type channelMonitorResponse struct {
-	ID                  int64                                `json:"id"`
-	Name                string                               `json:"name"`
-	Provider            string                               `json:"provider"`
-	APIMode             string                               `json:"api_mode"`
-	Endpoint            string                               `json:"endpoint"`
-	APIKeyMasked        string                               `json:"api_key_masked"`
-	APIKeyDecryptFailed bool                                 `json:"api_key_decrypt_failed"`
-	PrimaryModel        string                               `json:"primary_model"`
-	ExtraModels         []string                             `json:"extra_models"`
-	GroupName           string                               `json:"group_name"`
-	Enabled             bool                                 `json:"enabled"`
-	IntervalSeconds     int                                  `json:"interval_seconds"`
-	JitterSeconds       int                                  `json:"jitter_seconds"`
-	LastCheckedAt       *string                              `json:"last_checked_at"`
-	CreatedBy           int64                                `json:"created_by"`
-	CreatedAt           string                               `json:"created_at"`
-	UpdatedAt           string                               `json:"updated_at"`
-	PrimaryStatus       string                               `json:"primary_status"`
-	PrimaryLatencyMs    *int                                 `json:"primary_latency_ms"`
-	Availability7d      float64                              `json:"availability_7d"`
-	ExtraModelsStatus   []dto.ChannelMonitorExtraModelStatus `json:"extra_models_status"`
+	ID                     int64                                `json:"id"`
+	Name                   string                               `json:"name"`
+	Provider               string                               `json:"provider"`
+	APIMode                string                               `json:"api_mode"`
+	Endpoint               string                               `json:"endpoint"`
+	APIKeyMasked           string                               `json:"api_key_masked"`
+	APIKeyDecryptFailed    bool                                 `json:"api_key_decrypt_failed"`
+	PrimaryModel           string                               `json:"primary_model"`
+	ExtraModels            []string                             `json:"extra_models"`
+	GroupName              string                               `json:"group_name"`
+	Enabled                bool                                 `json:"enabled"`
+	IntervalSeconds        int                                  `json:"interval_seconds"`
+	JitterSeconds          int                                  `json:"jitter_seconds"`
+	LastCheckedAt          *string                              `json:"last_checked_at"`
+	CreatedBy              int64                                `json:"created_by"`
+	CreatedAt              string                               `json:"created_at"`
+	UpdatedAt              string                               `json:"updated_at"`
+	PrimaryStatus          string                               `json:"primary_status"`
+	PrimaryLatencyMs       *int                                 `json:"primary_latency_ms"`
+	PrimaryFirstTokenMs    *int                                 `json:"primary_first_token_ms"`
+	PrimaryTokensPerSecond *float64                             `json:"primary_tokens_per_second"`
+	Availability7d         float64                              `json:"availability_7d"`
+	ExtraModelsStatus      []dto.ChannelMonitorExtraModelStatus `json:"extra_models_status"`
 	// 请求自定义快照：前端编辑 / 展示「高级设置」用
 	TemplateID       *int64            `json:"template_id"`
 	ExtraHeaders     map[string]string `json:"extra_headers"`
@@ -121,24 +123,28 @@ type channelMonitorResponse struct {
 }
 
 type channelMonitorCheckResultResponse struct {
-	Model         string                       `json:"model"`
-	Status        string                       `json:"status"`
-	LatencyMs     *int                         `json:"latency_ms"`
-	PingLatencyMs *int                         `json:"ping_latency_ms"`
-	Message       string                       `json:"message"`
-	CheckedAt     string                       `json:"checked_at"`
-	Quota         *domain.MonitorQuotaSnapshot `json:"quota,omitempty"`
+	Model           string                       `json:"model"`
+	Status          string                       `json:"status"`
+	LatencyMs       *int                         `json:"latency_ms"`
+	FirstTokenMs    *int                         `json:"first_token_ms"`
+	TokensPerSecond *float64                     `json:"tokens_per_second"`
+	PingLatencyMs   *int                         `json:"ping_latency_ms"`
+	Message         string                       `json:"message"`
+	CheckedAt       string                       `json:"checked_at"`
+	Quota           *domain.MonitorQuotaSnapshot `json:"quota,omitempty"`
 }
 
 type channelMonitorHistoryItemResponse struct {
-	ID            int64                        `json:"id"`
-	Model         string                       `json:"model"`
-	Status        string                       `json:"status"`
-	LatencyMs     *int                         `json:"latency_ms"`
-	PingLatencyMs *int                         `json:"ping_latency_ms"`
-	Message       string                       `json:"message"`
-	CheckedAt     string                       `json:"checked_at"`
-	Quota         *domain.MonitorQuotaSnapshot `json:"quota,omitempty"`
+	ID              int64                        `json:"id"`
+	Model           string                       `json:"model"`
+	Status          string                       `json:"status"`
+	LatencyMs       *int                         `json:"latency_ms"`
+	FirstTokenMs    *int                         `json:"first_token_ms"`
+	TokensPerSecond *float64                     `json:"tokens_per_second"`
+	PingLatencyMs   *int                         `json:"ping_latency_ms"`
+	Message         string                       `json:"message"`
+	CheckedAt       string                       `json:"checked_at"`
+	Quota           *domain.MonitorQuotaSnapshot `json:"quota,omitempty"`
 }
 
 // maskAPIKey 对 API Key 明文做脱敏：前 4 字符 + "***"，长度 ≤ 4 时只显示 "***"。
@@ -196,26 +202,30 @@ func channelMonitorToResponse(m *service.ChannelMonitor) *channelMonitorResponse
 
 func checkResultToResponse(r *service.CheckResult) channelMonitorCheckResultResponse {
 	return channelMonitorCheckResultResponse{
-		Model:         r.Model,
-		Status:        r.Status,
-		LatencyMs:     r.LatencyMs,
-		PingLatencyMs: r.PingLatencyMs,
-		Message:       r.Message,
-		CheckedAt:     r.CheckedAt.UTC().Format(time.RFC3339),
-		Quota:         r.Quota,
+		Model:           r.Model,
+		Status:          r.Status,
+		LatencyMs:       r.LatencyMs,
+		FirstTokenMs:    r.FirstTokenMs,
+		TokensPerSecond: r.TokensPerSecond,
+		PingLatencyMs:   r.PingLatencyMs,
+		Message:         r.Message,
+		CheckedAt:       r.CheckedAt.UTC().Format(time.RFC3339),
+		Quota:           r.Quota,
 	}
 }
 
 func historyEntryToResponse(e *service.ChannelMonitorHistoryEntry) channelMonitorHistoryItemResponse {
 	return channelMonitorHistoryItemResponse{
-		ID:            e.ID,
-		Model:         e.Model,
-		Status:        e.Status,
-		LatencyMs:     e.LatencyMs,
-		PingLatencyMs: e.PingLatencyMs,
-		Message:       e.Message,
-		CheckedAt:     e.CheckedAt.UTC().Format(time.RFC3339),
-		Quota:         e.Quota,
+		ID:              e.ID,
+		Model:           e.Model,
+		Status:          e.Status,
+		LatencyMs:       e.LatencyMs,
+		FirstTokenMs:    e.FirstTokenMs,
+		TokensPerSecond: e.TokensPerSecond,
+		PingLatencyMs:   e.PingLatencyMs,
+		Message:         e.Message,
+		CheckedAt:       e.CheckedAt.UTC().Format(time.RFC3339),
+		Quota:           e.Quota,
 	}
 }
 
@@ -293,14 +303,18 @@ func buildListItemResponse(m *service.ChannelMonitor, summary service.MonitorSta
 	resp := channelMonitorToResponse(m)
 	resp.PrimaryStatus = summary.PrimaryStatus
 	resp.PrimaryLatencyMs = summary.PrimaryLatencyMs
+	resp.PrimaryFirstTokenMs = summary.PrimaryFirstTokenMs
+	resp.PrimaryTokensPerSecond = summary.PrimaryTokensPerSecond
 	resp.Availability7d = summary.Availability7d
 	resp.LatestQuota = summary.LatestQuota
 	resp.ExtraModelsStatus = make([]dto.ChannelMonitorExtraModelStatus, 0, len(summary.ExtraModels))
 	for _, e := range summary.ExtraModels {
 		resp.ExtraModelsStatus = append(resp.ExtraModelsStatus, dto.ChannelMonitorExtraModelStatus{
-			Model:     e.Model,
-			Status:    e.Status,
-			LatencyMs: e.LatencyMs,
+			Model:           e.Model,
+			Status:          e.Status,
+			LatencyMs:       e.LatencyMs,
+			FirstTokenMs:    e.FirstTokenMs,
+			TokensPerSecond: e.TokensPerSecond,
 		})
 	}
 	return resp
