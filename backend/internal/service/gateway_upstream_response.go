@@ -357,7 +357,9 @@ func (s *GatewayService) readUpstreamErrorBody(resp *http.Response) ([]byte, err
 
 func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, requestedModel ...string) (*ForwardResult, error) {
 	// Upstream returned a non-success HTTP status; count Ollama Cloud activity.
-	scheduleOllamaCloudUsageActivity(s.deferredService, account)
+	if !IsChannelMonitorContext(ctx) {
+		scheduleOllamaCloudUsageActivity(s.deferredService, account)
+	}
 	body, readErr := s.readUpstreamErrorBody(resp)
 	if readErr != nil {
 		// 读取失败时 body 可能被截断，错误分类会基于不完整数据；记录日志以便排查，
@@ -409,7 +411,7 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 
 	// 处理上游错误，标记账号状态
 	shouldDisable := false
-	if s.rateLimitService != nil {
+	if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 		if len(requestedModel) > 0 {
 			shouldDisable = s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, requestedModel[0])
 		} else {
@@ -519,6 +521,9 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 }
 
 func (s *GatewayService) handleRetryExhaustedSideEffects(ctx context.Context, resp *http.Response, account *Account) {
+	if IsChannelMonitorContext(ctx) {
+		return
+	}
 	body, _ := s.readUpstreamErrorBody(resp)
 	statusCode := resp.StatusCode
 
@@ -533,6 +538,9 @@ func (s *GatewayService) handleRetryExhaustedSideEffects(ctx context.Context, re
 }
 
 func (s *GatewayService) handleFailoverSideEffects(ctx context.Context, resp *http.Response, account *Account, requestedModel ...string) {
+	if IsChannelMonitorContext(ctx) {
+		return
+	}
 	body, _ := s.readUpstreamErrorBody(resp)
 	if len(requestedModel) > 0 {
 		s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, body, requestedModel[0])
@@ -693,8 +701,10 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
-	// 更新5h窗口状态
-	s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
+	// 更新5h窗口状态（监控使用 synthetic account，不写账号窗口状态）。
+	if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
+		s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
+	}
 
 	if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
@@ -1111,7 +1121,7 @@ func (s *GatewayService) handleStreamingResponse(ctx context.Context, resp *http
 			}
 			logger.LegacyPrintf("service.gateway", "Stream data interval timeout: account=%d model=%s interval=%s", account.ID, originalModel, streamInterval)
 			// 处理流超时，可能标记账户为临时不可调度或错误状态
-			if s.rateLimitService != nil {
+			if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 				s.rateLimitService.HandleStreamTimeout(ctx, account, originalModel)
 			}
 			sendErrorEvent("stream_timeout", fmt.Sprintf("upstream stream idle for %s", streamInterval))
@@ -1377,8 +1387,10 @@ func (s *GatewayService) resolveCacheTTLUsageOverrideTarget(ctx context.Context,
 }
 
 func (s *GatewayService) handleNonStreamingResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, originalModel, mappedModel string) (*ClaudeUsage, error) {
-	// 更新5h窗口状态
-	s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
+	// 更新5h窗口状态（监控使用 synthetic account，不写账号窗口状态）。
+	if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
+		s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
+	}
 
 	body, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, anthropicTooLargeError)
 	if err != nil {

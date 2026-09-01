@@ -1664,6 +1664,9 @@ func (s *OpenAIGatewayService) updateGrokUsageSnapshotWithRateLimit(ctx context.
 }
 
 func (s *OpenAIGatewayService) updateGrokUsageFromResponse(ctx context.Context, account *Account, headers http.Header, statusCode int) {
+	if IsChannelMonitorContext(ctx) {
+		return
+	}
 	snapshot := parseGrokQuotaSnapshot(headers, statusCode, time.Now())
 	if snapshot != nil {
 		stampGrokQuotaSnapshotForPlan(account, snapshot, grokRequestedModelFromCtx(ctx))
@@ -1997,6 +2000,9 @@ func persistGrokTransientModelCooldown(account *Account, decision GrokUpstreamFa
 
 func (s *OpenAIGatewayService) handleGrokAccountUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte) {
 	if s == nil || account == nil {
+		return
+	}
+	if IsChannelMonitorContext(ctx) {
 		return
 	}
 	if isGrokContentPolicyRejection(statusCode, responseBody) {

@@ -139,6 +139,9 @@ func appendUsageLogModelQueryFilter(query string, args []any, model string, sour
 }
 
 func appendUsageLogMonitorFilter(conditions []string, filters UsageLogFilters) []string {
+	if isMonitorRequestType(filters.RequestType) {
+		return append(conditions, "is_monitor = TRUE")
+	}
 	if filters.ExcludeMonitor {
 		return append(conditions, "is_monitor = FALSE")
 	}
@@ -233,6 +236,13 @@ func buildRequestTypeFilterCondition(startArgIndex int, requestType int16) (stri
 }
 
 func buildRequestTypeFilterConditionWithAlias(startArgIndex int, requestType int16, alias string) (string, []any) {
+	if requestType == int16(service.RequestTypeMonitor) {
+		prefix := ""
+		if alias != "" {
+			prefix = alias + "."
+		}
+		return prefix + "is_monitor = TRUE", nil
+	}
 	normalized := service.RequestTypeFromInt16(requestType)
 	requestTypeArg := int16(normalized)
 	prefix := ""
@@ -249,4 +259,10 @@ func buildRequestTypeFilterConditionWithAlias(startArgIndex int, requestType int
 	default:
 		return fmt.Sprintf("%srequest_type = $%d", prefix, startArgIndex), []any{requestTypeArg}
 	}
+}
+
+// isMonitorRequestType reports whether request_type is the filter-only
+// pseudo type used to select active channel-monitor probe rows.
+func isMonitorRequestType(requestType *int16) bool {
+	return requestType != nil && *requestType == int16(service.RequestTypeMonitor)
 }

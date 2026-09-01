@@ -305,7 +305,7 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 	`, dateFormat)
 
 	args := []any{startTime, endTime}
-	if excludeMonitor {
+	if excludeMonitor && !isMonitorRequestType(requestType) {
 		query += " AND is_monitor = FALSE"
 	}
 	if userID > 0 {
@@ -475,7 +475,7 @@ func (r *usageLogRepository) getModelStatsWithFiltersBySource(ctx context.Contex
 	`, modelExpr, actualCostExpr, accountCostExpr)
 
 	args := []any{startTime, endTime}
-	if excludeMonitor {
+	if excludeMonitor && !isMonitorRequestType(requestType) {
 		query += " AND is_monitor = FALSE"
 	}
 	if userID > 0 {
@@ -555,7 +555,7 @@ func (r *usageLogRepository) getGroupStatsWithFilters(ctx context.Context, start
 	`
 
 	args := []any{startTime, endTime}
-	if excludeMonitor {
+	if excludeMonitor && !isMonitorRequestType(requestType) {
 		query += " AND ul.is_monitor = FALSE"
 	}
 	if userID > 0 {

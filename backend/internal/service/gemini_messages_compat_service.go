@@ -939,7 +939,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 	if resp.StatusCode >= 400 {
 		respBody := s.readUpstreamErrorBody(resp)
 		// 统一错误策略：自定义错误码 + 临时不可调度
-		if s.rateLimitService != nil {
+		if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 			policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
 			switch policy {
 			case ErrorPolicySkipped:
@@ -1462,7 +1462,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		}
 
 		// 统一错误策略：自定义错误码 + 临时不可调度
-		if s.rateLimitService != nil {
+		if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 			policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
 			switch policy {
 			case ErrorPolicySkipped:
@@ -1624,7 +1624,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
 	ctx context.Context, account *Account, resp *http.Response, mappedModel string,
 ) (matched bool, rebuilt *http.Response) {
-	if resp.StatusCode < 400 || s.rateLimitService == nil {
+	if resp.StatusCode < 400 || s.rateLimitService == nil || IsChannelMonitorContext(ctx) {
 		return false, resp
 	}
 	body := s.readUpstreamErrorBody(resp)
@@ -2995,6 +2995,9 @@ func asInt(v any) (int, bool) {
 }
 
 func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, body []byte) {
+	if IsChannelMonitorContext(ctx) {
+		return
+	}
 	// 遵守自定义错误码策略：未命中则跳过所有限流处理
 	if !account.ShouldHandleErrorCode(statusCode) {
 		return

@@ -125,7 +125,8 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 	}
 
 	// Transport attempt reached the network path; count as Ollama Cloud activity.
-	if s != nil {
+	// Monitor probes use a synthetic account and must not mutate account state.
+	if s != nil && !IsChannelMonitorContext(ctx) {
 		scheduleOllamaCloudUsageActivity(s.deferredService, account)
 	}
 
@@ -135,7 +136,7 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 		return err
 	}
 
-	if classifyUpstreamTransportError(err).Persistent {
+	if !IsChannelMonitorContext(ctx) && classifyUpstreamTransportError(err).Persistent {
 		s.tempUnscheduleOpenAITransportError(ctx, account, safeErr)
 	}
 

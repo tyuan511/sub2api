@@ -55,9 +55,13 @@ func (s *GatewayService) handleUpstreamTransportError(ctx context.Context, c *gi
 	}
 
 	// Transport attempt left local validation; count Ollama Cloud activity.
-	scheduleOllamaCloudUsageActivity(s.deferredService, account)
+	// Active channel monitors use a synthetic account and must not mutate the
+	// account's last-used timestamp or scheduling state.
+	if !IsChannelMonitorContext(ctx) {
+		scheduleOllamaCloudUsageActivity(s.deferredService, account)
+	}
 
-	if classifyUpstreamTransportError(err).Persistent {
+	if !IsChannelMonitorContext(ctx) && classifyUpstreamTransportError(err).Persistent {
 		s.tempUnscheduleTransportError(ctx, account, safeErr)
 	}
 

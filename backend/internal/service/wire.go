@@ -944,6 +944,7 @@ var ProviderSet = wire.NewSet(
 	ProvidePaymentService,
 	ProvidePaymentOrderExpiryService,
 	ProvideBalanceNotifyService,
+	NewChannelMonitorGatewayForwarder,
 	ProvideChannelMonitorService,
 	ProvideChannelMonitorRunner,
 	NewChannelMonitorQuotaFetcher,
@@ -996,10 +997,12 @@ func ProvideChannelMonitorService(
 	usageLogRepo UsageLogRepository,
 	encryptor SecretEncryptor,
 	settingService *SettingService,
+	forwarder *ChannelMonitorGatewayForwarder,
 ) *ChannelMonitorService {
 	svc := NewChannelMonitorService(repo, encryptor)
 	svc.SetRuntimeReader(settingService)
 	svc.SetUsageLogRepository(usageLogRepo)
+	svc.SetForwarder(forwarder)
 	return svc
 }
 

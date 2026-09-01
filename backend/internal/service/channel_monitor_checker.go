@@ -58,6 +58,21 @@ type CheckOptions struct {
 //
 // opts 承载模板 / 监控快照带来的自定义配置。nil 等同于 "off + 无 extra headers"。
 func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model string, opts *CheckOptions) *CheckResult {
+	return runCheckForModelWithCall(ctx, provider, model, opts, func(callCtx context.Context, prompt string) (monitorProviderCallResult, error) {
+		return callProvider(callCtx, provider, endpoint, apiKey, model, prompt, opts)
+	})
+}
+
+// runCheckForModelWithCall applies the common challenge validation and result
+// normalization to either the legacy direct checker or the shared gateway
+// forwarding path. Keeping this layer independent from transport details means
+// both paths produce identical monitor history and usage-log fields.
+func runCheckForModelWithCall(
+	ctx context.Context,
+	provider, model string,
+	opts *CheckOptions,
+	call func(context.Context, string) (monitorProviderCallResult, error),
+) *CheckResult {
 	res := &CheckResult{
 		Model:     model,
 		Status:    MonitorStatusError,
@@ -68,11 +83,16 @@ func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model str
 	mode := bodyOverrideMode(opts)
 
 	start := time.Now()
-	callResult, err := callProvider(ctx, provider, endpoint, apiKey, model, challenge.Prompt, opts)
+	if call == nil {
+		res.Message = "monitor call is not configured"
+		return res
+	}
+	callResult, err := call(ctx, challenge.Prompt)
 	latency := time.Since(start)
 	latencyMs := int(latency / time.Millisecond)
 	res.LatencyMs = &latencyMs
 	res.FirstTokenMs = callResult.firstTokenMs
+	res.Stream = callResult.stream
 	res.TokensPerSecond = monitorTokensPerSecond(callResult.outputTokens, callResult.firstTokenMs, latencyMs)
 	res.UpstreamEndpoint = callResult.upstreamEndpoint
 	if callResult.usageOK {
@@ -181,6 +201,7 @@ type monitorProviderCallResult struct {
 	extractedText    string
 	rawBody          string
 	status           int
+	stream           bool
 	firstTokenMs     *int
 	outputTokens     *int
 	usage            OpenAIUsage
@@ -752,7 +773,7 @@ var bodyMergeKeyDenyList = map[string]map[string]bool{
 	MonitorProviderOpenAI + ":" + MonitorAPIModeChatCompletions: {"model": true, "messages": true, "stream": true},
 	MonitorProviderOpenAI + ":" + MonitorAPIModeResponses:       {"model": true, "instructions": true, "input": true, "stream": true},
 	MonitorProviderGrok:      {"model": true, "messages": true, "stream": true},
-	MonitorProviderAnthropic: {"model": true, "messages": true},
+	MonitorProviderAnthropic: {"model": true, "messages": true, "stream": true},
 	MonitorProviderGemini:    {"contents": true},
 	// 国产 3 家与 OpenAI Chat Completions 同构。
 	MonitorProviderKimi:     {"model": true, "messages": true, "stream": true},

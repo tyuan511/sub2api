@@ -20,11 +20,17 @@ const (
 	RequestTypeWSV2         RequestType = 3
 	RequestTypeCyberBlocked RequestType = 4 // cyber_policy 命中（透传但被上游安全策略拒绝）
 	RequestTypeLive         RequestType = 5
+	// RequestTypeMonitor is a filter-only pseudo type for active channel-monitor
+	// probe rows. It is never written to usage_logs.request_type; monitor rows
+	// are identified by usage_logs.is_monitor instead.
+	RequestTypeMonitor RequestType = 6
 )
 
 func (t RequestType) IsValid() bool {
 	switch t {
 	case RequestTypeUnknown, RequestTypeSync, RequestTypeStream, RequestTypeWSV2, RequestTypeCyberBlocked, RequestTypeLive:
+		return true
+	case RequestTypeMonitor:
 		return true
 	default:
 		return false
@@ -50,6 +56,8 @@ func (t RequestType) String() string {
 		return "cyber"
 	case RequestTypeLive:
 		return "live"
+	case RequestTypeMonitor:
+		return "monitor"
 	default:
 		return "unknown"
 	}
@@ -73,8 +81,10 @@ func ParseUsageRequestType(value string) (RequestType, error) {
 		return RequestTypeCyberBlocked, nil
 	case "live":
 		return RequestTypeLive, nil
+	case "monitor":
+		return RequestTypeMonitor, nil
 	default:
-		return RequestTypeUnknown, fmt.Errorf("invalid request_type, allowed values: unknown, sync, stream, ws_v2, cyber, live")
+		return RequestTypeUnknown, fmt.Errorf("invalid request_type, allowed values: unknown, sync, stream, ws_v2, cyber, live, monitor")
 	}
 }
 

@@ -368,7 +368,7 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
-	if s.rateLimitService != nil {
+	if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 		s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
 	}
 
@@ -565,7 +565,7 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 				return &streamingResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: true}, fmt.Errorf("stream usage incomplete after timeout")
 			}
 			logger.LegacyPrintf("service.gateway", "[Anthropic passthrough] Stream data interval timeout: account=%d model=%s interval=%s", account.ID, model, streamInterval)
-			if s.rateLimitService != nil {
+			if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 				s.rateLimitService.HandleStreamTimeout(ctx, account, model)
 			}
 			return &streamingResult{usage: usage, firstTokenMs: firstTokenMs}, fmt.Errorf("stream data interval timeout")
@@ -815,7 +815,7 @@ func invalidNonStreamingJSONFailoverError(
 		parseErr,
 	)
 
-	if rateLimitService != nil && account != nil {
+	if rateLimitService != nil && account != nil && !IsChannelMonitorContext(ctx) {
 		if len(requestedModel) > 0 {
 			rateLimitService.HandleUpstreamError(ctx, account, statusCode, resp.Header, body, requestedModel[0])
 		} else {
@@ -837,7 +837,7 @@ func (s *GatewayService) handleNonStreamingResponseAnthropicAPIKeyPassthrough(
 	c *gin.Context,
 	account *Account,
 ) (*ClaudeUsage, error) {
-	if s.rateLimitService != nil {
+	if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 		s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
 	}
 

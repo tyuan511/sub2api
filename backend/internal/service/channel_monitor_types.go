@@ -140,6 +140,7 @@ type CheckResult struct {
 	// FirstTokenMs is populated by streaming OpenAI Responses probes.
 	FirstTokenMs    *int
 	TokensPerSecond *float64
+	Stream          bool // 本次监控实际使用的流式请求链路
 	PingLatencyMs   *int
 	Message         string
 	CheckedAt       time.Time

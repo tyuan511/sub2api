@@ -207,7 +207,7 @@ func (s *OpenAIGatewayService) handleNativeAnthropicBufferedResponse(
 	reasoningEffort *string,
 	startTime time.Time,
 ) (*OpenAIForwardResult, error) {
-	if s.rateLimitService != nil {
+	if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 		s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
 	}
 
@@ -273,7 +273,7 @@ func (s *OpenAIGatewayService) handleNativeAnthropicStreamingResponse(
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
-	if s.rateLimitService != nil {
+	if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 		s.rateLimitService.UpdateSessionWindow(ctx, account, resp.Header)
 	}
 
@@ -468,7 +468,7 @@ func (s *OpenAIGatewayService) handleNativeAnthropicStreamingResponse(
 					fmt.Errorf("stream usage incomplete after timeout")
 			}
 			logger.LegacyPrintf("service.gateway", "[CN Anthropic 直通] Stream data interval timeout: account=%d model=%s interval=%s", account.ID, upstreamModel, streamInterval)
-			if s.rateLimitService != nil {
+			if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 				s.rateLimitService.HandleStreamTimeout(ctx, account, upstreamModel)
 			}
 			return s.nativeAnthropicStreamResult(c, resp, usage, firstTokenMs, clientDisconnected, originalModel, billingModel, upstreamModel, reasoningEffort, startTime),

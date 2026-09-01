@@ -212,7 +212,7 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 	if resp.StatusCode >= 400 {
 		respBody := s.readUpstreamErrorBody(resp)
 		policy := ErrorPolicyNone
-		if s.rateLimitService != nil {
+		if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 			policy = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, mappedModel)
 		}
 		// 与 messages 兼容层一致：只有 None / Matched 才走账号状态处理。

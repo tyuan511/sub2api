@@ -946,6 +946,16 @@ func TestBuildRequestTypeFilterConditionLegacyFallback(t *testing.T) {
 	}
 }
 
+func TestBuildRequestTypeFilterConditionMonitor(t *testing.T) {
+	where, args := buildRequestTypeFilterCondition(3, int16(service.RequestTypeMonitor))
+	require.Equal(t, "is_monitor = TRUE", where)
+	require.Empty(t, args)
+
+	where, args = buildRequestTypeFilterConditionWithAlias(7, int16(service.RequestTypeMonitor), "ul")
+	require.Equal(t, "ul.is_monitor = TRUE", where)
+	require.Empty(t, args)
+}
+
 type usageLogScannerStub struct {
 	values []any
 }

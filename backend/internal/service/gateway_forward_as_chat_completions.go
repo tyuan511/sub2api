@@ -157,7 +157,7 @@ func (s *GatewayService) ForwardAsChatCompletions(
 				Message:            upstreamMsg,
 			})
 			shouldDisable := false
-			if s.rateLimitService != nil {
+			if s.rateLimitService != nil && !IsChannelMonitorContext(ctx) {
 				shouldDisable = s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, mappedModel)
 			}
 			return nil, &UpstreamFailoverError{

@@ -91,6 +91,14 @@ type monitorUsageGroupResolver interface {
 	ResolveMonitorGroupID(ctx context.Context, groupName string) (*int64, error)
 }
 
+// ChannelMonitorForwarder executes a monitor challenge through the same
+// protocol gateway used by normal user requests. Implementations must return
+// the normalized provider-call result without billing or mutating a real
+// account.
+type ChannelMonitorForwarder interface {
+	ForwardMonitor(ctx context.Context, monitor *ChannelMonitor, model, prompt string, opts *CheckOptions) (monitorProviderCallResult, error)
+}
+
 // ChannelMonitorService 渠道监控管理服务。
 type ChannelMonitorService struct {
 	repo      ChannelMonitorRepository
@@ -108,6 +116,9 @@ type ChannelMonitorService struct {
 	// usageLogRepo is optional for compatibility with lightweight tests. When
 	// wired, active probe results are also persisted as informational usage logs.
 	usageLogRepo UsageLogRepository
+	// forwarder is the production monitor transport. A nil value keeps the
+	// legacy direct checker available for isolated unit tests and old adapters.
+	forwarder ChannelMonitorForwarder
 }
 
 const maxChannelMonitorNameRunes = 100
@@ -139,6 +150,16 @@ func (s *ChannelMonitorService) SetUsageLogRepository(repo UsageLogRepository) {
 		return
 	}
 	s.usageLogRepo = repo
+}
+
+// SetForwarder injects the shared gateway monitor executor. It is intentionally
+// a setter so existing lightweight service tests do not need all gateway
+// dependencies.
+func (s *ChannelMonitorService) SetForwarder(forwarder ChannelMonitorForwarder) {
+	if s == nil {
+		return
+	}
+	s.forwarder = forwarder
 }
 
 func (s *ChannelMonitorService) probeRuntime(ctx context.Context) ChannelMonitorRuntime {
@@ -769,16 +790,22 @@ func (s *ChannelMonitorService) persistMonitorUsageLogs(ctx context.Context, m *
 			}
 		}
 	}
-	stream := m.Provider == MonitorProviderOpenAI && defaultAPIMode(m.APIMode) == MonitorAPIModeResponses
-	requestType := RequestTypeSync
-	if stream {
-		requestType = RequestTypeStream
-	}
+	// Prefer the actual transport reported by the shared forwarder. Legacy
+	// direct-check results keep the historical Responses-only fallback.
+	streamDefault := m.Provider == MonitorProviderOpenAI && defaultAPIMode(m.APIMode) == MonitorAPIModeResponses
 	billingMode := monitorStringPtr("token")
 	inboundEndpoint := monitorStringPtr("channel-monitor")
 	for idx, result := range results {
 		if result == nil || strings.TrimSpace(result.Model) == "" {
 			continue
+		}
+		stream := result.Stream
+		if !stream && result.FirstTokenMs == nil && streamDefault {
+			stream = true
+		}
+		requestType := RequestTypeSync
+		if stream {
+			requestType = RequestTypeStream
 		}
 		checkedAt := result.CheckedAt
 		if checkedAt.IsZero() {
@@ -865,7 +892,14 @@ func (s *ChannelMonitorService) runChecksConcurrent(ctx context.Context, m *Chan
 	for i, model := range models {
 		i, model := i, model
 		eg.Go(func() error {
-			r := runCheckForModel(ctx, m.Provider, m.Endpoint, m.APIKey, model, opts)
+			var r *CheckResult
+			if s.forwarder != nil {
+				r = runCheckForModelWithCall(ctx, m.Provider, model, opts, func(callCtx context.Context, prompt string) (monitorProviderCallResult, error) {
+					return s.forwarder.ForwardMonitor(callCtx, m, model, prompt, opts)
+				})
+			} else {
+				r = runCheckForModel(ctx, m.Provider, m.Endpoint, m.APIKey, model, opts)
+			}
 			r.PingLatencyMs = pingMs
 			mu.Lock()
 			results[i] = r
