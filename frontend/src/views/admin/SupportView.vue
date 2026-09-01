@@ -110,6 +110,7 @@
                     class="chat-bubble whitespace-pre-wrap break-words px-3.5 py-2.5 text-sm leading-6"
                     :class="message.sender_role === 'admin' ? 'chat-bubble-out bg-primary-600 text-white dark:bg-primary-700 dark:text-white' : 'chat-bubble-in text-gray-900 dark:text-dark-100'"
                   >{{ message.content }}</div>
+                  <div v-if="message.sender_role === 'admin' && message.user_read_at" class="mt-1 text-right text-[11px] text-gray-400 dark:text-dark-500">已读</div>
                 </div>
               </article>
             </div>
@@ -522,9 +523,11 @@ async function unbindTelegram() {
   }
 }
 
-const realtime = () => {
-  void load(true)
-  if (search.value.trim()) void searchUsers(true)
+const realtime = async () => {
+  // Refresh the open conversation first so a new reply is visible immediately.
+  if (selectedID.value && !pendingUser.value) await loadTicket(selectedID.value, true)
+  await load(true)
+  if (search.value.trim()) await searchUsers(true)
 }
 
 defineExpose({ openTelegram, refreshList })

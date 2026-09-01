@@ -114,7 +114,14 @@ func (s *PaymentResumeService) ensureSigningKey() error {
 }
 
 func NormalizeVisibleMethod(method string) string {
-	return payment.GetBasePaymentType(strings.TrimSpace(method))
+	method = strings.TrimSpace(method)
+	// BEpusdt is the provider key, while USDT is the user-facing method.
+	// Keep the old value readable so existing provider instances continue to
+	// expose the canonical USDT method after the provider/method split.
+	if method == payment.TypeBepusdt {
+		return payment.TypeUsdt
+	}
+	return payment.GetBasePaymentType(method)
 }
 
 func NormalizeVisibleMethods(methods []string) []string {

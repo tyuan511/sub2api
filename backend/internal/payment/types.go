@@ -18,6 +18,10 @@ const (
 	TypeLink         PaymentType = "link"
 	TypeEasyPay      PaymentType = "easypay"
 	TypeAirwallex    PaymentType = "airwallex"
+	// TypeUsdt is the user-facing payment method. BEpusdt is the concrete
+	// provider key used to process this method.
+	TypeUsdt    PaymentType = "usdt"
+	TypeBepusdt PaymentType = "bepusdt"
 )
 
 // Order status constants shared across payment and service layers.

@@ -137,7 +137,8 @@ function onDragEnd() {
 }
 
 function isEnabled(providerKey: string): boolean {
-  return props.enabledPaymentTypes.includes(providerKey)
+  const visibleType = providerKey === 'bepusdt' ? 'usdt' : providerKey
+  return props.enabledPaymentTypes.includes(visibleType)
 }
 
 function getTypes(providerKey: string): TypeOption[] {

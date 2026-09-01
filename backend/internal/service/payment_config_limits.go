@@ -236,6 +236,9 @@ func pcGroupByPaymentType(instances []*dbent.PaymentProviderInstance) map[string
 			continue
 		}
 		for _, t := range splitTypes(inst.SupportedTypes) {
+			if NormalizeVisibleMethod(t) == payment.TypeUsdt {
+				t = payment.TypeUsdt
+			}
 			add(t, inst)
 		}
 	}
@@ -254,6 +257,10 @@ func pcInstanceTypeLimits(inst *dbent.PaymentProviderInstance, pt string) (payme
 		return payment.ChannelLimits{}, false
 	}
 	cl, ok := limits[pt]
+	if !ok && pt == payment.TypeUsdt {
+		// Read limits written by the pre-split BEpusdt configuration.
+		cl, ok = limits[payment.TypeBepusdt]
+	}
 	return cl, ok
 }
 

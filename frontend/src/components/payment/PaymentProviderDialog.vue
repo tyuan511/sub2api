@@ -799,7 +799,7 @@ function loadProvider(provider: ProviderInstance) {
   form.name = provider.name
   form.provider_key = provider.provider_key
   form.supported_types = Array.isArray(provider.supported_types)
-    ? [...provider.supported_types]
+    ? provider.supported_types.map(type => type === 'bepusdt' ? 'usdt' : type)
     : []
   form.enabled = provider.enabled
   // Coerce to a valid value for this provider. Guards against stale data
@@ -838,7 +838,7 @@ function loadProvider(provider: ProviderInstance) {
     try {
       const parsed = JSON.parse(provider.limits)
       for (const [pt, fields] of Object.entries(parsed as Record<string, Record<string, number>>)) {
-        limits[pt] = { ...fields }
+        limits[pt === 'bepusdt' ? 'usdt' : pt] = { ...fields }
       }
       limitsExpanded.value = Object.keys(limits).length > 0
     } catch { /* ignore */ }

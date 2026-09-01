@@ -18,6 +18,8 @@ export interface SupportMessage {
   content: string
   attachments: SupportAttachment[]
   created_at: string
+  /** Present only in administrator responses for administrator messages. */
+  user_read_at?: string
 }
 
 export interface SupportTicket {

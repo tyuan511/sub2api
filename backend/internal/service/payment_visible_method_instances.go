@@ -48,10 +48,21 @@ func enabledVisibleMethodsForProvider(providerKey, supportedTypes string) []stri
 		for _, supportedType := range splitTypes(supportedTypes) {
 			addMethod(supportedType)
 		}
+	case payment.TypeBepusdt:
+		if strings.TrimSpace(supportedTypes) == "" {
+			addMethod(payment.TypeUsdt)
+			break
+		}
+		for _, supportedType := range splitTypes(supportedTypes) {
+			if NormalizeVisibleMethod(supportedType) == payment.TypeUsdt {
+				addMethod(payment.TypeUsdt)
+				break
+			}
+		}
 	}
 
 	methods := make([]string, 0, len(methodSet))
-	for _, method := range []string{payment.TypeAlipay, payment.TypeWxpay} {
+	for _, method := range []string{payment.TypeAlipay, payment.TypeWxpay, payment.TypeUsdt} {
 		if _, ok := methodSet[method]; ok {
 			methods = append(methods, method)
 			delete(methodSet, method)

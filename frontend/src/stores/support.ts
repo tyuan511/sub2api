@@ -8,6 +8,7 @@ export const useSupportStore = defineStore('support', () => {
   const unreadCount = ref(0)
   let socket: WebSocket | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let unreadRefreshTimer: ReturnType<typeof setTimeout> | null = null
   let stopped = true
   let adminMode = false
 
@@ -36,8 +37,14 @@ export const useSupportStore = defineStore('support', () => {
     if (!token) return
     socket = new WebSocket(socketURL(), ['sub2api-support', `jwt.${token}`])
     socket.onmessage = () => {
-      void refreshUnread()
       window.dispatchEvent(new CustomEvent('support-realtime'))
+      // Let the active conversation mark itself read before refreshing the
+      // badge; otherwise a slower pre-read request can restore a stale count.
+      if (unreadRefreshTimer) clearTimeout(unreadRefreshTimer)
+      unreadRefreshTimer = setTimeout(() => {
+        unreadRefreshTimer = null
+        void refreshUnread()
+      }, 250)
     }
     socket.onclose = () => {
       socket = null
@@ -48,7 +55,9 @@ export const useSupportStore = defineStore('support', () => {
   function stop() {
     stopped = true
     if (reconnectTimer) clearTimeout(reconnectTimer)
+    if (unreadRefreshTimer) clearTimeout(unreadRefreshTimer)
     reconnectTimer = null
+    unreadRefreshTimer = null
     if (socket) socket.close()
     socket = null
   }

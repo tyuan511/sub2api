@@ -48,7 +48,8 @@
             <div class="card p-6">
               <AmountInput
                 v-model="amount"
-                :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
+                :amounts="isUsdtRecharge ? usdtRechargeAmounts : normalRechargeAmounts"
+                :allow-custom="!isUsdtRecharge"
                 :min="globalMinAmount"
                 :max="globalMaxAmount"
               />
@@ -302,6 +303,8 @@ const paymentStore = usePaymentStore()
 const subscriptionStore = useSubscriptionStore()
 const appStore = useAppStore()
 
+const isUsdtRecharge = computed(() => route.path === '/usdt-recharge')
+
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
 
@@ -506,14 +509,30 @@ const checkout = ref<CheckoutInfoResponse>({
 })
 
 const tabs = computed(() => {
+  if (isUsdtRecharge.value) return [{ key: 'recharge' as const, label: t('payment.tabTopUp') }]
   const result: { key: 'recharge' | 'subscription'; label: string }[] = []
   if (!checkout.value.balance_disabled) result.push({ key: 'recharge', label: t('payment.tabTopUp') })
   result.push({ key: 'subscription', label: t('payment.tabSubscribe') })
   return result
 })
 
-const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
+const visibleMethods = computed(() => {
+  const methods = getVisibleMethods(checkout.value.methods)
+  if (!isUsdtRecharge.value) return methods
+  return Object.fromEntries(Object.entries(methods).filter(([type]) => type === 'usdt'))
+})
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
+const normalRechargeAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
+const usdtRechargeAmounts = [50, 100, 200, 500, 1000]
+
+watch(isUsdtRecharge, (dedicated) => {
+  activeTab.value = 'recharge'
+  selectedPlan.value = null
+  amount.value = null
+  selectedMethod.value = dedicated
+    ? (enabledMethods.value.includes('usdt') ? 'usdt' : '')
+    : ''
+})
 const validAmount = computed(() => amount.value ?? 0)
 const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
@@ -1135,7 +1154,7 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
-    if (checkout.value.balance_disabled) {
+    if (!isUsdtRecharge.value && checkout.value.balance_disabled) {
       activeTab.value = 'subscription'
     }
     // Handle renewal navigation: ?tab=subscription&group=123

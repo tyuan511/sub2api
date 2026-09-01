@@ -20,9 +20,6 @@
               <h2 class="truncate text-sm font-semibold text-gray-900 dark:text-white">客服工作台</h2>
               <p class="truncate text-[11px] text-gray-500 dark:text-dark-400">用户消息与 Telegram 回复</p>
             </div>
-            <span v-if="supportStore.unreadCount" class="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-              {{ Math.min(supportStore.unreadCount, 99) }}
-            </span>
             <button
               type="button"
               class="admin-support-window-action flex h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none"

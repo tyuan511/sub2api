@@ -60,6 +60,9 @@ type SupportMessage struct {
 	Content     string              `json:"content"`
 	Attachments []SupportAttachment `json:"attachments"`
 	CreatedAt   time.Time           `json:"created_at"`
+	// UserReadAt is only populated in administrator responses, and indicates
+	// when the user read this administrator message (or a later message).
+	UserReadAt *time.Time `json:"user_read_at,omitempty"`
 }
 
 type SupportTicket struct {

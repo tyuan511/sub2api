@@ -39,6 +39,7 @@ describe('getVisibleMethods', () => {
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
       airwallex: methodLimit({ single_min: 10 }),
+      bepusdt: methodLimit({ single_max: 1000 }),
     })
 
     expect(visible).toEqual({
@@ -46,6 +47,7 @@ describe('getVisibleMethods', () => {
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
       airwallex: methodLimit({ single_min: 10 }),
+      usdt: methodLimit({ single_max: 1000 }),
     })
   })
 
@@ -58,6 +60,16 @@ describe('getVisibleMethods', () => {
 
     expect(visible.alipay.single_min).toBe(2)
     expect(visible.wxpay.fee_rate).toBe(1.2)
+  })
+
+  it('normalizes legacy BEpusdt visible method data to USDT', () => {
+    const visible = getVisibleMethods({
+      bepusdt: methodLimit({ single_max: 1000 }),
+    })
+
+    expect(visible).toEqual({
+      usdt: methodLimit({ single_max: 1000 }),
+    })
   })
 
   it('keeps custom EasyPay methods as visible methods', () => {

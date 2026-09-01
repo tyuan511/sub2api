@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -219,7 +220,32 @@ func sameOriginSupportWS(r *http.Request) bool {
 		return true
 	}
 	u, err := url.Parse(origin)
-	return err == nil && strings.EqualFold(u.Host, r.Host)
+	if err != nil {
+		return false
+	}
+	if strings.EqualFold(u.Host, r.Host) {
+		return true
+	}
+	if isLoopbackSupportHost(r.Host) && isLoopbackSupportHost(u.Host) {
+		return true
+	}
+	// Vite and other reverse proxies preserve the browser host in
+	// X-Forwarded-Host while forwarding the request to the backend host.
+	for _, forwardedHost := range strings.Split(r.Header.Get("X-Forwarded-Host"), ",") {
+		if strings.EqualFold(u.Host, strings.TrimSpace(forwardedHost)) {
+			return true
+		}
+	}
+	return false
+}
+
+func isLoopbackSupportHost(host string) bool {
+	name, _, err := net.SplitHostPort(host)
+	if err != nil {
+		name = host
+	}
+	name = strings.Trim(name, "[]")
+	return strings.EqualFold(name, "localhost") || net.ParseIP(name).IsLoopback()
 }
 
 var supportWSUpgrader = websocket.Upgrader{CheckOrigin: sameOriginSupportWS, Subprotocols: []string{"sub2api-support"}}

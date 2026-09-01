@@ -700,6 +700,20 @@ func (s *SupportService) ticketFromEntity(ctx context.Context, entity *ent.Suppo
 		messageIDs = append(messageIDs, message.ID)
 	}
 	attachmentsByMessage := map[int64][]SupportAttachment{}
+	var userReadID int64
+	var userReadAt *time.Time
+	if isAdmin {
+		userRead, readErr := s.client.SupportTicketRead.Query().Where(
+			supportticketread.TicketIDEQ(entity.ID), supportticketread.ReaderIDEQ(entity.UserID),
+		).Only(ctx)
+		if readErr == nil {
+			userReadID = userRead.LastReadMessageID
+			readAt := userRead.ReadAt
+			userReadAt = &readAt
+		} else if !ent.IsNotFound(readErr) {
+			return nil, readErr
+		}
+	}
 	if len(messageIDs) > 0 {
 		attachments, err := s.client.SupportTicketAttachment.Query().Where(supportticketattachment.MessageIDIn(messageIDs...)).Order(ent.Asc(supportticketattachment.FieldID)).All(ctx)
 		if err != nil {
@@ -722,9 +736,13 @@ func (s *SupportService) ticketFromEntity(ctx context.Context, entity *ent.Suppo
 	}
 	item.Messages = make([]SupportMessage, 0, len(messages))
 	for _, message := range messages {
+		var messageUserReadAt *time.Time
+		if isAdmin && message.SenderRole == RoleAdmin && message.ID <= userReadID {
+			messageUserReadAt = userReadAt
+		}
 		item.Messages = append(item.Messages, SupportMessage{ID: message.ID, SenderID: message.SenderID,
 			SenderRole: message.SenderRole, Content: message.Content,
-			Attachments: attachmentsByMessage[message.ID], CreatedAt: message.CreatedAt})
+			Attachments: attachmentsByMessage[message.ID], CreatedAt: message.CreatedAt, UserReadAt: messageUserReadAt})
 	}
 	return item, nil
 }
