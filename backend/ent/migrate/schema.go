@@ -1678,6 +1678,11 @@ var (
 				Columns: []*schema.Column{SupportTicketsColumns[2]},
 			},
 			{
+				Name:    "supportticket_last_message_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{SupportTicketsColumns[8], SupportTicketsColumns[0]},
+			},
+			{
 				Name:    "supportticket_status_last_message_at",
 				Unique:  false,
 				Columns: []*schema.Column{SupportTicketsColumns[5], SupportTicketsColumns[8]},

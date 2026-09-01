@@ -38,6 +38,7 @@ func (SupportTicket) Fields() []ent.Field {
 func (SupportTicket) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("user_id").Unique(),
+		index.Fields("last_message_at", "id"),
 		index.Fields("status", "last_message_at"),
 		index.Fields("category", "created_at"),
 	}

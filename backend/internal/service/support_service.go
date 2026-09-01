@@ -513,7 +513,10 @@ func (s *SupportService) List(ctx context.Context, userID int64, isAdmin bool, f
 	if err != nil {
 		return nil, err
 	}
-	entities, err := query.Order(ent.Desc(supportticket.FieldLastMessageAt)).Offset((filter.Page - 1) * filter.PageSize).Limit(filter.PageSize).All(ctx)
+	entities, err := query.Order(
+		ent.Desc(supportticket.FieldLastMessageAt),
+		ent.Desc(supportticket.FieldID),
+	).Offset((filter.Page - 1) * filter.PageSize).Limit(filter.PageSize).All(ctx)
 	if err != nil {
 		return nil, err
 	}
