@@ -71,6 +71,7 @@
           </div>
           <div class="relative min-h-0 flex-1">
             <textarea
+              ref="draftInput"
               v-model="draft"
               maxlength="10000"
               class="h-full w-full resize-none border-0 bg-transparent px-3 pb-10 pt-0 text-sm leading-5 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100"
@@ -116,6 +117,7 @@ const open = ref(false)
 const loading = ref(false)
 const sending = ref(false)
 const draft = ref('')
+const draftInput = ref<HTMLTextAreaElement>()
 const files = ref<File[]>([])
 const fileInput = ref<HTMLInputElement>()
 const filePreviews = ref<Array<{ file: File; url: string }>>([])
@@ -244,6 +246,8 @@ async function sendMessage() {
     appStore.showError(error?.message || '发送消息失败')
   } finally {
     sending.value = false
+    await nextTick()
+    if (open.value) draftInput.value?.focus({ preventScroll: true })
   }
 }
 
@@ -299,6 +303,13 @@ onBeforeUnmount(() => {
 
 .support-message-stream {
   background: var(--support-canvas);
+}
+
+.support-composer textarea:focus,
+.support-composer textarea:focus-visible {
+  border-color: transparent;
+  outline: none;
+  box-shadow: none;
 }
 
 .support-bubble {

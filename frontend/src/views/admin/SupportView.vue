@@ -135,7 +135,7 @@
                 </div>
               </div>
               <div class="relative min-h-0 flex-1">
-                <textarea v-model="reply" maxlength="10000" class="h-full w-full resize-none border-0 bg-transparent px-4 pb-12 pt-1 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="输入消息，Enter 发送" :disabled="sending" @keydown.enter.exact="handleReplyEnter"></textarea>
+                <textarea ref="replyInput" v-model="reply" maxlength="10000" class="h-full w-full resize-none border-0 bg-transparent px-4 pb-12 pt-1 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="输入消息，Enter 发送" :disabled="sending" @keydown.enter.exact="handleReplyEnter"></textarea>
                 <button class="chat-send-button absolute bottom-3 right-4 rounded-md px-5 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50" type="submit" :disabled="sending || (!reply.trim() && !files.length)">
                   {{ sending ? '发送中...' : '发送' }}
                 </button>
@@ -206,6 +206,7 @@ const result = reactive<SupportListResult>({ items: [], total: 0, page: 1, page_
 const selectedID = ref<number>()
 const ticket = ref<SupportTicket>()
 const reply = ref('')
+const replyInput = ref<HTMLTextAreaElement>()
 const sending = ref(false)
 const files = ref<File[]>([])
 const fileInput = ref<HTMLInputElement>()
@@ -413,6 +414,8 @@ async function sendReply() {
     appStore.showError(error?.message || '发送失败')
   } finally {
     sending.value = false
+    await nextTick()
+    if (activeUser.value) replyInput.value?.focus({ preventScroll: true })
   }
 }
 
@@ -566,6 +569,13 @@ onBeforeUnmount(() => {
 
 .chat-message-stream {
   background: var(--chat-canvas);
+}
+
+.chat-composer textarea:focus,
+.chat-composer textarea:focus-visible {
+  border-color: transparent;
+  outline: none;
+  box-shadow: none;
 }
 
 .chat-bubble {
