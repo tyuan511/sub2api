@@ -680,6 +680,18 @@ websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://loca
 
 #### 开发模式
 
+首次开发可直接使用一键脚本。脚本会自动启动 Docker 中的 PostgreSQL/Redis，生成本地开发配置并初始化数据库，然后分别启动 Go 后端和 Vite 前端；再次运行会复用已有配置和数据。
+
+```bash
+./scripts/dev.sh
+```
+
+默认地址：前端 `http://localhost:3000`，后端 `http://127.0.0.1:8080`，本地 HTTPS 入口 `https://sub2api.localhost:8443`。监控 endpoint 建议填写后一个地址，避免直接用 `localhost` 回环。脚本通过 Caddy 的 `tls internal` 提供本地受信任证书；首次运行如系统询问权限请允许，或手动执行 `caddy trust`。默认管理员为 `admin@sub2api.local / admin123456`，首次运行后请及时修改密码。数据库容器会持续运行，按 `Ctrl-C` 只停止本地前后端和 Caddy。
+
+如端口冲突，可在运行前设置 `DATABASE_HOST_PORT`、`REDIS_HOST_PORT`、`SERVER_PORT`、`ADMIN_PASSWORD`，或直接修改 `deploy/Caddyfile.dev` 中的 HTTPS 端口。
+
+本地监控若需探测 `http://localhost`，一键脚本会自动开启 `CHANNEL_MONITOR_ALLOW_LOCAL_ENDPOINTS=true`。生产环境不要设置该变量，公网和 SSRF 防护规则仍然生效。
+
 ```bash
 # 后端（支持热重载）
 cd backend
