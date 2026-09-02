@@ -50,6 +50,11 @@ type DataProxy struct {
 	ExpiryWarnDays  int    `json:"expiry_warn_days,omitempty"`
 }
 
+type DataAccountProxy struct {
+	ProxyKey    string `json:"proxy_key"`
+	Concurrency int    `json:"concurrency"`
+}
+
 // DataAccount 是管理员显式备份导出使用的账号结构，故意不走 dto.Account 的脱敏路径，
 // Credentials 原文返回。这是"管理员备份"这一显式行为的一部分；如未来需要导出脱敏版本，
 // 应新增独立结构而非修改这里。
@@ -58,18 +63,19 @@ type DataProxy struct {
 // 影子的独立调度配置(priority/并发/分组/status 管理员可单独调)亦不在本备份范围,属已知局限
 // (外审第6轮裁决:保持排除 + 前端警告,而非升级格式做完整往返)。
 type DataAccount struct {
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes,omitempty"`
-	Platform           string         `json:"platform"`
-	Type               string         `json:"type"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra,omitempty"`
-	ProxyKey           *string        `json:"proxy_key,omitempty"`
-	Concurrency        int            `json:"concurrency"`
-	Priority           int            `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier,omitempty"`
-	ExpiresAt          *int64         `json:"expires_at,omitempty"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired,omitempty"`
+	Name               string             `json:"name"`
+	Notes              *string            `json:"notes,omitempty"`
+	Platform           string             `json:"platform"`
+	Type               string             `json:"type"`
+	Credentials        map[string]any     `json:"credentials"`
+	Extra              map[string]any     `json:"extra,omitempty"`
+	ProxyKey           *string            `json:"proxy_key,omitempty"`
+	ProxyPool          []DataAccountProxy `json:"proxy_pool,omitempty"`
+	Concurrency        int                `json:"concurrency"`
+	Priority           int                `json:"priority"`
+	RateMultiplier     *float64           `json:"rate_multiplier,omitempty"`
+	ExpiresAt          *int64             `json:"expires_at,omitempty"`
+	AutoPauseOnExpired *bool              `json:"auto_pause_on_expired,omitempty"`
 }
 
 type DataImportRequest struct {
@@ -189,10 +195,20 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 	for i := range accounts {
 		acc := accounts[i]
 		var proxyKey *string
-		if acc.ProxyID != nil {
-			if key, ok := proxyKeyByID[*acc.ProxyID]; ok {
-				proxyKey = &key
+		var proxyPool []DataAccountProxy
+		for _, poolItem := range accountProxyPoolForExport(acc) {
+			key, ok := proxyKeyByID[poolItem.ProxyID]
+			if !ok {
+				continue
 			}
+			if proxyKey == nil {
+				keyCopy := key
+				proxyKey = &keyCopy
+			}
+			proxyPool = append(proxyPool, DataAccountProxy{
+				ProxyKey:    key,
+				Concurrency: poolItem.Concurrency,
+			})
 		}
 		var expiresAt *int64
 		if acc.ExpiresAt != nil {
@@ -207,6 +223,7 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 			Credentials:        acc.Credentials,
 			Extra:              acc.Extra,
 			ProxyKey:           proxyKey,
+			ProxyPool:          proxyPool,
 			Concurrency:        acc.Concurrency,
 			Priority:           acc.Priority,
 			RateMultiplier:     acc.RateMultiplier,
@@ -411,20 +428,16 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 			continue
 		}
 
-		var proxyID *int64
-		if item.ProxyKey != nil && *item.ProxyKey != "" {
-			if id, ok := proxyKeyToID[*item.ProxyKey]; ok {
-				proxyID = &id
-			} else {
-				result.AccountFailed++
-				result.Errors = append(result.Errors, DataImportError{
-					Kind:     "account",
-					Name:     item.Name,
-					ProxyKey: *item.ProxyKey,
-					Message:  "proxy_key not found",
-				})
-				continue
-			}
+		proxyID, proxyPool, proxyKey, proxyErr := resolveImportedAccountProxyPool(item, proxyKeyToID)
+		if proxyErr != nil {
+			result.AccountFailed++
+			result.Errors = append(result.Errors, DataImportError{
+				Kind:     "account",
+				Name:     item.Name,
+				ProxyKey: proxyKey,
+				Message:  proxyErr.Error(),
+			})
+			continue
 		}
 
 		enrichCredentialsFromIDToken(&item)
@@ -437,6 +450,7 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 			Credentials:          item.Credentials,
 			Extra:                item.Extra,
 			ProxyID:              proxyID,
+			ProxyPool:            proxyPool,
 			Concurrency:          item.Concurrency,
 			Priority:             item.Priority,
 			RateMultiplier:       item.RateMultiplier,
@@ -571,24 +585,74 @@ func (h *AccountHandler) resolveExportProxies(ctx context.Context, accounts []se
 	seen := make(map[int64]struct{})
 	ids := make([]int64, 0)
 	for i := range accounts {
-		if accounts[i].ProxyID == nil {
-			continue
+		for _, poolItem := range accountProxyPoolForExport(accounts[i]) {
+			id := poolItem.ProxyID
+			if id <= 0 {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
 		}
-		id := *accounts[i].ProxyID
-		if id <= 0 {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
 		return []service.Proxy{}, nil
 	}
 
 	return h.adminService.GetProxiesByIDs(ctx, ids)
+}
+
+func accountProxyPoolForExport(account service.Account) []service.AccountProxyConfig {
+	if len(account.ProxyPool) > 0 {
+		return account.ProxyPool
+	}
+	if account.ProxyID == nil || *account.ProxyID <= 0 {
+		return nil
+	}
+	return []service.AccountProxyConfig{{
+		ProxyID:     *account.ProxyID,
+		Concurrency: account.Concurrency,
+		Proxy:       account.Proxy,
+	}}
+}
+
+func resolveImportedAccountProxyPool(item DataAccount, proxyKeyToID map[string]int64) (*int64, []service.AccountProxyConfig, string, error) {
+	if item.ProxyPool != nil {
+		pool := make([]service.AccountProxyConfig, 0, len(item.ProxyPool))
+		for _, itemProxy := range item.ProxyPool {
+			if strings.TrimSpace(itemProxy.ProxyKey) == "" {
+				return nil, nil, "", errors.New("proxy_pool.proxy_key is required")
+			}
+			id, ok := proxyKeyToID[itemProxy.ProxyKey]
+			if !ok {
+				return nil, nil, itemProxy.ProxyKey, errors.New("proxy_pool proxy_key not found")
+			}
+			pool = append(pool, service.AccountProxyConfig{
+				ProxyID:     id,
+				Concurrency: itemProxy.Concurrency,
+			})
+		}
+		normalized, err := service.NormalizeAccountProxyPool(pool)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		if len(normalized) == 0 {
+			return nil, normalized, "", nil
+		}
+		proxyID := normalized[0].ProxyID
+		return &proxyID, normalized, "", nil
+	}
+
+	if item.ProxyKey == nil || *item.ProxyKey == "" {
+		return nil, nil, "", nil
+	}
+	id, ok := proxyKeyToID[*item.ProxyKey]
+	if !ok {
+		return nil, nil, *item.ProxyKey, errors.New("proxy_key not found")
+	}
+	return &id, nil, *item.ProxyKey, nil
 }
 
 func parseAccountIDs(c *gin.Context) ([]int64, error) {
@@ -701,6 +765,14 @@ func validateDataAccount(item DataAccount) error {
 	}
 	if item.Priority < 0 {
 		return errors.New("priority must be >= 0")
+	}
+	for _, proxy := range item.ProxyPool {
+		if strings.TrimSpace(proxy.ProxyKey) == "" {
+			return errors.New("proxy_pool.proxy_key is required")
+		}
+		if proxy.Concurrency < 0 {
+			return errors.New("proxy_pool.concurrency must be >= 0")
+		}
 	}
 	return nil
 }

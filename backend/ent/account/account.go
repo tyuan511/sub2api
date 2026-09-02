@@ -82,6 +82,8 @@ const (
 	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
 	EdgeProxy = "proxy"
+	// EdgeProxyPool holds the string denoting the proxy_pool edge name in mutations.
+	EdgeProxyPool = "proxy_pool"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
 	EdgeParent = "parent"
 	// EdgeChildren holds the string denoting the children edge name in mutations.
@@ -104,6 +106,13 @@ const (
 	ProxyInverseTable = "proxies"
 	// ProxyColumn is the table column denoting the proxy relation/edge.
 	ProxyColumn = "proxy_id"
+	// ProxyPoolTable is the table that holds the proxy_pool relation/edge.
+	ProxyPoolTable = "account_proxies"
+	// ProxyPoolInverseTable is the table name for the AccountProxy entity.
+	// It exists in this package in order to avoid circular dependency with the "accountproxy" package.
+	ProxyPoolInverseTable = "account_proxies"
+	// ProxyPoolColumn is the table column denoting the proxy_pool relation/edge.
+	ProxyPoolColumn = "account_id"
 	// ParentTable is the table that holds the parent relation/edge.
 	ParentTable = "accounts"
 	// ParentColumn is the table column denoting the parent relation/edge.
@@ -422,6 +431,20 @@ func ByProxyField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByProxyPoolCount orders the results by proxy_pool count.
+func ByProxyPoolCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newProxyPoolStep(), opts...)
+	}
+}
+
+// ByProxyPool orders the results by proxy_pool terms.
+func ByProxyPool(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newProxyPoolStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByParentField orders the results by parent field.
 func ByParentField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -482,6 +505,13 @@ func newProxyStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProxyInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, ProxyTable, ProxyColumn),
+	)
+}
+func newProxyPoolStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ProxyPoolInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, true, ProxyPoolTable, ProxyPoolColumn),
 	)
 }
 func newParentStep() *sqlgraph.Step {

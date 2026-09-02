@@ -1540,7 +1540,7 @@
           <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        <AccountProxyPoolEditor v-model="form.proxy_pool" :proxies="proxies" />
       </div>
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -2889,7 +2889,7 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
-import ProxySelector from '@/components/common/ProxySelector.vue'
+import AccountProxyPoolEditor from '@/components/account/AccountProxyPoolEditor.vue'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
@@ -3589,6 +3589,7 @@ const form = reactive({
   name: '',
   notes: '',
   proxy_id: null as number | null,
+  proxy_pool: [] as { proxy_id: number | null; concurrency: number }[],
   concurrency: 1,
   load_factor: null as number | null,
   priority: 1,
@@ -3597,6 +3598,23 @@ const form = reactive({
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+
+const normalizedProxyPool = () =>
+  form.proxy_pool
+    .filter((row) => row.proxy_id != null && Number(row.proxy_id) > 0)
+    .map((row) => ({
+      proxy_id: Number(row.proxy_id),
+      concurrency: Math.max(0, Number(row.concurrency) || 0)
+    }))
+
+watch(
+  () => form.proxy_pool,
+  (pool) => {
+    const first = pool.find((row) => row.proxy_id != null && Number(row.proxy_id) > 0)
+    form.proxy_id = first?.proxy_id ?? null
+  },
+  { deep: true }
+)
 
 const handleUpstreamBillingRateSyncChange = (enabled: boolean) => {
   upstreamBillingRateSyncEnabled.value = enabled
@@ -3697,6 +3715,14 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   form.name = newAccount.name
   form.notes = newAccount.notes || ''
   form.proxy_id = newAccount.proxy_id
+  form.proxy_pool = newAccount.proxy_pool?.length
+    ? newAccount.proxy_pool.map((item) => ({
+        proxy_id: item.proxy_id,
+        concurrency: item.concurrency
+      }))
+    : newAccount.proxy_id != null
+      ? [{ proxy_id: newAccount.proxy_id, concurrency: newAccount.concurrency }]
+      : []
   form.concurrency = newAccount.concurrency
   form.load_factor = newAccount.load_factor ?? null
   form.priority = newAccount.priority
@@ -4648,9 +4674,9 @@ const handleSubmit = async () => {
   const updatePayload: Record<string, unknown> = { ...form }
   try {
     // 后端期望 proxy_id: 0 表示清除代理，而不是 null
-    if (updatePayload.proxy_id === null) {
-      updatePayload.proxy_id = 0
-    }
+    const proxyPool = normalizedProxyPool()
+    updatePayload.proxy_pool = proxyPool
+    updatePayload.proxy_id = proxyPool[0]?.proxy_id ?? 0
     if (form.expires_at === null) {
       updatePayload.expires_at = 0
     }

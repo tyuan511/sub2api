@@ -37,20 +37,25 @@ function makeItem(overrides: Partial<UserMonitorView> = {}): UserMonitorView {
   }
 }
 
-function mountCard(item: UserMonitorView) {
+function mountCard(
+  item: UserMonitorView,
+  options: { cacheHitRate?: number | null; stubAvailability?: boolean } = {},
+) {
+  const stubs = {
+    MonitorTimeline: true,
+    ...(options.stubAvailability === false ? {} : { MonitorAvailabilityRow: true }),
+  }
+
   return mount(MonitorCard, {
     props: {
       item,
       window: '7d',
       availabilityValue: 100,
+      cacheHitRate: options.cacheHitRate ?? null,
       countdownSeconds: 0,
     },
     global: {
-      stubs: {
-        MonitorMetricPair: true,
-        MonitorAvailabilityRow: true,
-        MonitorTimeline: true,
-      },
+      stubs,
     },
   })
 }
@@ -104,5 +109,21 @@ describe('MonitorCard quota snapshot visibility', () => {
   it('does not show the group name beside the model', () => {
     const wrapper = mountCard(makeItem({ group_name: 'internal-pro-group' }))
     expect(wrapper.text()).not.toContain('internal-pro-group')
+  })
+
+  it('shows availability, first token and cache hit rate without token speed', () => {
+    const wrapper = mountCard(
+      makeItem({ primary_first_token_ms: 1_240, primary_tokens_per_second: 99 }),
+      { cacheHitRate: 87.5, stubAvailability: false },
+    )
+
+    expect(wrapper.find('.grid-cols-3').exists()).toBe(true)
+    expect(wrapper.text()).toContain('monitorCommon.availabilityPrefix')
+    expect(wrapper.text()).toContain('monitorCommon.firstToken')
+    expect(wrapper.text()).toContain('monitorCommon.cacheHitRate')
+    expect(wrapper.text()).toContain('1240')
+    expect(wrapper.text()).toContain('87.50')
+    expect(wrapper.text()).not.toContain('monitorCommon.tokenSpeed')
+    expect(wrapper.text()).not.toContain('99.0')
   })
 })

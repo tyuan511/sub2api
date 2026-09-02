@@ -7,6 +7,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/accountproxy"
 	"github.com/Wei-Shaw/sub2api/ent/admintelegrambinding"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -272,6 +273,20 @@ func init() {
 	accountgroupDescCreatedAt := accountgroupFields[3].Descriptor()
 	// accountgroup.DefaultCreatedAt holds the default value on creation for the created_at field.
 	accountgroup.DefaultCreatedAt = accountgroupDescCreatedAt.Default.(func() time.Time)
+	accountproxyFields := schema.AccountProxy{}.Fields()
+	_ = accountproxyFields
+	// accountproxyDescConcurrency is the schema descriptor for concurrency field.
+	accountproxyDescConcurrency := accountproxyFields[3].Descriptor()
+	// accountproxy.DefaultConcurrency holds the default value on creation for the concurrency field.
+	accountproxy.DefaultConcurrency = accountproxyDescConcurrency.Default.(int)
+	// accountproxyDescPosition is the schema descriptor for position field.
+	accountproxyDescPosition := accountproxyFields[4].Descriptor()
+	// accountproxy.DefaultPosition holds the default value on creation for the position field.
+	accountproxy.DefaultPosition = accountproxyDescPosition.Default.(int)
+	// accountproxyDescCreatedAt is the schema descriptor for created_at field.
+	accountproxyDescCreatedAt := accountproxyFields[5].Descriptor()
+	// accountproxy.DefaultCreatedAt holds the default value on creation for the created_at field.
+	accountproxy.DefaultCreatedAt = accountproxyDescCreatedAt.Default.(func() time.Time)
 	admintelegrambindingFields := schema.AdminTelegramBinding{}.Fields()
 	_ = admintelegrambindingFields
 	// admintelegrambindingDescTelegramUsername is the schema descriptor for telegram_username field.

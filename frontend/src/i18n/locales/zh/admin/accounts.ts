@@ -1005,6 +1005,14 @@ export default {
       expired: '已过期',
       proxy: '代理',
       noProxy: '无代理',
+      proxyPool: {
+        add: '添加代理',
+        remove: '移除代理',
+        concurrency: '代理并发数',
+        concurrencyPlaceholder: '并发数',
+        empty: '未配置代理，将直接访问上游',
+        hint: '多个代理按相同权重轮询；每个代理使用独立并发上限。0 表示不限制。'
+      },
       concurrency: '并发数',
       loadFactor: '负载因子',
       loadFactorHint: '提高负载因子可以提高对账号的调度频率',

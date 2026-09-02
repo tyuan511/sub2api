@@ -2,26 +2,25 @@
   <div>
     <div
       v-if="loading && items.length === 0"
-      class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      class="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
     >
       <div
         v-for="i in 6"
         :key="i"
-        class="relative overflow-hidden p-5 rounded-2xl min-h-[280px] bg-white/80 dark:bg-dark-800/65 border border-gray-200/80 dark:border-dark-700/70 shadow-card animate-pulse"
+        class="relative overflow-hidden p-4 rounded-lg min-h-[250px] bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-700 shadow-sm animate-pulse"
       >
-        <div class="flex items-start gap-3">
-          <div class="w-9 h-9 rounded-xl bg-gray-200 dark:bg-dark-700"></div>
+        <div class="flex items-start gap-2.5">
+          <div class="w-8 h-8 rounded-md bg-gray-200 dark:bg-dark-700"></div>
           <div class="flex-1 space-y-2">
             <div class="h-4 w-2/3 rounded bg-gray-200 dark:bg-dark-700"></div>
             <div class="h-3 w-1/2 rounded bg-gray-200 dark:bg-dark-700"></div>
           </div>
-          <div class="h-6 w-16 rounded-full bg-gray-200 dark:bg-dark-700"></div>
+          <div class="h-6 w-16 rounded-md bg-gray-200 dark:bg-dark-700"></div>
         </div>
-        <div class="mt-5 grid grid-cols-2 gap-2.5">
-          <div class="h-16 rounded-2xl bg-gray-100 dark:bg-dark-900/40"></div>
-          <div class="h-16 rounded-2xl bg-gray-100 dark:bg-dark-900/40"></div>
+        <div class="mt-4 grid grid-cols-3 gap-2">
+          <div v-for="metric in 3" :key="metric" class="h-14 rounded-md bg-gray-100 dark:bg-dark-900/40"></div>
         </div>
-        <div class="mt-6 h-5 w-full rounded bg-gray-100 dark:bg-dark-900/40"></div>
+        <div class="mt-4 h-5 w-full rounded bg-gray-100 dark:bg-dark-900/40"></div>
       </div>
     </div>
 
@@ -33,7 +32,7 @@
 
     <div
       v-else
-      class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      class="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
     >
       <MonitorCard
         v-for="item in items"

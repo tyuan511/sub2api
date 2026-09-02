@@ -934,6 +934,14 @@ export default {
       expired: 'Expired',
       proxy: 'Proxy',
       noProxy: 'No Proxy',
+      proxyPool: {
+        add: 'Add proxy',
+        remove: 'Remove proxy',
+        concurrency: 'Proxy concurrency',
+        concurrencyPlaceholder: 'Concurrency',
+        empty: 'No proxy configured; connect directly to the upstream',
+        hint: 'Proxies are selected with equal-weight round robin; each has its own concurrency cap. 0 means unlimited.'
+      },
       concurrency: 'Concurrency',
       loadFactor: 'Load Factor',
       loadFactorHint: 'Higher load factor increases scheduling frequency',

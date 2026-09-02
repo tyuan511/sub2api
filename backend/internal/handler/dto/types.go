@@ -310,10 +310,17 @@ type Account struct {
 	ParentChatGPTAccountID      string `json:"parent_chatgpt_account_id,omitempty"`
 
 	Proxy         *Proxy         `json:"proxy,omitempty"`
+	ProxyPool     []AccountProxy `json:"proxy_pool,omitempty"`
 	AccountGroups []AccountGroup `json:"account_groups,omitempty"`
 
 	GroupIDs []int64  `json:"group_ids,omitempty"`
 	Groups   []*Group `json:"groups,omitempty"`
+}
+
+type AccountProxy struct {
+	ProxyID     int64  `json:"proxy_id"`
+	Concurrency int    `json:"concurrency"`
+	Proxy       *Proxy `json:"proxy,omitempty"`
 }
 
 type AccountGroup struct {

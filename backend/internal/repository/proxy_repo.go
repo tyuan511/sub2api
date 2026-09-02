@@ -185,13 +185,23 @@ func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.C
 		return nil, err
 	}
 	if currentIdentity == proxyProbeIdentityFromService(proxyIn) {
+		// Name, expiry and fallback settings are also embedded in scheduler
+		// metadata. They do not invalidate billing probes, but they still require
+		// the account snapshots to be republished.
+		accountIDs, err := listAccountsReferencingProxy(ctx, client, proxyIn.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := enqueueProxyAccountChanges(ctx, client, accountIDs); err != nil {
+			return nil, err
+		}
 		return updated, nil
 	}
 	accountIDs, err := invalidateProxyProbeSnapshots(ctx, client, proxyIn.ID)
 	if err != nil {
 		return nil, err
 	}
-	if err := enqueueProxyProbeAccountChanges(ctx, client, accountIDs); err != nil {
+	if err := enqueueProxyAccountChanges(ctx, client, accountIDs); err != nil {
 		return nil, err
 	}
 	return updated, nil
@@ -221,24 +231,37 @@ func lockProxyProbeIdentity(ctx context.Context, client *dbent.Client, proxyID i
 	return identity, rows.Err()
 }
 
+// invalidateProxyProbeSnapshots clears probe-derived account state and returns
+// every active account that references the proxy. The scheduler snapshot also
+// embeds the proxy endpoint itself, so a proxy edit must invalidate ordinary
+// OAuth/API accounts even when they have no probe snapshot to clear.
 func invalidateProxyProbeSnapshots(ctx context.Context, exec sqlExecutor, proxyID int64) ([]int64, error) {
 	rows, err := exec.QueryContext(ctx, `
-		UPDATE accounts
-		SET extra = COALESCE(extra, '{}'::jsonb)
-				- 'upstream_billing_probe'
-				- 'ollama_cloud_usage_snapshot',
-			updated_at = NOW()
-		WHERE proxy_id = $1
-			AND type = 'apikey'
-			AND (
-				(extra ? 'upstream_billing_probe'
-					AND extra -> 'upstream_billing_probe' <> 'null'::jsonb)
-				OR (platform IN (`+ollamaCloudUsagePlatformsSQL+`)
-					AND extra ? 'ollama_cloud_usage_snapshot'
-					AND extra -> 'ollama_cloud_usage_snapshot' <> 'null'::jsonb)
-			)
-			AND deleted_at IS NULL
-		RETURNING id
+		WITH affected AS (
+			SELECT DISTINCT a.id
+			FROM accounts a
+			WHERE a.deleted_at IS NULL
+				AND (a.proxy_id = $1 OR EXISTS (
+					SELECT 1 FROM account_proxies ap
+					WHERE ap.account_id = a.id AND ap.proxy_id = $1
+				))
+		), cleared AS (
+			UPDATE accounts a
+			SET extra = COALESCE(a.extra, '{}'::jsonb)
+					- 'upstream_billing_probe'
+					- 'ollama_cloud_usage_snapshot',
+				updated_at = NOW()
+			WHERE a.id IN (SELECT id FROM affected)
+				AND a.type = 'apikey'
+				AND (
+					(a.extra ? 'upstream_billing_probe'
+						AND a.extra -> 'upstream_billing_probe' <> 'null'::jsonb)
+					OR (a.platform IN (`+ollamaCloudUsagePlatformsSQL+`)
+						AND a.extra ? 'ollama_cloud_usage_snapshot'
+						AND a.extra -> 'ollama_cloud_usage_snapshot' <> 'null'::jsonb)
+				)
+		)
+		SELECT id FROM affected ORDER BY id
 	`, proxyID)
 	if err != nil {
 		return nil, err
@@ -258,7 +281,35 @@ func invalidateProxyProbeSnapshots(ctx context.Context, exec sqlExecutor, proxyI
 	return accountIDs, nil
 }
 
-func enqueueProxyProbeAccountChanges(ctx context.Context, exec sqlExecutor, accountIDs []int64) error {
+func listAccountsReferencingProxy(ctx context.Context, exec sqlExecutor, proxyID int64) ([]int64, error) {
+	rows, err := exec.QueryContext(ctx, `
+		SELECT DISTINCT a.id
+		FROM accounts a
+		WHERE a.deleted_at IS NULL
+			AND (a.proxy_id = $1 OR EXISTS (
+				SELECT 1 FROM account_proxies ap
+				WHERE ap.account_id = a.id AND ap.proxy_id = $1
+			))
+		ORDER BY a.id`, proxyID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	accountIDs := make([]int64, 0)
+	for rows.Next() {
+		var accountID int64
+		if err := rows.Scan(&accountID); err != nil {
+			return nil, err
+		}
+		accountIDs = append(accountIDs, accountID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return accountIDs, nil
+}
+
+func enqueueProxyAccountChanges(ctx context.Context, exec sqlExecutor, accountIDs []int64) error {
 	accountIDs = sortedUniqueAccountIDs(accountIDs)
 	for start := 0; start < len(accountIDs); start += proxyProbeOutboxAccountChunkSize {
 		end := start + proxyProbeOutboxAccountChunkSize
@@ -472,7 +523,16 @@ func (r *proxyRepository) ExistsByHostPortAuth(ctx context.Context, host string,
 // CountAccountsByProxyID returns the number of accounts using a specific proxy
 func (r *proxyRepository) CountAccountsByProxyID(ctx context.Context, proxyID int64) (int64, error) {
 	var count int64
-	if err := scanSingleRow(ctx, r.sql, "SELECT COUNT(*) FROM accounts WHERE proxy_id = $1 AND deleted_at IS NULL", []any{proxyID}, &count); err != nil {
+	if err := scanSingleRow(ctx, r.sql, `
+	SELECT COUNT(*) FROM (
+			SELECT id FROM accounts WHERE proxy_id = $1 AND deleted_at IS NULL
+			UNION
+			SELECT ap.account_id
+			FROM account_proxies ap
+			JOIN accounts a ON a.id = ap.account_id
+			WHERE ap.proxy_id = $1 AND a.deleted_at IS NULL
+		) AS referenced_accounts
+	`, []any{proxyID}, &count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -480,10 +540,14 @@ func (r *proxyRepository) CountAccountsByProxyID(ctx context.Context, proxyID in
 
 func (r *proxyRepository) ListAccountSummariesByProxyID(ctx context.Context, proxyID int64) ([]service.ProxyAccountSummary, error) {
 	rows, err := r.sql.QueryContext(ctx, `
-		SELECT id, name, platform, type, notes
-		FROM accounts
-		WHERE proxy_id = $1 AND deleted_at IS NULL
-		ORDER BY id DESC
+		SELECT a.id, a.name, a.platform, a.type, a.notes
+		FROM accounts a
+		WHERE a.deleted_at IS NULL AND (
+			a.proxy_id = $1 OR EXISTS (
+				SELECT 1 FROM account_proxies ap WHERE ap.account_id = a.id AND ap.proxy_id = $1
+			)
+		)
+		ORDER BY a.id DESC
 	`, proxyID)
 	if err != nil {
 		return nil, err
@@ -522,7 +586,21 @@ func (r *proxyRepository) ListAccountSummariesByProxyID(ctx context.Context, pro
 
 // GetAccountCountsForProxies returns a map of proxy ID to account count for all proxies
 func (r *proxyRepository) GetAccountCountsForProxies(ctx context.Context) (counts map[int64]int64, err error) {
-	rows, err := r.sql.QueryContext(ctx, "SELECT proxy_id, COUNT(*) AS count FROM accounts WHERE proxy_id IS NOT NULL AND deleted_at IS NULL GROUP BY proxy_id")
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT proxy_id, COUNT(*) AS count
+		FROM (
+			SELECT a.proxy_id, a.id AS account_id
+			FROM accounts a
+			WHERE a.proxy_id IS NOT NULL AND a.deleted_at IS NULL
+
+			UNION
+
+			SELECT ap.proxy_id, ap.account_id
+			FROM account_proxies ap
+			JOIN accounts a ON a.id = ap.account_id
+			WHERE a.deleted_at IS NULL
+		) AS referenced_accounts
+		GROUP BY proxy_id`)
 	if err != nil {
 		return nil, err
 	}
@@ -728,20 +806,38 @@ func (r *proxyRepository) sweepOneExpiredProxyOnExec(ctx context.Context, exec s
 		service.StatusExpired, proxyID); err != nil {
 		return nil, err
 	}
+	allAffectedAccountIDs, err := accountsReferencingProxy(ctx, exec, proxyID)
+	if err != nil {
+		return nil, err
+	}
+	bindings, err := accountProxyBindingsReferencingProxy(ctx, exec, proxyID)
+	if err != nil {
+		return nil, err
+	}
 	if !change {
-		accountIDs, err := invalidateProxyProbeSnapshots(ctx, exec, proxyID)
+		probeAccountIDs, err := invalidateProxyProbeSnapshots(ctx, exec, proxyID)
 		if err != nil {
 			return nil, err
 		}
-		if err := enqueueProxyProbeAccountChanges(ctx, exec, accountIDs); err != nil {
+		// The legacy proxy column intentionally remains unchanged for mode=none,
+		// but pool bindings are removed. Every referencing account therefore needs
+		// a scheduler invalidation even when it has no probe snapshot. This list is
+		// separate from SweepExpiredProxies' changed-account count below: removing
+		// a compatibility pool row is not an account reroute.
+		invalidationIDs := sortedUniqueAccountIDs(append(allAffectedAccountIDs, probeAccountIDs...))
+		if err := enqueueProxyAccountChanges(ctx, exec, invalidationIDs); err != nil {
+			return nil, err
+		}
+		// A pool binding must never keep an expired endpoint in the scheduler
+		// snapshot. Legacy proxy_id is intentionally preserved for mode=none;
+		// the concurrency layer rejects that expired endpoint until an operator
+		// changes the account configuration.
+		if _, err := exec.ExecContext(ctx, `DELETE FROM account_proxies WHERE proxy_id = $1`, proxyID); err != nil {
 			return nil, err
 		}
 		return nil, nil
 	}
-	var (
-		rows *sql.Rows
-		err  error
-	)
+	var rows *sql.Rows
 	if target == nil {
 		rows, err = exec.QueryContext(ctx, `
 			UPDATE accounts SET proxy_id=NULL, proxy_fallback_origin_id=$1,
@@ -786,7 +882,176 @@ func (r *proxyRepository) sweepOneExpiredProxyOnExec(ctx context.Context, exec s
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
+	if err := replaceExpiredProxyPoolBindings(ctx, exec, proxyID, target, bindings, accountIDs); err != nil {
+		return nil, err
+	}
+	if target != nil && len(accountIDs) > 0 {
+		// A partially migrated legacy account may not have the expired binding in
+		// account_proxies yet. Add the fallback endpoint in that case, but never
+		// rebuild the whole pool: other configured bindings must survive expiry.
+		if err := ensureLegacyFallbackProxyPool(ctx, exec, accountIDs, *target); err != nil {
+			return nil, err
+		}
+	}
+	return sortedUniqueAccountIDs(append(allAffectedAccountIDs, accountIDs...)), nil
+}
+
+// accountsReferencingProxy returns active accounts that use proxyID either as
+// their legacy endpoint or in the account-scoped pool. It is deliberately
+// read before fallback updates so pool-only references can be included in the
+// scheduler invalidation event as well.
+func accountsReferencingProxy(ctx context.Context, exec sqlExecutor, proxyID int64) ([]int64, error) {
+	rows, err := exec.QueryContext(ctx, `
+		SELECT a.id
+		FROM accounts a
+		WHERE a.deleted_at IS NULL AND (a.proxy_id = $1 OR EXISTS (
+			SELECT 1 FROM account_proxies ap
+			WHERE ap.account_id = a.id AND ap.proxy_id = $1
+		))
+		ORDER BY a.id
+		FOR UPDATE`, proxyID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	accountIDs := make([]int64, 0)
+	for rows.Next() {
+		var accountID int64
+		if err := rows.Scan(&accountID); err != nil {
+			return nil, err
+		}
+		accountIDs = append(accountIDs, accountID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return accountIDs, nil
+}
+
+type expiredAccountProxyBinding struct {
+	accountID   int64
+	concurrency int
+	position    int
+}
+
+// accountProxyBindingsReferencingProxy locks the exact pool rows that will be
+// changed by expiry handling. Locking accounts first (in
+// accountsReferencingProxy) and bindings second matches account update paths
+// and avoids replacing a row based on a stale pool snapshot.
+func accountProxyBindingsReferencingProxy(ctx context.Context, exec sqlExecutor, proxyID int64) ([]expiredAccountProxyBinding, error) {
+	rows, err := exec.QueryContext(ctx, `
+		SELECT ap.account_id, ap.concurrency, ap.position
+		FROM account_proxies ap
+		JOIN accounts a ON a.id = ap.account_id
+		WHERE ap.proxy_id = $1 AND a.deleted_at IS NULL
+		ORDER BY ap.account_id, ap.position, ap.proxy_id
+		FOR UPDATE OF ap`, proxyID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	bindings := make([]expiredAccountProxyBinding, 0)
+	for rows.Next() {
+		var binding expiredAccountProxyBinding
+		if err := rows.Scan(&binding.accountID, &binding.concurrency, &binding.position); err != nil {
+			return nil, err
+		}
+		bindings = append(bindings, binding)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return bindings, nil
+}
+
+// replaceExpiredProxyPoolBindings replaces only the expired binding. When a
+// legacy account is put into fallback and the target is already configured in
+// its pool, retain the expired origin row as recovery state. The scheduler
+// hides that row while the account is in fallback, and RevertProxyFallback can
+// then restore the exact original cap and position without deleting the user's
+// target binding. Pool-only accounts have no account-level fallback state, so
+// their expired row is still removed in that duplicate-target case.
+func replaceExpiredProxyPoolBindings(ctx context.Context, exec sqlExecutor, expiredProxyID int64, target *int64, bindings []expiredAccountProxyBinding, fallbackAccountIDs []int64) error {
+	fallbackAccounts := make(map[int64]struct{}, len(fallbackAccountIDs))
+	for _, accountID := range fallbackAccountIDs {
+		fallbackAccounts[accountID] = struct{}{}
+	}
+	if target == nil {
+		for _, binding := range bindings {
+			if _, restoreOnRevert := fallbackAccounts[binding.accountID]; restoreOnRevert {
+				// Keep the expired origin binding so a manual revert restores its
+				// original concurrency cap and round-robin position.
+				continue
+			}
+			if _, err := exec.ExecContext(ctx, `
+				DELETE FROM account_proxies
+				WHERE account_id = $1 AND proxy_id = $2`, binding.accountID, expiredProxyID); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, binding := range bindings {
+		rows, err := exec.QueryContext(ctx, `
+			SELECT 1
+			FROM account_proxies
+			WHERE account_id = $1 AND proxy_id = $2
+			FOR UPDATE`, binding.accountID, *target)
+		if err != nil {
+			return err
+		}
+		targetExists := rows.Next()
+		if rowErr := rows.Err(); rowErr != nil {
+			_ = rows.Close()
+			return rowErr
+		}
+		if closeErr := rows.Close(); closeErr != nil {
+			return closeErr
+		}
+
+		if targetExists {
+			if _, restoreOnRevert := fallbackAccounts[binding.accountID]; restoreOnRevert {
+				// Keep both rows: the target keeps the user's configured cap/order,
+				// while the expired origin row is hidden until the account is
+				// reverted. This avoids turning the target into the origin later.
+				continue
+			}
+			if _, err := exec.ExecContext(ctx, `
+				DELETE FROM account_proxies
+				WHERE account_id = $1 AND proxy_id = $2`, binding.accountID, expiredProxyID); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := exec.ExecContext(ctx, `
+			UPDATE account_proxies
+			SET proxy_id = $1
+			WHERE account_id = $2 AND proxy_id = $3`, *target, binding.accountID, expiredProxyID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ensureLegacyFallbackProxyPool repairs databases where an account still has
+// the legacy proxy_id but its compatibility pool row was never backfilled.
+// ON CONFLICT keeps an existing target binding's concurrency and position.
+func ensureLegacyFallbackProxyPool(ctx context.Context, exec sqlExecutor, accountIDs []int64, targetProxyID int64) error {
+	if len(accountIDs) == 0 || targetProxyID <= 0 {
+		return nil
+	}
+	for _, accountID := range accountIDs {
+		if _, err := exec.ExecContext(ctx, `
+			INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+			SELECT a.id, $1, GREATEST(a.concurrency, 0), 0
+			FROM accounts a
+			WHERE a.id = $2 AND a.deleted_at IS NULL
+			ON CONFLICT (account_id, proxy_id) DO NOTHING`, targetProxyID, accountID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CountExpired 返回已过期（status=expired）的代理数量。

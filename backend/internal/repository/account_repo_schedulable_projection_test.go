@@ -23,11 +23,13 @@ func (m captureEntQueryMatcher) Match(_, actual string) error {
 	if m.actual == nil {
 		return fmt.Errorf("query capture target is nil")
 	}
-	*m.actual = actual
+	if *m.actual == "" {
+		*m.actual = actual
+	}
 	return nil
 }
 
-func TestListSchedulableAccountLoadsUsesSingleProjectionQuery(t *testing.T) {
+func TestListSchedulableAccountLoadsUsesProjectionAndProxyPoolQuery(t *testing.T) {
 	var capturedSQL string
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(captureEntQueryMatcher{actual: &capturedSQL}))
 	require.NoError(t, err)
@@ -42,6 +44,9 @@ func TestListSchedulableAccountLoadsUsesSingleProjectionQuery(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "concurrency", "load_factor"}).
 			AddRow(int64(11), 3, nil).
 			AddRow(int64(12), 2, 7))
+	mock.ExpectQuery("account proxy pool load").
+		WillReturnRows(sqlmock.NewRows([]string{"account_id", "proxy_id", "concurrency", "position"}).
+			AddRow(int64(11), int64(101), 2, 0))
 
 	loads, err := repo.ListSchedulableAccountLoads(context.Background())
 	require.NoError(t, err)
@@ -50,7 +55,11 @@ func TestListSchedulableAccountLoadsUsesSingleProjectionQuery(t *testing.T) {
 	require.Equal(t, 3, loads[0].MaxConcurrency)
 	require.Equal(t, int64(12), loads[1].ID)
 	require.Equal(t, 7, loads[1].MaxConcurrency)
-	require.NoError(t, mock.ExpectationsWereMet(), "projection path must execute exactly one query")
+	require.Len(t, loads[0].ProxyPool, 1)
+	require.Equal(t, int64(101), loads[0].ProxyPool[0].ProxyID)
+	require.Equal(t, 2, loads[0].ProxyPool[0].MaxConcurrency)
+	require.Empty(t, loads[1].ProxyPool)
+	require.NoError(t, mock.ExpectationsWereMet(), "projection path must load account-scoped proxy caps")
 
 	normalized := normalizeSQLWhitespace(capturedSQL)
 	selectClause, _, found := strings.Cut(normalized, " FROM ")

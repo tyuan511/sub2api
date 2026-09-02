@@ -17,6 +17,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/accountproxy"
 	"github.com/Wei-Shaw/sub2api/ent/admintelegrambinding"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -75,6 +76,8 @@ type Client struct {
 	Account *AccountClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
 	AccountGroup *AccountGroupClient
+	// AccountProxy is the client for interacting with the AccountProxy builders.
+	AccountProxy *AccountProxyClient
 	// AdminTelegramBinding is the client for interacting with the AdminTelegramBinding builders.
 	AdminTelegramBinding *AdminTelegramBindingClient
 	// Announcement is the client for interacting with the Announcement builders.
@@ -173,6 +176,7 @@ func (c *Client) init() {
 	c.APIKey = NewAPIKeyClient(c.config)
 	c.Account = NewAccountClient(c.config)
 	c.AccountGroup = NewAccountGroupClient(c.config)
+	c.AccountProxy = NewAccountProxyClient(c.config)
 	c.AdminTelegramBinding = NewAdminTelegramBindingClient(c.config)
 	c.Announcement = NewAnnouncementClient(c.config)
 	c.AnnouncementRead = NewAnnouncementReadClient(c.config)
@@ -310,6 +314,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		APIKey:                        NewAPIKeyClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
+		AccountProxy:                  NewAccountProxyClient(cfg),
 		AdminTelegramBinding:          NewAdminTelegramBindingClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
@@ -374,6 +379,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		APIKey:                        NewAPIKeyClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
+		AccountProxy:                  NewAccountProxyClient(cfg),
 		AdminTelegramBinding:          NewAdminTelegramBindingClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
@@ -445,9 +451,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.Account, c.AccountGroup, c.AdminTelegramBinding, c.Announcement,
-		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
-		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.APIKey, c.Account, c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding,
+		c.Announcement, c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel,
+		c.BatchImageEvent, c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
@@ -467,9 +473,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.Account, c.AccountGroup, c.AdminTelegramBinding, c.Announcement,
-		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
-		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.APIKey, c.Account, c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding,
+		c.Announcement, c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel,
+		c.BatchImageEvent, c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
@@ -494,6 +500,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Account.mutate(ctx, m)
 	case *AccountGroupMutation:
 		return c.AccountGroup.mutate(ctx, m)
+	case *AccountProxyMutation:
+		return c.AccountProxy.mutate(ctx, m)
 	case *AdminTelegramBindingMutation:
 		return c.AdminTelegramBinding.mutate(ctx, m)
 	case *AnnouncementMutation:
@@ -906,6 +914,22 @@ func (c *AccountClient) QueryProxy(_m *Account) *ProxyQuery {
 	return query
 }
 
+// QueryProxyPool queries the proxy_pool edge of a Account.
+func (c *AccountClient) QueryProxyPool(_m *Account) *AccountProxyQuery {
+	query := (&AccountProxyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(accountproxy.Table, accountproxy.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, account.ProxyPoolTable, account.ProxyPoolColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryParent queries the parent edge of a Account.
 func (c *AccountClient) QueryParent(_m *Account) *AccountQuery {
 	query := (&AccountClient{config: c.config}).Query()
@@ -1110,6 +1134,171 @@ func (c *AccountGroupClient) mutate(ctx context.Context, m *AccountGroupMutation
 		return (&AccountGroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AccountGroup mutation op: %q", m.Op())
+	}
+}
+
+// AccountProxyClient is a client for the AccountProxy schema.
+type AccountProxyClient struct {
+	config
+}
+
+// NewAccountProxyClient returns a client for the AccountProxy from the given config.
+func NewAccountProxyClient(c config) *AccountProxyClient {
+	return &AccountProxyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `accountproxy.Hooks(f(g(h())))`.
+func (c *AccountProxyClient) Use(hooks ...Hook) {
+	c.hooks.AccountProxy = append(c.hooks.AccountProxy, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `accountproxy.Intercept(f(g(h())))`.
+func (c *AccountProxyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AccountProxy = append(c.inters.AccountProxy, interceptors...)
+}
+
+// Create returns a builder for creating a AccountProxy entity.
+func (c *AccountProxyClient) Create() *AccountProxyCreate {
+	mutation := newAccountProxyMutation(c.config, OpCreate)
+	return &AccountProxyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AccountProxy entities.
+func (c *AccountProxyClient) CreateBulk(builders ...*AccountProxyCreate) *AccountProxyCreateBulk {
+	return &AccountProxyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AccountProxyClient) MapCreateBulk(slice any, setFunc func(*AccountProxyCreate, int)) *AccountProxyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AccountProxyCreateBulk{err: fmt.Errorf("calling to AccountProxyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AccountProxyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AccountProxyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AccountProxy.
+func (c *AccountProxyClient) Update() *AccountProxyUpdate {
+	mutation := newAccountProxyMutation(c.config, OpUpdate)
+	return &AccountProxyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AccountProxyClient) UpdateOne(_m *AccountProxy) *AccountProxyUpdateOne {
+	mutation := newAccountProxyMutation(c.config, OpUpdateOne, withAccountProxy(_m))
+	return &AccountProxyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AccountProxyClient) UpdateOneID(id int64) *AccountProxyUpdateOne {
+	mutation := newAccountProxyMutation(c.config, OpUpdateOne, withAccountProxyID(id))
+	return &AccountProxyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AccountProxy.
+func (c *AccountProxyClient) Delete() *AccountProxyDelete {
+	mutation := newAccountProxyMutation(c.config, OpDelete)
+	return &AccountProxyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AccountProxyClient) DeleteOne(_m *AccountProxy) *AccountProxyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AccountProxyClient) DeleteOneID(id int64) *AccountProxyDeleteOne {
+	builder := c.Delete().Where(accountproxy.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AccountProxyDeleteOne{builder}
+}
+
+// Query returns a query builder for AccountProxy.
+func (c *AccountProxyClient) Query() *AccountProxyQuery {
+	return &AccountProxyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAccountProxy},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AccountProxy entity by its id.
+func (c *AccountProxyClient) Get(ctx context.Context, id int64) (*AccountProxy, error) {
+	return c.Query().Where(accountproxy.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AccountProxyClient) GetX(ctx context.Context, id int64) *AccountProxy {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAccount queries the account edge of a AccountProxy.
+func (c *AccountProxyClient) QueryAccount(_m *AccountProxy) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(accountproxy.Table, accountproxy.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, accountproxy.AccountTable, accountproxy.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryProxy queries the proxy edge of a AccountProxy.
+func (c *AccountProxyClient) QueryProxy(_m *AccountProxy) *ProxyQuery {
+	query := (&ProxyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(accountproxy.Table, accountproxy.FieldID, id),
+			sqlgraph.To(proxy.Table, proxy.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, accountproxy.ProxyTable, accountproxy.ProxyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AccountProxyClient) Hooks() []Hook {
+	return c.hooks.AccountProxy
+}
+
+// Interceptors returns the client interceptors.
+func (c *AccountProxyClient) Interceptors() []Interceptor {
+	return c.inters.AccountProxy
+}
+
+func (c *AccountProxyClient) mutate(ctx context.Context, m *AccountProxyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AccountProxyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AccountProxyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AccountProxyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AccountProxyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AccountProxy mutation op: %q", m.Op())
 	}
 }
 
@@ -4780,6 +4969,22 @@ func (c *ProxyClient) QueryAccounts(_m *Proxy) *AccountQuery {
 	return query
 }
 
+// QueryAccountProxyPool queries the account_proxy_pool edge of a Proxy.
+func (c *ProxyClient) QueryAccountProxyPool(_m *Proxy) *AccountProxyQuery {
+	query := (&AccountProxyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(proxy.Table, proxy.FieldID, id),
+			sqlgraph.To(accountproxy.Table, accountproxy.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, proxy.AccountProxyPoolTable, proxy.AccountProxyPoolColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryBackupProxy queries the backup_proxy edge of a Proxy.
 func (c *ProxyClient) QueryBackupProxy(_m *Proxy) *ProxyQuery {
 	query := (&ProxyClient{config: c.config}).Query()
@@ -7675,7 +7880,7 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, Account, AccountGroup, AdminTelegramBinding, Announcement,
+		APIKey, Account, AccountGroup, AccountProxy, AdminTelegramBinding, Announcement,
 		AnnouncementRead, AuthIdentity, AuthIdentityChannel, BatchImageEvent,
 		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
@@ -7689,7 +7894,7 @@ type (
 		UserSubscription []ent.Hook
 	}
 	inters struct {
-		APIKey, Account, AccountGroup, AdminTelegramBinding, Announcement,
+		APIKey, Account, AccountGroup, AccountProxy, AdminTelegramBinding, Announcement,
 		AnnouncementRead, AuthIdentity, AuthIdentityChannel, BatchImageEvent,
 		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,

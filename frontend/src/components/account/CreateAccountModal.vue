@@ -2919,7 +2919,7 @@
           <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        <AccountProxyPoolEditor v-model="form.proxy_pool" :proxies="proxies" />
       </div>
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -3800,7 +3800,7 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
-import ProxySelector from '@/components/common/ProxySelector.vue'
+import AccountProxyPoolEditor from '@/components/account/AccountProxyPoolEditor.vue'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
@@ -4519,6 +4519,7 @@ const form = reactive({
   type: 'oauth' as AccountType, // Will be 'oauth', 'setup-token', or 'apikey'
   credentials: {} as Record<string, unknown>,
   proxy_id: null as number | null,
+  proxy_pool: [] as { proxy_id: number | null; concurrency: number }[],
   concurrency: 10,
   load_factor: null as number | null,
   priority: 1,
@@ -4526,6 +4527,23 @@ const form = reactive({
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+
+const normalizedProxyPool = () =>
+  form.proxy_pool
+    .filter((row) => row.proxy_id != null && Number(row.proxy_id) > 0)
+    .map((row) => ({
+      proxy_id: Number(row.proxy_id),
+      concurrency: Math.max(0, Number(row.concurrency) || 0)
+    }))
+
+watch(
+  () => form.proxy_pool,
+  (pool) => {
+    const first = pool.find((row) => row.proxy_id != null && Number(row.proxy_id) > 0)
+    form.proxy_id = first?.proxy_id ?? null
+  },
+  { deep: true }
+)
 
 // Helper to check if current type needs OAuth flow
 const isOAuthFlow = computed(() => {
@@ -5091,6 +5109,7 @@ const resetForm = () => {
   form.type = 'oauth'
   form.credentials = {}
   form.proxy_id = null
+  form.proxy_pool = []
   form.concurrency = 10
   form.load_factor = null
   form.priority = 1
@@ -5770,7 +5789,8 @@ const createAccountAndFinish = async (
     type,
     credentials,
     extra: finalExtra,
-    proxy_id: form.proxy_id,
+    proxy_id: normalizedProxyPool()[0]?.proxy_id ?? null,
+    proxy_pool: normalizedProxyPool(),
     concurrency: form.concurrency,
     load_factor: form.load_factor ?? undefined,
     priority: form.priority,
@@ -5838,6 +5858,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           credentials,
           extra,
           proxy_id: form.proxy_id,
+          proxy_pool: normalizedProxyPool(),
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
@@ -5904,6 +5925,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       name: form.name || undefined,
       notes: form.notes || undefined,
       proxy_id: form.proxy_id,
+      proxy_pool: normalizedProxyPool(),
       group_ids: form.group_ids,
       credentials,
       concurrency: form.concurrency,
@@ -6015,6 +6037,7 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
           credentials,
           extra,
           proxy_id: form.proxy_id,
+          proxy_pool: normalizedProxyPool(),
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
@@ -6114,6 +6137,7 @@ const handleOpenAIExchange = async (authCode: string) => {
         credentials,
         extra,
         proxy_id: form.proxy_id,
+        proxy_pool: normalizedProxyPool(),
         concurrency: form.concurrency,
         load_factor: form.load_factor ?? undefined,
         priority: form.priority,
@@ -6219,6 +6243,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       name: form.name,
       notes: form.notes || null,
       proxy_id: form.proxy_id,
+      proxy_pool: normalizedProxyPool(),
       concurrency: form.concurrency,
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
@@ -6297,6 +6322,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       name: form.name,
       notes: form.notes || null,
       proxy_id: form.proxy_id,
+      proxy_pool: normalizedProxyPool(),
       concurrency: form.concurrency,
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
@@ -6395,6 +6421,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
             credentials,
             extra,
             proxy_id: form.proxy_id,
+            proxy_pool: normalizedProxyPool(),
             concurrency: form.concurrency,
             load_factor: form.load_factor ?? undefined,
             priority: form.priority,
@@ -6494,6 +6521,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           credentials,
           extra: {},
           proxy_id: form.proxy_id,
+          proxy_pool: normalizedProxyPool(),
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
@@ -6875,6 +6903,7 @@ const handleCookieAuth = async (sessionKey: string) => {
           credentials,
           extra,
           proxy_id: form.proxy_id,
+          proxy_pool: normalizedProxyPool(),
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,

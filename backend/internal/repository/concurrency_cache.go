@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -25,7 +27,9 @@ import (
 const (
 	// 并发槽位键前缀（有序集合）
 	// 格式: concurrency:account:{accountID}
-	accountSlotKeyPrefix = "concurrency:account:"
+	accountSlotKeyPrefix            = "concurrency:account:"
+	accountProxySlotKeyPrefix       = "concurrency:account_proxy:"
+	accountProxyRoundRobinKeyPrefix = "concurrency:account_proxy_rr:"
 	// 格式: concurrency:user:{userID}
 	userSlotKeyPrefix = "concurrency:user:"
 	// 格式: concurrency:api_key:{apiKeyID}
@@ -48,8 +52,9 @@ const (
 
 	// 活跃索引用来替代后台任务全量 SCAN 槽位键。
 	// member 是账号/用户 ID，score 是“预计仍需关注到”的 Redis Unix 秒时间戳。
-	accountActiveIndexKey = "concurrency:account:active_index" // ZSET member=accountID, score=expireAtUnixSeconds
-	userActiveIndexKey    = "concurrency:user:active_index"    // ZSET member=userID, score=expireAtUnixSeconds
+	accountActiveIndexKey      = "concurrency:account:active_index"       // ZSET member=accountID, score=expireAtUnixSeconds
+	accountProxyActiveIndexKey = "concurrency:account_proxy:active_index" // ZSET member=accountID:proxyID, score=expireAtUnixSeconds
+	userActiveIndexKey         = "concurrency:user:active_index"          // ZSET member=userID, score=expireAtUnixSeconds
 
 	// 后台清理只按批处理索引候选，避免单次任务占用 Redis 太久。
 	activeIndexCleanupBatchSize  = 1000
@@ -161,6 +166,42 @@ var (
 		redis.call('EXPIRE', userLive, ttl)
 		redis.call('EXPIRE', apiLive, ttl)
 		return 1
+	`)
+
+	// acquireAccountProxyLiveLeaseScript moves one ordinary proxy binding slot
+	// into a proxy-scoped Live lease. The ordinary slot is still present while
+	// the upstream connection is being created, so replacing=1 gives that same
+	// request one temporary allowance. The caller releases the ordinary slot
+	// only after this script succeeds.
+	acquireAccountProxyLiveLeaseScript = redis.NewScript(`
+		redis.replicate_commands()
+		local regularKey = KEYS[1]
+		local liveKey = KEYS[2]
+		local maxConcurrency = tonumber(ARGV[1])
+		local regularTTL = tonumber(ARGV[2])
+		local liveTTL = tonumber(ARGV[3])
+		local leaseID = ARGV[4]
+		local replacing = tonumber(ARGV[5])
+		local now = tonumber(redis.call('TIME')[1])
+		redis.call('ZREMRANGEBYSCORE', regularKey, '-inf', now - regularTTL)
+		redis.call('ZREMRANGEBYSCORE', liveKey, '-inf', now - liveTTL)
+
+		if redis.call('ZSCORE', liveKey, leaseID) ~= false then
+			redis.call('ZADD', liveKey, now, leaseID)
+			redis.call('EXPIRE', liveKey, liveTTL)
+			return {1, now}
+		end
+
+		local allowance = 0
+		if replacing == 1 then allowance = 1 end
+		local count = redis.call('ZCARD', regularKey) + redis.call('ZCARD', liveKey)
+		if maxConcurrency > 0 and count >= maxConcurrency + allowance then
+			return {0, now}
+		end
+
+		redis.call('ZADD', liveKey, now, leaseID)
+		redis.call('EXPIRE', liveKey, liveTTL)
+		return {1, now}
 	`)
 
 	refreshLiveLeaseScript = redis.NewScript(`
@@ -382,6 +423,18 @@ func accountSlotKey(accountID int64) string {
 	return fmt.Sprintf("%s%d", accountSlotKeyPrefix, accountID)
 }
 
+func accountProxySlotKey(accountID, proxyID int64) string {
+	return fmt.Sprintf("%s%d:%d", accountProxySlotKeyPrefix, accountID, proxyID)
+}
+
+func accountProxyRoundRobinKey(accountID int64) string {
+	return fmt.Sprintf("%s%d", accountProxyRoundRobinKeyPrefix, accountID)
+}
+
+func accountProxyActiveIndexMember(accountID, proxyID int64) string {
+	return fmt.Sprintf("%d:%d", accountID, proxyID)
+}
+
 func userSlotKey(userID int64) string {
 	return fmt.Sprintf("%s%d", userSlotKeyPrefix, userID)
 }
@@ -449,6 +502,43 @@ func (c *concurrencyCache) touchActiveIndexAt(ctx context.Context, indexKey stri
 	}).Err(); err != nil {
 		logger.LegacyPrintf("repository.concurrency", "Warning: touch active index %s for %d failed: %v", indexKey, id, err)
 	}
+}
+
+func (c *concurrencyCache) touchAccountProxyActiveIndexAt(ctx context.Context, accountID, proxyID int64, expireAt int64) {
+	if c == nil || c.rdb == nil || accountID <= 0 || proxyID <= 0 || expireAt <= 0 {
+		return
+	}
+	if err := c.rdb.ZAdd(ctx, accountProxyActiveIndexKey, redis.Z{
+		Score:  float64(expireAt),
+		Member: accountProxyActiveIndexMember(accountID, proxyID),
+	}).Err(); err != nil {
+		logger.LegacyPrintf("repository.concurrency", "Warning: touch proxy active index for account %d proxy %d failed: %v", accountID, proxyID, err)
+	}
+}
+
+func (c *concurrencyCache) refreshAccountProxyActiveIndex(ctx context.Context, accountID, proxyID int64) {
+	if c == nil || c.rdb == nil || accountID <= 0 || proxyID <= 0 {
+		return
+	}
+	key := accountProxySlotKey(accountID, proxyID)
+	count, err := getCountScript.Run(ctx, c.rdb, []string{key, key + ":live"}, c.slotTTLSeconds).Int()
+	if err != nil {
+		logger.LegacyPrintf("repository.concurrency", "Warning: refresh proxy active index for account %d proxy %d failed: %v", accountID, proxyID, err)
+		return
+	}
+	member := accountProxyActiveIndexMember(accountID, proxyID)
+	if count <= 0 {
+		if err := c.rdb.ZRem(ctx, accountProxyActiveIndexKey, member).Err(); err != nil {
+			logger.LegacyPrintf("repository.concurrency", "Warning: remove proxy active index member %s failed: %v", member, err)
+		}
+		return
+	}
+	now, err := c.redisUnixSeconds(ctx)
+	if err != nil {
+		logger.LegacyPrintf("repository.concurrency", "Warning: get Redis time for proxy active index failed: %v", err)
+		return
+	}
+	c.touchAccountProxyActiveIndexAt(ctx, accountID, proxyID, now+int64(c.slotTTLSeconds))
 }
 
 func (c *concurrencyCache) refreshAccountActiveIndex(ctx context.Context, accountID int64) {
@@ -640,6 +730,42 @@ func (c *concurrencyCache) AcquireAccountSlot(ctx context.Context, accountID int
 		c.touchActiveIndexAt(ctx, accountActiveIndexKey, accountID, now+int64(c.slotTTLSeconds))
 	}
 	return result == 1, nil
+}
+
+// AcquireAccountProxySlot applies the cap to an account-scoped binding. The
+// account id is intentionally part of the key because one proxy can be shared
+// by accounts with different limits.
+func (c *concurrencyCache) AcquireAccountProxySlot(ctx context.Context, accountID, proxyID int64, maxConcurrency int, requestID string) (bool, error) {
+	key := accountProxySlotKey(accountID, proxyID)
+	result, now, err := runScriptInt64Pair(ctx, c.rdb, acquireScript, []string{key, key + ":live"}, maxConcurrency, c.slotTTLSeconds, requestID)
+	if err == nil && result == 1 {
+		c.touchAccountProxyActiveIndexAt(ctx, accountID, proxyID, now+int64(c.slotTTLSeconds))
+	}
+	return result == 1, err
+}
+
+func (c *concurrencyCache) ReleaseAccountProxySlot(ctx context.Context, accountID, proxyID int64, requestID string) error {
+	if err := c.rdb.ZRem(ctx, accountProxySlotKey(accountID, proxyID), requestID).Err(); err != nil {
+		return err
+	}
+	c.refreshAccountProxyActiveIndex(ctx, accountID, proxyID)
+	return nil
+}
+
+func (c *concurrencyCache) NextAccountProxyIndex(ctx context.Context, accountID int64, poolSize int) (int, error) {
+	if poolSize <= 0 {
+		return 0, nil
+	}
+	pipe := c.rdb.Pipeline()
+	valueCmd := pipe.Incr(ctx, accountProxyRoundRobinKey(accountID))
+	pipe.Expire(ctx, accountProxyRoundRobinKey(accountID), 24*time.Hour)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return 0, err
+	}
+	// Keep the counter key bounded in idle accounts without making rotation
+	// depend on local process state. INCR and EXPIRE are pipelined into one
+	// network round trip.
+	return int((valueCmd.Val() - 1) % int64(poolSize)), nil
 }
 
 func (c *concurrencyCache) ReleaseAccountSlot(ctx context.Context, accountID int64, requestID string) error {
@@ -843,6 +969,54 @@ func (c *concurrencyCache) ReleaseLiveLease(ctx context.Context, accountID, user
 	return err
 }
 
+func (c *concurrencyCache) AcquireAccountProxyLiveLease(
+	ctx context.Context,
+	accountID, proxyID int64,
+	proxyMax int,
+	leaseID string,
+	replacingRegularSlots bool,
+) (bool, error) {
+	if c == nil || c.rdb == nil || accountID <= 0 || proxyID <= 0 || leaseID == "" {
+		return false, nil
+	}
+	replacing := 0
+	if replacingRegularSlots {
+		replacing = 1
+	}
+	result, now, err := runScriptInt64Pair(ctx, c.rdb, acquireAccountProxyLiveLeaseScript, []string{
+		accountProxySlotKey(accountID, proxyID),
+		accountProxySlotKey(accountID, proxyID) + ":live",
+	}, proxyMax, c.slotTTLSeconds, liveLeaseTTLSeconds, leaseID, replacing)
+	if err == nil && result == 1 {
+		c.touchAccountProxyActiveIndexAt(ctx, accountID, proxyID, now+int64(liveLeaseTTLSeconds))
+	}
+	return result == 1, err
+}
+
+func (c *concurrencyCache) RefreshAccountProxyLiveLease(ctx context.Context, accountID, proxyID int64, leaseID string) (bool, error) {
+	if c == nil || c.rdb == nil || accountID <= 0 || proxyID <= 0 || leaseID == "" {
+		return false, nil
+	}
+	result, err := refreshLiveLeaseScript.Run(ctx, c.rdb, []string{
+		accountProxySlotKey(accountID, proxyID) + ":live",
+	}, liveLeaseTTLSeconds, leaseID).Int()
+	if err == nil && result == 1 {
+		c.refreshAccountProxyActiveIndex(ctx, accountID, proxyID)
+	}
+	return result == 1, err
+}
+
+func (c *concurrencyCache) ReleaseAccountProxyLiveLease(ctx context.Context, accountID, proxyID int64, leaseID string) error {
+	if c == nil || c.rdb == nil || accountID <= 0 || proxyID <= 0 || leaseID == "" {
+		return nil
+	}
+	if err := c.rdb.ZRem(ctx, accountProxySlotKey(accountID, proxyID)+":live", leaseID).Err(); err != nil {
+		return err
+	}
+	c.refreshAccountProxyActiveIndex(ctx, accountID, proxyID)
+	return nil
+}
+
 func (c *concurrencyCache) GetAPIKeyConcurrencyBatch(ctx context.Context, apiKeyIDs []int64) (map[int64]int, error) {
 	if len(apiKeyIDs) == 0 {
 		return map[int64]int{}, nil
@@ -961,12 +1135,19 @@ func (c *concurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []
 
 	pipe := c.rdb.Pipeline()
 
+	type proxyLoadCmd struct {
+		proxyID        int64
+		maxConcurrency int
+		zcardCmd       *redis.IntCmd
+		liveCmd        *redis.IntCmd
+	}
 	type accountCmds struct {
 		id             int64
 		maxConcurrency int
 		zcardCmd       *redis.IntCmd
 		liveCmd        *redis.IntCmd
 		getCmd         *redis.StringCmd
+		proxyCmds      []proxyLoadCmd
 	}
 	cmds := make([]accountCmds, 0, len(accounts))
 	for _, acc := range accounts {
@@ -981,6 +1162,18 @@ func (c *concurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []
 			zcardCmd:       pipe.ZCard(ctx, slotKey),
 			liveCmd:        pipe.ZCard(ctx, liveKey),
 			getCmd:         pipe.Get(ctx, waitKey),
+		}
+		for _, proxy := range acc.ProxyPool {
+			proxyKey := accountProxySlotKey(acc.ID, proxy.ProxyID)
+			proxyLiveKey := proxyKey + ":live"
+			pipe.ZRemRangeByScore(ctx, proxyKey, "-inf", strconv.FormatInt(cutoffTime, 10))
+			pipe.ZRemRangeByScore(ctx, proxyLiveKey, "-inf", strconv.FormatInt(now.Unix()-liveLeaseTTLSeconds, 10))
+			ac.proxyCmds = append(ac.proxyCmds, proxyLoadCmd{
+				proxyID:        proxy.ProxyID,
+				maxConcurrency: proxy.MaxConcurrency,
+				zcardCmd:       pipe.ZCard(ctx, proxyKey),
+				liveCmd:        pipe.ZCard(ctx, proxyLiveKey),
+			})
 		}
 		cmds = append(cmds, ac)
 	}
@@ -1000,11 +1193,39 @@ func (c *concurrencyCache) GetAccountsLoadBatch(ctx context.Context, accounts []
 		if ac.maxConcurrency > 0 {
 			loadRate = (currentConcurrency + waitingCount) * 100 / ac.maxConcurrency
 		}
+		proxyLoadRates := make(map[int64]int, len(ac.proxyCmds))
+		availableProxyCount := 0
+		minProxyLoadRate := 100
+		for _, proxy := range ac.proxyCmds {
+			currentProxyConcurrency := int(proxy.zcardCmd.Val() + proxy.liveCmd.Val())
+			proxyLoadRate := 0
+			if proxy.maxConcurrency > 0 {
+				proxyLoadRate = currentProxyConcurrency * 100 / proxy.maxConcurrency
+			}
+			proxyLoadRates[proxy.proxyID] = proxyLoadRate
+			if proxy.maxConcurrency <= 0 || currentProxyConcurrency < proxy.maxConcurrency {
+				availableProxyCount++
+			}
+			if proxyLoadRate < minProxyLoadRate {
+				minProxyLoadRate = proxyLoadRate
+			}
+		}
+		if len(ac.proxyCmds) > 0 {
+			if availableProxyCount == 0 {
+				loadRate = 100
+			} else if minProxyLoadRate > loadRate {
+				// A request needs both resources, so the least-loaded proxy
+				// binding is the account's effective proxy capacity.
+				loadRate = minProxyLoadRate
+			}
+		}
 		loadMap[ac.id] = &service.AccountLoadInfo{
-			AccountID:          ac.id,
-			CurrentConcurrency: currentConcurrency,
-			WaitingCount:       waitingCount,
-			LoadRate:           loadRate,
+			AccountID:           ac.id,
+			CurrentConcurrency:  currentConcurrency,
+			WaitingCount:        waitingCount,
+			LoadRate:            loadRate,
+			ProxyLoadRates:      proxyLoadRates,
+			AvailableProxyCount: availableProxyCount,
 		}
 	}
 
@@ -1092,7 +1313,53 @@ func (c *concurrencyCache) CleanupExpiredAccountSlotKeys(ctx context.Context) er
 	if err := c.reconcileExpiredIndexCandidates(ctx, accountSlotIndex); err != nil {
 		return err
 	}
-	return c.reconcileExpiredIndexCandidates(ctx, userSlotIndex)
+	if err := c.reconcileExpiredIndexCandidates(ctx, userSlotIndex); err != nil {
+		return err
+	}
+	return c.reconcileExpiredAccountProxyIndexCandidates(ctx)
+}
+
+func (c *concurrencyCache) reconcileExpiredAccountProxyIndexCandidates(ctx context.Context) error {
+	now, err := c.redisUnixSeconds(ctx)
+	if err != nil {
+		return err
+	}
+	members, err := c.rdb.ZRangeByScore(ctx, accountProxyActiveIndexKey, &redis.ZRangeBy{
+		Min:   "-inf",
+		Max:   strconv.FormatInt(now, 10),
+		Count: activeIndexCleanupBatchSize,
+	}).Result()
+	if err != nil {
+		return fmt.Errorf("read expired proxy active index: %w", err)
+	}
+	for _, member := range members {
+		accountID, proxyID, ok := parseAccountProxyActiveIndexMember(member)
+		if !ok {
+			_ = c.rdb.ZRem(ctx, accountProxyActiveIndexKey, member).Err()
+			continue
+		}
+		key := accountProxySlotKey(accountID, proxyID)
+		count, countErr := getCountScript.Run(ctx, c.rdb, []string{key, key + ":live"}, c.slotTTLSeconds).Int()
+		if countErr != nil {
+			return fmt.Errorf("read proxy slot %s: %w", key, countErr)
+		}
+		if count <= 0 {
+			_ = c.rdb.ZRem(ctx, accountProxyActiveIndexKey, member).Err()
+			continue
+		}
+		c.touchAccountProxyActiveIndexAt(ctx, accountID, proxyID, now+int64(c.slotTTLSeconds))
+	}
+	return nil
+}
+
+func parseAccountProxyActiveIndexMember(member string) (int64, int64, bool) {
+	separator := strings.LastIndexByte(member, ':')
+	if separator <= 0 || separator >= len(member)-1 {
+		return 0, 0, false
+	}
+	accountID, accountErr := strconv.ParseInt(member[:separator], 10, 64)
+	proxyID, proxyErr := strconv.ParseInt(member[separator+1:], 10, 64)
+	return accountID, proxyID, accountErr == nil && proxyErr == nil && accountID > 0 && proxyID > 0
 }
 
 // reconcileExpiredIndexCandidates 处理单个活跃索引中 score 已到期的候选：
@@ -1139,8 +1406,9 @@ func (c *concurrencyCache) reconcileExpiredIndexCandidates(ctx context.Context, 
 // CleanupStaleProcessSlots 启动时清理非当前进程前缀的槽位。
 // 清理范围来自活跃索引（含 score 已过期的成员——它们往往正是崩溃进程留下的残留），
 // 避免在 Redis 上 SCAN 全部 concurrency:* 键；另有一次性迁移清扫兜底索引机制上线前的遗留等待计数。
-// API Key 槽位（concurrency:api_key:*）是 stats-only 数据：每次 Track/读取都会按分数
-// 裁剪过期成员，key 自带 TTL，可在一个 slot TTL 内自愈，因此不参与启动清理。
+// 账号代理绑定槽位通过独立 active index 清理；API Key 槽位（concurrency:api_key:*）
+// 是 stats-only 数据：每次 Track/读取都会按分数裁剪过期成员，key 自带 TTL，可在一个
+// slot TTL 内自愈，因此不参与启动清理。
 func (c *concurrencyCache) CleanupStaleProcessSlots(ctx context.Context, activeRequestPrefix string) error {
 	if activeRequestPrefix == "" {
 		return nil
@@ -1165,7 +1433,54 @@ func (c *concurrencyCache) CleanupStaleProcessSlots(ctx context.Context, activeR
 	if err != nil {
 		return err
 	}
-	return c.cleanupStaleProcessSlotsForIndex(ctx, userSlotIndex, userMembers, activeRequestPrefix, now)
+	if err := c.cleanupStaleProcessSlotsForIndex(ctx, userSlotIndex, userMembers, activeRequestPrefix, now); err != nil {
+		return err
+	}
+	return c.cleanupStaleAccountProxyProcessSlots(ctx, activeRequestPrefix, now)
+}
+
+func (c *concurrencyCache) cleanupStaleAccountProxyProcessSlots(ctx context.Context, activeRequestPrefix string, now int64) error {
+	members, err := c.allIndexMembers(ctx, accountProxyActiveIndexKey)
+	if err != nil {
+		return err
+	}
+	staleMembers := make([]string, 0)
+	refreshed := make([]redis.Z, 0, len(members))
+	for _, member := range members {
+		accountID, proxyID, ok := parseAccountProxyActiveIndexMember(member)
+		if !ok {
+			staleMembers = append(staleMembers, member)
+			continue
+		}
+		key := accountProxySlotKey(accountID, proxyID)
+		_, regularRemaining, err := runScriptInt64Pair(ctx, c.rdb, startupCleanupSlotScript, []string{key}, activeRequestPrefix, c.slotTTLSeconds)
+		if err != nil {
+			return fmt.Errorf("cleanup stale proxy slots %s: %w", key, err)
+		}
+		// Proxy bindings have a second live-lease sorted set. Clean it as well;
+		// otherwise a crashed WebSocket process can keep consuming the binding
+		// cap until the natural 15-minute TTL, even though the active index was
+		// added for exactly this startup-recovery case.
+		_, liveRemaining, err := runScriptInt64Pair(ctx, c.rdb, startupCleanupSlotScript, []string{key + ":live"}, activeRequestPrefix, liveLeaseTTLSeconds)
+		if err != nil {
+			return fmt.Errorf("cleanup stale proxy live slots %s: %w", key, err)
+		}
+		if regularRemaining+liveRemaining > 0 {
+			refreshed = append(refreshed, redis.Z{
+				Score:  float64(now + int64(c.slotTTLSeconds)),
+				Member: member,
+			})
+		} else {
+			staleMembers = append(staleMembers, member)
+		}
+	}
+	if len(refreshed) > 0 {
+		if err := c.rdb.ZAdd(ctx, accountProxyActiveIndexKey, refreshed...).Err(); err != nil {
+			logger.LegacyPrintf("repository.concurrency", "Warning: refresh proxy active index members failed: %v", err)
+		}
+	}
+	c.removeActiveIndexMembers(ctx, accountProxyActiveIndexKey, staleMembers)
+	return nil
 }
 
 // sweepLegacyWaitKeysOnce 一次性清扫活跃索引机制上线前遗留的等待计数键。

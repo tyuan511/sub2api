@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -35,6 +36,40 @@ func TestSchedulerMetadataAccountKeepsOpenAISubscriptionIdentity(t *testing.T) {
 
 	require.True(t, metadata.IsOpenAIChatGPTSubscription())
 	require.Empty(t, metadata.GetCredential("access_token"))
+}
+
+func TestSchedulerMetadataAccountKeepsCompleteProxyPool(t *testing.T) {
+	firstID := int64(101)
+	secondID := int64(202)
+	account := service.Account{
+		ID:      24,
+		ProxyID: &firstID,
+		Proxy:   &service.Proxy{ID: firstID, Host: "first.example"},
+		ProxyPool: []service.AccountProxyConfig{
+			{ProxyID: firstID, Concurrency: 2, Position: 0, Proxy: &service.Proxy{ID: firstID, Host: "first.example"}},
+			{ProxyID: secondID, Concurrency: 5, Position: 1, Proxy: &service.Proxy{ID: secondID, Host: "second.example"}},
+		},
+	}
+
+	metadata := buildSchedulerMetadataAccount(account)
+
+	require.NotNil(t, metadata.ProxyID)
+	require.Equal(t, firstID, *metadata.ProxyID)
+	require.NotNil(t, metadata.Proxy)
+	require.Equal(t, firstID, metadata.Proxy.ID)
+	require.Len(t, metadata.ProxyPool, 2)
+	require.Equal(t, []int64{firstID, secondID}, []int64{metadata.ProxyPool[0].ProxyID, metadata.ProxyPool[1].ProxyID})
+	require.Equal(t, []int{2, 5}, []int{metadata.ProxyPool[0].Concurrency, metadata.ProxyPool[1].Concurrency})
+	require.Equal(t, []int{0, 1}, []int{metadata.ProxyPool[0].Position, metadata.ProxyPool[1].Position})
+	require.Equal(t, "second.example", metadata.ProxyPool[1].Proxy.Host)
+
+	_, metaPayload, err := marshalSchedulerCacheAccount(account)
+	require.NoError(t, err)
+	var decoded service.Account
+	require.NoError(t, json.Unmarshal(metaPayload, &decoded))
+	require.Len(t, decoded.ProxyPool, 2, "the Redis scheduler metadata payload must carry the full pool")
+	require.Equal(t, secondID, decoded.ProxyPool[1].ProxyID)
+	require.Equal(t, 5, decoded.ProxyPool[1].Concurrency)
 }
 
 func TestSchedulerMetadataAccountProjectsUpstreamBillingProbe(t *testing.T) {

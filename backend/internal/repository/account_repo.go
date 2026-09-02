@@ -126,6 +126,11 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 	if err := createAccountRecord(ctx, r.client, account); err != nil {
 		return err
 	}
+	if account.ProxyPool != nil || account.ProxyID != nil {
+		if err := replaceAccountProxyPool(ctx, r.client, account.ID, accountProxyPoolForPersistence(account)); err != nil {
+			return err
+		}
+	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &account.ID, nil, buildSchedulerGroupPayload(account.GroupIDs)); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue account create failed: account=%d err=%v", account.ID, err)
 	}
@@ -225,6 +230,11 @@ func (r *accountRepository) CreateWithAccountGroups(ctx context.Context, account
 	if err := createAccountRecord(ctx, txClient, account); err != nil {
 		return err
 	}
+	if account.ProxyPool != nil || account.ProxyID != nil {
+		if err := replaceAccountProxyPool(ctx, txClient, account.ID, accountProxyPoolForPersistence(account)); err != nil {
+			return err
+		}
+	}
 	groupIDs := make([]int64, 0, len(groups))
 	if len(groups) > 0 {
 		builders := make([]*dbent.AccountGroupCreate, 0, len(groups))
@@ -316,6 +326,25 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 	if err != nil {
 		return nil, err
 	}
+	proxyPools, err := r.loadAccountProxyPools(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	proxyIDs := make([]int64, 0)
+	for _, entAcc := range entAccounts {
+		if entAcc.ProxyID != nil {
+			proxyIDs = append(proxyIDs, *entAcc.ProxyID)
+		}
+	}
+	for _, pool := range proxyPools {
+		for _, item := range pool {
+			proxyIDs = append(proxyIDs, item.ProxyID)
+		}
+	}
+	proxyPoolMap, err := r.loadProxies(ctx, proxyIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	outByID := make(map[int64]*service.Account, len(entAccounts))
 	for _, entAcc := range entAccounts {
@@ -327,6 +356,22 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 		// Prefer the preloaded proxy edge when available.
 		if entAcc.Edges.Proxy != nil {
 			out.Proxy = proxyEntityToService(entAcc.Edges.Proxy)
+		}
+		if pool, ok := proxyPools[entAcc.ID]; ok {
+			out.ProxyPool = pool
+			for i := range out.ProxyPool {
+				out.ProxyPool[i].Proxy = proxyPoolMap[out.ProxyPool[i].ProxyID]
+			}
+			// Keep the same legacy/default endpoint invariant as accountsToService:
+			// pool-only rows are valid during migration and still need a usable
+			// ProxyID/Proxy for forwarding code that has not yet become pool-aware.
+			if out.ProxyID == nil && len(out.ProxyPool) > 0 {
+				id := out.ProxyPool[0].ProxyID
+				out.ProxyID = &id
+				out.Proxy = out.ProxyPool[0].Proxy
+			} else if out.Proxy == nil && out.ProxyID != nil {
+				out.Proxy = proxyPoolMap[*out.ProxyID]
+			}
 		}
 
 		if groups, ok := groupsByAccount[entAcc.ID]; ok {
@@ -489,6 +534,15 @@ func (r *accountRepository) updateAccount(
 	if err != nil {
 		return translatePersistenceError(err, service.ErrAccountNotFound, nil)
 	}
+	// A nil ProxyPool means the caller did not load or modify the pool. Do not
+	// infer a singleton from ProxyID on update, otherwise a partial Account
+	// update silently destroys an existing multi-proxy configuration. Explicit
+	// clearing is represented by a non-nil empty slice.
+	if account.ProxyPool != nil {
+		if err := replaceAccountProxyPool(ctx, client, account.ID, accountProxyPoolForPersistence(account)); err != nil {
+			return err
+		}
+	}
 	if err := enqueueSchedulerOutbox(ctx, client, service.SchedulerOutboxEventAccountChanged, &account.ID, nil, buildSchedulerGroupPayload(account.GroupIDs)); err != nil {
 		return err
 	}
@@ -549,10 +603,21 @@ func (r *accountRepository) updateLockedAccount(
 		builder.ClearLoadFactor()
 	}
 
-	if account.ProxyID != nil {
-		builder.SetProxyID(*account.ProxyID)
-	} else {
-		builder.ClearProxyID()
+	// ProxyPool is tri-state: nil means the caller did not load or modify the
+	// pool, while a non-nil slice (including empty) is an explicit replacement.
+	// Keep the legacy column untouched for partial updates so an unrelated
+	// credential/status write cannot desynchronize it from account_proxies.
+	if account.ProxyPool != nil {
+		if account.ProxyID != nil {
+			builder.SetProxyID(*account.ProxyID)
+		} else {
+			builder.ClearProxyID()
+		}
+		if account.ProxyFallbackOriginID != nil {
+			builder.SetProxyFallbackOriginID(*account.ProxyFallbackOriginID)
+		} else {
+			builder.ClearProxyFallbackOriginID()
+		}
 	}
 	if account.LastUsedAt != nil {
 		builder.SetLastUsedAt(*account.LastUsedAt)
@@ -1883,6 +1948,14 @@ func (r *accountRepository) ListSchedulableAccountLoads(ctx context.Context) ([]
 	if err != nil {
 		return nil, err
 	}
+	accountIDs := make([]int64, 0, len(accounts))
+	for _, account := range accounts {
+		accountIDs = append(accountIDs, account.ID)
+	}
+	proxyPools, err := r.loadAccountProxyPools(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	loads := make([]service.AccountWithConcurrency, 0, len(accounts))
 	for _, account := range accounts {
@@ -1891,10 +1964,17 @@ func (r *accountRepository) ListSchedulableAccountLoads(ctx context.Context) ([]
 			Concurrency: account.Concurrency,
 			LoadFactor:  account.LoadFactor,
 		}
-		loads = append(loads, service.AccountWithConcurrency{
+		load := service.AccountWithConcurrency{
 			ID:             account.ID,
 			MaxConcurrency: projection.EffectiveLoadFactor(),
-		})
+		}
+		for _, proxy := range proxyPools[account.ID] {
+			load.ProxyPool = append(load.ProxyPool, service.AccountProxyWithConcurrency{
+				ProxyID:        proxy.ProxyID,
+				MaxConcurrency: proxy.Concurrency,
+			})
+		}
+		loads = append(loads, load)
 	}
 	return loads, nil
 }
@@ -2844,6 +2924,9 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 	}
 	if updates.ProxyID != nil {
 		// 0 表示清除代理（前端发送 0 而不是 null 来表达清除意图）
+		// Bulk proxy edits are explicit replacements, so clear the transient
+		// fallback marker in the same account-row update.
+		setClauses = append(setClauses, "proxy_fallback_origin_id = NULL")
 		if *updates.ProxyID == 0 {
 			setClauses = append(setClauses, "proxy_id = NULL")
 			ollamaProxyIdentityChanged = "proxy_id IS NOT NULL"
@@ -3019,6 +3102,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 			return 0, service.ErrUpstreamBillingProbeAccountInvalid
 		}
 	}
+	if rows > 0 && updates.ProxyID != nil {
+		if err := replaceLegacyProxyPoolForAccounts(ctx, exec, ids, *updates.ProxyID); err != nil {
+			return 0, err
+		}
+	}
 	if rows > 0 {
 		payload := map[string]any{"account_ids": ids}
 		if err := enqueueSchedulerOutbox(ctx, exec, service.SchedulerOutboxEventAccountBulkChanged, nil, nil, payload); err != nil {
@@ -3043,6 +3131,36 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		}
 	}
 	return rows, nil
+}
+
+// replaceLegacyProxyPoolForAccounts keeps the old bulk proxy field and the
+// account-scoped pool in one state transition. BulkUpdate has no pool payload,
+// so an explicit legacy proxy edit intentionally means a singleton pool.
+func replaceLegacyProxyPoolForAccounts(ctx context.Context, exec sqlExecutor, accountIDs []int64, proxyID int64) error {
+	if exec == nil || len(accountIDs) == 0 {
+		return nil
+	}
+	if _, err := exec.ExecContext(ctx, `
+		DELETE FROM account_proxies ap
+		WHERE ap.account_id = ANY($1)
+		  AND EXISTS (
+			SELECT 1 FROM accounts a
+			WHERE a.id = ap.account_id AND a.deleted_at IS NULL
+			  AND (a.proxy_fallback_origin_id IS NULL OR a.proxy_fallback_origin_id <> ap.proxy_id)
+		  )`, pq.Array(accountIDs)); err != nil {
+		return err
+	}
+	if proxyID <= 0 {
+		return nil
+	}
+	_, err := exec.ExecContext(ctx, `
+		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+		SELECT a.id, $1, GREATEST(a.concurrency, 0), 0
+		FROM accounts a
+		WHERE a.id = ANY($2) AND a.deleted_at IS NULL
+		ON CONFLICT (account_id, proxy_id) DO UPDATE
+		SET concurrency = EXCLUDED.concurrency, position = EXCLUDED.position`, proxyID, pq.Array(accountIDs))
+	return err
 }
 
 type accountGroupQueryOptions struct {
@@ -3132,6 +3250,15 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 			proxyIDs = append(proxyIDs, *acc.ProxyFallbackOriginID)
 		}
 	}
+	proxyPools, err := r.loadAccountProxyPools(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	for _, pool := range proxyPools {
+		for _, item := range pool {
+			proxyIDs = append(proxyIDs, item.ProxyID)
+		}
+	}
 
 	proxyMap, err := r.loadProxies(ctx, proxyIDs)
 	if err != nil {
@@ -3151,6 +3278,19 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 		if acc.ProxyID != nil {
 			if proxy, ok := proxyMap[*acc.ProxyID]; ok {
 				out.Proxy = proxy
+			}
+		}
+		if pool, ok := proxyPools[acc.ID]; ok {
+			out.ProxyPool = pool
+			for i := range out.ProxyPool {
+				out.ProxyPool[i].Proxy = proxyMap[out.ProxyPool[i].ProxyID]
+			}
+			// Old rows are backfilled by migration, but retain this invariant if
+			// a partially migrated database is read during an upgrade.
+			if out.ProxyID == nil && len(out.ProxyPool) > 0 {
+				id := out.ProxyPool[0].ProxyID
+				out.ProxyID = &id
+				out.Proxy = out.ProxyPool[0].Proxy
 			}
 		}
 		out.ProxyFallbackOriginID = acc.ProxyFallbackOriginID
@@ -3173,6 +3313,100 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	}
 
 	return outAccounts, nil
+}
+
+// accountProxyPoolForPersistence provides the compatibility bridge for all
+// callers that still populate only the legacy proxy_id field.
+func accountProxyPoolForPersistence(account *service.Account) []service.AccountProxyConfig {
+	if account == nil {
+		return nil
+	}
+	if account.ProxyPool != nil {
+		pool := make([]service.AccountProxyConfig, len(account.ProxyPool))
+		copy(pool, account.ProxyPool)
+		// Keep the persisted position. Service-layer input is normalized from the
+		// submitted slice order, while loaded fallback bindings may intentionally
+		// retain a non-zero position so RevertProxyFallback can restore the exact
+		// original round-robin order after an unrelated account update.
+		return pool
+	}
+	if account.ProxyID == nil || *account.ProxyID <= 0 {
+		return nil
+	}
+	return []service.AccountProxyConfig{{ProxyID: *account.ProxyID, Concurrency: account.Concurrency, Position: 0, Proxy: account.Proxy}}
+}
+
+func replaceAccountProxyPool(ctx context.Context, client *dbent.Client, accountID int64, pool []service.AccountProxyConfig) error {
+	if client == nil || accountID <= 0 {
+		return nil
+	}
+	for _, item := range pool {
+		if item.ProxyID <= 0 {
+			return errors.New("account proxy pool contains invalid proxy id")
+		}
+		if item.Concurrency < 0 {
+			return errors.New("account proxy pool concurrency must be >= 0")
+		}
+	}
+	// During proxy fallback the expired origin binding is intentionally kept as
+	// recovery state, but loadAccountProxyPools hides it from the service model.
+	// Preserve that hidden row across unrelated account edits; otherwise a
+	// normal name/status update could make RevertProxyFallback lose its exact
+	// concurrency cap and position.
+	if _, err := client.ExecContext(ctx, `
+		DELETE FROM account_proxies ap
+		WHERE ap.account_id = $1
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM accounts a
+			WHERE a.id = ap.account_id
+			  AND a.proxy_fallback_origin_id = ap.proxy_id
+		  )`, accountID); err != nil {
+		return err
+	}
+	for _, item := range pool {
+		if _, err := client.ExecContext(ctx, `
+			INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (account_id, proxy_id) DO UPDATE SET concurrency = EXCLUDED.concurrency, position = EXCLUDED.position
+		`, accountID, item.ProxyID, item.Concurrency, item.Position); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *accountRepository) loadAccountProxyPools(ctx context.Context, accountIDs []int64) (map[int64][]service.AccountProxyConfig, error) {
+	pools := make(map[int64][]service.AccountProxyConfig)
+	if r.sql == nil || len(accountIDs) == 0 {
+		return pools, nil
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT ap.account_id, ap.proxy_id, ap.concurrency, ap.position
+		FROM account_proxies ap
+		JOIN accounts a ON a.id = ap.account_id
+		WHERE ap.account_id = ANY($1)
+		  AND (a.proxy_fallback_origin_id IS NULL OR ap.proxy_id <> a.proxy_fallback_origin_id)
+		ORDER BY ap.account_id, ap.position, ap.proxy_id
+	`, pq.Array(uniquePositiveInt64s(accountIDs)))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var accountID, proxyID int64
+		var concurrency, position int
+		if err := rows.Scan(&accountID, &proxyID, &concurrency, &position); err != nil {
+			return nil, err
+		}
+		pools[accountID] = append(pools[accountID], service.AccountProxyConfig{
+			ProxyID: proxyID, Concurrency: concurrency, Position: position,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return pools, nil
 }
 
 func tempUnschedulablePredicate() dbpredicate.Account {
@@ -3796,7 +4030,54 @@ func (r *accountRepository) ResetQuotaUsedAndClearRateLimitCooldown(ctx context.
 // 仅当 proxy_fallback_origin_id IS NOT NULL 时执行更新；
 // 若影响行数为 0，则返回 ErrAccountNotInFallback（账号存在但不在 fallback 状态）。
 func (r *accountRepository) RevertProxyFallback(ctx context.Context, accountID int64) error {
-	res, err := r.sql.ExecContext(ctx, `
+	// The legacy column, pool binding, and scheduler event must move together.
+	// Otherwise a failed pool rewrite can leave the account pointing at the
+	// restored proxy while dispatch still uses the fallback pool (or vice versa).
+	client := r.client
+	var tx *dbent.Tx
+	if contextTx := dbent.TxFromContext(ctx); contextTx != nil {
+		client = contextTx.Client()
+	} else {
+		var err error
+		tx, err = r.client.Tx(ctx)
+		if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+			return err
+		}
+		if tx != nil {
+			defer func() { _ = tx.Rollback() }()
+			ctx = dbent.NewTxContext(ctx, tx)
+			client = tx.Client()
+		}
+	}
+	if client == nil {
+		return errors.New("account repository database client is unavailable")
+	}
+
+	var currentProxyID, originProxyID sql.NullInt64
+	rows, err := client.QueryContext(ctx, `
+		SELECT proxy_id, proxy_fallback_origin_id
+		FROM accounts
+		WHERE id = $1 AND proxy_fallback_origin_id IS NOT NULL AND deleted_at IS NULL
+		FOR UPDATE`, accountID)
+	if err != nil {
+		return err
+	}
+	if !rows.Next() {
+		_ = rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return service.ErrAccountNotInFallback
+	}
+	if err := rows.Scan(&currentProxyID, &originProxyID); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	res, err := client.ExecContext(ctx, `
 		UPDATE accounts SET proxy_id=proxy_fallback_origin_id, proxy_fallback_origin_id=NULL, updated_at=NOW()
 		WHERE id=$1 AND proxy_fallback_origin_id IS NOT NULL AND deleted_at IS NULL`, accountID)
 	if err != nil {
@@ -3806,10 +4087,82 @@ func (r *accountRepository) RevertProxyFallback(ctx context.Context, accountID i
 	if n == 0 {
 		return service.ErrAccountNotInFallback
 	}
-	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &accountID, nil, nil); err != nil {
+	if err := restoreAccountProxyFallbackPool(ctx, client, accountID, currentProxyID, originProxyID); err != nil {
+		return err
+	}
+	if err := enqueueSchedulerOutbox(ctx, client, service.SchedulerOutboxEventAccountChanged, &accountID, nil, nil); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] revert fallback enqueue failed: account=%d err=%v", accountID, err)
 	}
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// restoreAccountProxyFallbackPool changes only the binding that represented the
+// fallback endpoint. Other account-scoped proxies are user configuration and
+// must survive a manual fallback revert.
+func restoreAccountProxyFallbackPool(ctx context.Context, client *dbent.Client, accountID int64, currentProxyID, originProxyID sql.NullInt64) error {
+	if client == nil || !originProxyID.Valid || originProxyID.Int64 <= 0 {
+		return nil
+	}
+	if currentProxyID.Valid && currentProxyID.Int64 > 0 && currentProxyID.Int64 != originProxyID.Int64 {
+		var originExists bool
+		rows, err := client.QueryContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM account_proxies
+				WHERE account_id = $1 AND proxy_id = $2
+			)`, accountID, originProxyID.Int64)
+		if err != nil {
+			return err
+		}
+		if !rows.Next() {
+			_ = rows.Close()
+			if err := rows.Err(); err != nil {
+				return err
+			}
+			return errors.New("failed to read account proxy fallback state")
+		}
+		if err := rows.Scan(&originExists); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if !originExists {
+			// The expiry path replaces the expired row in place, so restoring it
+			// also restores its configured cap and ordering.
+			result, err := client.ExecContext(ctx, `
+				UPDATE account_proxies
+				SET proxy_id = $1
+				WHERE account_id = $2 AND proxy_id = $3`,
+				originProxyID.Int64, accountID, currentProxyID.Int64)
+			if err != nil {
+				return err
+			}
+			rows, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if rows > 0 {
+				return nil
+			}
+		}
+		// If the fallback binding was not present (for example, a partially
+		// migrated account), add the restored endpoint without touching others.
+	}
+	_, err := client.ExecContext(ctx, `
+		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+		SELECT a.id, a.proxy_id, GREATEST(a.concurrency, 0), COALESCE((
+			SELECT MAX(ap.position) + 1 FROM account_proxies ap WHERE ap.account_id = a.id
+		), 0)
+		FROM accounts a
+		WHERE a.id = $1 AND a.proxy_id IS NOT NULL AND a.deleted_at IS NULL
+		ON CONFLICT (account_id, proxy_id) DO NOTHING`, accountID)
+	return err
 }
 
 // ListShadowsByParent 返回指定父账号的影子账号；当前实现仅查 quota_dimension='spark'（唯一预设）。
