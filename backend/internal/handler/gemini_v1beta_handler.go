@@ -468,6 +468,20 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				geminiConcurrency.DecrementAccountWaitCount(c.Request.Context(), account.ID)
 				accountWaitCounted = false
 			}
+			// 多代理池：账号槽位到手后再绑定出口代理（等待期间不占代理槽位）。
+			bound, boundRelease, bindErr := h.gatewayService.BindAccountProxyAfterSlot(c.Request.Context(), account, accountReleaseFunc)
+			if bindErr != nil {
+				if accountReleaseFunc != nil {
+					accountReleaseFunc()
+				}
+				reqLog.Warn("gemini.account_proxy_bind_failed", zap.Int64("account_id", account.ID), zap.Error(bindErr))
+				markOpsRoutingCapacityLimited(c)
+				googleError(c, http.StatusServiceUnavailable, "No available accounts")
+				return
+			}
+			account = bound
+			accountReleaseFunc = boundRelease
+			selection.Account = bound
 		}
 		// 终检与准入后绑定使用选号结果携带的门（见 responses 同名注释）。
 		admissionCtx := service.ContextWithSelectionProfitGate(c.Request.Context(), selection)

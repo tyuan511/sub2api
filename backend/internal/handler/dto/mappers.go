@@ -248,6 +248,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		Extra:                   extra,
 		OllamaCloudUsage:        ollamaCloudUsage,
 		ProxyID:                 a.ProxyID,
+		Proxies:                 accountProxiesFromService(a.Proxies),
 		ProxyFallbackOriginID:   a.ProxyFallbackOriginID,
 		ProxyFallbackOriginName: a.ProxyFallbackOriginName,
 		Concurrency:             a.Concurrency,
@@ -911,4 +912,28 @@ func PromoCodeUsageFromService(u *service.PromoCodeUsage) *PromoCodeUsage {
 		UsedAt:      u.UsedAt,
 		User:        UserFromServiceShallow(u.User),
 	}
+}
+
+// accountProxiesFromService 把账号的多代理池绑定映射为响应结构。
+func accountProxiesFromService(pool []service.AccountProxy) []AccountProxy {
+	if len(pool) == 0 {
+		return nil
+	}
+	out := make([]AccountProxy, 0, len(pool))
+	for _, b := range pool {
+		item := AccountProxy{
+			ProxyID:     b.ProxyID,
+			Concurrency: b.Concurrency,
+			SortOrder:   b.SortOrder,
+		}
+		if b.Proxy != nil {
+			item.Name = b.Proxy.Name
+			item.Protocol = b.Proxy.Protocol
+			item.Host = b.Proxy.Host
+			item.Port = b.Proxy.Port
+			item.Status = b.Proxy.Status
+		}
+		out = append(out, item)
+	}
+	return out
 }

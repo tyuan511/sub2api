@@ -1031,3 +1031,7 @@ func TestForceOpenAIPrivacy_SkipsShadow(t *testing.T) {
 	shadow := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, ParentAccountID: &pid}
 	require.Equal(t, "", svc.ForceOpenAIPrivacy(context.Background(), shadow), "影子隐私设置应跳过")
 }
+
+func (r *sparkShadowRepoStub) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

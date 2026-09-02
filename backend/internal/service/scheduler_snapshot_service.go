@@ -138,6 +138,9 @@ type SchedulerSnapshotService struct {
 	outboxLagWarningActive       bool
 	outboxMaxIDErrorLastLoggedAt time.Time
 
+	// proxyBinder 在账号被选中后为本次请求挑选出口代理（多代理池账号才生效）。
+	proxyBinder *AccountProxyBinder
+
 	fullRebuildRunMu     sync.Mutex
 	fullRebuildStateMu   sync.Mutex
 	fullRebuildRequested uint64
@@ -271,7 +274,50 @@ func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, 
 	return accounts, useMixed, nil
 }
 
+// SetAccountProxyBinder 注入多代理池的出口代理选择器。
+// 未注入时账号一律沿用 proxy_id 单代理行为。
+func (s *SchedulerSnapshotService) SetAccountProxyBinder(binder *AccountProxyBinder) {
+	if s == nil {
+		return
+	}
+	s.proxyBinder = binder
+}
+
+// BindAccountProxy 为账号选出本次请求要用的出口代理并占用「账号 × 代理」槽位。
+// 账号没有多代理池时原样返回，既有链路完全不受影响；池内代理全部满载时返回
+// ErrAccountProxyPoolExhausted。
+//
+// 调用时机应当是账号级并发槽位已经（或即将）持有之后：直达路径由选号结果
+// 构造时调用，等待路径由 handler 在排队拿到账号槽位后调用。
+func (s *SchedulerSnapshotService) BindAccountProxy(ctx context.Context, account *Account) (*Account, error) {
+	if s == nil || s.proxyBinder == nil || account == nil {
+		return account, nil
+	}
+	return s.proxyBinder.Bind(ctx, account)
+}
+
+// GetAccount 返回为「本次请求选中该账号」而 hydrate 的账号：
+// 多代理池账号会在这里选定出口代理并占用「账号 × 代理」槽位。
+// 只是查阅账号信息（查母账号、写回缓存等）请用 GetAccountRaw，避免白占容量。
 func (s *SchedulerSnapshotService) GetAccount(ctx context.Context, accountID int64) (*Account, error) {
+	account, err := s.GetAccountRaw(ctx, accountID)
+	if err != nil || account == nil {
+		return account, err
+	}
+	return s.BindAccountProxy(ctx, account)
+}
+
+// RouteAccountProxy 只为账号选路、不占「账号 × 代理」槽位：
+// 用于 token 计数、模型列表等不消耗生成容量的调用，以及抢账号槽位之前的预选。
+func (s *SchedulerSnapshotService) RouteAccountProxy(ctx context.Context, account *Account) (*Account, error) {
+	if s == nil || s.proxyBinder == nil || account == nil {
+		return account, nil
+	}
+	return s.proxyBinder.Route(ctx, account)
+}
+
+// GetAccountRaw 读取账号快照，不做多代理池的出口代理绑定。
+func (s *SchedulerSnapshotService) GetAccountRaw(ctx context.Context, accountID int64) (*Account, error) {
 	if accountID <= 0 {
 		return nil, nil
 	}
@@ -321,6 +367,16 @@ func (s *SchedulerSnapshotService) GetGroupByIDLite(ctx context.Context, groupID
 func (s *SchedulerSnapshotService) UpdateAccountInCache(ctx context.Context, account *Account) error {
 	if s.cache == nil || account == nil {
 		return nil
+	}
+	// 网关手里的多代理池账号是 bindAccountProxy 的副本，ProxyID/Proxy 已被换成
+	// 本次请求选中的代理；整对象写回前还原成快照里的主代理，避免缓存与 DB 漂移。
+	if account.HasProxyPool() {
+		if raw, err := s.cache.GetAccount(ctx, account.ID); err == nil && raw != nil {
+			restored := *account
+			restored.ProxyID = raw.ProxyID
+			restored.Proxy = raw.Proxy
+			account = &restored
+		}
 	}
 	return s.cache.SetAccount(ctx, account)
 }

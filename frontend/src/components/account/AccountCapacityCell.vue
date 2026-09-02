@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-0.5">
     <!-- 并发槽位 -->
-    <CapacityBadge :color-class="concurrencyClass" :current="currentConcurrency" :max="account.concurrency">
+    <CapacityBadge :color-class="concurrencyClass" :tooltip="concurrencyTooltip" :current="currentConcurrency" :max="account.concurrency">
       <svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
       </svg>
@@ -50,6 +50,26 @@ const { t } = useI18n()
 
 // ====== 并发 ======
 const currentConcurrency = computed(() => props.account.current_concurrency || 0)
+
+// 多代理池账号：容量列展示各代理并发之和，hover 展开每个代理各自的容量。
+const concurrencyTooltip = computed(() => {
+  const pool = props.account.proxies
+  if (!pool || pool.length === 0) return ''
+  const lines = pool.map((item) => {
+    const name = item.name || `#${item.proxy_id}`
+    const current = item.current_concurrency ?? 0
+    return `${name}: ${current}/${item.concurrency}`
+  })
+  // 合计取各代理在途之和，与明细口径一致（账号级槽位计数与代理租约的生命周期
+  // 不完全相同，直接用它做合计会出现「明细 1/3、合计 0/6」的错位）。
+  const total = pool.reduce((sum, item) => sum + item.concurrency, 0)
+  const currentTotal = pool.reduce((sum, item) => sum + (item.current_concurrency ?? 0), 0)
+  return [
+    t('admin.accounts.proxyPool.capacityTitle'),
+    ...lines,
+    `${t('admin.accounts.proxyPool.capacityTotal')}: ${currentTotal}/${total}`
+  ].join('\n')
+})
 
 const concurrencyClass = computed(() => {
   const current = currentConcurrency.value

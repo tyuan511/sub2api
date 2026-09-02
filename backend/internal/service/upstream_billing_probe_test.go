@@ -1302,3 +1302,7 @@ func TestUpstreamBillingProbeLeaderLockCoversStaggeredInstancesInCadenceWindow(t
 	require.NoError(t, staggered.RunDue(context.Background()))
 	require.Equal(t, int64(1), upstream.calls.Load(), "a staggered instance must not start a second batch inside the cadence window")
 }
+
+func (r *upstreamBillingProbeAccountRepo) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

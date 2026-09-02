@@ -1748,6 +1748,20 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 		return nil, openAISlotAcquireFailed
 	}
 	if fastAcquired {
+		// 多代理池：账号槽位到手后再绑定出口代理。
+		if bound, boundRelease, bindErr := h.gatewayService.BindAccountProxyAfterSlot(ctx, account, fastReleaseFunc); bindErr != nil {
+			if fastReleaseFunc != nil {
+				fastReleaseFunc()
+			}
+			reqLog.Warn("openai.account_proxy_bind_failed", zap.Int64("account_id", account.ID), zap.Error(bindErr))
+			markOpsRoutingCapacityLimited(c)
+			writeError(http.StatusServiceUnavailable, "api_error", "No available accounts")
+			return nil, openAISlotAcquireFailed
+		} else {
+			account = bound
+			selection.Account = bound
+			fastReleaseFunc = boundRelease
+		}
 		// 分组利润控制：快速抢槽成功后终检。选号与抢槽之间账号
 		// 倍率可能刷新，越线则释放槽位交由调用方排除重选，不绑定粘连。
 		latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, account)
@@ -1804,6 +1818,20 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 
 	// Slot acquired: no longer waiting in queue.
 	releaseWait()
+	// 多代理池：账号槽位到手后再绑定出口代理（等待期间不占代理槽位）。
+	if bound, boundRelease, bindErr := h.gatewayService.BindAccountProxyAfterSlot(ctx, account, accountReleaseFunc); bindErr != nil {
+		if accountReleaseFunc != nil {
+			accountReleaseFunc()
+		}
+		reqLog.Warn("openai.account_proxy_bind_failed", zap.Int64("account_id", account.ID), zap.Error(bindErr))
+		markOpsRoutingCapacityLimited(c)
+		writeError(http.StatusServiceUnavailable, "api_error", "No available accounts")
+		return nil, openAISlotAcquireFailed
+	} else {
+		account = bound
+		selection.Account = bound
+		accountReleaseFunc = boundRelease
+	}
 	// 分组利润控制：WaitPlan 排队成功后终检。排队期间账号倍率
 	// 可能上调，越线则释放槽位交由调用方排除重选，不绑定粘连。
 	latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, account)
@@ -2245,6 +2273,19 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "account is busy, please retry later")
 				return
 			}
+			// 多代理池：账号槽位到手后再绑定出口代理。
+			if bound, boundRelease, bindErr := h.gatewayService.BindAccountProxyAfterSlot(ctx, account, fastReleaseFunc); bindErr != nil {
+				if fastReleaseFunc != nil {
+					fastReleaseFunc()
+				}
+				reqLog.Warn("openai.websocket_account_proxy_bind_failed", zap.Int64("account_id", account.ID), zap.Error(bindErr))
+				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "account is busy, please retry later")
+				return
+			} else {
+				account = bound
+				selection.Account = bound
+				fastReleaseFunc = boundRelease
+			}
 			// 分组利润控制：WS 快速抢槽成功后终检，越线则释放
 			// 槽位、排除该账号重新选号，全池耗尽由下一轮选号关闭连接。
 			latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(admissionCtx, account)
@@ -2420,6 +2461,20 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						userReleaseFunc()
 					}
 					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "account is busy, please retry later", nil)
+				}
+				// 多代理池：同一连接内复用首次绑定的出口代理（请求级 memo），
+				// 未绑定过（换号后首个 turn）时在此绑定。
+				if bound, boundRelease, bindErr := h.gatewayService.BindAccountProxyAfterSlot(ctx, account, accountReleaseFunc); bindErr != nil {
+					if accountReleaseFunc != nil {
+						accountReleaseFunc()
+					}
+					if userReleaseFunc != nil {
+						userReleaseFunc()
+					}
+					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "account is busy, please retry later", bindErr)
+				} else {
+					account = bound
+					accountReleaseFunc = boundRelease
 				}
 				currentUserRelease = wrapReleaseOnDone(ctx, userReleaseFunc)
 				currentAccountRelease = wrapReleaseOnDone(ctx, accountReleaseFunc)

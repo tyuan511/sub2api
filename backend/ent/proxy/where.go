@@ -936,6 +936,52 @@ func HasBackupProxyWith(preds ...predicate.Proxy) predicate.Proxy {
 	})
 }
 
+// HasPooledAccounts applies the HasEdge predicate on the "pooled_accounts" edge.
+func HasPooledAccounts() predicate.Proxy {
+	return predicate.Proxy(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, PooledAccountsTable, PooledAccountsPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPooledAccountsWith applies the HasEdge predicate on the "pooled_accounts" edge with a given conditions (other predicates).
+func HasPooledAccountsWith(preds ...predicate.Account) predicate.Proxy {
+	return predicate.Proxy(func(s *sql.Selector) {
+		step := newPooledAccountsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAccountProxies applies the HasEdge predicate on the "account_proxies" edge.
+func HasAccountProxies() predicate.Proxy {
+	return predicate.Proxy(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, AccountProxiesTable, AccountProxiesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountProxiesWith applies the HasEdge predicate on the "account_proxies" edge with a given conditions (other predicates).
+func HasAccountProxiesWith(preds ...predicate.AccountProxy) predicate.Proxy {
+	return predicate.Proxy(func(s *sql.Selector) {
+		step := newAccountProxiesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Proxy) predicate.Proxy {
 	return predicate.Proxy(sql.AndPredicates(predicates...))

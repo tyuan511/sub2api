@@ -104,6 +104,8 @@ func (s *GeminiMessagesCompatService) SelectAccountForModel(ctx context.Context,
 }
 
 func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	// 会话标识同时用于账号粘性与多代理池的代理粘性。
+	SetProxyLeaseSessionHash(ctx, sessionHash)
 	// 1. 确定目标平台和调度模式
 	// Determine target platform and scheduling mode
 	platform, useMixedScheduling, hasForcePlatform, err := s.resolvePlatformAndSchedulingMode(ctx, groupID)
@@ -424,23 +426,26 @@ func (s *GeminiMessagesCompatService) GetAntigravityGatewayService() *Antigravit
 
 func (s *GeminiMessagesCompatService) getSchedulableAccount(ctx context.Context, accountID int64) (*Account, error) {
 	if s.schedulerSnapshot != nil {
-		return s.schedulerSnapshot.GetAccount(ctx, accountID)
+		// 只是校验粘性账号是否可用，出口代理由后续 hydrateSelectedAccount 绑定。
+		return s.schedulerSnapshot.GetAccountRaw(ctx, accountID)
 	}
 	return s.accountRepo.GetByID(ctx, accountID)
 }
 
+// hydrateSelectedAccount 补全账号并为多代理池账号选路（不占代理槽位）：
+// 这些选号出口不持有账号槽位（模型列表、AI Studio 端点等），不应消耗生成容量。
 func (s *GeminiMessagesCompatService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {
 	if account == nil || s.schedulerSnapshot == nil {
 		return account, nil
 	}
-	hydrated, err := s.schedulerSnapshot.GetAccount(ctx, account.ID)
+	hydrated, err := s.schedulerSnapshot.GetAccountRaw(ctx, account.ID)
 	if err != nil {
 		return nil, err
 	}
 	if hydrated == nil {
 		return nil, fmt.Errorf("selected gemini account %d not found during hydration", account.ID)
 	}
-	return hydrated, nil
+	return s.schedulerSnapshot.RouteAccountProxy(ctx, hydrated)
 }
 
 func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, error) {

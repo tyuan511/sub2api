@@ -204,24 +204,26 @@ type Account struct {
 	Type     string  `json:"type"`
 	// Credentials 经 RedactCredentials 处理后只含非敏感子键；敏感 token / api_key / 私钥
 	// 的存在性通过 CredentialsStatus（has_<key>）暴露，原始值不返回前端。
-	Credentials             map[string]any                 `json:"credentials"`
-	CredentialsStatus       map[string]bool                `json:"credentials_status,omitempty"`
-	Extra                   map[string]any                 `json:"extra"`
-	OllamaCloudUsage        *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
-	ProxyID                 *int64                         `json:"proxy_id"`
-	ProxyFallbackOriginID   *int64                         `json:"proxy_fallback_origin_id"`
-	ProxyFallbackOriginName *string                        `json:"proxy_fallback_origin_name,omitempty"`
-	Concurrency             int                            `json:"concurrency"`
-	LoadFactor              *int                           `json:"load_factor,omitempty"`
-	Priority                int                            `json:"priority"`
-	RateMultiplier          float64                        `json:"rate_multiplier"`
-	Status                  string                         `json:"status"`
-	ErrorMessage            string                         `json:"error_message"`
-	LastUsedAt              *time.Time                     `json:"last_used_at"`
-	ExpiresAt               *int64                         `json:"expires_at"`
-	AutoPauseOnExpired      bool                           `json:"auto_pause_on_expired"`
-	CreatedAt               time.Time                      `json:"created_at"`
-	UpdatedAt               time.Time                      `json:"updated_at"`
+	Credentials       map[string]any                 `json:"credentials"`
+	CredentialsStatus map[string]bool                `json:"credentials_status,omitempty"`
+	Extra             map[string]any                 `json:"extra"`
+	OllamaCloudUsage  *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
+	ProxyID           *int64                         `json:"proxy_id"`
+	// Proxies 是账号绑定的多代理池；为空表示账号只用 proxy_id 的单代理。
+	Proxies                 []AccountProxy `json:"proxies,omitempty"`
+	ProxyFallbackOriginID   *int64         `json:"proxy_fallback_origin_id"`
+	ProxyFallbackOriginName *string        `json:"proxy_fallback_origin_name,omitempty"`
+	Concurrency             int            `json:"concurrency"`
+	LoadFactor              *int           `json:"load_factor,omitempty"`
+	Priority                int            `json:"priority"`
+	RateMultiplier          float64        `json:"rate_multiplier"`
+	Status                  string         `json:"status"`
+	ErrorMessage            string         `json:"error_message"`
+	LastUsedAt              *time.Time     `json:"last_used_at"`
+	ExpiresAt               *int64         `json:"expires_at"`
+	AutoPauseOnExpired      bool           `json:"auto_pause_on_expired"`
+	CreatedAt               time.Time      `json:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at"`
 
 	Schedulable bool `json:"schedulable"`
 
@@ -713,4 +715,18 @@ type PromoCodeUsage struct {
 	UsedAt      time.Time `json:"used_at"`
 
 	User *User `json:"user,omitempty"`
+}
+
+// AccountProxy 是账号多代理池里的一条绑定。
+type AccountProxy struct {
+	ProxyID     int64  `json:"proxy_id"`
+	Concurrency int    `json:"concurrency"`
+	SortOrder   int    `json:"sort_order"`
+	Name        string `json:"name,omitempty"`
+	Protocol    string `json:"protocol,omitempty"`
+	Host        string `json:"host,omitempty"`
+	Port        int    `json:"port,omitempty"`
+	Status      string `json:"status,omitempty"`
+	// CurrentConcurrency 为该代理在本账号上的实时在途请求数，仅账号列表返回。
+	CurrentConcurrency *int `json:"current_concurrency,omitempty"`
 }

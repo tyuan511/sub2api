@@ -2945,3 +2945,15 @@ var (
 	_ service.UsageLogRepository         = (*stubUsageLogRepo)(nil)
 	_ service.SettingRepository          = (*stubSettingRepo)(nil)
 )
+
+func (s *stubAccountRepo) ReplaceAccountProxies(ctx context.Context, accountID int64, bindings []service.AccountProxy) error {
+	return nil
+}
+
+func (s *stubAccountRepo) GetAccountProxies(ctx context.Context, accountID int64) ([]service.AccountProxy, error) {
+	return nil, nil
+}
+
+func (s *stubAccountRepo) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

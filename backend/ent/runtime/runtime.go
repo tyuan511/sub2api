@@ -7,6 +7,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/accountproxy"
 	"github.com/Wei-Shaw/sub2api/ent/admintelegrambinding"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -272,6 +273,26 @@ func init() {
 	accountgroupDescCreatedAt := accountgroupFields[3].Descriptor()
 	// accountgroup.DefaultCreatedAt holds the default value on creation for the created_at field.
 	accountgroup.DefaultCreatedAt = accountgroupDescCreatedAt.Default.(func() time.Time)
+	accountproxyFields := schema.AccountProxy{}.Fields()
+	_ = accountproxyFields
+	// accountproxyDescConcurrency is the schema descriptor for concurrency field.
+	accountproxyDescConcurrency := accountproxyFields[2].Descriptor()
+	// accountproxy.DefaultConcurrency holds the default value on creation for the concurrency field.
+	accountproxy.DefaultConcurrency = accountproxyDescConcurrency.Default.(int)
+	// accountproxyDescSortOrder is the schema descriptor for sort_order field.
+	accountproxyDescSortOrder := accountproxyFields[3].Descriptor()
+	// accountproxy.DefaultSortOrder holds the default value on creation for the sort_order field.
+	accountproxy.DefaultSortOrder = accountproxyDescSortOrder.Default.(int)
+	// accountproxyDescCreatedAt is the schema descriptor for created_at field.
+	accountproxyDescCreatedAt := accountproxyFields[4].Descriptor()
+	// accountproxy.DefaultCreatedAt holds the default value on creation for the created_at field.
+	accountproxy.DefaultCreatedAt = accountproxyDescCreatedAt.Default.(func() time.Time)
+	// accountproxyDescUpdatedAt is the schema descriptor for updated_at field.
+	accountproxyDescUpdatedAt := accountproxyFields[5].Descriptor()
+	// accountproxy.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	accountproxy.DefaultUpdatedAt = accountproxyDescUpdatedAt.Default.(func() time.Time)
+	// accountproxy.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	accountproxy.UpdateDefaultUpdatedAt = accountproxyDescUpdatedAt.UpdateDefault.(func() time.Time)
 	admintelegrambindingFields := schema.AdminTelegramBinding{}.Fields()
 	_ = admintelegrambindingFields
 	// admintelegrambindingDescTelegramUsername is the schema descriptor for telegram_username field.

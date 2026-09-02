@@ -1005,6 +1005,17 @@ export default {
       expired: '已过期',
       proxy: '代理',
       noProxy: '无代理',
+      proxyPool: {
+        hint: '选择 2 个及以上代理时构成代理池：每个代理单独设置并发数，同一会话固定走同一个代理，其余请求在各代理间等权轮询；已过期或停用的代理自动不参与调度。只选 1 个代理时与原来的单代理行为完全一致。',
+        concurrencyHint: '账号并发数 = 各代理并发数之和，由代理列表自动计算。',
+        selected: '已选 {count} 个代理',
+        primary: '主代理',
+        remove: '移除',
+        clear: '清空',
+        total: '共 {count} 个代理，总并发 {concurrency}',
+        capacityTitle: '各代理容量',
+        capacityTotal: '合计'
+      },
       concurrency: '并发数',
       loadFactor: '负载因子',
       loadFactorHint: '提高负载因子可以提高对账号的调度频率',

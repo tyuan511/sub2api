@@ -289,3 +289,15 @@ func TestAccountService_Delete_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []int64{55}, repo.deletedIDs) // 验证正确的 ID 被删除
 }
+
+func (s *accountRepoStub) ReplaceAccountProxies(ctx context.Context, accountID int64, bindings []AccountProxy) error {
+	return nil
+}
+
+func (s *accountRepoStub) GetAccountProxies(ctx context.Context, accountID int64) ([]AccountProxy, error) {
+	return nil, nil
+}
+
+func (s *accountRepoStub) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

@@ -259,6 +259,47 @@ var (
 			},
 		},
 	}
+	// AccountProxiesColumns holds the columns for the "account_proxies" table.
+	AccountProxiesColumns = []*schema.Column{
+		{Name: "concurrency", Type: field.TypeInt, Default: 3},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "account_id", Type: field.TypeInt64},
+		{Name: "proxy_id", Type: field.TypeInt64},
+	}
+	// AccountProxiesTable holds the schema information for the "account_proxies" table.
+	AccountProxiesTable = &schema.Table{
+		Name:       "account_proxies",
+		Columns:    AccountProxiesColumns,
+		PrimaryKey: []*schema.Column{AccountProxiesColumns[4], AccountProxiesColumns[5]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "account_proxies_accounts_account",
+				Columns:    []*schema.Column{AccountProxiesColumns[4]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "account_proxies_proxies_proxy",
+				Columns:    []*schema.Column{AccountProxiesColumns[5]},
+				RefColumns: []*schema.Column{ProxiesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "accountproxy_proxy_id",
+				Unique:  false,
+				Columns: []*schema.Column{AccountProxiesColumns[5]},
+			},
+			{
+				Name:    "accountproxy_account_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{AccountProxiesColumns[4], AccountProxiesColumns[1]},
+			},
+		},
+	}
 	// AdminTelegramBindingsColumns holds the columns for the "admin_telegram_bindings" table.
 	AdminTelegramBindingsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2307,6 +2348,7 @@ var (
 		APIKeysTable,
 		AccountsTable,
 		AccountGroupsTable,
+		AccountProxiesTable,
 		AdminTelegramBindingsTable,
 		AnnouncementsTable,
 		AnnouncementReadsTable,
@@ -2367,6 +2409,11 @@ func init() {
 	AccountGroupsTable.ForeignKeys[1].RefTable = GroupsTable
 	AccountGroupsTable.Annotation = &entsql.Annotation{
 		Table: "account_groups",
+	}
+	AccountProxiesTable.ForeignKeys[0].RefTable = AccountsTable
+	AccountProxiesTable.ForeignKeys[1].RefTable = ProxiesTable
+	AccountProxiesTable.Annotation = &entsql.Annotation{
+		Table: "account_proxies",
 	}
 	AdminTelegramBindingsTable.Annotation = &entsql.Annotation{
 		Table: "admin_telegram_bindings",

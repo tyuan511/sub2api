@@ -1125,6 +1125,20 @@ export interface OllamaCloudUsageSettings {
   debounce_minutes: number
 }
 
+/** 账号多代理池里的一条绑定：一个代理 + 该代理单独的并发上限 */
+export interface AccountProxyBinding {
+  proxy_id: number
+  concurrency: number
+  sort_order?: number
+  name?: string
+  protocol?: string
+  host?: string
+  port?: number
+  status?: string
+  /** 该代理在本账号上的实时在途请求数（仅账号列表返回） */
+  current_concurrency?: number
+}
+
 export interface Account {
   id: number
   name: string
@@ -1162,6 +1176,8 @@ export interface Account {
     }
   } & Record<string, unknown>)
   proxy_id: number | null
+  /** 多代理池绑定；为空表示账号只使用 proxy_id 的单代理 */
+  proxies?: AccountProxyBinding[]
   proxy_fallback_origin_id?: number | null
   proxy_fallback_origin_name?: string | null
   concurrency: number
@@ -1445,6 +1461,8 @@ export interface CreateAccountRequest {
   credentials: Record<string, unknown>
   extra?: Record<string, unknown>
   proxy_id?: number | null
+  /** 多代理池绑定；传空数组表示清空绑定退回单代理 */
+  proxies?: AccountProxyBinding[]
   concurrency?: number
   load_factor?: number | null
   priority?: number
@@ -1463,6 +1481,8 @@ export interface UpdateAccountRequest {
   credentials?: Record<string, unknown>
   extra?: Record<string, unknown>
   proxy_id?: number | null
+  /** 多代理池绑定；传空数组表示清空绑定退回单代理 */
+  proxies?: AccountProxyBinding[]
   concurrency?: number
   load_factor?: number | null
   priority?: number
@@ -1583,6 +1603,8 @@ export interface CodexSessionImportRequest {
   notes?: string | null
   group_ids?: number[]
   proxy_id?: number | null
+  /** 多代理池绑定；传空数组表示清空绑定退回单代理 */
+  proxies?: AccountProxyBinding[]
   concurrency?: number
   priority?: number
   rate_multiplier?: number
@@ -1602,6 +1624,8 @@ export interface OpenAICodexPATCreateRequest {
   notes?: string | null
   group_ids?: number[]
   proxy_id?: number | null
+  /** 多代理池绑定；传空数组表示清空绑定退回单代理 */
+  proxies?: AccountProxyBinding[]
   concurrency?: number
   priority?: number
   rate_multiplier?: number

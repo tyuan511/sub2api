@@ -76,6 +76,10 @@ func (Proxy) Edges() []ent.Edge {
 		edge.To("backup_proxy", Proxy.Type).
 			Field("backup_proxy_id").
 			Unique(),
+		// pooled_accounts: 把此代理放进多代理池的账户（反向边）
+		edge.From("pooled_accounts", Account.Type).
+			Ref("proxy_pool").
+			Through("account_proxies", AccountProxy.Type),
 	}
 }
 

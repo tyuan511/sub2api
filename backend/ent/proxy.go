@@ -57,9 +57,13 @@ type ProxyEdges struct {
 	Accounts []*Account `json:"accounts,omitempty"`
 	// BackupProxy holds the value of the backup_proxy edge.
 	BackupProxy *Proxy `json:"backup_proxy,omitempty"`
+	// PooledAccounts holds the value of the pooled_accounts edge.
+	PooledAccounts []*Account `json:"pooled_accounts,omitempty"`
+	// AccountProxies holds the value of the account_proxies edge.
+	AccountProxies []*AccountProxy `json:"account_proxies,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [4]bool
 }
 
 // AccountsOrErr returns the Accounts value or an error if the edge
@@ -80,6 +84,24 @@ func (e ProxyEdges) BackupProxyOrErr() (*Proxy, error) {
 		return nil, &NotFoundError{label: proxy.Label}
 	}
 	return nil, &NotLoadedError{edge: "backup_proxy"}
+}
+
+// PooledAccountsOrErr returns the PooledAccounts value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProxyEdges) PooledAccountsOrErr() ([]*Account, error) {
+	if e.loadedTypes[2] {
+		return e.PooledAccounts, nil
+	}
+	return nil, &NotLoadedError{edge: "pooled_accounts"}
+}
+
+// AccountProxiesOrErr returns the AccountProxies value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProxyEdges) AccountProxiesOrErr() ([]*AccountProxy, error) {
+	if e.loadedTypes[3] {
+		return e.AccountProxies, nil
+	}
+	return nil, &NotLoadedError{edge: "account_proxies"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -224,6 +246,16 @@ func (_m *Proxy) QueryAccounts() *AccountQuery {
 // QueryBackupProxy queries the "backup_proxy" edge of the Proxy entity.
 func (_m *Proxy) QueryBackupProxy() *ProxyQuery {
 	return NewProxyClient(_m.config).QueryBackupProxy(_m)
+}
+
+// QueryPooledAccounts queries the "pooled_accounts" edge of the Proxy entity.
+func (_m *Proxy) QueryPooledAccounts() *AccountQuery {
+	return NewProxyClient(_m.config).QueryPooledAccounts(_m)
+}
+
+// QueryAccountProxies queries the "account_proxies" edge of the Proxy entity.
+func (_m *Proxy) QueryAccountProxies() *AccountProxyQuery {
+	return NewProxyClient(_m.config).QueryAccountProxies(_m)
 }
 
 // Update returns a builder for updating this Proxy.

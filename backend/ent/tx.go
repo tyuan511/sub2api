@@ -20,6 +20,8 @@ type Tx struct {
 	Account *AccountClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
 	AccountGroup *AccountGroupClient
+	// AccountProxy is the client for interacting with the AccountProxy builders.
+	AccountProxy *AccountProxyClient
 	// AdminTelegramBinding is the client for interacting with the AdminTelegramBinding builders.
 	AdminTelegramBinding *AdminTelegramBindingClient
 	// Announcement is the client for interacting with the Announcement builders.
@@ -238,6 +240,7 @@ func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
 	tx.Account = NewAccountClient(tx.config)
 	tx.AccountGroup = NewAccountGroupClient(tx.config)
+	tx.AccountProxy = NewAccountProxyClient(tx.config)
 	tx.AdminTelegramBinding = NewAdminTelegramBindingClient(tx.config)
 	tx.Announcement = NewAnnouncementClient(tx.config)
 	tx.AnnouncementRead = NewAnnouncementReadClient(tx.config)

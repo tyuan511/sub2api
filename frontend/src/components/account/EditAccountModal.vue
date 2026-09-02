@@ -1540,14 +1540,17 @@
           <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        <MultiProxySelector v-model="form.proxies" :proxies="proxies" :default-concurrency="form.concurrency" />
+        <p class="input-hint">{{ t('admin.accounts.proxyPool.hint') }}</p>
       </div>
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" min="1" class="input"
+          <input v-if="hasProxyPool" :value="form.concurrency" type="number" class="input" disabled />
+          <input v-else v-model.number="form.concurrency" type="number" min="1" class="input"
             @input="form.concurrency = Math.max(1, form.concurrency || 1)" />
+          <p v-if="hasProxyPool" class="input-hint">{{ t('admin.accounts.proxyPool.concurrencyHint') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.loadFactor') }}</label>
@@ -2875,6 +2878,7 @@ import { adminAPI } from '@/api/admin'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import type {
   Account,
+  AccountProxyBinding,
   Proxy,
   AdminGroup,
   CheckMixedChannelResponse,
@@ -2889,7 +2893,8 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
-import ProxySelector from '@/components/common/ProxySelector.vue'
+import MultiProxySelector from '@/components/common/MultiProxySelector.vue'
+import { accountProxyBindings, isProxyPool, proxyPoolConcurrency as sumProxyPoolConcurrency } from '@/utils/accountProxy'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
@@ -3589,6 +3594,7 @@ const form = reactive({
   name: '',
   notes: '',
   proxy_id: null as number | null,
+  proxies: [] as AccountProxyBinding[],
   concurrency: 1,
   load_factor: null as number | null,
   priority: 1,
@@ -3597,6 +3603,33 @@ const form = reactive({
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+
+// 只有 ≥2 个代理才构成代理池：此时账号并发 = 各代理并发之和、输入框只读；
+// 0/1 个代理沿用旧的单代理逻辑，历史账号零变化。
+const hasProxyPool = computed(() => isProxyPool(form.proxies))
+const proxyPoolConcurrency = computed(() => sumProxyPoolConcurrency(form.proxies))
+watch(
+  () => form.proxies,
+  (pool) => {
+    if (isProxyPool(pool)) {
+      form.concurrency = sumProxyPoolConcurrency(pool)
+    } else if (pool.length === 1 && pool[0].concurrency !== form.concurrency) {
+      // 单代理模式下这条绑定就是账号并发本身：列表变化时显式对齐，
+      // 之后再加代理时它作为第一条带着正确的并发进入代理池。
+      pool[0].concurrency = Math.max(1, form.concurrency || 1)
+    }
+  },
+  { deep: true }
+)
+// 单代理模式下把账号并发同步到那条绑定上，之后再加代理时它就是第一条的并发。
+watch(
+  () => form.concurrency,
+  (value) => {
+    if (form.proxies.length === 1 && value >= 1) {
+      form.proxies[0].concurrency = value
+    }
+  }
+)
 
 const handleUpstreamBillingRateSyncChange = (enabled: boolean) => {
   upstreamBillingRateSyncEnabled.value = enabled
@@ -3697,6 +3730,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   form.name = newAccount.name
   form.notes = newAccount.notes || ''
   form.proxy_id = newAccount.proxy_id
+  // 历史账号只有单个 proxy_id：把它作为一条绑定展示，保存后行为与原来一致。
+  form.proxies = accountProxyBindings(newAccount)
   form.concurrency = newAccount.concurrency
   form.load_factor = newAccount.load_factor ?? null
   form.priority = newAccount.priority
@@ -4647,6 +4682,20 @@ const handleSubmit = async () => {
 
   const updatePayload: Record<string, unknown> = { ...form }
   try {
+    // ≥2 个代理才是代理池：primary 写回 proxy_id，账号并发取各代理之和（后端同样校准）。
+    // 0/1 个代理发空池，走旧的单代理逻辑，历史账号零变化。
+    if (hasProxyPool.value) {
+      updatePayload.proxies = form.proxies.map((item) => ({
+        proxy_id: item.proxy_id,
+        concurrency: Math.max(1, item.concurrency || 1)
+      }))
+      updatePayload.proxy_id = form.proxies[0].proxy_id
+      updatePayload.concurrency = proxyPoolConcurrency.value
+    } else {
+      updatePayload.proxies = []
+      // 单代理取列表里的那一个；列表为空则显式清除，避免留下已移除的旧 proxy_id。
+      updatePayload.proxy_id = form.proxies.length === 1 ? form.proxies[0].proxy_id : null
+    }
     // 后端期望 proxy_id: 0 表示清除代理，而不是 null
     if (updatePayload.proxy_id === null) {
       updatePayload.proxy_id = 0

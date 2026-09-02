@@ -879,6 +879,8 @@ func resolveOpenAIErrorSchedulingModel(billingModel, upstreamModel string) strin
 }
 
 func (s *OpenAIGatewayService) selectAccountForModelWithExclusions(ctx context.Context, groupID *int64, platform string, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, stickyAccountID int64, requiredCapability OpenAIEndpointCapability, preferLowUpstreamRate bool) (*Account, error) {
+	// 会话标识同时用于账号粘性与多代理池的代理粘性。
+	SetProxyLeaseSessionHash(ctx, sessionHash)
 	platform = NormalizeOpenAICompatiblePlatform(platform)
 	if s.checkChannelPricingRestriction(ctx, groupID, requestedModel) {
 		slog.Warn("channel pricing restriction blocked request",
@@ -1103,6 +1105,7 @@ func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
 func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
+	SetProxyLeaseSessionHash(ctx, sessionHash)
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	ctx = s.withOpenAIGroupPrivacyRequirement(ctx, groupID)
 	// 分组利润控制：legacy 公共入口同样装门，保证不经
@@ -1642,7 +1645,8 @@ func (s *OpenAIGatewayService) getSchedulableAccount(ctx context.Context, accoun
 		err     error
 	)
 	if s.schedulerSnapshot != nil {
-		account, err = s.schedulerSnapshot.GetAccount(ctx, accountID)
+		// 只是校验粘性账号是否可用，尚未抢账号槽位，不在此处绑定出口代理。
+		account, err = s.schedulerSnapshot.GetAccountRaw(ctx, accountID)
 	} else {
 		account, err = s.accountRepo.GetByID(ctx, accountID)
 	}
@@ -1692,24 +1696,61 @@ func (s *OpenAIGatewayService) isOpenAIAccountBlockedBySchedulingThreshold(ctx c
 	return s.rateLimitService.ApplyAccountSchedulingThreshold(ctx, account)
 }
 
+// hydrateSelectedAccount 是「未持有账号槽位」的选号出口（selectAccountForModelWithExclusions、
+// token 计数等）：只为多代理池账号选路、不占代理槽位。之后抢到账号槽位的调用方
+// 必须再经 newAcquiredSelectionResult / BindAccountProxyAfterSlot 拿到带租约的绑定。
 func (s *OpenAIGatewayService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {
+	return s.hydrateAccount(ctx, account, proxyHydrateRoute)
+}
+
+// hydrateAccount 从调度快照补全账号，并按 mode 处理多代理池账号的出口代理。
+func (s *OpenAIGatewayService) hydrateAccount(ctx context.Context, account *Account, mode proxyHydrateMode) (*Account, error) {
 	if account == nil || s.schedulerSnapshot == nil {
 		return account, nil
 	}
-	hydrated, err := s.schedulerSnapshot.GetAccount(ctx, account.ID)
+	hydrated, err := s.schedulerSnapshot.GetAccountRaw(ctx, account.ID)
 	if err != nil {
 		return nil, err
 	}
 	if hydrated == nil {
 		return nil, fmt.Errorf("selected openai account %d not found during hydration", account.ID)
 	}
-	return hydrated, nil
+	switch mode {
+	case proxyHydrateRoute:
+		return s.schedulerSnapshot.RouteAccountProxy(ctx, hydrated)
+	case proxyHydrateLease:
+		return s.schedulerSnapshot.BindAccountProxy(ctx, hydrated)
+	default:
+		return hydrated, nil
+	}
+}
+
+// BindAccountProxyAfterSlot 供 handler 在自行抢到账号槽位后为多代理池账号绑定出口代理。
+// 返回的 release 把代理租约挂在账号槽位释放上（同生命周期），调用方必须用它替换原 release。
+func (s *OpenAIGatewayService) BindAccountProxyAfterSlot(ctx context.Context, account *Account, release func()) (*Account, func(), error) {
+	if s == nil || s.schedulerSnapshot == nil || account == nil {
+		return account, release, nil
+	}
+	bound, err := s.schedulerSnapshot.BindAccountProxy(ctx, account)
+	if err != nil {
+		return nil, release, err
+	}
+	return bound, ChainProxyLeaseRelease(ctx, account.ID, release), nil
 }
 
 func (s *OpenAIGatewayService) newSelectionResult(ctx context.Context, account *Account, acquired bool, release func(), waitPlan *AccountWaitPlan) (*AccountSelectionResult, error) {
-	hydrated, err := s.hydrateSelectedAccount(ctx, account)
+	// 等待计划尚未持有账号槽位，此时不绑定出口代理（由 handler 抢到槽位后绑定）。
+	mode := proxyHydrateRaw
+	if acquired {
+		mode = proxyHydrateLease
+	}
+	hydrated, err := s.hydrateAccount(ctx, account, mode)
 	if err != nil {
 		return nil, err
+	}
+	if acquired && account != nil {
+		// 代理租约随账号槽位一起释放。
+		release = ChainProxyLeaseRelease(ctx, account.ID, release)
 	}
 	return attachSelectionProfitGate(ctx, &AccountSelectionResult{
 		Account:     hydrated,

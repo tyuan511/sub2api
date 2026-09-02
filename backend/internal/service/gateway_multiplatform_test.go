@@ -3515,3 +3515,15 @@ func TestGatewayService_ResolveGatewayGroup_DetectsFallbackCycle(t *testing.T) {
 	require.Nil(t, gotID)
 	require.Contains(t, err.Error(), "fallback group cycle")
 }
+
+func (m *mockAccountRepoForPlatform) ReplaceAccountProxies(ctx context.Context, accountID int64, bindings []AccountProxy) error {
+	return nil
+}
+
+func (m *mockAccountRepoForPlatform) GetAccountProxies(ctx context.Context, accountID int64) ([]AccountProxy, error) {
+	return nil, nil
+}
+
+func (m *mockAccountRepoForPlatform) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

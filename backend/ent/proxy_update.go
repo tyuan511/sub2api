@@ -267,6 +267,21 @@ func (_u *ProxyUpdate) SetBackupProxy(v *Proxy) *ProxyUpdate {
 	return _u.SetBackupProxyID(v.ID)
 }
 
+// AddPooledAccountIDs adds the "pooled_accounts" edge to the Account entity by IDs.
+func (_u *ProxyUpdate) AddPooledAccountIDs(ids ...int64) *ProxyUpdate {
+	_u.mutation.AddPooledAccountIDs(ids...)
+	return _u
+}
+
+// AddPooledAccounts adds the "pooled_accounts" edges to the Account entity.
+func (_u *ProxyUpdate) AddPooledAccounts(v ...*Account) *ProxyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPooledAccountIDs(ids...)
+}
+
 // Mutation returns the ProxyMutation object of the builder.
 func (_u *ProxyUpdate) Mutation() *ProxyMutation {
 	return _u.mutation
@@ -297,6 +312,27 @@ func (_u *ProxyUpdate) RemoveAccounts(v ...*Account) *ProxyUpdate {
 func (_u *ProxyUpdate) ClearBackupProxy() *ProxyUpdate {
 	_u.mutation.ClearBackupProxy()
 	return _u
+}
+
+// ClearPooledAccounts clears all "pooled_accounts" edges to the Account entity.
+func (_u *ProxyUpdate) ClearPooledAccounts() *ProxyUpdate {
+	_u.mutation.ClearPooledAccounts()
+	return _u
+}
+
+// RemovePooledAccountIDs removes the "pooled_accounts" edge to Account entities by IDs.
+func (_u *ProxyUpdate) RemovePooledAccountIDs(ids ...int64) *ProxyUpdate {
+	_u.mutation.RemovePooledAccountIDs(ids...)
+	return _u
+}
+
+// RemovePooledAccounts removes "pooled_accounts" edges to Account entities.
+func (_u *ProxyUpdate) RemovePooledAccounts(v ...*Account) *ProxyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePooledAccountIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -519,6 +555,63 @@ func (_u *ProxyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PooledAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   proxy.PooledAccountsTable,
+			Columns: proxy.PooledAccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &AccountProxyCreate{config: _u.config, mutation: newAccountProxyMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPooledAccountsIDs(); len(nodes) > 0 && !_u.mutation.PooledAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   proxy.PooledAccountsTable,
+			Columns: proxy.PooledAccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &AccountProxyCreate{config: _u.config, mutation: newAccountProxyMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PooledAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   proxy.PooledAccountsTable,
+			Columns: proxy.PooledAccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &AccountProxyCreate{config: _u.config, mutation: newAccountProxyMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
@@ -779,6 +872,21 @@ func (_u *ProxyUpdateOne) SetBackupProxy(v *Proxy) *ProxyUpdateOne {
 	return _u.SetBackupProxyID(v.ID)
 }
 
+// AddPooledAccountIDs adds the "pooled_accounts" edge to the Account entity by IDs.
+func (_u *ProxyUpdateOne) AddPooledAccountIDs(ids ...int64) *ProxyUpdateOne {
+	_u.mutation.AddPooledAccountIDs(ids...)
+	return _u
+}
+
+// AddPooledAccounts adds the "pooled_accounts" edges to the Account entity.
+func (_u *ProxyUpdateOne) AddPooledAccounts(v ...*Account) *ProxyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPooledAccountIDs(ids...)
+}
+
 // Mutation returns the ProxyMutation object of the builder.
 func (_u *ProxyUpdateOne) Mutation() *ProxyMutation {
 	return _u.mutation
@@ -809,6 +917,27 @@ func (_u *ProxyUpdateOne) RemoveAccounts(v ...*Account) *ProxyUpdateOne {
 func (_u *ProxyUpdateOne) ClearBackupProxy() *ProxyUpdateOne {
 	_u.mutation.ClearBackupProxy()
 	return _u
+}
+
+// ClearPooledAccounts clears all "pooled_accounts" edges to the Account entity.
+func (_u *ProxyUpdateOne) ClearPooledAccounts() *ProxyUpdateOne {
+	_u.mutation.ClearPooledAccounts()
+	return _u
+}
+
+// RemovePooledAccountIDs removes the "pooled_accounts" edge to Account entities by IDs.
+func (_u *ProxyUpdateOne) RemovePooledAccountIDs(ids ...int64) *ProxyUpdateOne {
+	_u.mutation.RemovePooledAccountIDs(ids...)
+	return _u
+}
+
+// RemovePooledAccounts removes "pooled_accounts" edges to Account entities.
+func (_u *ProxyUpdateOne) RemovePooledAccounts(v ...*Account) *ProxyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePooledAccountIDs(ids...)
 }
 
 // Where appends a list predicates to the ProxyUpdate builder.
@@ -1061,6 +1190,63 @@ func (_u *ProxyUpdateOne) sqlSave(ctx context.Context) (_node *Proxy, err error)
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PooledAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   proxy.PooledAccountsTable,
+			Columns: proxy.PooledAccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &AccountProxyCreate{config: _u.config, mutation: newAccountProxyMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPooledAccountsIDs(); len(nodes) > 0 && !_u.mutation.PooledAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   proxy.PooledAccountsTable,
+			Columns: proxy.PooledAccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &AccountProxyCreate{config: _u.config, mutation: newAccountProxyMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PooledAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   proxy.PooledAccountsTable,
+			Columns: proxy.PooledAccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &AccountProxyCreate{config: _u.config, mutation: newAccountProxyMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Proxy{config: _u.config}

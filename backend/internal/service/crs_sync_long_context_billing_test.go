@@ -167,3 +167,7 @@ func runCRSOpenAILongContextSync(t *testing.T, repo AccountRepository, source cr
 	require.NoError(t, err)
 	return result
 }
+
+func (r *crsLongContextAccountRepo) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

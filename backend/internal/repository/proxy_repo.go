@@ -143,6 +143,66 @@ func proxyProbeIdentityFromService(proxyIn *service.Proxy) proxyProbeIdentity {
 	}
 }
 
+// proxyRoutingIdentity 是会影响出站选路的代理字段：探测身份 + 过期时间。
+// 任一变化都要刷新引用该代理（主代理或多代理池成员）的账号调度快照，
+// 否则 Redis 里的账号快照会长期保留旧地址 / 旧状态 / 旧过期时间。
+type proxyRoutingIdentity struct {
+	proxyProbeIdentity
+	expiresAt int64 // Unix 秒；0 表示不过期
+}
+
+func proxyRoutingIdentityFromService(proxyIn *service.Proxy) proxyRoutingIdentity {
+	identity := proxyRoutingIdentity{proxyProbeIdentity: proxyProbeIdentityFromService(proxyIn)}
+	if proxyIn.ExpiresAt != nil {
+		identity.expiresAt = proxyIn.ExpiresAt.Unix()
+	}
+	return identity
+}
+
+// listAccountIDsReferencingProxy 返回把该代理用作主代理或多代理池成员的所有账号。
+func listAccountIDsReferencingProxy(ctx context.Context, exec sqlExecutor, proxyID int64) ([]int64, error) {
+	rows, err := exec.QueryContext(ctx, `
+		SELECT id FROM accounts
+		WHERE deleted_at IS NULL
+		  AND (proxy_id = $1 OR id IN (SELECT account_id FROM account_proxies WHERE proxy_id = $1))
+	`, proxyID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	ids := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// listAccountIDsPoolingProxy 返回把该代理放进多代理池的账号（不含仅作主代理的）。
+func listAccountIDsPoolingProxy(ctx context.Context, exec sqlExecutor, proxyID int64) ([]int64, error) {
+	rows, err := exec.QueryContext(ctx, `
+		SELECT ap.account_id FROM account_proxies ap
+		JOIN accounts a ON a.id = ap.account_id AND a.deleted_at IS NULL
+		WHERE ap.proxy_id = $1
+	`, proxyID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	ids := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.Client, proxyIn *service.Proxy) (*dbent.Proxy, error) {
 	currentIdentity, err := lockProxyProbeIdentity(ctx, client, proxyIn.ID)
 	if err != nil {
@@ -184,12 +244,22 @@ func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.C
 	if err != nil {
 		return nil, err
 	}
-	if currentIdentity == proxyProbeIdentityFromService(proxyIn) {
+	nextIdentity := proxyRoutingIdentityFromService(proxyIn)
+	if currentIdentity == nextIdentity {
 		return updated, nil
 	}
-	accountIDs, err := invalidateProxyProbeSnapshots(ctx, client, proxyIn.ID)
+	// 出站选路相关字段变了：引用该代理的账号（主代理 + 多代理池成员）都要刷新调度快照。
+	referencing, err := listAccountIDsReferencingProxy(ctx, client, proxyIn.ID)
 	if err != nil {
 		return nil, err
+	}
+	accountIDs := append([]int64(nil), referencing...)
+	if currentIdentity.proxyProbeIdentity != nextIdentity.proxyProbeIdentity {
+		invalidated, err := invalidateProxyProbeSnapshots(ctx, client, proxyIn.ID)
+		if err != nil {
+			return nil, err
+		}
+		accountIDs = append(accountIDs, invalidated...)
 	}
 	if err := enqueueProxyProbeAccountChanges(ctx, client, accountIDs); err != nil {
 		return nil, err
@@ -197,26 +267,27 @@ func updateProxyAndInvalidateProbeSnapshots(ctx context.Context, client *dbent.C
 	return updated, nil
 }
 
-func lockProxyProbeIdentity(ctx context.Context, client *dbent.Client, proxyID int64) (proxyProbeIdentity, error) {
+func lockProxyProbeIdentity(ctx context.Context, client *dbent.Client, proxyID int64) (proxyRoutingIdentity, error) {
 	rows, err := client.QueryContext(ctx, `
-		SELECT protocol, host, port, COALESCE(username, ''), COALESCE(password, ''), status
+		SELECT protocol, host, port, COALESCE(username, ''), COALESCE(password, ''), status,
+		       COALESCE(EXTRACT(EPOCH FROM expires_at)::bigint, 0)
 		FROM proxies
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
 	`, proxyID)
 	if err != nil {
-		return proxyProbeIdentity{}, err
+		return proxyRoutingIdentity{}, err
 	}
 	defer func() { _ = rows.Close() }()
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {
-			return proxyProbeIdentity{}, err
+			return proxyRoutingIdentity{}, err
 		}
-		return proxyProbeIdentity{}, service.ErrProxyNotFound
+		return proxyRoutingIdentity{}, service.ErrProxyNotFound
 	}
-	var identity proxyProbeIdentity
-	if err := rows.Scan(&identity.protocol, &identity.host, &identity.port, &identity.username, &identity.password, &identity.status); err != nil {
-		return proxyProbeIdentity{}, err
+	var identity proxyRoutingIdentity
+	if err := rows.Scan(&identity.protocol, &identity.host, &identity.port, &identity.username, &identity.password, &identity.status, &identity.expiresAt); err != nil {
+		return proxyRoutingIdentity{}, err
 	}
 	return identity, rows.Err()
 }
@@ -472,7 +543,12 @@ func (r *proxyRepository) ExistsByHostPortAuth(ctx context.Context, host string,
 // CountAccountsByProxyID returns the number of accounts using a specific proxy
 func (r *proxyRepository) CountAccountsByProxyID(ctx context.Context, proxyID int64) (int64, error) {
 	var count int64
-	if err := scanSingleRow(ctx, r.sql, "SELECT COUNT(*) FROM accounts WHERE proxy_id = $1 AND deleted_at IS NULL", []any{proxyID}, &count); err != nil {
+	// 同时统计主代理与多代理池成员，避免仍在池里的代理被删除。
+	if err := scanSingleRow(ctx, r.sql, `
+		SELECT COUNT(*) FROM accounts
+		WHERE deleted_at IS NULL
+		  AND (proxy_id = $1 OR id IN (SELECT account_id FROM account_proxies WHERE proxy_id = $1))
+	`, []any{proxyID}, &count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -482,7 +558,8 @@ func (r *proxyRepository) ListAccountSummariesByProxyID(ctx context.Context, pro
 	rows, err := r.sql.QueryContext(ctx, `
 		SELECT id, name, platform, type, notes
 		FROM accounts
-		WHERE proxy_id = $1 AND deleted_at IS NULL
+		WHERE deleted_at IS NULL
+		  AND (proxy_id = $1 OR id IN (SELECT account_id FROM account_proxies WHERE proxy_id = $1))
 		ORDER BY id DESC
 	`, proxyID)
 	if err != nil {
@@ -522,7 +599,16 @@ func (r *proxyRepository) ListAccountSummariesByProxyID(ctx context.Context, pro
 
 // GetAccountCountsForProxies returns a map of proxy ID to account count for all proxies
 func (r *proxyRepository) GetAccountCountsForProxies(ctx context.Context) (counts map[int64]int64, err error) {
-	rows, err := r.sql.QueryContext(ctx, "SELECT proxy_id, COUNT(*) AS count FROM accounts WHERE proxy_id IS NOT NULL AND deleted_at IS NULL GROUP BY proxy_id")
+	// 主代理与多代理池成员合并去重后按代理计数（同一账号对同一代理只算一次）。
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT proxy_id, COUNT(*) AS count FROM (
+			SELECT proxy_id, id AS account_id FROM accounts
+			WHERE proxy_id IS NOT NULL AND deleted_at IS NULL
+			UNION
+			SELECT ap.proxy_id, ap.account_id FROM account_proxies ap
+			JOIN accounts a ON a.id = ap.account_id AND a.deleted_at IS NULL
+		) usage_rows GROUP BY proxy_id
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -728,6 +814,12 @@ func (r *proxyRepository) sweepOneExpiredProxyOnExec(ctx context.Context, exec s
 		service.StatusExpired, proxyID); err != nil {
 		return nil, err
 	}
+	// 代理已被标记 expired：把它放进多代理池的账号也要刷新快照，
+	// 让 binder 尽快把这条过期代理从可用候选里剔除。
+	pooledAccountIDs, poolErr := listAccountIDsPoolingProxy(ctx, exec, proxyID)
+	if poolErr != nil {
+		return nil, poolErr
+	}
 	if !change {
 		accountIDs, err := invalidateProxyProbeSnapshots(ctx, exec, proxyID)
 		if err != nil {
@@ -736,7 +828,7 @@ func (r *proxyRepository) sweepOneExpiredProxyOnExec(ctx context.Context, exec s
 		if err := enqueueProxyProbeAccountChanges(ctx, exec, accountIDs); err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return pooledAccountIDs, nil
 	}
 	var (
 		rows *sql.Rows
@@ -786,7 +878,7 @@ func (r *proxyRepository) sweepOneExpiredProxyOnExec(ctx context.Context, exec s
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	return accountIDs, nil
+	return append(accountIDs, pooledAccountIDs...), nil
 }
 
 // CountExpired 返回已过期（status=expired）的代理数量。

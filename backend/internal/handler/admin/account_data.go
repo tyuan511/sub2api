@@ -58,18 +58,27 @@ type DataProxy struct {
 // 影子的独立调度配置(priority/并发/分组/status 管理员可单独调)亦不在本备份范围,属已知局限
 // (外审第6轮裁决:保持排除 + 前端警告,而非升级格式做完整往返)。
 type DataAccount struct {
-	Name               string         `json:"name"`
-	Notes              *string        `json:"notes,omitempty"`
-	Platform           string         `json:"platform"`
-	Type               string         `json:"type"`
-	Credentials        map[string]any `json:"credentials"`
-	Extra              map[string]any `json:"extra,omitempty"`
-	ProxyKey           *string        `json:"proxy_key,omitempty"`
-	Concurrency        int            `json:"concurrency"`
-	Priority           int            `json:"priority"`
-	RateMultiplier     *float64       `json:"rate_multiplier,omitempty"`
-	ExpiresAt          *int64         `json:"expires_at,omitempty"`
-	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired,omitempty"`
+	Name        string         `json:"name"`
+	Notes       *string        `json:"notes,omitempty"`
+	Platform    string         `json:"platform"`
+	Type        string         `json:"type"`
+	Credentials map[string]any `json:"credentials"`
+	Extra       map[string]any `json:"extra,omitempty"`
+	ProxyKey    *string        `json:"proxy_key,omitempty"`
+	// ProxyPool 是多代理池绑定；为空表示账号只用 ProxyKey 的单代理。
+	// 旧版本导出的数据不含该字段，导入后行为与原来完全一致。
+	ProxyPool          []DataAccountProxy `json:"proxy_pool,omitempty"`
+	Concurrency        int                `json:"concurrency"`
+	Priority           int                `json:"priority"`
+	RateMultiplier     *float64           `json:"rate_multiplier,omitempty"`
+	ExpiresAt          *int64             `json:"expires_at,omitempty"`
+	AutoPauseOnExpired *bool              `json:"auto_pause_on_expired,omitempty"`
+}
+
+// DataAccountProxy 是导出数据里的一条多代理池绑定，代理按 proxy_key 引用。
+type DataAccountProxy struct {
+	ProxyKey    string `json:"proxy_key"`
+	Concurrency int    `json:"concurrency"`
 }
 
 type DataImportRequest struct {
@@ -199,6 +208,14 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 			v := acc.ExpiresAt.Unix()
 			expiresAt = &v
 		}
+		var proxyPool []DataAccountProxy
+		for _, binding := range acc.Proxies {
+			key, ok := proxyKeyByID[binding.ProxyID]
+			if !ok {
+				continue
+			}
+			proxyPool = append(proxyPool, DataAccountProxy{ProxyKey: key, Concurrency: binding.Concurrency})
+		}
 		dataAccounts = append(dataAccounts, DataAccount{
 			Name:               acc.Name,
 			Notes:              acc.Notes,
@@ -207,6 +224,7 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 			Credentials:        acc.Credentials,
 			Extra:              acc.Extra,
 			ProxyKey:           proxyKey,
+			ProxyPool:          proxyPool,
 			Concurrency:        acc.Concurrency,
 			Priority:           acc.Priority,
 			RateMultiplier:     acc.RateMultiplier,
@@ -427,6 +445,17 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 			}
 		}
 
+		// 多代理池：逐条按 proxy_key 解析成本地 proxy id；解析不到的绑定跳过，
+		// 全部解析不到时退回单代理，不让整条账号导入失败。
+		var proxyPool []service.AccountProxy
+		for _, binding := range item.ProxyPool {
+			id, ok := proxyKeyToID[binding.ProxyKey]
+			if !ok {
+				continue
+			}
+			proxyPool = append(proxyPool, service.AccountProxy{ProxyID: id, Concurrency: binding.Concurrency})
+		}
+
 		enrichCredentialsFromIDToken(&item)
 
 		accountInput := &service.CreateAccountInput{
@@ -437,6 +466,7 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 			Credentials:          item.Credentials,
 			Extra:                item.Extra,
 			ProxyID:              proxyID,
+			Proxies:              proxyPool,
 			Concurrency:          item.Concurrency,
 			Priority:             item.Priority,
 			RateMultiplier:       item.RateMultiplier,
@@ -570,19 +600,24 @@ func (h *AccountHandler) resolveExportProxies(ctx context.Context, accounts []se
 
 	seen := make(map[int64]struct{})
 	ids := make([]int64, 0)
-	for i := range accounts {
-		if accounts[i].ProxyID == nil {
-			continue
-		}
-		id := *accounts[i].ProxyID
+	appendID := func(id int64) {
 		if id <= 0 {
-			continue
+			return
 		}
 		if _, ok := seen[id]; ok {
-			continue
+			return
 		}
 		seen[id] = struct{}{}
 		ids = append(ids, id)
+	}
+	for i := range accounts {
+		if accounts[i].ProxyID != nil {
+			appendID(*accounts[i].ProxyID)
+		}
+		// 多代理池里的代理同样要导出，否则还原时 proxy_key 解析不到、池会丢失。
+		for _, binding := range accounts[i].Proxies {
+			appendID(binding.ProxyID)
+		}
 	}
 	if len(ids) == 0 {
 		return []service.Proxy{}, nil

@@ -361,13 +361,17 @@ type UpdateGroupInput struct {
 }
 
 type CreateAccountInput struct {
-	Name               string
-	Notes              *string
-	Platform           string
-	Type               string
-	Credentials        map[string]any
-	Extra              map[string]any
-	ProxyID            *int64
+	Name        string
+	Notes       *string
+	Platform    string
+	Type        string
+	Credentials map[string]any
+	Extra       map[string]any
+	ProxyID     *int64
+	// Proxies 为多代理池绑定。非 nil 时覆盖 ProxyID/Concurrency：
+	// ProxyID 取第一条（保持旧链路可用），Concurrency 取各代理并发之和。
+	// nil 表示未提供，走旧的单代理逻辑。
+	Proxies            []AccountProxy
 	Concurrency        int
 	Priority           int
 	RateMultiplier     *float64 // 账号计费倍率（>=0，允许 0）
@@ -393,12 +397,15 @@ type ShadowOptions struct {
 }
 
 type UpdateAccountInput struct {
-	Name                  string
-	Notes                 *string
-	Type                  string // Account type: oauth, setup-token, apikey
-	Credentials           map[string]any
-	Extra                 map[string]any
-	ProxyID               *int64
+	Name        string
+	Notes       *string
+	Type        string // Account type: oauth, setup-token, apikey
+	Credentials map[string]any
+	Extra       map[string]any
+	ProxyID     *int64
+	// Proxies 为多代理池绑定。非 nil 时覆盖 ProxyID/Concurrency；
+	// 指向空切片表示清空绑定并退回旧的单代理逻辑；nil 表示未提供、不改动。
+	Proxies               *[]AccountProxy
 	Concurrency           *int     // 使用指针区分"未提供"和"设置为0"
 	Priority              *int     // 使用指针区分"未提供"和"设置为0"
 	RateMultiplier        *float64 // 账号计费倍率（>=0，允许 0）

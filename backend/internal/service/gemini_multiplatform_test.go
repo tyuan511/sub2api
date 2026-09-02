@@ -1007,3 +1007,15 @@ func TestGeminiMessagesCompatService_isModelSupportedByAccount(t *testing.T) {
 		})
 	}
 }
+
+func (m *mockAccountRepoForGemini) ReplaceAccountProxies(ctx context.Context, accountID int64, bindings []AccountProxy) error {
+	return nil
+}
+
+func (m *mockAccountRepoForGemini) GetAccountProxies(ctx context.Context, accountID int64) ([]AccountProxy, error) {
+	return nil, nil
+}
+
+func (m *mockAccountRepoForGemini) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

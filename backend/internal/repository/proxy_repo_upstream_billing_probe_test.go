@@ -26,13 +26,17 @@ func TestProxyUpdateInvalidatesBoundProbeSnapshotsAndEnqueuesOutboxAtomically(t 
 	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)` + regexp.QuoteMeta("SELECT protocol, host, port") + `.*` + regexp.QuoteMeta("FOR NO KEY UPDATE")).
 		WithArgs(int64(9)).
-		WillReturnRows(sqlmock.NewRows([]string{"protocol", "host", "port", "username", "password", "status"}).
-			AddRow("http", "old.example", 8080, "user", "pass", service.StatusActive))
+		WillReturnRows(sqlmock.NewRows([]string{"protocol", "host", "port", "username", "password", "status", "expires_at"}).
+			AddRow("http", "old.example", 8080, "user", "pass", service.StatusActive, int64(0)))
 	mock.ExpectExec(`(?s)UPDATE "proxies" SET`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`UPDATE "proxies" SET "backup_proxy_id" = NULL WHERE "backup_proxy_id" = \$1`).
 		WithArgs(int64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	expectProxyUpdateReload(mock, 9, "new.example", "user", "pass")
+	// 出站身份变化：先找出引用该代理（主代理 / 多代理池成员）的账号，一并刷新调度快照。
+	mock.ExpectQuery(`(?s)SELECT id FROM accounts.*proxy_id = \$1 OR id IN \(SELECT account_id FROM account_proxies WHERE proxy_id = \$1\)`).
+		WithArgs(int64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(18)))
 	mock.ExpectQuery(`(?s)UPDATE accounts.*- 'upstream_billing_probe'.*- 'ollama_cloud_usage_snapshot'.*type = 'apikey'.*extra \? 'upstream_billing_probe'.*platform IN \('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek'\).*extra \? 'ollama_cloud_usage_snapshot'.*RETURNING id`).
 		WithArgs(int64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(17)).AddRow(int64(18)))
@@ -69,13 +73,17 @@ func TestProxyUpdateRollsBackWhenProbeInvalidationOutboxFails(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)` + regexp.QuoteMeta("SELECT protocol, host, port") + `.*` + regexp.QuoteMeta("FOR NO KEY UPDATE")).
 		WithArgs(int64(9)).
-		WillReturnRows(sqlmock.NewRows([]string{"protocol", "host", "port", "username", "password", "status"}).
-			AddRow("http", "old.example", 8080, "", "", service.StatusActive))
+		WillReturnRows(sqlmock.NewRows([]string{"protocol", "host", "port", "username", "password", "status", "expires_at"}).
+			AddRow("http", "old.example", 8080, "", "", service.StatusActive, int64(0)))
 	mock.ExpectExec(`(?s)UPDATE "proxies" SET`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`UPDATE "proxies" SET "backup_proxy_id" = NULL WHERE "backup_proxy_id" = \$1`).
 		WithArgs(int64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	expectProxyUpdateReload(mock, 9, "new.example", "", "")
+	// 出站身份变化：先找出引用该代理（主代理 / 多代理池成员）的账号，一并刷新调度快照。
+	mock.ExpectQuery(`(?s)SELECT id FROM accounts.*proxy_id = \$1 OR id IN \(SELECT account_id FROM account_proxies WHERE proxy_id = \$1\)`).
+		WithArgs(int64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(17)))
 	mock.ExpectQuery(`(?s)UPDATE accounts.*- 'upstream_billing_probe'.*- 'ollama_cloud_usage_snapshot'.*type = 'apikey'.*extra \? 'upstream_billing_probe'.*platform IN \('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek'\).*extra \? 'ollama_cloud_usage_snapshot'.*RETURNING id`).
 		WithArgs(int64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(17)))
@@ -102,8 +110,8 @@ func TestProxyUpdateSkipsProbeInvalidationForNonIdentityChange(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)` + regexp.QuoteMeta("SELECT protocol, host, port") + `.*` + regexp.QuoteMeta("FOR NO KEY UPDATE")).
 		WithArgs(int64(9)).
-		WillReturnRows(sqlmock.NewRows([]string{"protocol", "host", "port", "username", "password", "status"}).
-			AddRow("http", "same.example", 8080, "", "", service.StatusActive))
+		WillReturnRows(sqlmock.NewRows([]string{"protocol", "host", "port", "username", "password", "status", "expires_at"}).
+			AddRow("http", "same.example", 8080, "", "", service.StatusActive, int64(0)))
 	mock.ExpectExec(`(?s)UPDATE "proxies" SET`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`UPDATE "proxies" SET "backup_proxy_id" = NULL WHERE "backup_proxy_id" = \$1`).
 		WithArgs(int64(9)).
@@ -113,6 +121,42 @@ func TestProxyUpdateSkipsProbeInvalidationForNonIdentityChange(t *testing.T) {
 
 	repo := newProxyRepositoryWithSQL(client, db)
 	proxy := &service.Proxy{ID: 9, Name: "renamed", Protocol: "http", Host: "same.example", Port: 8080, Status: service.StatusActive}
+
+	err = repo.Update(context.Background(), proxy)
+
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestProxyUpdateRefreshesPooledAccountsWhenOnlyExpiryChanges(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+	t.Cleanup(func() { _ = client.Close() })
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)` + regexp.QuoteMeta("SELECT protocol, host, port") + `.*` + regexp.QuoteMeta("FOR NO KEY UPDATE")).
+		WithArgs(int64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"protocol", "host", "port", "username", "password", "status", "expires_at"}).
+			AddRow("http", "same.example", 8080, "", "", service.StatusActive, int64(0)))
+	mock.ExpectExec(`(?s)UPDATE "proxies" SET`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`UPDATE "proxies" SET "backup_proxy_id" = NULL WHERE "backup_proxy_id" = \$1`).
+		WithArgs(int64(9)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	expectProxyUpdateReload(mock, 9, "same.example", "", "")
+	// 只改了过期时间：探测身份未变，不做探测快照失效；但引用该代理的账号（含代理池成员）要刷新调度快照。
+	mock.ExpectQuery(`(?s)SELECT id FROM accounts.*proxy_id = \$1 OR id IN \(SELECT account_id FROM account_proxies WHERE proxy_id = \$1\)`).
+		WithArgs(int64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(21)).AddRow(int64(22)))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)")).
+		WithArgs(service.SchedulerOutboxEventAccountBulkChanged, nil, nil, accountIDsPayloadMatcher{want: []int64{21, 22}}).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	repo := newProxyRepositoryWithSQL(client, db)
+	expiresAt := time.Now().Add(time.Hour)
+	proxy := &service.Proxy{ID: 9, Name: "proxy", Protocol: "http", Host: "same.example", Port: 8080, Status: service.StatusActive, ExpiresAt: &expiresAt}
 
 	err = repo.Update(context.Background(), proxy)
 

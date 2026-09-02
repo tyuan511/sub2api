@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from '../client'
-import type { GrokBillingSummary, GrokQuotaWindow, WindowStats } from '@/types'
+import type { AccountProxyBinding, GrokBillingSummary, GrokQuotaWindow, WindowStats } from '@/types'
 
 export type { GrokBillingSummary, GrokQuotaWindow } from '@/types'
 
@@ -64,6 +64,8 @@ export interface GrokSSOToOAuthRequest {
   credentials?: Record<string, unknown>
   extra?: Record<string, unknown>
   concurrency?: number
+  /** 多代理池绑定；为空表示只用 proxy_id 的单代理 */
+  proxies?: AccountProxyBinding[]
   load_factor?: number
   priority?: number
   rate_multiplier?: number

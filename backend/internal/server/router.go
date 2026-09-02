@@ -60,6 +60,8 @@ func SetupRouter(
 	// 将客户端 IP + UA 注入 request context，供 token 签发/会话绑定/审计日志统一读取。
 	// 解析模式按请求快照：兼容开关开启时信任原始转发头，关闭时使用 server.trusted_proxies。
 	r.Use(middleware2.SessionBindingContext(cfg))
+	// 为多代理池账号安装请求级出口代理租约登记处（请求结束统一释放槽位）。
+	r.Use(middleware2.ProxyLeaseContext())
 	r.Use(middleware2.Logger())
 	r.Use(middleware2.CORS(cfg.CORS))
 	r.Use(middleware2.SecurityHeaders(cfg.Security.CSP, func() []string {

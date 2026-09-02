@@ -61,7 +61,9 @@ type Account struct {
 	ParentAccountID *int64 // non-nil → 影子账号（不持凭据，透传母账号凭据）
 	QuotaDimension  string // 用量维度："" / "global" / "spark"
 
-	Proxy         *Proxy
+	Proxy *Proxy
+	// Proxies 为多代理池绑定；为空表示该账号只用 ProxyID/Proxy 的旧行为。
+	Proxies       []AccountProxy
 	AccountGroups []AccountGroup
 	GroupIDs      []int64
 	Groups        []*Group
@@ -183,6 +185,11 @@ func (a *Account) IsSchedulable() bool {
 		return false
 	}
 	now := time.Now()
+	// 配置了多代理池但池内没有任何可用代理（全部停用/过期）：代理池是该账号唯一出口，
+	// 不能退回主 proxy_id 或直连，直接视为不可调度，让选号切到其他账号。
+	if a.HasProxyPool() && !a.HasUsableProxyPool(now) {
+		return false
+	}
 	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
 		return false
 	}

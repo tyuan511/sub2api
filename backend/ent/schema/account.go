@@ -217,6 +217,11 @@ func (Account) Edges() []ent.Edge {
 		edge.To("proxy", Proxy.Type).
 			Field("proxy_id").
 			Unique(),
+		// proxy_pool: 账户绑定的多代理池（多对多关系）
+		// 通过 account_proxies 中间表实现，每条绑定携带各自的并发上限。
+		// 该池为空时账号退回只使用 proxy_id 的旧行为。
+		edge.To("proxy_pool", Proxy.Type).
+			Through("account_proxies", AccountProxy.Type),
 		// children/parent: linked spark shadow relationship.
 		// parent_account_id is nullable, and the active one-shadow-per-parent rule
 		// is enforced by the partial unique index in migration 154a.

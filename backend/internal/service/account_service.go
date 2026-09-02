@@ -82,6 +82,14 @@ type AccountRepository interface {
 	SetSchedulable(ctx context.Context, id int64, schedulable bool) error
 	AutoPauseExpiredAccounts(ctx context.Context, now time.Time) (int64, error)
 	BindGroups(ctx context.Context, accountID int64, groupIDs []int64) error
+	// ReplaceAccountProxies 整体替换账号的多代理池绑定；传空表示清空绑定，
+	// 账号退回只使用 proxy_id 的旧行为。
+	ReplaceAccountProxies(ctx context.Context, accountID int64, bindings []AccountProxy) error
+	// GetAccountProxies 读取账号的多代理池绑定（按 sort_order 排序）。
+	GetAccountProxies(ctx context.Context, accountID int64) ([]AccountProxy, error)
+	// RunInTx 在同一数据库事务内执行 fn；fn 内通过该 ctx 调用的 Create / Update /
+	// UpdateExtra / ReplaceAccountProxies 会一起提交或回滚。
+	RunInTx(ctx context.Context, fn func(ctx context.Context) error) error
 
 	ListSchedulable(ctx context.Context) ([]Account, error)
 	ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]Account, error)

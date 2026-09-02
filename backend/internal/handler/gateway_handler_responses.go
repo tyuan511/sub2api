@@ -228,6 +228,20 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				h.handleConcurrencyError(c, err, "account", streamStarted)
 				return
 			}
+			// 多代理池：账号槽位到手后再绑定出口代理（等待期间不占代理槽位）。
+			bound, boundRelease, bindErr := h.gatewayService.BindAccountProxyAfterSlot(c.Request.Context(), account, accountReleaseFunc)
+			if bindErr != nil {
+				if accountReleaseFunc != nil {
+					accountReleaseFunc()
+				}
+				reqLog.Warn("gateway.responses.account_proxy_bind_failed", zap.Int64("account_id", account.ID), zap.Error(bindErr))
+				markOpsRoutingCapacityLimited(c)
+				h.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts")
+				return
+			}
+			account = bound
+			accountReleaseFunc = boundRelease
+			selection.Account = bound
 		}
 		// 终检与准入后绑定必须使用选号结果携带的门：门安装在调度栈的局部
 		// ctx 上（composite/fallback 还可能解析出与入口分组不同的门），直接用

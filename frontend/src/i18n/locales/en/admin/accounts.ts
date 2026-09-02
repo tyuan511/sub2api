@@ -934,6 +934,17 @@ export default {
       expired: 'Expired',
       proxy: 'Proxy',
       noProxy: 'No Proxy',
+      proxyPool: {
+        hint: 'Two or more proxies form a pool: each gets its own concurrency, a session sticks to one proxy, other requests are spread with equal weight, and expired or disabled proxies drop out automatically. A single proxy behaves exactly as before.',
+        concurrencyHint: 'Account concurrency is the sum of the per-proxy values and is computed from the proxy list.',
+        selected: '{count} proxies selected',
+        primary: 'Primary',
+        remove: 'Remove',
+        clear: 'Clear',
+        total: '{count} proxies, {concurrency} total concurrency',
+        capacityTitle: 'Per-proxy capacity',
+        capacityTotal: 'Total'
+      },
       concurrency: 'Concurrency',
       loadFactor: 'Load Factor',
       loadFactorHint: 'Higher load factor increases scheduling frequency',

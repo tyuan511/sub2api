@@ -47,6 +47,10 @@ const (
 	EdgeAccounts = "accounts"
 	// EdgeBackupProxy holds the string denoting the backup_proxy edge name in mutations.
 	EdgeBackupProxy = "backup_proxy"
+	// EdgePooledAccounts holds the string denoting the pooled_accounts edge name in mutations.
+	EdgePooledAccounts = "pooled_accounts"
+	// EdgeAccountProxies holds the string denoting the account_proxies edge name in mutations.
+	EdgeAccountProxies = "account_proxies"
 	// Table holds the table name of the proxy in the database.
 	Table = "proxies"
 	// AccountsTable is the table that holds the accounts relation/edge.
@@ -60,6 +64,18 @@ const (
 	BackupProxyTable = "proxies"
 	// BackupProxyColumn is the table column denoting the backup_proxy relation/edge.
 	BackupProxyColumn = "backup_proxy_id"
+	// PooledAccountsTable is the table that holds the pooled_accounts relation/edge. The primary key declared below.
+	PooledAccountsTable = "account_proxies"
+	// PooledAccountsInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	PooledAccountsInverseTable = "accounts"
+	// AccountProxiesTable is the table that holds the account_proxies relation/edge.
+	AccountProxiesTable = "account_proxies"
+	// AccountProxiesInverseTable is the table name for the AccountProxy entity.
+	// It exists in this package in order to avoid circular dependency with the "accountproxy" package.
+	AccountProxiesInverseTable = "account_proxies"
+	// AccountProxiesColumn is the table column denoting the account_proxies relation/edge.
+	AccountProxiesColumn = "proxy_id"
 )
 
 // Columns holds all SQL columns for proxy fields.
@@ -80,6 +96,12 @@ var Columns = []string{
 	FieldBackupProxyID,
 	FieldExpiryWarnDays,
 }
+
+var (
+	// PooledAccountsPrimaryKey and PooledAccountsColumn2 are the table columns denoting the
+	// primary key for the pooled_accounts relation (M2M).
+	PooledAccountsPrimaryKey = []string{"account_id", "proxy_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -225,6 +247,34 @@ func ByBackupProxyField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newBackupProxyStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByPooledAccountsCount orders the results by pooled_accounts count.
+func ByPooledAccountsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPooledAccountsStep(), opts...)
+	}
+}
+
+// ByPooledAccounts orders the results by pooled_accounts terms.
+func ByPooledAccounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPooledAccountsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAccountProxiesCount orders the results by account_proxies count.
+func ByAccountProxiesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountProxiesStep(), opts...)
+	}
+}
+
+// ByAccountProxies orders the results by account_proxies terms.
+func ByAccountProxies(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountProxiesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newAccountsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -237,5 +287,19 @@ func newBackupProxyStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(Table, FieldID),
 		sqlgraph.Edge(sqlgraph.O2O, false, BackupProxyTable, BackupProxyColumn),
+	)
+}
+func newPooledAccountsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PooledAccountsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, PooledAccountsTable, PooledAccountsPrimaryKey...),
+	)
+}
+func newAccountProxiesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountProxiesInverseTable, AccountProxiesColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, AccountProxiesTable, AccountProxiesColumn),
 	)
 }

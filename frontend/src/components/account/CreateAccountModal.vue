@@ -2919,14 +2919,17 @@
           <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
         </div>
-        <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
+        <MultiProxySelector v-model="form.proxies" :proxies="proxies" :default-concurrency="form.concurrency" />
+        <p class="input-hint">{{ t('admin.accounts.proxyPool.hint') }}</p>
       </div>
 
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" min="1" class="input"
+          <input v-if="hasProxyPool" :value="form.concurrency" type="number" class="input" disabled />
+          <input v-else v-model.number="form.concurrency" type="number" min="1" class="input"
             @input="form.concurrency = Math.max(1, form.concurrency || 1)" />
+          <p v-if="hasProxyPool" class="input-hint">{{ t('admin.accounts.proxyPool.concurrencyHint') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.loadFactor') }}</label>
@@ -3783,6 +3786,7 @@ import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import { useGrokOAuth } from '@/composables/useGrokOAuth'
 import type {
+  AccountProxyBinding,
   Proxy,
   AdminGroup,
   AccountPlatform,
@@ -3800,7 +3804,8 @@ import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
-import ProxySelector from '@/components/common/ProxySelector.vue'
+import MultiProxySelector from '@/components/common/MultiProxySelector.vue'
+import { isProxyPool, proxyPoolConcurrency as sumProxyPoolConcurrency } from '@/utils/accountProxy'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
@@ -4519,6 +4524,7 @@ const form = reactive({
   type: 'oauth' as AccountType, // Will be 'oauth', 'setup-token', or 'apikey'
   credentials: {} as Record<string, unknown>,
   proxy_id: null as number | null,
+  proxies: [] as AccountProxyBinding[],
   concurrency: 10,
   load_factor: null as number | null,
   priority: 1,
@@ -4526,6 +4532,42 @@ const form = reactive({
   group_ids: [] as number[],
   expires_at: null as number | null
 })
+
+// 只有 ≥2 个代理才构成代理池：账号并发 = 各代理并发之和、输入框只读；
+// 0/1 个代理沿用旧的单代理逻辑（发空池）。primary 代理始终写回 proxy_id，
+// 让 OAuth 授权、账号测试等既有单代理链路保持不变。
+const hasProxyPool = computed(() => isProxyPool(form.proxies))
+const proxyPoolPayload = computed(() =>
+  hasProxyPool.value
+    ? form.proxies.map((item) => ({
+        proxy_id: item.proxy_id,
+        concurrency: Math.max(1, item.concurrency || 1)
+      }))
+    : []
+)
+watch(
+  () => form.proxies,
+  (pool) => {
+    form.proxy_id = pool.length > 0 ? pool[0].proxy_id : null
+    if (isProxyPool(pool)) {
+      form.concurrency = sumProxyPoolConcurrency(pool)
+    } else if (pool.length === 1 && pool[0].concurrency !== form.concurrency) {
+      // 单代理模式下这条绑定就是账号并发本身：列表变化时显式对齐，
+      // 之后再加代理时它作为第一条带着正确的并发进入代理池。
+      pool[0].concurrency = Math.max(1, form.concurrency || 1)
+    }
+  },
+  { deep: true }
+)
+// 单代理模式下把账号并发同步到那条绑定上，之后再加代理时它就是第一条的并发。
+watch(
+  () => form.concurrency,
+  (value) => {
+    if (form.proxies.length === 1 && value >= 1) {
+      form.proxies[0].concurrency = value
+    }
+  }
+)
 
 // Helper to check if current type needs OAuth flow
 const isOAuthFlow = computed(() => {
@@ -5091,6 +5133,7 @@ const resetForm = () => {
   form.type = 'oauth'
   form.credentials = {}
   form.proxy_id = null
+  form.proxies = []
   form.concurrency = 10
   form.load_factor = null
   form.priority = 1
@@ -5772,6 +5815,7 @@ const createAccountAndFinish = async (
     extra: finalExtra,
     proxy_id: form.proxy_id,
     concurrency: form.concurrency,
+    proxies: proxyPoolPayload.value,
     load_factor: form.load_factor ?? undefined,
     priority: form.priority,
     rate_multiplier: form.rate_multiplier,
@@ -5839,6 +5883,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
+          proxies: proxyPoolPayload.value,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
@@ -5907,6 +5952,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       group_ids: form.group_ids,
       credentials,
       concurrency: form.concurrency,
+      proxies: proxyPoolPayload.value,
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
@@ -6016,6 +6062,7 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
           extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
+          proxies: proxyPoolPayload.value,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
@@ -6115,6 +6162,7 @@ const handleOpenAIExchange = async (authCode: string) => {
         extra,
         proxy_id: form.proxy_id,
         concurrency: form.concurrency,
+        proxies: proxyPoolPayload.value,
         load_factor: form.load_factor ?? undefined,
         priority: form.priority,
         rate_multiplier: form.rate_multiplier,
@@ -6220,6 +6268,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
       notes: form.notes || null,
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
+      proxies: proxyPoolPayload.value,
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
@@ -6298,6 +6347,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
       notes: form.notes || null,
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
+      proxies: proxyPoolPayload.value,
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
       rate_multiplier: form.rate_multiplier,
@@ -6396,6 +6446,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
             extra,
             proxy_id: form.proxy_id,
             concurrency: form.concurrency,
+            proxies: proxyPoolPayload.value,
             load_factor: form.load_factor ?? undefined,
             priority: form.priority,
             rate_multiplier: form.rate_multiplier,
@@ -6495,6 +6546,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           extra: {},
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
+          proxies: proxyPoolPayload.value,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,
@@ -6876,6 +6928,7 @@ const handleCookieAuth = async (sessionKey: string) => {
           extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
+          proxies: proxyPoolPayload.value,
           load_factor: form.load_factor ?? undefined,
           priority: form.priority,
           rate_multiplier: form.rate_multiplier,

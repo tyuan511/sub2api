@@ -315,7 +315,16 @@ func (h *GatewayHandler) acquireWebSearchAccountSlot(
 	if err != nil {
 		return nil, false, err
 	}
-	return slotRelease, true, nil
+	// 多代理池：账号槽位到手后再绑定出口代理；池满视同该账号无容量，交给 failover。
+	bound, boundRelease, bindErr := h.gatewayService.BindAccountProxyAfterSlot(c.Request.Context(), account, slotRelease)
+	if bindErr != nil {
+		if slotRelease != nil {
+			slotRelease()
+		}
+		return nil, false, nil
+	}
+	selected.Account = bound
+	return boundRelease, true, nil
 }
 
 // doGrokNativeWebSearch executes web search using the Grok account's native capability

@@ -1383,10 +1383,20 @@ const inAutoRefreshSilentWindow = () => {
   return Date.now() < autoRefreshSilentUntil.value
 }
 
+// 多代理池：账号级在途数不变、只是从代理 A 转移到代理 B 时，hover 里的单代理容量也要刷新。
+const buildProxyPoolRefreshKey = (account: Account) => {
+  const pool = account.proxies
+  if (!pool || pool.length === 0) return ''
+  return pool
+    .map((item) => `${item.proxy_id}:${item.concurrency}:${item.current_concurrency ?? 0}`)
+    .join('|')
+}
+
 const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
   return (
     current.updated_at !== next.updated_at ||
     current.current_concurrency !== next.current_concurrency ||
+    buildProxyPoolRefreshKey(current) !== buildProxyPoolRefreshKey(next) ||
     current.current_window_cost !== next.current_window_cost ||
     current.active_sessions !== next.active_sessions ||
     current.schedulable !== next.schedulable ||

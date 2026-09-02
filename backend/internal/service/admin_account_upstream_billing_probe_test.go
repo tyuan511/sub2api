@@ -17,6 +17,14 @@ func (r *upstreamBillingProbeAdminRepo) ListShadowsByParent(context.Context, int
 	return nil, nil
 }
 
+func (r *upstreamBillingProbeAdminRepo) ReplaceAccountProxies(context.Context, int64, []AccountProxy) error {
+	return nil
+}
+
+func (r *upstreamBillingProbeAdminRepo) GetAccountProxies(context.Context, int64) ([]AccountProxy, error) {
+	return nil, nil
+}
+
 type accountBillingSettingsAdminRepo struct {
 	*upstreamBillingProbeAccountRepo
 	concurrentRate   *float64

@@ -123,6 +123,14 @@ func newAccountRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor, schedul
 }
 
 func (r *accountRepository) Create(ctx context.Context, account *service.Account) error {
+	// RunInTx 携带事务时在事务内创建，让账号行与同事务内的代理池绑定一起提交/回滚。
+	if contextTx := dbent.TxFromContext(ctx); contextTx != nil {
+		txClient := contextTx.Client()
+		if err := createAccountRecord(ctx, txClient, account); err != nil {
+			return err
+		}
+		return enqueueSchedulerOutbox(ctx, txClient, service.SchedulerOutboxEventAccountChanged, &account.ID, nil, buildSchedulerGroupPayload(account.GroupIDs))
+	}
 	if err := createAccountRecord(ctx, r.client, account); err != nil {
 		return err
 	}
@@ -316,6 +324,10 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 	if err != nil {
 		return nil, err
 	}
+	proxiesByAccount, err := r.loadAccountProxies(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	outByID := make(map[int64]*service.Account, len(entAccounts))
 	for _, entAcc := range entAccounts {
@@ -327,6 +339,9 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 		// Prefer the preloaded proxy edge when available.
 		if entAcc.Edges.Proxy != nil {
 			out.Proxy = proxyEntityToService(entAcc.Edges.Proxy)
+		}
+		if pool, ok := proxiesByAccount[entAcc.ID]; ok {
+			out.Proxies = pool
 		}
 
 		if groups, ok := groupsByAccount[entAcc.ID]; ok {
@@ -501,7 +516,10 @@ func (r *accountRepository) updateAccount(
 	account.UpdatedAt = updated.UpdatedAt
 	// 普通账号编辑（如 model_mapping / credentials）也需要立即刷新单账号快照，
 	// 否则网关在 outbox worker 延迟或异常时仍可能读到旧配置。
-	if contextTx == nil {
+	if contextTx != nil {
+		// 外部事务提交后再同步（RunInTx 负责），此时快照才能读到新数据。
+		registerAccountSnapshotSyncAfterCommit(ctx, account.ID)
+	} else {
 		r.syncSchedulerAccountSnapshot(baseCtx, account.ID)
 	}
 	return nil
@@ -3141,6 +3159,10 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	if err != nil {
 		return nil, err
 	}
+	proxiesByAccount, err := r.loadAccountProxies(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	outAccounts := make([]service.Account, 0, len(accounts))
 	for _, acc := range accounts {
@@ -3152,6 +3174,9 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 			if proxy, ok := proxyMap[*acc.ProxyID]; ok {
 				out.Proxy = proxy
 			}
+		}
+		if pool, ok := proxiesByAccount[acc.ID]; ok {
+			out.Proxies = pool
 		}
 		out.ProxyFallbackOriginID = acc.ProxyFallbackOriginID
 		if acc.ProxyFallbackOriginID != nil {

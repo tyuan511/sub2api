@@ -441,3 +441,15 @@ func TestUpdateSessionWindow_NoStatusHeader(t *testing.T) {
 		t.Errorf("expected no calls when status header absent, got %d", len(repo.sessionWindowCalls))
 	}
 }
+
+func (m *sessionWindowMockRepo) ReplaceAccountProxies(context.Context, int64, []AccountProxy) error {
+	return nil
+}
+
+func (m *sessionWindowMockRepo) GetAccountProxies(context.Context, int64) ([]AccountProxy, error) {
+	return nil, nil
+}
+
+func (m *sessionWindowMockRepo) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

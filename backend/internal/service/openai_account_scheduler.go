@@ -1742,7 +1742,8 @@ func (s *defaultOpenAIAccountScheduler) lookupShadowParentAccount(ctx context.Co
 		return nil
 	}
 	if s.service.schedulerSnapshot != nil {
-		if account, err := s.service.schedulerSnapshot.GetAccount(ctx, id); err == nil && account != nil {
+		// 只是查阅母账号，不为它选出口代理（请求实际走影子，影子自己会绑定）。
+		if account, err := s.service.schedulerSnapshot.GetAccountRaw(ctx, id); err == nil && account != nil {
 			return account
 		}
 	}

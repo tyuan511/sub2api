@@ -769,3 +769,21 @@ func (s *ConcurrencyService) GetAccountConcurrencyBatch(ctx context.Context, acc
 
 	return s.cache.GetAccountConcurrencyBatch(redisCtx, accountIDs)
 }
+
+// GetAccountProxyConcurrency 返回账号多代理池内各代理当前的在途请求数。
+// 并发缓存未提供该可选能力时返回空 map（不视为错误）。
+func (s *ConcurrencyService) GetAccountProxyConcurrency(ctx context.Context, accountID int64, proxyIDs []int64) map[int64]int {
+	if s == nil || s.cache == nil || accountID <= 0 || len(proxyIDs) == 0 {
+		return map[int64]int{}
+	}
+	proxyCache, ok := s.cache.(AccountProxyCache)
+	if !ok {
+		return map[int64]int{}
+	}
+	counts, err := proxyCache.GetAccountProxyConcurrencyBatch(ctx, accountID, proxyIDs)
+	if err != nil {
+		logger.LegacyPrintf("service.concurrency", "Warning: get account proxy concurrency for %d failed: %v", accountID, err)
+		return map[int64]int{}
+	}
+	return counts
+}

@@ -470,9 +470,14 @@ func ProvideSchedulerSnapshotService(
 	outboxRepo SchedulerOutboxRepository,
 	accountRepo AccountRepository,
 	groupRepo GroupRepository,
+	concurrencyCache ConcurrencyCache,
 	cfg *config.Config,
 ) *SchedulerSnapshotService {
 	svc := NewSchedulerSnapshotService(cache, outboxRepo, accountRepo, groupRepo, cfg)
+	// 多代理池的出口代理选择器；并发缓存未提供该可选能力时不启用。
+	if proxyCache, ok := concurrencyCache.(AccountProxyCache); ok {
+		svc.SetAccountProxyBinder(NewAccountProxyBinder(proxyCache))
+	}
 	svc.Start()
 	return svc
 }

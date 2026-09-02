@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
+	"github.com/Wei-Shaw/sub2api/ent/accountproxy"
 	"github.com/Wei-Shaw/sub2api/ent/admintelegrambinding"
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
@@ -73,6 +74,7 @@ const (
 	TypeAPIKey                        = "APIKey"
 	TypeAccount                       = "Account"
 	TypeAccountGroup                  = "AccountGroup"
+	TypeAccountProxy                  = "AccountProxy"
 	TypeAdminTelegramBinding          = "AdminTelegramBinding"
 	TypeAnnouncement                  = "Announcement"
 	TypeAnnouncementRead              = "AnnouncementRead"
@@ -2337,6 +2339,9 @@ type AccountMutation struct {
 	clearedgroups               bool
 	proxy                       *int64
 	clearedproxy                bool
+	proxy_pool                  map[int64]struct{}
+	removedproxy_pool           map[int64]struct{}
+	clearedproxy_pool           bool
 	parent                      *int64
 	clearedparent               bool
 	children                    map[int64]struct{}
@@ -3968,6 +3973,60 @@ func (m *AccountMutation) ResetProxy() {
 	m.clearedproxy = false
 }
 
+// AddProxyPoolIDs adds the "proxy_pool" edge to the Proxy entity by ids.
+func (m *AccountMutation) AddProxyPoolIDs(ids ...int64) {
+	if m.proxy_pool == nil {
+		m.proxy_pool = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.proxy_pool[ids[i]] = struct{}{}
+	}
+}
+
+// ClearProxyPool clears the "proxy_pool" edge to the Proxy entity.
+func (m *AccountMutation) ClearProxyPool() {
+	m.clearedproxy_pool = true
+}
+
+// ProxyPoolCleared reports if the "proxy_pool" edge to the Proxy entity was cleared.
+func (m *AccountMutation) ProxyPoolCleared() bool {
+	return m.clearedproxy_pool
+}
+
+// RemoveProxyPoolIDs removes the "proxy_pool" edge to the Proxy entity by IDs.
+func (m *AccountMutation) RemoveProxyPoolIDs(ids ...int64) {
+	if m.removedproxy_pool == nil {
+		m.removedproxy_pool = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.proxy_pool, ids[i])
+		m.removedproxy_pool[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedProxyPool returns the removed IDs of the "proxy_pool" edge to the Proxy entity.
+func (m *AccountMutation) RemovedProxyPoolIDs() (ids []int64) {
+	for id := range m.removedproxy_pool {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ProxyPoolIDs returns the "proxy_pool" edge IDs in the mutation.
+func (m *AccountMutation) ProxyPoolIDs() (ids []int64) {
+	for id := range m.proxy_pool {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetProxyPool resets all changes to the "proxy_pool" edge.
+func (m *AccountMutation) ResetProxyPool() {
+	m.proxy_pool = nil
+	m.clearedproxy_pool = false
+	m.removedproxy_pool = nil
+}
+
 // SetParentID sets the "parent" edge to the Account entity by id.
 func (m *AccountMutation) SetParentID(id int64) {
 	m.parent = &id
@@ -4927,12 +4986,15 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.groups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.proxy != nil {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.proxy_pool != nil {
+		edges = append(edges, account.EdgeProxyPool)
 	}
 	if m.parent != nil {
 		edges = append(edges, account.EdgeParent)
@@ -4960,6 +5022,12 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 		if id := m.proxy; id != nil {
 			return []ent.Value{*id}
 		}
+	case account.EdgeProxyPool:
+		ids := make([]ent.Value, 0, len(m.proxy_pool))
+		for id := range m.proxy_pool {
+			ids = append(ids, id)
+		}
+		return ids
 	case account.EdgeParent:
 		if id := m.parent; id != nil {
 			return []ent.Value{*id}
@@ -4982,9 +5050,12 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedgroups != nil {
 		edges = append(edges, account.EdgeGroups)
+	}
+	if m.removedproxy_pool != nil {
+		edges = append(edges, account.EdgeProxyPool)
 	}
 	if m.removedchildren != nil {
 		edges = append(edges, account.EdgeChildren)
@@ -5002,6 +5073,12 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 	case account.EdgeGroups:
 		ids := make([]ent.Value, 0, len(m.removedgroups))
 		for id := range m.removedgroups {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeProxyPool:
+		ids := make([]ent.Value, 0, len(m.removedproxy_pool))
+		for id := range m.removedproxy_pool {
 			ids = append(ids, id)
 		}
 		return ids
@@ -5023,12 +5100,15 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedgroups {
 		edges = append(edges, account.EdgeGroups)
 	}
 	if m.clearedproxy {
 		edges = append(edges, account.EdgeProxy)
+	}
+	if m.clearedproxy_pool {
+		edges = append(edges, account.EdgeProxyPool)
 	}
 	if m.clearedparent {
 		edges = append(edges, account.EdgeParent)
@@ -5050,6 +5130,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedgroups
 	case account.EdgeProxy:
 		return m.clearedproxy
+	case account.EdgeProxyPool:
+		return m.clearedproxy_pool
 	case account.EdgeParent:
 		return m.clearedparent
 	case account.EdgeChildren:
@@ -5083,6 +5165,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeProxy:
 		m.ResetProxy()
+		return nil
+	case account.EdgeProxyPool:
+		m.ResetProxyPool()
 		return nil
 	case account.EdgeParent:
 		m.ResetParent()
@@ -5580,6 +5665,594 @@ func (m *AccountGroupMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AccountGroup edge %s", name)
+}
+
+// AccountProxyMutation represents an operation that mutates the AccountProxy nodes in the graph.
+type AccountProxyMutation struct {
+	config
+	op             Op
+	typ            string
+	concurrency    *int
+	addconcurrency *int
+	sort_order     *int
+	addsort_order  *int
+	created_at     *time.Time
+	updated_at     *time.Time
+	clearedFields  map[string]struct{}
+	account        *int64
+	clearedaccount bool
+	proxy          *int64
+	clearedproxy   bool
+	done           bool
+	oldValue       func(context.Context) (*AccountProxy, error)
+	predicates     []predicate.AccountProxy
+}
+
+var _ ent.Mutation = (*AccountProxyMutation)(nil)
+
+// accountproxyOption allows management of the mutation configuration using functional options.
+type accountproxyOption func(*AccountProxyMutation)
+
+// newAccountProxyMutation creates new mutation for the AccountProxy entity.
+func newAccountProxyMutation(c config, op Op, opts ...accountproxyOption) *AccountProxyMutation {
+	m := &AccountProxyMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAccountProxy,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AccountProxyMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AccountProxyMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *AccountProxyMutation) SetAccountID(i int64) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *AccountProxyMutation) AccountID() (r int64, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *AccountProxyMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetProxyID sets the "proxy_id" field.
+func (m *AccountProxyMutation) SetProxyID(i int64) {
+	m.proxy = &i
+}
+
+// ProxyID returns the value of the "proxy_id" field in the mutation.
+func (m *AccountProxyMutation) ProxyID() (r int64, exists bool) {
+	v := m.proxy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProxyID resets all changes to the "proxy_id" field.
+func (m *AccountProxyMutation) ResetProxyID() {
+	m.proxy = nil
+}
+
+// SetConcurrency sets the "concurrency" field.
+func (m *AccountProxyMutation) SetConcurrency(i int) {
+	m.concurrency = &i
+	m.addconcurrency = nil
+}
+
+// Concurrency returns the value of the "concurrency" field in the mutation.
+func (m *AccountProxyMutation) Concurrency() (r int, exists bool) {
+	v := m.concurrency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddConcurrency adds i to the "concurrency" field.
+func (m *AccountProxyMutation) AddConcurrency(i int) {
+	if m.addconcurrency != nil {
+		*m.addconcurrency += i
+	} else {
+		m.addconcurrency = &i
+	}
+}
+
+// AddedConcurrency returns the value that was added to the "concurrency" field in this mutation.
+func (m *AccountProxyMutation) AddedConcurrency() (r int, exists bool) {
+	v := m.addconcurrency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetConcurrency resets all changes to the "concurrency" field.
+func (m *AccountProxyMutation) ResetConcurrency() {
+	m.concurrency = nil
+	m.addconcurrency = nil
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (m *AccountProxyMutation) SetSortOrder(i int) {
+	m.sort_order = &i
+	m.addsort_order = nil
+}
+
+// SortOrder returns the value of the "sort_order" field in the mutation.
+func (m *AccountProxyMutation) SortOrder() (r int, exists bool) {
+	v := m.sort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddSortOrder adds i to the "sort_order" field.
+func (m *AccountProxyMutation) AddSortOrder(i int) {
+	if m.addsort_order != nil {
+		*m.addsort_order += i
+	} else {
+		m.addsort_order = &i
+	}
+}
+
+// AddedSortOrder returns the value that was added to the "sort_order" field in this mutation.
+func (m *AccountProxyMutation) AddedSortOrder() (r int, exists bool) {
+	v := m.addsort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSortOrder resets all changes to the "sort_order" field.
+func (m *AccountProxyMutation) ResetSortOrder() {
+	m.sort_order = nil
+	m.addsort_order = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AccountProxyMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AccountProxyMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AccountProxyMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *AccountProxyMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *AccountProxyMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *AccountProxyMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *AccountProxyMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[accountproxy.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *AccountProxyMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *AccountProxyMutation) AccountIDs() (ids []int64) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *AccountProxyMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// ClearProxy clears the "proxy" edge to the Proxy entity.
+func (m *AccountProxyMutation) ClearProxy() {
+	m.clearedproxy = true
+	m.clearedFields[accountproxy.FieldProxyID] = struct{}{}
+}
+
+// ProxyCleared reports if the "proxy" edge to the Proxy entity was cleared.
+func (m *AccountProxyMutation) ProxyCleared() bool {
+	return m.clearedproxy
+}
+
+// ProxyIDs returns the "proxy" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProxyID instead. It exists only for internal usage by the builders.
+func (m *AccountProxyMutation) ProxyIDs() (ids []int64) {
+	if id := m.proxy; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProxy resets all changes to the "proxy" edge.
+func (m *AccountProxyMutation) ResetProxy() {
+	m.proxy = nil
+	m.clearedproxy = false
+}
+
+// Where appends a list predicates to the AccountProxyMutation builder.
+func (m *AccountProxyMutation) Where(ps ...predicate.AccountProxy) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AccountProxyMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AccountProxyMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AccountProxy, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AccountProxyMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AccountProxyMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AccountProxy).
+func (m *AccountProxyMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AccountProxyMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.account != nil {
+		fields = append(fields, accountproxy.FieldAccountID)
+	}
+	if m.proxy != nil {
+		fields = append(fields, accountproxy.FieldProxyID)
+	}
+	if m.concurrency != nil {
+		fields = append(fields, accountproxy.FieldConcurrency)
+	}
+	if m.sort_order != nil {
+		fields = append(fields, accountproxy.FieldSortOrder)
+	}
+	if m.created_at != nil {
+		fields = append(fields, accountproxy.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, accountproxy.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AccountProxyMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case accountproxy.FieldAccountID:
+		return m.AccountID()
+	case accountproxy.FieldProxyID:
+		return m.ProxyID()
+	case accountproxy.FieldConcurrency:
+		return m.Concurrency()
+	case accountproxy.FieldSortOrder:
+		return m.SortOrder()
+	case accountproxy.FieldCreatedAt:
+		return m.CreatedAt()
+	case accountproxy.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AccountProxyMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	return nil, errors.New("edge schema AccountProxy does not support getting old values")
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountProxyMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case accountproxy.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case accountproxy.FieldProxyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProxyID(v)
+		return nil
+	case accountproxy.FieldConcurrency:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConcurrency(v)
+		return nil
+	case accountproxy.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortOrder(v)
+		return nil
+	case accountproxy.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case accountproxy.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProxy field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AccountProxyMutation) AddedFields() []string {
+	var fields []string
+	if m.addconcurrency != nil {
+		fields = append(fields, accountproxy.FieldConcurrency)
+	}
+	if m.addsort_order != nil {
+		fields = append(fields, accountproxy.FieldSortOrder)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AccountProxyMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case accountproxy.FieldConcurrency:
+		return m.AddedConcurrency()
+	case accountproxy.FieldSortOrder:
+		return m.AddedSortOrder()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AccountProxyMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case accountproxy.FieldConcurrency:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddConcurrency(v)
+		return nil
+	case accountproxy.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSortOrder(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProxy numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AccountProxyMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AccountProxyMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AccountProxyMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown AccountProxy nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AccountProxyMutation) ResetField(name string) error {
+	switch name {
+	case accountproxy.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case accountproxy.FieldProxyID:
+		m.ResetProxyID()
+		return nil
+	case accountproxy.FieldConcurrency:
+		m.ResetConcurrency()
+		return nil
+	case accountproxy.FieldSortOrder:
+		m.ResetSortOrder()
+		return nil
+	case accountproxy.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case accountproxy.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProxy field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AccountProxyMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.account != nil {
+		edges = append(edges, accountproxy.EdgeAccount)
+	}
+	if m.proxy != nil {
+		edges = append(edges, accountproxy.EdgeProxy)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AccountProxyMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case accountproxy.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	case accountproxy.EdgeProxy:
+		if id := m.proxy; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AccountProxyMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AccountProxyMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AccountProxyMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedaccount {
+		edges = append(edges, accountproxy.EdgeAccount)
+	}
+	if m.clearedproxy {
+		edges = append(edges, accountproxy.EdgeProxy)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AccountProxyMutation) EdgeCleared(name string) bool {
+	switch name {
+	case accountproxy.EdgeAccount:
+		return m.clearedaccount
+	case accountproxy.EdgeProxy:
+		return m.clearedproxy
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AccountProxyMutation) ClearEdge(name string) error {
+	switch name {
+	case accountproxy.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	case accountproxy.EdgeProxy:
+		m.ClearProxy()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProxy unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AccountProxyMutation) ResetEdge(name string) error {
+	switch name {
+	case accountproxy.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	case accountproxy.EdgeProxy:
+		m.ResetProxy()
+		return nil
+	}
+	return fmt.Errorf("unknown AccountProxy edge %s", name)
 }
 
 // AdminTelegramBindingMutation represents an operation that mutates the AdminTelegramBinding nodes in the graph.
@@ -38512,33 +39185,36 @@ func (m *PromoCodeUsageMutation) ResetEdge(name string) error {
 // ProxyMutation represents an operation that mutates the Proxy nodes in the graph.
 type ProxyMutation struct {
 	config
-	op                  Op
-	typ                 string
-	id                  *int64
-	created_at          *time.Time
-	updated_at          *time.Time
-	deleted_at          *time.Time
-	name                *string
-	protocol            *string
-	host                *string
-	port                *int
-	addport             *int
-	username            *string
-	password            *string
-	status              *string
-	expires_at          *time.Time
-	fallback_mode       *string
-	expiry_warn_days    *int
-	addexpiry_warn_days *int
-	clearedFields       map[string]struct{}
-	accounts            map[int64]struct{}
-	removedaccounts     map[int64]struct{}
-	clearedaccounts     bool
-	backup_proxy        *int64
-	clearedbackup_proxy bool
-	done                bool
-	oldValue            func(context.Context) (*Proxy, error)
-	predicates          []predicate.Proxy
+	op                     Op
+	typ                    string
+	id                     *int64
+	created_at             *time.Time
+	updated_at             *time.Time
+	deleted_at             *time.Time
+	name                   *string
+	protocol               *string
+	host                   *string
+	port                   *int
+	addport                *int
+	username               *string
+	password               *string
+	status                 *string
+	expires_at             *time.Time
+	fallback_mode          *string
+	expiry_warn_days       *int
+	addexpiry_warn_days    *int
+	clearedFields          map[string]struct{}
+	accounts               map[int64]struct{}
+	removedaccounts        map[int64]struct{}
+	clearedaccounts        bool
+	backup_proxy           *int64
+	clearedbackup_proxy    bool
+	pooled_accounts        map[int64]struct{}
+	removedpooled_accounts map[int64]struct{}
+	clearedpooled_accounts bool
+	done                   bool
+	oldValue               func(context.Context) (*Proxy, error)
+	predicates             []predicate.Proxy
 }
 
 var _ ent.Mutation = (*ProxyMutation)(nil)
@@ -39329,6 +40005,60 @@ func (m *ProxyMutation) ResetBackupProxy() {
 	m.clearedbackup_proxy = false
 }
 
+// AddPooledAccountIDs adds the "pooled_accounts" edge to the Account entity by ids.
+func (m *ProxyMutation) AddPooledAccountIDs(ids ...int64) {
+	if m.pooled_accounts == nil {
+		m.pooled_accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.pooled_accounts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearPooledAccounts clears the "pooled_accounts" edge to the Account entity.
+func (m *ProxyMutation) ClearPooledAccounts() {
+	m.clearedpooled_accounts = true
+}
+
+// PooledAccountsCleared reports if the "pooled_accounts" edge to the Account entity was cleared.
+func (m *ProxyMutation) PooledAccountsCleared() bool {
+	return m.clearedpooled_accounts
+}
+
+// RemovePooledAccountIDs removes the "pooled_accounts" edge to the Account entity by IDs.
+func (m *ProxyMutation) RemovePooledAccountIDs(ids ...int64) {
+	if m.removedpooled_accounts == nil {
+		m.removedpooled_accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.pooled_accounts, ids[i])
+		m.removedpooled_accounts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedPooledAccounts returns the removed IDs of the "pooled_accounts" edge to the Account entity.
+func (m *ProxyMutation) RemovedPooledAccountsIDs() (ids []int64) {
+	for id := range m.removedpooled_accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// PooledAccountsIDs returns the "pooled_accounts" edge IDs in the mutation.
+func (m *ProxyMutation) PooledAccountsIDs() (ids []int64) {
+	for id := range m.pooled_accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetPooledAccounts resets all changes to the "pooled_accounts" edge.
+func (m *ProxyMutation) ResetPooledAccounts() {
+	m.pooled_accounts = nil
+	m.clearedpooled_accounts = false
+	m.removedpooled_accounts = nil
+}
+
 // Where appends a list predicates to the ProxyMutation builder.
 func (m *ProxyMutation) Where(ps ...predicate.Proxy) {
 	m.predicates = append(m.predicates, ps...)
@@ -39743,12 +40473,15 @@ func (m *ProxyMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProxyMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.accounts != nil {
 		edges = append(edges, proxy.EdgeAccounts)
 	}
 	if m.backup_proxy != nil {
 		edges = append(edges, proxy.EdgeBackupProxy)
+	}
+	if m.pooled_accounts != nil {
+		edges = append(edges, proxy.EdgePooledAccounts)
 	}
 	return edges
 }
@@ -39767,15 +40500,24 @@ func (m *ProxyMutation) AddedIDs(name string) []ent.Value {
 		if id := m.backup_proxy; id != nil {
 			return []ent.Value{*id}
 		}
+	case proxy.EdgePooledAccounts:
+		ids := make([]ent.Value, 0, len(m.pooled_accounts))
+		for id := range m.pooled_accounts {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProxyMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.removedaccounts != nil {
 		edges = append(edges, proxy.EdgeAccounts)
+	}
+	if m.removedpooled_accounts != nil {
+		edges = append(edges, proxy.EdgePooledAccounts)
 	}
 	return edges
 }
@@ -39790,18 +40532,27 @@ func (m *ProxyMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case proxy.EdgePooledAccounts:
+		ids := make([]ent.Value, 0, len(m.removedpooled_accounts))
+		for id := range m.removedpooled_accounts {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProxyMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedaccounts {
 		edges = append(edges, proxy.EdgeAccounts)
 	}
 	if m.clearedbackup_proxy {
 		edges = append(edges, proxy.EdgeBackupProxy)
+	}
+	if m.clearedpooled_accounts {
+		edges = append(edges, proxy.EdgePooledAccounts)
 	}
 	return edges
 }
@@ -39814,6 +40565,8 @@ func (m *ProxyMutation) EdgeCleared(name string) bool {
 		return m.clearedaccounts
 	case proxy.EdgeBackupProxy:
 		return m.clearedbackup_proxy
+	case proxy.EdgePooledAccounts:
+		return m.clearedpooled_accounts
 	}
 	return false
 }
@@ -39838,6 +40591,9 @@ func (m *ProxyMutation) ResetEdge(name string) error {
 		return nil
 	case proxy.EdgeBackupProxy:
 		m.ResetBackupProxy()
+		return nil
+	case proxy.EdgePooledAccounts:
+		m.ResetPooledAccounts()
 		return nil
 	}
 	return fmt.Errorf("unknown Proxy edge %s", name)

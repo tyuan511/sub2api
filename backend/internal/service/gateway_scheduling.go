@@ -32,6 +32,8 @@ func (s *GatewayService) SelectAccountForModel(ctx context.Context, groupID *int
 
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	// 会话标识同时用于账号粘性与多代理池的代理粘性。
+	SetProxyLeaseSessionHash(ctx, sessionHash)
 	// 优先检查 context 中的强制平台（/antigravity 路由）
 	var platform string
 	forcePlatform, hasForcePlatform := ctx.Value(ctxkey.ForcePlatform).(string)
@@ -98,6 +100,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 // metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
 // sub2apiUserID: 系统用户 ID，用于二维亲和调度
 func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	SetProxyLeaseSessionHash(ctx, sessionHash)
 	// 调试日志：记录调度入口参数
 	excludedIDsList := make([]int64, 0, len(excludedIDs))
 	for id := range excludedIDs {
@@ -1441,7 +1444,8 @@ func (s *GatewayService) getSchedulableAccount(ctx context.Context, accountID in
 		err     error
 	)
 	if s.schedulerSnapshot != nil {
-		account, err = s.schedulerSnapshot.GetAccount(ctx, accountID)
+		// 只是校验粘性账号是否可用，尚未抢账号槽位，不在此处绑定出口代理。
+		account, err = s.schedulerSnapshot.GetAccountRaw(ctx, accountID)
 	} else {
 		account, err = s.accountRepo.GetByID(ctx, accountID)
 	}
@@ -1482,24 +1486,77 @@ func (s *GatewayService) isAccountBlockedBySchedulingThreshold(ctx context.Conte
 	return s.rateLimitService.ApplyAccountSchedulingThreshold(ctx, account)
 }
 
+// hydrateSelectedAccount 是「未持有账号槽位」的选号出口（SelectAccountForModel* 等）：
+// 只为多代理池账号选路、不占代理槽位。调用方之后自行抢账号槽位时，
+// 必须再经 BindAccountProxyAfterSlot 拿到带租约的绑定。
 func (s *GatewayService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {
+	return s.hydrateAccount(ctx, account, proxyHydrateRoute)
+}
+
+type proxyHydrateMode int
+
+const (
+	// proxyHydrateRaw 只补全账号，不碰出口代理（等待计划：由 handler 抢到槽位后再绑定）。
+	proxyHydrateRaw proxyHydrateMode = iota
+	// proxyHydrateRoute 选路但不占槽位（无账号槽位的调用：token 计数、模型列表、预选）。
+	proxyHydrateRoute
+	// proxyHydrateLease 选路并占用「账号 × 代理」槽位（账号槽位已持有）。
+	proxyHydrateLease
+)
+
+// hydrateAccount 从调度快照补全账号，并按 mode 处理多代理池账号的出口代理。
+func (s *GatewayService) hydrateAccount(ctx context.Context, account *Account, mode proxyHydrateMode) (*Account, error) {
 	if account == nil || s.schedulerSnapshot == nil {
 		return account, nil
 	}
-	hydrated, err := s.schedulerSnapshot.GetAccount(ctx, account.ID)
+	hydrated, err := s.schedulerSnapshot.GetAccountRaw(ctx, account.ID)
 	if err != nil {
 		return nil, err
 	}
 	if hydrated == nil {
 		return nil, fmt.Errorf("selected gateway account %d not found during hydration", account.ID)
 	}
-	return hydrated, nil
+	switch mode {
+	case proxyHydrateRoute:
+		return s.schedulerSnapshot.RouteAccountProxy(ctx, hydrated)
+	case proxyHydrateLease:
+		return s.schedulerSnapshot.BindAccountProxy(ctx, hydrated)
+	default:
+		return hydrated, nil
+	}
+}
+
+// BindAccountProxyAfterSlot 供 handler 在自行拿到账号槽位后为多代理池账号绑定出口代理。
+// 返回的 release 把代理租约挂在账号槽位释放上，两者同生命周期（请求完成、failover、
+// WS 一个 turn 结束都会一起归还）；调用方必须用它替换原来的账号 release。
+func (s *GatewayService) BindAccountProxyAfterSlot(ctx context.Context, account *Account, release func()) (*Account, func(), error) {
+	if s == nil || s.schedulerSnapshot == nil || account == nil {
+		return account, release, nil
+	}
+	bound, err := s.schedulerSnapshot.BindAccountProxy(ctx, account)
+	if err != nil {
+		return nil, release, err
+	}
+	return bound, ChainProxyLeaseRelease(ctx, account.ID, release), nil
 }
 
 func (s *GatewayService) newSelectionResult(ctx context.Context, account *Account, acquired bool, release func(), waitPlan *AccountWaitPlan) (*AccountSelectionResult, error) {
-	hydrated, err := s.hydrateSelectedAccount(ctx, account)
+	// 等待计划尚未持有账号槽位，此时不绑定出口代理（由 handler 排队成功后绑定），
+	// 否则会在排队期间白占「账号 × 代理」槽位，且池满时会误把等待变成失败。
+	mode := proxyHydrateRaw
+	if acquired {
+		mode = proxyHydrateLease
+	}
+	hydrated, err := s.hydrateAccount(ctx, account, mode)
 	if err != nil {
+		if acquired && release != nil {
+			release()
+		}
 		return nil, err
+	}
+	if acquired && account != nil {
+		// 代理租约随账号槽位一起释放。
+		release = ChainProxyLeaseRelease(ctx, account.ID, release)
 	}
 	return attachSelectionProfitGate(ctx, &AccountSelectionResult{
 		Account:     hydrated,

@@ -298,6 +298,7 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 		Credentials:           credentials,
 		Extra:                 extra,
 		ProxyID:               cloneAccountValuePointer(proxyID),
+		Proxies:               duplicateAccountProxies(source),
 		Concurrency:           source.Concurrency,
 		Priority:              source.Priority,
 		RateMultiplier:        cloneAccountValuePointer(source.RateMultiplier),
@@ -506,12 +507,33 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	// Never persist ephemeral SSO/password secrets after OAuth conversion.
 	input.Credentials = SanitizeStoredCredentials(input.Platform, input.Credentials)
 
+	// 多代理池：primary proxy 写回 proxy_id 保证旧链路不变，账号并发取各代理之和。
+	proxyPool, poolPrimaryID, poolConcurrency := resolveAccountProxyPool(0, input.Proxies)
+	if poolPrimaryID != nil {
+		input.ProxyID = poolPrimaryID
+		input.Concurrency = poolConcurrency
+	}
+
 	account, err := buildAccountForCreate(input, accountExtra)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.accountRepo.Create(ctx, account); err != nil {
-		return nil, err
+	if input.Proxies == nil {
+		if err := s.accountRepo.Create(ctx, account); err != nil {
+			return nil, err
+		}
+	} else {
+		// 账号行与多代理池绑定同一事务落库：代理不存在 / 外键失败 / 数据库异常时
+		// 整体回滚，不会留下没有代理池的半成品账号。
+		if err := s.accountRepo.RunInTx(ctx, func(txCtx context.Context) error {
+			if err := s.accountRepo.Create(txCtx, account); err != nil {
+				return err
+			}
+			return s.persistAccountProxyPool(txCtx, account, proxyPool)
+		}); err != nil {
+			return nil, err
+		}
+		account.Proxies = NormalizeAccountProxies(account.ID, proxyPool)
 	}
 
 	// 绑定分组
@@ -753,6 +775,27 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if input.Concurrency != nil {
 		account.Concurrency = normalizeAccountConcurrency(account.Platform, account.Type, *input.Concurrency)
 	}
+	// 多代理池账号的并发恒等于池之和：本次没有改池时把（可能被前端/旧客户端传来的）
+	// 账号并发重新对齐，避免账号容量与池容量失配。
+	if account.HasProxyPool() && input.Proxies == nil {
+		account.Concurrency = normalizeAccountConcurrency(account.Platform, account.Type, account.ProxyPoolConcurrency())
+	}
+	// 多代理池：与单代理编辑同样对影子关闭，影子的池由母账号传播。
+	var (
+		proxyPool        []AccountProxy
+		proxyPoolChanged bool
+	)
+	if input.Proxies != nil && !account.IsCredentialShadow() {
+		proxyPoolChanged = true
+		var poolPrimaryID *int64
+		var poolConcurrency int
+		proxyPool, poolPrimaryID, poolConcurrency = resolveAccountProxyPool(account.ID, *input.Proxies)
+		if poolPrimaryID != nil {
+			account.ProxyID = poolPrimaryID
+			account.Proxy = nil
+			account.Concurrency = normalizeAccountConcurrency(account.Platform, account.Type, poolConcurrency)
+		}
+	}
 	// 只在指针非 nil 时更新 Priority（支持设置为 0）
 	if input.Priority != nil {
 		account.Priority = *input.Priority
@@ -808,51 +851,70 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 	}
 
-	billingSettingsAppliedAtomically := false
-	updater := s.accountBillingRepo
-	if updater == nil {
-		// Unit tests and narrow internal callers may construct adminServiceImpl
-		// directly; production wiring requires this capability through
-		// AdminAccountRepository.
-		updater, _ = s.accountRepo.(AccountBillingSettingsRepository)
-	}
-	if updater != nil {
-		if err := updater.UpdateWithAccountBillingSettings(
-			ctx,
-			account,
-			requestedProbeEnabledUpdate,
-			requestedRateSyncEnabledUpdate,
-			input.RateMultiplier,
-		); err != nil {
-			return nil, err
+	// 账号行、影子 proxy 传播与多代理池绑定放进同一持久化步骤；
+	// 代理池有变更时整体走一个事务，代理池写失败不会留下 proxy_id/concurrency
+	// 已改而绑定未改的不一致状态。
+	persist := func(ctx context.Context) error {
+		billingSettingsAppliedAtomically := false
+		updater := s.accountBillingRepo
+		if updater == nil {
+			// Unit tests and narrow internal callers may construct adminServiceImpl
+			// directly; production wiring requires this capability through
+			// AdminAccountRepository.
+			updater, _ = s.accountRepo.(AccountBillingSettingsRepository)
 		}
-		billingSettingsAppliedAtomically = true
-	}
-	if !billingSettingsAppliedAtomically {
-		if err := s.accountRepo.Update(ctx, account); err != nil {
-			return nil, err
+		if updater != nil {
+			if err := updater.UpdateWithAccountBillingSettings(
+				ctx,
+				account,
+				requestedProbeEnabledUpdate,
+				requestedRateSyncEnabledUpdate,
+				input.RateMultiplier,
+			); err != nil {
+				return err
+			}
+			billingSettingsAppliedAtomically = true
 		}
-		if (requestedProbeEnabledUpdate != nil || requestedRateSyncEnabledUpdate != nil) &&
-			isUpstreamBillingProbeAccount(account) {
-			settings := make(map[string]any, 2)
-			if requestedProbeEnabledUpdate != nil {
-				settings[UpstreamBillingProbeEnabledExtraKey] = *requestedProbeEnabledUpdate
+		if !billingSettingsAppliedAtomically {
+			if err := s.accountRepo.Update(ctx, account); err != nil {
+				return err
 			}
-			if requestedRateSyncEnabledUpdate != nil {
-				settings[UpstreamBillingRateSyncEnabledExtraKey] = *requestedRateSyncEnabledUpdate
-			}
-			if err := s.accountRepo.UpdateExtra(ctx, account.ID, settings); err != nil {
-				return nil, err
+			if (requestedProbeEnabledUpdate != nil || requestedRateSyncEnabledUpdate != nil) &&
+				isUpstreamBillingProbeAccount(account) {
+				settings := make(map[string]any, 2)
+				if requestedProbeEnabledUpdate != nil {
+					settings[UpstreamBillingProbeEnabledExtraKey] = *requestedProbeEnabledUpdate
+				}
+				if requestedRateSyncEnabledUpdate != nil {
+					settings[UpstreamBillingRateSyncEnabledExtraKey] = *requestedRateSyncEnabledUpdate
+				}
+				if err := s.accountRepo.UpdateExtra(ctx, account.ID, settings); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	// 将 proxy 变更传播到 spark 影子账号（同步；Update 内部已触发调度快照）。
-	// 影子自身 proxy 不可独立编辑(见上),故对影子的更新不触发传播。
-	if input.ProxyID != nil && !account.IsCredentialShadow() {
-		if err := s.propagateProxyToShadows(ctx, id, account.ProxyID); err != nil {
+		// 将 proxy 变更传播到 spark 影子账号（同步；Update 内部已触发调度快照）。
+		// 影子自身 proxy 不可独立编辑(见上),故对影子的更新不触发传播。
+		if (input.ProxyID != nil || proxyPoolChanged) && !account.IsCredentialShadow() {
+			if err := s.propagateProxyToShadows(ctx, id, account.ProxyID); err != nil {
+				return err
+			}
+		}
+
+		if proxyPoolChanged {
+			if err := s.persistAccountProxyPool(ctx, account, proxyPool); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if proxyPoolChanged {
+		if err := s.accountRepo.RunInTx(ctx, persist); err != nil {
 			return nil, err
 		}
+	} else if err := persist(ctx); err != nil {
+		return nil, err
 	}
 
 	// 绑定分组
@@ -940,7 +1002,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 
 	// 预取所有目标账号，供凭据守卫/代理守卫/混合渠道检查共用，避免多次 DB 查询。
 	var cachedTargets []*Account
-	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || openAISettings.any() || input.ProbeEnabled != nil || input.RateMultiplier != nil {
+	if len(input.Credentials) > 0 || input.ProxyID != nil || input.Concurrency != nil || needMixedChannelCheck || openAISettings.any() || input.ProbeEnabled != nil || input.RateMultiplier != nil {
 		loaded, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
 		if err != nil {
 			return nil, err
@@ -1108,6 +1170,25 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		return nil, err
 	}
 
+	// 多代理池账号的并发恒等于池之和：批量改并发不能让它们与池容量失配，
+	// 这里把仍保留代理池（本次没有同时改 proxy）的目标重新对齐。
+	if input.Concurrency != nil && input.ProxyID == nil {
+		for _, accountID := range input.AccountIDs {
+			target := targetsByID[accountID]
+			if target == nil || !target.HasProxyPool() {
+				continue
+			}
+			poolConcurrency := normalizeAccountConcurrency(target.Platform, target.Type, target.ProxyPoolConcurrency())
+			if poolConcurrency == *input.Concurrency {
+				continue
+			}
+			target.Concurrency = poolConcurrency
+			if err := s.accountRepo.Update(ctx, target); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// 将 proxy 变更传播到每个目标账号的 spark 影子账号
 	if repoUpdates.ProxyID != nil {
 		var effectiveProxyID *int64
@@ -1117,6 +1198,14 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		for _, accountID := range input.AccountIDs {
 			if err := s.propagateProxyToShadows(ctx, accountID, effectiveProxyID); err != nil {
 				return nil, err
+			}
+			// 批量改单个 proxy 会与账号原有的多代理池冲突（池优先级更高，
+			// 批量设置将不生效）。这里连同影子一起清空池，让批量结果就是最终出站代理。
+			// 只有真正配置过代理池的账号需要清理，其余账号不额外产生写操作。
+			if target := targetsByID[accountID]; target != nil && target.HasProxyPool() {
+				if err := s.persistAccountProxyPool(ctx, target, nil); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -1363,6 +1452,10 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 	if concurrency <= 0 {
 		concurrency = parent.Concurrency
 	}
+	// 母账号配置了多代理池时，影子继承同一个池，有效容量就是池的总并发。
+	if parent.HasProxyPool() {
+		concurrency = parent.ProxyPoolConcurrency()
+	}
 	// 优先级未指定(<=0)时继承母账号——前端一键创建只传 name,opts.Priority 省略即 0,而调度
 	// 比较是「数值越小越优先」(openai_account_scheduler.isOpenAIAccountCandidateBetter),且 repo
 	// 显式 SetPriority 会绕过 ent 默认 50,直写 0 会让影子意外抢到最高优先级(外审第5轮 P1)。
@@ -1390,7 +1483,24 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 
 	// 5. 持久化（Create 填充 shadow.ID）。并发竞态:预查(步骤2)放行后另一请求抢先建成,本次会撞
 	// 一母一影唯一索引。复查确认确为"已存在"竞态时返回结构化 409 而非裸 500——外审 A/P1。
-	if err := s.accountRepo.Create(ctx, shadow); err != nil {
+	// 影子的出站代理恒继承母账号：母账号配置了多代理池时，影子与池同事务落库，
+	// 否则影子只拿到主代理却带着「各代理之和」的并发，会突破单代理上限。
+	createShadow := func(ctx context.Context) error {
+		if err := s.accountRepo.Create(ctx, shadow); err != nil {
+			return err
+		}
+		if !parent.HasProxyPool() {
+			return nil
+		}
+		return s.accountRepo.ReplaceAccountProxies(ctx, shadow.ID, parent.Proxies)
+	}
+	var createErr error
+	if parent.HasProxyPool() {
+		createErr = s.accountRepo.RunInTx(ctx, createShadow)
+	} else {
+		createErr = createShadow(ctx)
+	}
+	if err := createErr; err != nil {
 		if existing, qerr := s.accountRepo.ListShadowsByParent(ctx, parentID); qerr == nil && len(existing) > 0 {
 			return nil, infraerrors.New(http.StatusConflict, "SPARK_SHADOW_ALREADY_EXISTS",
 				"parent account already has a spark shadow account")
@@ -1713,4 +1823,78 @@ func (s *adminServiceImpl) ForceAntigravityPrivacy(ctx context.Context, account 
 	}
 	applyAntigravityPrivacyMode(account, mode)
 	return mode
+}
+
+// resolveAccountProxyPool 归一化多代理池入参，并算出该池对应的
+// primary proxy id 与账号总并发（各代理并发之和）。
+//
+// 返回的 pool 为 nil 时表示"没有配置多代理池"，调用方应保持旧的单代理行为。
+//
+// 只有 ≥2 个代理才构成代理池；只选 1 个代理时退化为旧的单代理模式
+// （pool 为 nil，但仍返回该代理与其并发，供调用方写回 proxy_id/concurrency），
+// 这样历史单代理账号无论怎么编辑，行为都与从前完全一致。
+func resolveAccountProxyPool(accountID int64, in []AccountProxy) (pool []AccountProxy, primaryProxyID *int64, totalConcurrency int) {
+	normalized := NormalizeAccountProxies(accountID, in)
+	if len(normalized) == 0 {
+		return nil, nil, 0
+	}
+	primary := normalized[0].ProxyID
+	for _, b := range normalized {
+		totalConcurrency += b.Concurrency
+	}
+	if len(normalized) == 1 {
+		return nil, &primary, totalConcurrency
+	}
+	return normalized, &primary, totalConcurrency
+}
+
+// persistAccountProxyPool 落库多代理池绑定，并把母账号的池同步到 spark 影子账号。
+// bindings 为 nil/空表示清空绑定，账号退回只使用 proxy_id 的旧行为。
+func (s *adminServiceImpl) persistAccountProxyPool(ctx context.Context, account *Account, bindings []AccountProxy) error {
+	if account == nil {
+		return nil
+	}
+	if err := s.accountRepo.ReplaceAccountProxies(ctx, account.ID, bindings); err != nil {
+		return err
+	}
+	if account.IsCredentialShadow() {
+		return nil
+	}
+	// 影子的出站代理恒继承母账号，代理池同样需要传播，否则影子会停留在旧池上。
+	shadows, err := s.accountRepo.ListShadowsByParent(ctx, account.ID)
+	if err != nil {
+		return fmt.Errorf("list spark shadows for proxy pool propagation: %w", err)
+	}
+	// 影子与母账号共用同一代理池，池的总并发就是影子的有效容量：有池时把影子的
+	// 账号并发对齐到池之和（否则会出现账号容量与池容量失配、频繁池耗尽或用不满）；
+	// 清空池时不动影子并发，回到可独立调节的单代理语义。
+	poolConcurrency := 0
+	for _, b := range NormalizeAccountProxies(account.ID, bindings) {
+		poolConcurrency += b.Concurrency
+	}
+	for _, shadow := range shadows {
+		if err := s.accountRepo.ReplaceAccountProxies(ctx, shadow.ID, bindings); err != nil {
+			return fmt.Errorf("update spark shadow %d proxy pool: %w", shadow.ID, err)
+		}
+		if poolConcurrency > 0 && shadow.Concurrency != poolConcurrency {
+			shadow.Concurrency = poolConcurrency
+			if err := s.accountRepo.Update(ctx, shadow); err != nil {
+				return fmt.Errorf("sync spark shadow %d concurrency with proxy pool: %w", shadow.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// duplicateAccountProxies 复制源账号的多代理池配置（只带 proxy_id 与并发，不带实体）。
+// 源账号没有代理池时返回 nil，复制出的账号走旧的单代理逻辑。
+func duplicateAccountProxies(source *Account) []AccountProxy {
+	if source == nil || !source.HasProxyPool() {
+		return nil
+	}
+	out := make([]AccountProxy, 0, len(source.Proxies))
+	for _, b := range source.SortedProxyPool() {
+		out = append(out, AccountProxy{ProxyID: b.ProxyID, Concurrency: b.Concurrency})
+	}
+	return out
 }
