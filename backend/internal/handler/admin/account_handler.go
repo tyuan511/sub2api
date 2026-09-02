@@ -352,10 +352,7 @@ func (h *AccountHandler) fetchOpenAIAccountLoadMap(ctx context.Context, openAIAc
 			continue
 		}
 		seen[account.ID] = struct{}{}
-		loadReq = append(loadReq, service.AccountWithConcurrency{
-			ID:             account.ID,
-			MaxConcurrency: account.EffectiveLoadFactor(),
-		})
+		loadReq = append(loadReq, service.AccountWithConcurrencyFor(account))
 	}
 	if batchLoad, err := h.concurrencyService.GetAccountsLoadBatch(ctx, loadReq); err != nil {
 		slog.Warn("openai_scheduler_score_load_batch_failed", "error", err)

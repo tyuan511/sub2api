@@ -4697,9 +4697,9 @@ const handleSubmit = async () => {
       updatePayload.proxy_id = form.proxies.length === 1 ? form.proxies[0].proxy_id : null
     }
     // 后端期望 proxy_id: 0 表示清除代理，而不是 null
-    if (updatePayload.proxy_id === null) {
-      updatePayload.proxy_id = 0
-    }
+    const proxyPool = normalizedProxyPool()
+    updatePayload.proxy_pool = proxyPool
+    updatePayload.proxy_id = proxyPool[0]?.proxy_id ?? 0
     if (form.expires_at === null) {
       updatePayload.expires_at = 0
     }

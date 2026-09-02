@@ -863,6 +863,11 @@ func (c *schedulerCache) mgetChunked(ctx context.Context, keys []string) ([]any,
 }
 
 func buildSchedulerMetadataAccount(account service.Account) service.Account {
+	// ProxyPool is part of the schedulable resource, not merely account
+	// presentation data.  The scheduler must see the binding caps and the
+	// proxy endpoint before it reserves a slot; hydrating the account after
+	// selection is too late to choose a proxy safely.
+	proxyPool := cloneSchedulerProxyPool(account.ProxyPool)
 	return service.Account{
 		ID:                      account.ID,
 		Name:                    account.Name,
@@ -887,11 +892,23 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		SessionWindowStatus:     account.SessionWindowStatus,
 		ParentAccountID:         account.ParentAccountID,
 		QuotaDimension:          account.QuotaDimension,
+		ProxyID:                 account.ProxyID,
+		Proxy:                   account.Proxy,
+		ProxyPool:               proxyPool,
 		AccountGroups:           filterSchedulerAccountGroups(account.AccountGroups),
 		GroupIDs:                filterSchedulerGroupIDs(account.GroupIDs, account.AccountGroups),
 		Credentials:             filterSchedulerCredentials(account.Credentials),
 		Extra:                   filterSchedulerExtra(account.Extra),
 	}
+}
+
+func cloneSchedulerProxyPool(pool []service.AccountProxyConfig) []service.AccountProxyConfig {
+	if pool == nil {
+		return nil
+	}
+	cloned := make([]service.AccountProxyConfig, len(pool))
+	copy(cloned, pool)
+	return cloned
 }
 
 func filterSchedulerAccountGroups(accountGroups []service.AccountGroup) []service.AccountGroup {

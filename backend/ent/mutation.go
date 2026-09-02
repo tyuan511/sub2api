@@ -39978,6 +39978,60 @@ func (m *ProxyMutation) ResetAccounts() {
 	m.removedaccounts = nil
 }
 
+// AddAccountProxyPoolIDs adds the "account_proxy_pool" edge to the AccountProxy entity by ids.
+func (m *ProxyMutation) AddAccountProxyPoolIDs(ids ...int64) {
+	if m.account_proxy_pool == nil {
+		m.account_proxy_pool = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.account_proxy_pool[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccountProxyPool clears the "account_proxy_pool" edge to the AccountProxy entity.
+func (m *ProxyMutation) ClearAccountProxyPool() {
+	m.clearedaccount_proxy_pool = true
+}
+
+// AccountProxyPoolCleared reports if the "account_proxy_pool" edge to the AccountProxy entity was cleared.
+func (m *ProxyMutation) AccountProxyPoolCleared() bool {
+	return m.clearedaccount_proxy_pool
+}
+
+// RemoveAccountProxyPoolIDs removes the "account_proxy_pool" edge to the AccountProxy entity by IDs.
+func (m *ProxyMutation) RemoveAccountProxyPoolIDs(ids ...int64) {
+	if m.removedaccount_proxy_pool == nil {
+		m.removedaccount_proxy_pool = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.account_proxy_pool, ids[i])
+		m.removedaccount_proxy_pool[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccountProxyPool returns the removed IDs of the "account_proxy_pool" edge to the AccountProxy entity.
+func (m *ProxyMutation) RemovedAccountProxyPoolIDs() (ids []int64) {
+	for id := range m.removedaccount_proxy_pool {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountProxyPoolIDs returns the "account_proxy_pool" edge IDs in the mutation.
+func (m *ProxyMutation) AccountProxyPoolIDs() (ids []int64) {
+	for id := range m.account_proxy_pool {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccountProxyPool resets all changes to the "account_proxy_pool" edge.
+func (m *ProxyMutation) ResetAccountProxyPool() {
+	m.account_proxy_pool = nil
+	m.clearedaccount_proxy_pool = false
+	m.removedaccount_proxy_pool = nil
+}
+
 // ClearBackupProxy clears the "backup_proxy" edge to the Proxy entity.
 func (m *ProxyMutation) ClearBackupProxy() {
 	m.clearedbackup_proxy = true
@@ -40477,6 +40531,9 @@ func (m *ProxyMutation) AddedEdges() []string {
 	if m.accounts != nil {
 		edges = append(edges, proxy.EdgeAccounts)
 	}
+	if m.account_proxy_pool != nil {
+		edges = append(edges, proxy.EdgeAccountProxyPool)
+	}
 	if m.backup_proxy != nil {
 		edges = append(edges, proxy.EdgeBackupProxy)
 	}
@@ -40493,6 +40550,12 @@ func (m *ProxyMutation) AddedIDs(name string) []ent.Value {
 	case proxy.EdgeAccounts:
 		ids := make([]ent.Value, 0, len(m.accounts))
 		for id := range m.accounts {
+			ids = append(ids, id)
+		}
+		return ids
+	case proxy.EdgeAccountProxyPool:
+		ids := make([]ent.Value, 0, len(m.account_proxy_pool))
+		for id := range m.account_proxy_pool {
 			ids = append(ids, id)
 		}
 		return ids
@@ -40548,6 +40611,9 @@ func (m *ProxyMutation) ClearedEdges() []string {
 	if m.clearedaccounts {
 		edges = append(edges, proxy.EdgeAccounts)
 	}
+	if m.clearedaccount_proxy_pool {
+		edges = append(edges, proxy.EdgeAccountProxyPool)
+	}
 	if m.clearedbackup_proxy {
 		edges = append(edges, proxy.EdgeBackupProxy)
 	}
@@ -40563,6 +40629,8 @@ func (m *ProxyMutation) EdgeCleared(name string) bool {
 	switch name {
 	case proxy.EdgeAccounts:
 		return m.clearedaccounts
+	case proxy.EdgeAccountProxyPool:
+		return m.clearedaccount_proxy_pool
 	case proxy.EdgeBackupProxy:
 		return m.clearedbackup_proxy
 	case proxy.EdgePooledAccounts:
@@ -40588,6 +40656,9 @@ func (m *ProxyMutation) ResetEdge(name string) error {
 	switch name {
 	case proxy.EdgeAccounts:
 		m.ResetAccounts()
+		return nil
+	case proxy.EdgeAccountProxyPool:
+		m.ResetAccountProxyPool()
 		return nil
 	case proxy.EdgeBackupProxy:
 		m.ResetBackupProxy()

@@ -95,6 +95,26 @@ type SyncFromCRSResult struct {
 	Items   []SyncFromCRSItemResult `json:"items"`
 }
 
+// applyCRSProxy keeps the legacy accounts.proxy_id field and the account-scoped
+// proxy pool in sync. CRS exports one proxy per account, so an explicit proxy
+// from CRS replaces the pool with the equivalent singleton binding. A nil
+// proxyID means that CRS did not provide a valid proxy and preserves the
+// account's current proxy configuration, matching the legacy sync behavior.
+func applyCRSProxy(account *Account, proxyID *int64) {
+	if account == nil || proxyID == nil || *proxyID <= 0 {
+		return
+	}
+	// CRS is an explicit source-of-truth update. Do not leave a stale automatic
+	// fallback marker that could later restore the pre-sync proxy.
+	account.ProxyFallbackOriginID = nil
+	account.ProxyID = proxyID
+	account.ProxyPool = []AccountProxyConfig{{
+		ProxyID:     *proxyID,
+		Concurrency: account.Concurrency,
+		Position:    0,
+	}}
+}
+
 type crsLoginResponse struct {
 	Success  bool   `json:"success"`
 	Token    string `json:"token"`
@@ -428,6 +448,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
+		applyCRSProxy(existing, proxyID)
 		existing.Priority = priority
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
@@ -557,6 +578,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
+		applyCRSProxy(existing, proxyID)
 		existing.Priority = priority
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
@@ -707,6 +729,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
+		applyCRSProxy(existing, proxyID)
 		existing.Priority = priority
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
@@ -864,6 +887,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = concurrency
+		applyCRSProxy(existing, proxyID)
 		existing.Priority = priority
 		existing.Status = status
 		existing.Schedulable = src.Schedulable
@@ -996,6 +1020,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = 3
+		applyCRSProxy(existing, proxyID)
 		existing.Priority = clampPriority(src.Priority)
 		existing.Status = mapCRSStatus(src.IsActive, src.Status)
 		existing.Schedulable = src.Schedulable
@@ -1123,6 +1148,7 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 			existing.ProxyID = proxyID
 		}
 		existing.Concurrency = 3
+		applyCRSProxy(existing, proxyID)
 		existing.Priority = clampPriority(src.Priority)
 		existing.Status = mapCRSStatus(src.IsActive, src.Status)
 		existing.Schedulable = src.Schedulable

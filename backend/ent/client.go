@@ -4936,6 +4936,22 @@ func (c *ProxyClient) QueryAccounts(_m *Proxy) *AccountQuery {
 	return query
 }
 
+// QueryAccountProxyPool queries the account_proxy_pool edge of a Proxy.
+func (c *ProxyClient) QueryAccountProxyPool(_m *Proxy) *AccountProxyQuery {
+	query := (&AccountProxyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(proxy.Table, proxy.FieldID, id),
+			sqlgraph.To(accountproxy.Table, accountproxy.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, proxy.AccountProxyPoolTable, proxy.AccountProxyPoolColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryBackupProxy queries the backup_proxy edge of a Proxy.
 func (c *ProxyClient) QueryBackupProxy(_m *Proxy) *ProxyQuery {
 	query := (&ProxyClient{config: c.config}).Query()

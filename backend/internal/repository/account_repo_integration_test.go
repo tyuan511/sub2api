@@ -696,6 +696,175 @@ func (s *AccountRepoSuite) TestPreload_And_VirtualFields() {
 	s.Require().Equal(group.ID, accounts[0].GroupIDs[0])
 }
 
+func (s *AccountRepoSuite) TestGetByIDsLoadsPoolOnlyAccountAndLegacyProxyInvariant() {
+	first := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "pool-first"})
+	second := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "pool-second"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "pool-only"})
+
+	_, err := s.repo.sql.ExecContext(s.ctx, `
+		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+		VALUES ($1, $2, $3, $4), ($1, $5, $6, $7)
+	`, account.ID, first.ID, 2, 0, second.ID, 5, 1)
+	s.Require().NoError(err)
+
+	accounts, err := s.repo.GetByIDs(s.ctx, []int64{account.ID})
+	s.Require().NoError(err)
+	s.Require().Len(accounts, 1)
+	got := accounts[0]
+	s.Require().NotNil(got.ProxyID, "pool-only rows need a legacy/default proxy id during migration")
+	s.Require().Equal(first.ID, *got.ProxyID)
+	s.Require().NotNil(got.Proxy)
+	s.Require().Equal(first.ID, got.Proxy.ID)
+	s.Require().Len(got.ProxyPool, 2)
+	s.Require().Equal([]int64{first.ID, second.ID}, []int64{got.ProxyPool[0].ProxyID, got.ProxyPool[1].ProxyID})
+	s.Require().Equal([]int{2, 5}, []int{got.ProxyPool[0].Concurrency, got.ProxyPool[1].Concurrency})
+	s.Require().Equal(first.ID, got.ProxyPool[0].Proxy.ID)
+	s.Require().Equal(second.ID, got.ProxyPool[1].Proxy.ID)
+}
+
+func (s *AccountRepoSuite) TestUpdateWithoutLoadedProxyPoolPreservesExistingPool() {
+	first := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "preserve-first"})
+	second := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "preserve-second"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "preserve-pool"})
+	_, err := s.repo.sql.ExecContext(s.ctx, `
+		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+		VALUES ($1, $2, $3, $4), ($1, $5, $6, $7)
+	`, account.ID, first.ID, 2, 0, second.ID, 5, 1)
+	s.Require().NoError(err)
+	_, err = s.repo.sql.ExecContext(s.ctx, `UPDATE accounts SET proxy_id = $1 WHERE id = $2`, first.ID, account.ID)
+	s.Require().NoError(err)
+
+	partial := &service.Account{
+		ID:          account.ID,
+		Name:        "preserve-pool-updated",
+		Platform:    account.Platform,
+		Type:        account.Type,
+		Credentials: account.Credentials,
+		Extra:       account.Extra,
+		Concurrency: account.Concurrency,
+		Priority:    account.Priority,
+		Status:      account.Status,
+		Schedulable: account.Schedulable,
+		ProxyID:     nil,
+		ProxyPool:   nil,
+	}
+	s.Require().NoError(s.repo.Update(s.ctx, partial))
+
+	got, err := s.repo.GetByID(s.ctx, account.ID)
+	s.Require().NoError(err)
+	s.Require().Equal("preserve-pool-updated", got.Name)
+	s.Require().NotNil(got.ProxyID)
+	s.Require().Equal(first.ID, *got.ProxyID)
+	s.Require().Len(got.ProxyPool, 2, "an unrelated partial update must not clear account_proxies")
+	s.Require().Equal([]int64{first.ID, second.ID}, []int64{got.ProxyPool[0].ProxyID, got.ProxyPool[1].ProxyID})
+}
+
+func (s *AccountRepoSuite) TestRevertProxyFallbackRestoresOnlyFallbackBinding() {
+	original := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "revert-original"})
+	fallback := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "revert-fallback"})
+	other := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "revert-other"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:    "revert-pool",
+		ProxyID: &fallback.ID,
+	})
+	_, err := s.repo.sql.ExecContext(s.ctx, `
+		UPDATE accounts
+		SET proxy_fallback_origin_id = $1
+		WHERE id = $2`, original.ID, account.ID)
+	s.Require().NoError(err)
+	_, err = s.repo.sql.ExecContext(s.ctx, `
+		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+		VALUES ($1, $2, 2, 7), ($1, $3, 11, 3)`, account.ID, fallback.ID, other.ID)
+	s.Require().NoError(err)
+
+	s.Require().NoError(s.repo.RevertProxyFallback(s.ctx, account.ID))
+
+	var currentProxyID, fallbackOriginID *int64
+	err = scanSingleRow(s.ctx, s.repo.sql, `
+		SELECT proxy_id, proxy_fallback_origin_id FROM accounts WHERE id = $1`, []any{account.ID}, &currentProxyID, &fallbackOriginID)
+	s.Require().NoError(err)
+	s.Require().NotNil(currentProxyID)
+	s.Require().Equal(original.ID, *currentProxyID)
+	s.Require().Nil(fallbackOriginID)
+
+	rows, err := s.repo.sql.QueryContext(s.ctx, `
+		SELECT proxy_id, concurrency, position
+		FROM account_proxies
+		WHERE account_id = $1
+		ORDER BY position, proxy_id`, account.ID)
+	s.Require().NoError(err)
+	defer func() { _ = rows.Close() }()
+	var got []struct {
+		proxyID     int64
+		concurrency int
+		position    int
+	}
+	for rows.Next() {
+		var item struct {
+			proxyID     int64
+			concurrency int
+			position    int
+		}
+		s.Require().NoError(rows.Scan(&item.proxyID, &item.concurrency, &item.position))
+		got = append(got, item)
+	}
+	s.Require().NoError(rows.Err())
+	s.Require().Equal([]struct {
+		proxyID     int64
+		concurrency int
+		position    int
+	}{
+		{proxyID: other.ID, concurrency: 11, position: 3},
+		{proxyID: original.ID, concurrency: 2, position: 7},
+	}, got)
+}
+
+func (s *AccountRepoSuite) TestUpdateDuringProxyFallbackPreservesHiddenOriginBinding() {
+	original := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "update-fallback-original"})
+	fallback := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "update-fallback-current"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:    "update-fallback-pool",
+		ProxyID: &fallback.ID,
+	})
+	_, err := s.repo.sql.ExecContext(s.ctx, `
+		UPDATE proxies SET status = $1 WHERE id = $2`, service.StatusExpired, original.ID)
+	s.Require().NoError(err)
+	_, err = s.repo.sql.ExecContext(s.ctx, `
+		UPDATE accounts
+		SET proxy_fallback_origin_id = $1
+		WHERE id = $2`, original.ID, account.ID)
+	s.Require().NoError(err)
+	_, err = s.repo.sql.ExecContext(s.ctx, `
+		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
+		VALUES ($1, $2, 4, 6)`, account.ID, fallback.ID)
+	s.Require().NoError(err)
+
+	loaded, err := s.repo.GetByID(s.ctx, account.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(loaded.ProxyID)
+	s.Require().Equal(fallback.ID, *loaded.ProxyID)
+	s.Require().Len(loaded.ProxyPool, 1, "fallback origin is hidden from the service model")
+	s.Require().Equal(fallback.ID, loaded.ProxyPool[0].ProxyID)
+	loaded.Name = "updated-during-fallback"
+	s.Require().NoError(s.repo.Update(s.ctx, loaded))
+
+	s.Require().NoError(s.repo.RevertProxyFallback(s.ctx, account.ID))
+	rows, err := s.repo.sql.QueryContext(s.ctx, `
+		SELECT proxy_id, concurrency, position
+		FROM account_proxies
+		WHERE account_id = $1`, account.ID)
+	s.Require().NoError(err)
+	defer func() { _ = rows.Close() }()
+	s.Require().True(rows.Next())
+	var proxyID int64
+	var concurrency, position int
+	s.Require().NoError(rows.Scan(&proxyID, &concurrency, &position))
+	s.Require().Equal(original.ID, proxyID)
+	s.Require().Equal(4, concurrency)
+	s.Require().Equal(6, position)
+	s.Require().False(rows.Next())
+}
+
 // --- GroupBinding / AddToGroup / RemoveFromGroup / BindGroups / GetGroups ---
 
 func (s *AccountRepoSuite) TestGroupBinding_And_BindGroups() {

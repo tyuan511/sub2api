@@ -83,10 +83,7 @@ func (s *OpsService) getAccountsLoadMapBestEffort(ctx context.Context, accounts 
 
 	batch := make([]AccountWithConcurrency, 0, len(unique))
 	for id, maxConc := range unique {
-		batch = append(batch, AccountWithConcurrency{
-			ID:             id,
-			MaxConcurrency: maxConc,
-		})
+		batch = append(batch, AccountWithConcurrency{ID: id, MaxConcurrency: maxConc})
 	}
 
 	out := make(map[int64]*AccountLoadInfo, len(batch))

@@ -275,6 +275,16 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
 	}
+	if len(a.ProxyPool) > 0 {
+		out.ProxyPool = make([]AccountProxy, 0, len(a.ProxyPool))
+		for _, item := range a.ProxyPool {
+			out.ProxyPool = append(out.ProxyPool, AccountProxy{
+				ProxyID:     item.ProxyID,
+				Concurrency: item.Concurrency,
+				Proxy:       ProxyFromService(item.Proxy),
+			})
+		}
+	}
 
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）
 	if a.IsAnthropicOAuthOrSetupToken() {

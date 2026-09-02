@@ -1200,6 +1200,7 @@ export interface Account {
   created_at: string
   updated_at: string
   proxy?: Proxy
+  proxy_pool?: AccountProxyConfig[]
   group_ids?: number[] // Groups this account belongs to
   groups?: Group[] // Preloaded group objects
 
@@ -1278,6 +1279,12 @@ export interface Account {
   parent_privacy_mode?: string
   parent_subscription_expires_at?: string
   parent_chatgpt_account_id?: string
+}
+
+export interface AccountProxyConfig {
+  proxy_id: number | null
+  concurrency: number
+  proxy?: Proxy
 }
 
 export interface AccountSchedulerGroupScore {
@@ -1565,6 +1572,11 @@ export interface AdminDataProxy {
   status: 'active' | 'inactive'
 }
 
+export interface AdminDataAccountProxy {
+  proxy_key: string
+  concurrency: number
+}
+
 export interface AdminDataAccount {
   name: string
   notes?: string | null
@@ -1573,6 +1585,7 @@ export interface AdminDataAccount {
   credentials: Record<string, unknown>
   extra?: Record<string, unknown>
   proxy_key?: string | null
+  proxy_pool?: AdminDataAccountProxy[]
   concurrency: number
   priority: number
   rate_multiplier?: number | null

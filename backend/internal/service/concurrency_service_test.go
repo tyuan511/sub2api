@@ -87,6 +87,43 @@ func (c *ingressLeaseCacheForTest) ReleaseOpenAIWSIngressLease(ctx context.Conte
 var _ ConcurrencyCache = (*stubConcurrencyCacheForTest)(nil)
 var _ OpenAIWSIngressLeaseCache = (*ingressLeaseCacheForTest)(nil)
 
+type proxyPoolConcurrencyCacheForTest struct {
+	stubConcurrencyCacheForTest
+	nextIndexes         []int
+	nextIndexCalls      int
+	proxyAcquireResults map[int64][]bool
+	proxyAcquireCalls   []int64
+	proxyReleaseCalls   []int64
+}
+
+func (c *proxyPoolConcurrencyCacheForTest) AcquireAccountProxySlot(_ context.Context, _, proxyID int64, _ int, _ string) (bool, error) {
+	c.proxyAcquireCalls = append(c.proxyAcquireCalls, proxyID)
+	results := c.proxyAcquireResults[proxyID]
+	if len(results) == 0 {
+		return true, nil
+	}
+	result := results[0]
+	c.proxyAcquireResults[proxyID] = results[1:]
+	return result, nil
+}
+
+func (c *proxyPoolConcurrencyCacheForTest) ReleaseAccountProxySlot(_ context.Context, _, proxyID int64, _ string) error {
+	c.proxyReleaseCalls = append(c.proxyReleaseCalls, proxyID)
+	return nil
+}
+
+func (c *proxyPoolConcurrencyCacheForTest) NextAccountProxyIndex(_ context.Context, _ int64, _ int) (int, error) {
+	c.nextIndexCalls++
+	if len(c.nextIndexes) == 0 {
+		return 0, nil
+	}
+	result := c.nextIndexes[0]
+	c.nextIndexes = c.nextIndexes[1:]
+	return result, nil
+}
+
+var _ AccountProxyConcurrencyCache = (*proxyPoolConcurrencyCacheForTest)(nil)
+
 func (c *stubConcurrencyCacheForTest) AcquireAccountSlot(_ context.Context, _ int64, _ int, _ string) (bool, error) {
 	return c.acquireResult, c.acquireErr
 }
@@ -248,6 +285,140 @@ func TestAcquireAccountSlot_ReleaseDecrements(t *testing.T) {
 	require.Equal(t, int64(42), cache.releasedAccountIDs[0])
 	require.Len(t, cache.releasedRequestIDs, 1)
 	require.NotEmpty(t, cache.releasedRequestIDs[0], "requestID 不应为空")
+}
+
+func proxyPoolAccountForTest() *Account {
+	return &Account{
+		ID:          42,
+		Concurrency: 10,
+		ProxyPool: []AccountProxyConfig{
+			{ProxyID: 101, Concurrency: 2, Proxy: &Proxy{ID: 101}},
+			{ProxyID: 202, Concurrency: 3, Proxy: &Proxy{ID: 202}},
+		},
+	}
+}
+
+func TestAcquireAccountSlotForAccount_RoundRobinAndRelease(t *testing.T) {
+	cache := &proxyPoolConcurrencyCacheForTest{
+		stubConcurrencyCacheForTest: stubConcurrencyCacheForTest{acquireResult: true},
+		nextIndexes:                 []int{0, 1, 0},
+	}
+	svc := NewConcurrencyService(cache)
+
+	for _, wantProxyID := range []int64{101, 202, 101} {
+		account := proxyPoolAccountForTest()
+		result, err := svc.AcquireAccountSlotForAccount(context.Background(), account)
+		require.NoError(t, err)
+		require.True(t, result.Acquired)
+		require.NotNil(t, account.ProxyID)
+		require.Equal(t, wantProxyID, *account.ProxyID)
+		result.ReleaseFunc()
+	}
+
+	require.Equal(t, []int64{101, 202, 101}, cache.proxyAcquireCalls)
+	require.Equal(t, []int64{101, 202, 101}, cache.proxyReleaseCalls)
+}
+
+func TestAcquireAccountSlotForAccount_SkipsFullProxy(t *testing.T) {
+	cache := &proxyPoolConcurrencyCacheForTest{
+		stubConcurrencyCacheForTest: stubConcurrencyCacheForTest{acquireResult: true},
+		nextIndexes:                 []int{0},
+		proxyAcquireResults:         map[int64][]bool{101: {false}, 202: {true}},
+	}
+	svc := NewConcurrencyService(cache)
+
+	account := proxyPoolAccountForTest()
+	result, err := svc.AcquireAccountSlotForAccount(context.Background(), account)
+	require.NoError(t, err)
+	require.True(t, result.Acquired)
+	require.NotNil(t, account.ProxyID)
+	require.Equal(t, int64(202), *account.ProxyID)
+	result.ReleaseFunc()
+
+	require.Equal(t, []int64{101, 202}, cache.proxyAcquireCalls)
+	require.Equal(t, []int64{202}, cache.proxyReleaseCalls)
+	require.Len(t, cache.releasedAccountIDs, 1)
+}
+
+func TestAcquireAccountSlotForAccount_AllProxiesFullDoesNotBypassPool(t *testing.T) {
+	cache := &proxyPoolConcurrencyCacheForTest{
+		stubConcurrencyCacheForTest: stubConcurrencyCacheForTest{acquireResult: true},
+		nextIndexes:                 []int{0},
+		proxyAcquireResults:         map[int64][]bool{101: {false}, 202: {false}},
+	}
+	svc := NewConcurrencyService(cache)
+
+	result, err := svc.AcquireAccountSlotForAccount(context.Background(), proxyPoolAccountForTest())
+	require.NoError(t, err)
+	require.False(t, result.Acquired)
+	require.Equal(t, []int64{101, 202}, cache.proxyAcquireCalls)
+	require.Empty(t, cache.proxyReleaseCalls)
+	require.Len(t, cache.releasedAccountIDs, 1, "代理池全满时必须释放已申请的账号槽位")
+}
+
+func TestAcquireAccountSlotForAccountWithProxy_PreservesBinding(t *testing.T) {
+	cache := &proxyPoolConcurrencyCacheForTest{
+		stubConcurrencyCacheForTest: stubConcurrencyCacheForTest{acquireResult: true},
+		proxyAcquireResults:         map[int64][]bool{202: {true}},
+	}
+	svc := NewConcurrencyService(cache)
+	account := proxyPoolAccountForTest()
+	preferredProxyID := int64(202)
+
+	result, err := svc.AcquireAccountSlotForAccountWithProxy(context.Background(), account, &preferredProxyID)
+	require.NoError(t, err)
+	require.True(t, result.Acquired)
+	require.Equal(t, []int64{202}, cache.proxyAcquireCalls)
+	require.Equal(t, 0, cache.nextIndexCalls)
+	require.NotNil(t, account.ProxyID)
+	require.Equal(t, preferredProxyID, *account.ProxyID)
+
+	result.ReleaseFunc()
+	result.ReleaseFunc()
+	require.Equal(t, []int64{202}, cache.proxyReleaseCalls, "释放函数必须幂等")
+}
+
+func TestAcquireAccountSlotForAccount_ExplicitEmptyPoolMeansDirect(t *testing.T) {
+	cache := &proxyPoolConcurrencyCacheForTest{
+		stubConcurrencyCacheForTest: stubConcurrencyCacheForTest{acquireResult: true},
+	}
+	svc := NewConcurrencyService(cache)
+	legacyProxyID := int64(101)
+	account := &Account{
+		ID:          42,
+		Concurrency: 1,
+		ProxyID:     &legacyProxyID,
+		Proxy:       &Proxy{ID: legacyProxyID},
+		ProxyPool:   []AccountProxyConfig{},
+	}
+
+	result, err := svc.AcquireAccountSlotForAccount(context.Background(), account)
+	require.NoError(t, err)
+	require.True(t, result.Acquired)
+	require.Nil(t, account.ProxyID)
+	require.Nil(t, account.Proxy)
+	require.Empty(t, cache.proxyAcquireCalls)
+	result.ReleaseFunc()
+}
+
+func TestAcquireAccountSlotForAccountWithProxyWait_RetriesPreferredBinding(t *testing.T) {
+	cache := &proxyPoolConcurrencyCacheForTest{
+		stubConcurrencyCacheForTest: stubConcurrencyCacheForTest{acquireResult: true},
+		proxyAcquireResults:         map[int64][]bool{202: {false, true}},
+	}
+	svc := NewConcurrencyService(cache)
+	account := proxyPoolAccountForTest()
+	preferredProxyID := int64(202)
+
+	result, err := svc.AcquireAccountSlotForAccountWithProxyWait(
+		context.Background(), account, &preferredProxyID, 500*time.Millisecond,
+	)
+	require.NoError(t, err)
+	require.True(t, result.Acquired)
+	require.Equal(t, []int64{202, 202}, cache.proxyAcquireCalls, "preferred proxy 满时只能等待同一代理")
+	require.Zero(t, cache.nextIndexCalls, "preferred proxy 等待不能轮换到其它代理")
+	require.Equal(t, preferredProxyID, *account.ProxyID)
+	result.ReleaseFunc()
 }
 
 func TestAcquireUserSlot_IndependentFromAccount(t *testing.T) {

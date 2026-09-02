@@ -50,6 +50,11 @@ type DataProxy struct {
 	ExpiryWarnDays  int    `json:"expiry_warn_days,omitempty"`
 }
 
+type DataAccountProxy struct {
+	ProxyKey    string `json:"proxy_key"`
+	Concurrency int    `json:"concurrency"`
+}
+
 // DataAccount 是管理员显式备份导出使用的账号结构，故意不走 dto.Account 的脱敏路径，
 // Credentials 原文返回。这是"管理员备份"这一显式行为的一部分；如未来需要导出脱敏版本，
 // 应新增独立结构而非修改这里。
@@ -198,10 +203,20 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 	for i := range accounts {
 		acc := accounts[i]
 		var proxyKey *string
-		if acc.ProxyID != nil {
-			if key, ok := proxyKeyByID[*acc.ProxyID]; ok {
-				proxyKey = &key
+		var proxyPool []DataAccountProxy
+		for _, poolItem := range accountProxyPoolForExport(acc) {
+			key, ok := proxyKeyByID[poolItem.ProxyID]
+			if !ok {
+				continue
 			}
+			if proxyKey == nil {
+				keyCopy := key
+				proxyKey = &keyCopy
+			}
+			proxyPool = append(proxyPool, DataAccountProxy{
+				ProxyKey:    key,
+				Concurrency: poolItem.Concurrency,
+			})
 		}
 		var expiresAt *int64
 		if acc.ExpiresAt != nil {
@@ -429,20 +444,16 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 			continue
 		}
 
-		var proxyID *int64
-		if item.ProxyKey != nil && *item.ProxyKey != "" {
-			if id, ok := proxyKeyToID[*item.ProxyKey]; ok {
-				proxyID = &id
-			} else {
-				result.AccountFailed++
-				result.Errors = append(result.Errors, DataImportError{
-					Kind:     "account",
-					Name:     item.Name,
-					ProxyKey: *item.ProxyKey,
-					Message:  "proxy_key not found",
-				})
-				continue
-			}
+		proxyID, proxyPool, proxyKey, proxyErr := resolveImportedAccountProxyPool(item, proxyKeyToID)
+		if proxyErr != nil {
+			result.AccountFailed++
+			result.Errors = append(result.Errors, DataImportError{
+				Kind:     "account",
+				Name:     item.Name,
+				ProxyKey: proxyKey,
+				Message:  proxyErr.Error(),
+			})
+			continue
 		}
 
 		// 多代理池：逐条按 proxy_key 解析成本地 proxy id；解析不到的绑定跳过，
@@ -626,6 +637,57 @@ func (h *AccountHandler) resolveExportProxies(ctx context.Context, accounts []se
 	return h.adminService.GetProxiesByIDs(ctx, ids)
 }
 
+func accountProxyPoolForExport(account service.Account) []service.AccountProxyConfig {
+	if len(account.ProxyPool) > 0 {
+		return account.ProxyPool
+	}
+	if account.ProxyID == nil || *account.ProxyID <= 0 {
+		return nil
+	}
+	return []service.AccountProxyConfig{{
+		ProxyID:     *account.ProxyID,
+		Concurrency: account.Concurrency,
+		Proxy:       account.Proxy,
+	}}
+}
+
+func resolveImportedAccountProxyPool(item DataAccount, proxyKeyToID map[string]int64) (*int64, []service.AccountProxyConfig, string, error) {
+	if item.ProxyPool != nil {
+		pool := make([]service.AccountProxyConfig, 0, len(item.ProxyPool))
+		for _, itemProxy := range item.ProxyPool {
+			if strings.TrimSpace(itemProxy.ProxyKey) == "" {
+				return nil, nil, "", errors.New("proxy_pool.proxy_key is required")
+			}
+			id, ok := proxyKeyToID[itemProxy.ProxyKey]
+			if !ok {
+				return nil, nil, itemProxy.ProxyKey, errors.New("proxy_pool proxy_key not found")
+			}
+			pool = append(pool, service.AccountProxyConfig{
+				ProxyID:     id,
+				Concurrency: itemProxy.Concurrency,
+			})
+		}
+		normalized, err := service.NormalizeAccountProxyPool(pool)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		if len(normalized) == 0 {
+			return nil, normalized, "", nil
+		}
+		proxyID := normalized[0].ProxyID
+		return &proxyID, normalized, "", nil
+	}
+
+	if item.ProxyKey == nil || *item.ProxyKey == "" {
+		return nil, nil, "", nil
+	}
+	id, ok := proxyKeyToID[*item.ProxyKey]
+	if !ok {
+		return nil, nil, *item.ProxyKey, errors.New("proxy_key not found")
+	}
+	return &id, nil, *item.ProxyKey, nil
+}
+
 func parseAccountIDs(c *gin.Context) ([]int64, error) {
 	values := c.QueryArray("ids")
 	if len(values) == 0 {
@@ -736,6 +798,14 @@ func validateDataAccount(item DataAccount) error {
 	}
 	if item.Priority < 0 {
 		return errors.New("priority must be >= 0")
+	}
+	for _, proxy := range item.ProxyPool {
+		if strings.TrimSpace(proxy.ProxyKey) == "" {
+			return errors.New("proxy_pool.proxy_key is required")
+		}
+		if proxy.Concurrency < 0 {
+			return errors.New("proxy_pool.concurrency must be >= 0")
+		}
 	}
 	return nil
 }
