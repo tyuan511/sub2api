@@ -215,9 +215,10 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				h.responsesErrorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts")
 				return
 			}
-			accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotForAccountWithWaitTimeout(
+			accountReleaseFunc, err = h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
 				c,
-				account,
+				account.ID,
+				selection.WaitPlan.MaxConcurrency,
 				selection.WaitPlan.Timeout,
 				reqStream,
 				&streamStarted,

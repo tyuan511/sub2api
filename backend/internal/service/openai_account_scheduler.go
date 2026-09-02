@@ -564,7 +564,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		)
 		return nil, true, nil
 	}
-	result, acquireErr := s.service.tryAcquireAccountSlotForAccount(ctx, account)
+	result, acquireErr := s.service.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 	if acquireErr == nil && result != nil && result.Acquired {
 		if !req.PreserveStickyBinding {
 			_ = s.service.refreshStickySessionTTL(ctx, req.GroupID, sessionHash, s.service.openAIWSSessionStickyTTL())
@@ -1180,7 +1180,7 @@ func (s *defaultOpenAIAccountScheduler) tryAcquireOpenAISelectionOrderWithBudget
 			continue
 		}
 
-		result, attempted, acquireErr := s.tryAcquireOpenAIAccountSlot(ctx, candidate.account, budget)
+		result, attempted, acquireErr := s.tryAcquireOpenAIAccountSlot(ctx, candidate.account.ID, candidate.account.Concurrency, budget)
 		if !attempted {
 			break
 		}
@@ -1210,11 +1210,10 @@ func (s *defaultOpenAIAccountScheduler) tryAcquireOpenAISelectionOrderWithBudget
 			release(result)
 			continue
 		}
-		carrySelectedAccountProxy(candidate.account, fresh)
 
 		if fresh.Concurrency != candidate.account.Concurrency {
 			release(result)
-			result, attempted, acquireErr = s.tryAcquireOpenAIAccountSlot(ctx, fresh, budget)
+			result, attempted, acquireErr = s.tryAcquireOpenAIAccountSlot(ctx, fresh.ID, fresh.Concurrency, budget)
 			if !attempted {
 				continue
 			}
@@ -1237,27 +1236,16 @@ func (s *defaultOpenAIAccountScheduler) tryAcquireOpenAISelectionOrderWithBudget
 	return nil, compactBlocked, nil
 }
 
-func carrySelectedAccountProxy(from, to *Account) {
-	if from == nil || to == nil || len(from.ProxyPool) == 0 || from.ProxyID == nil {
-		return
-	}
-	to.ProxyPool = from.ProxyPool
-	to.ProxyID = from.ProxyID
-	to.Proxy = from.Proxy
-}
-
 func (s *defaultOpenAIAccountScheduler) tryAcquireOpenAIAccountSlot(
 	ctx context.Context,
-	account *Account,
+	accountID int64,
+	maxConcurrency int,
 	budget *openAISelectionProbeBudget,
 ) (*AcquireResult, bool, error) {
-	if account == nil {
+	if s.service.concurrencyService != nil && maxConcurrency > 0 && !budget.recordAcquire(accountID) {
 		return nil, false, nil
 	}
-	if s.service.concurrencyService != nil && account.Concurrency > 0 && !budget.recordAcquire(account.ID) {
-		return nil, false, nil
-	}
-	result, err := s.service.tryAcquireAccountSlotForAccount(ctx, account)
+	result, err := s.service.tryAcquireAccountSlot(ctx, accountID, maxConcurrency)
 	return result, true, err
 }
 
@@ -1322,7 +1310,7 @@ func (s *defaultOpenAIAccountScheduler) tryFallbackToWeightedSticky(
 			isGrokModelQuotaBlocked(account.ID, upstreamModel, now) {
 			continue
 		}
-		result, acquireErr := s.service.tryAcquireAccountSlotForAccount(ctx, account)
+		result, acquireErr := s.service.tryAcquireAccountSlot(ctx, account.ID, account.Concurrency)
 		if acquireErr != nil {
 			return nil, acquireErr
 		}
@@ -1479,7 +1467,10 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 			continue
 		}
 		filtered = append(filtered, account)
-		loadReq = append(loadReq, AccountWithConcurrencyFor(account))
+		loadReq = append(loadReq, AccountWithConcurrency{
+			ID:             account.ID,
+			MaxConcurrency: account.EffectiveLoadFactor(),
+		})
 	}
 	if len(filtered) == 0 {
 		return nil, 0, 0, 0, noAvailableOpenAISelectionError(req.RequestedModel, false, filterStats.summary(""))
@@ -1656,7 +1647,10 @@ func buildOpenAIAccountLoadRequest(accounts []*Account) []AccountWithConcurrency
 		if account == nil {
 			continue
 		}
-		loadReq = append(loadReq, AccountWithConcurrencyFor(account))
+		loadReq = append(loadReq, AccountWithConcurrency{
+			ID:             account.ID,
+			MaxConcurrency: account.EffectiveLoadFactor(),
+		})
 	}
 	return loadReq
 }

@@ -260,33 +260,6 @@ func (h *ConcurrencyHelper) TryAcquireAccountSlot(ctx context.Context, accountID
 	return result.ReleaseFunc, true, nil
 }
 
-// TryAcquireAccountSlotForAccount also acquires the configured account/proxy
-// binding slot. It is used when the selected account object must carry the
-// chosen proxy into the forwarding layer.
-func (h *ConcurrencyHelper) TryAcquireAccountSlotForAccount(ctx context.Context, account *service.Account) (func(), bool, error) {
-	result, err := h.concurrencyService.AcquireAccountSlotForAccount(ctx, account)
-	if err != nil {
-		return nil, false, err
-	}
-	if result == nil || !result.Acquired {
-		return nil, false, nil
-	}
-	return result.ReleaseFunc, true, nil
-}
-
-// TryAcquireAccountSlotForAccountWithProxy keeps a later turn on the same
-// upstream WebSocket bound to the proxy selected for that connection.
-func (h *ConcurrencyHelper) TryAcquireAccountSlotForAccountWithProxy(ctx context.Context, account *service.Account, proxyID *int64) (func(), bool, error) {
-	result, err := h.concurrencyService.AcquireAccountSlotForAccountWithProxy(ctx, account, proxyID)
-	if err != nil {
-		return nil, false, err
-	}
-	if result == nil || !result.Acquired {
-		return nil, false, nil
-	}
-	return result.ReleaseFunc, true, nil
-}
-
 // AcquireUserSlotWithWait acquires a user concurrency slot, waiting if necessary.
 // For streaming requests, sends ping events during the wait.
 // streamStarted is updated if streaming response has begun.
@@ -382,24 +355,22 @@ func (h *ConcurrencyHelper) waitForSlotWithPing(c *gin.Context, slotType string,
 
 // waitForSlotWithPingTimeout waits for a concurrency slot with a custom timeout.
 func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType string, id int64, maxConcurrency int, timeout time.Duration, isStream bool, streamStarted *bool, tryImmediate bool) (func(), error) {
-	return h.waitForSlotWithPingTimeoutFunc(c, slotType, id, maxConcurrency, timeout, isStream, streamStarted, tryImmediate, func(ctx context.Context) (*service.AcquireResult, error) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	defer cancel()
+
+	acquireSlot := func() (*service.AcquireResult, error) {
 		if slotType == "user" {
 			return h.concurrencyService.AcquireUserSlot(ctx, id, maxConcurrency)
 		}
 		return h.concurrencyService.AcquireAccountSlot(ctx, id, maxConcurrency)
-	})
-}
-
-func (h *ConcurrencyHelper) waitForSlotWithPingTimeoutFunc(c *gin.Context, slotType string, id int64, maxConcurrency int, timeout time.Duration, isStream bool, streamStarted *bool, tryImmediate bool, acquireSlot func(context.Context) (*service.AcquireResult, error)) (func(), error) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
-	defer cancel()
+	}
 
 	if tryImmediate {
-		result, err := acquireSlot(ctx)
+		result, err := acquireSlot()
 		if err != nil {
 			return nil, err
 		}
-		if result != nil && result.Acquired {
+		if result.Acquired {
 			return result.ReleaseFunc, nil
 		}
 	}
@@ -431,12 +402,6 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeoutFunc(c *gin.Context, slotT
 	for {
 		select {
 		case <-ctx.Done():
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
 			if parentErr := c.Request.Context().Err(); parentErr != nil {
 				return nil, parentErr
 			}
@@ -463,12 +428,12 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeoutFunc(c *gin.Context, slotT
 
 		case <-timer.C:
 			// Try to acquire slot
-			result, err := acquireSlot(ctx)
+			result, err := acquireSlot()
 			if err != nil {
 				return nil, err
 			}
 
-			if result != nil && result.Acquired {
+			if result.Acquired {
 				return result.ReleaseFunc, nil
 			}
 			backoff = nextBackoff(backoff)
@@ -480,49 +445,6 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeoutFunc(c *gin.Context, slotT
 // AcquireAccountSlotWithWaitTimeout acquires an account slot with a custom timeout (keeps SSE ping).
 func (h *ConcurrencyHelper) AcquireAccountSlotWithWaitTimeout(c *gin.Context, accountID int64, maxConcurrency int, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
 	return h.waitForSlotWithPingTimeout(c, "account", accountID, maxConcurrency, timeout, isStream, streamStarted, true)
-}
-
-// AcquireAccountSlotForAccountWithWaitTimeout waits for the complete account
-// resource.  For proxy-pool accounts this retries account plus proxy binding
-// selection on every attempt, so it cannot acquire an account slot and then
-// accidentally forward through an uncapped/default proxy.
-func (h *ConcurrencyHelper) AcquireAccountSlotForAccountWithWaitTimeout(c *gin.Context, account *service.Account, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
-	if account == nil || h == nil || h.concurrencyService == nil {
-		return nil, fmt.Errorf("account concurrency service is unavailable")
-	}
-	return h.waitForSlotWithPingTimeoutFunc(c, "account_proxy", account.ID, account.Concurrency, timeout, isStream, streamStarted, true, func(ctx context.Context) (*service.AcquireResult, error) {
-		return h.concurrencyService.AcquireAccountSlotForAccount(ctx, account)
-	})
-}
-
-// AcquireAccountSlotForAccountWithProxyWaitTimeout is the sticky WebSocket
-// variant.  It waits for the same preferred binding and never moves an
-// established upstream connection to another proxy.
-func (h *ConcurrencyHelper) AcquireAccountSlotForAccountWithProxyWaitTimeout(c *gin.Context, account *service.Account, preferredProxyID *int64, timeout time.Duration, isStream bool, streamStarted *bool) (func(), error) {
-	if account == nil || h == nil || h.concurrencyService == nil {
-		return nil, fmt.Errorf("account concurrency service is unavailable")
-	}
-	return h.waitForSlotWithPingTimeoutFunc(c, "account_proxy", account.ID, account.Concurrency, timeout, isStream, streamStarted, true, func(ctx context.Context) (*service.AcquireResult, error) {
-		return h.concurrencyService.AcquireAccountSlotForAccountWithProxy(ctx, account, preferredProxyID)
-	})
-}
-
-// AcquireAccountSlotForAccountWithProxyWaitContext is used by long-lived
-// transports whose effective context includes lease/preemption cancellation
-// that is not installed on gin.Context.Request. It waits for the same proxy
-// binding without emitting HTTP stream heartbeats.
-func (h *ConcurrencyHelper) AcquireAccountSlotForAccountWithProxyWaitContext(ctx context.Context, account *service.Account, preferredProxyID *int64, timeout time.Duration) (func(), error) {
-	if account == nil || h == nil || h.concurrencyService == nil {
-		return nil, fmt.Errorf("account concurrency service is unavailable")
-	}
-	result, err := h.concurrencyService.AcquireAccountSlotForAccountWithProxyWait(ctx, account, preferredProxyID, timeout)
-	if err != nil {
-		return nil, err
-	}
-	if result == nil || !result.Acquired {
-		return nil, context.DeadlineExceeded
-	}
-	return result.ReleaseFunc, nil
 }
 
 // nextBackoff 计算下一次退避时间

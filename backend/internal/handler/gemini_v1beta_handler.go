@@ -451,9 +451,10 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				}
 			}()
 
-			accountReleaseFunc, err = geminiConcurrency.AcquireAccountSlotForAccountWithWaitTimeout(
+			accountReleaseFunc, err = geminiConcurrency.AcquireAccountSlotWithWaitTimeout(
 				c,
-				account,
+				account.ID,
+				selection.WaitPlan.MaxConcurrency,
 				selection.WaitPlan.Timeout,
 				stream,
 				&streamStarted,

@@ -913,29 +913,6 @@ func HasAccountsWith(preds ...predicate.Account) predicate.Proxy {
 	})
 }
 
-// HasAccountProxyPool applies the HasEdge predicate on the "account_proxy_pool" edge.
-func HasAccountProxyPool() predicate.Proxy {
-	return predicate.Proxy(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, true, AccountProxyPoolTable, AccountProxyPoolColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasAccountProxyPoolWith applies the HasEdge predicate on the "account_proxy_pool" edge with a given conditions (other predicates).
-func HasAccountProxyPoolWith(preds ...predicate.AccountProxy) predicate.Proxy {
-	return predicate.Proxy(func(s *sql.Selector) {
-		step := newAccountProxyPoolStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasBackupProxy applies the HasEdge predicate on the "backup_proxy" edge.
 func HasBackupProxy() predicate.Proxy {
 	return predicate.Proxy(func(s *sql.Selector) {

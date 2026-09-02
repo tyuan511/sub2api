@@ -290,10 +290,6 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 			if req.ProxyID != nil {
 				updateInput.ProxyID = req.ProxyID
 			}
-			if req.ProxyPool != nil {
-				proxyPool := append([]service.AccountProxyConfig(nil), req.ProxyPool...)
-				updateInput.ProxyPool = &proxyPool
-			}
 			if len(req.GroupIDs) > 0 {
 				groupIDs := append([]int64(nil), req.GroupIDs...)
 				updateInput.GroupIDs = &groupIDs

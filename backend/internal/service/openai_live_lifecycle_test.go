@@ -194,10 +194,8 @@ func (s *liveTestStore) MarkLiveCallClosed(_ context.Context, callHash string, _
 
 type liveTestConcurrencyCache struct {
 	ConcurrencyCache
-	mu            sync.Mutex
-	releases      int
-	proxyLeases   int
-	proxyReleases int
+	mu       sync.Mutex
+	releases int
 }
 
 func (c *liveTestConcurrencyCache) AcquireLiveLease(
@@ -232,41 +230,6 @@ func (c *liveTestConcurrencyCache) ReleaseLiveLease(
 ) error {
 	c.mu.Lock()
 	c.releases++
-	c.mu.Unlock()
-	return nil
-}
-
-func (c *liveTestConcurrencyCache) AcquireAccountProxyLiveLease(
-	context.Context,
-	int64,
-	int64,
-	int,
-	string,
-	bool,
-) (bool, error) {
-	c.mu.Lock()
-	c.proxyLeases++
-	c.mu.Unlock()
-	return true, nil
-}
-
-func (c *liveTestConcurrencyCache) RefreshAccountProxyLiveLease(
-	context.Context,
-	int64,
-	int64,
-	string,
-) (bool, error) {
-	return true, nil
-}
-
-func (c *liveTestConcurrencyCache) ReleaseAccountProxyLiveLease(
-	context.Context,
-	int64,
-	int64,
-	string,
-) error {
-	c.mu.Lock()
-	c.proxyReleases++
 	c.mu.Unlock()
 	return nil
 }

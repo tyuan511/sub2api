@@ -97,54 +97,8 @@ func profitControlVetoLatest(ctx context.Context, selected *Account, snapshot *S
 			latest = refreshed
 		}
 	}
-	// Slot admission may have selected one proxy from an account pool before
-	// this terminal refresh. Keep that concrete binding attached to the account
-	// used for forwarding; otherwise the refreshed snapshot can reset ProxyID to
-	// the legacy/default proxy while the acquired Redis slot belongs to another
-	// account-proxy binding.
-	preserveSelectedAccountProxy(selected, latest)
 	vetoed, reason := openAIProfitControlVetoReason(ctx, latest)
 	return latest, vetoed, reason
-}
-
-func preserveSelectedAccountProxy(selected, latest *Account) {
-	if selected == nil || latest == nil || selected.ProxyID == nil || len(selected.ProxyPool) == 0 {
-		return
-	}
-	selectedProxyID := *selected.ProxyID
-	var selectedProxy *Proxy
-	for _, item := range selected.ProxyPool {
-		if item.ProxyID == selectedProxyID {
-			selectedProxy = item.Proxy
-			break
-		}
-	}
-	if selectedProxy == nil {
-		selectedProxy = selected.Proxy
-	}
-
-	for _, item := range latest.ProxyPool {
-		if item.ProxyID != selectedProxyID {
-			continue
-		}
-		latest.ProxyID = &selectedProxyID
-		if item.Proxy != nil {
-			latest.Proxy = item.Proxy
-		} else if latest.Proxy == nil {
-			latest.Proxy = selectedProxy
-		}
-		return
-	}
-
-	// The binding may have been removed after admission. Keep the admitted
-	// binding for this in-flight request so its acquired slot and forwarding
-	// endpoint remain consistent; the next scheduling cycle will observe the
-	// refreshed pool and stop using it.
-	latest.ProxyPool = selected.ProxyPool
-	latest.ProxyID = &selectedProxyID
-	if selectedProxy != nil {
-		latest.Proxy = selectedProxy
-	}
 }
 
 func (s *GatewayService) isGatewayAccountProfitEligible(ctx context.Context, account *Account) bool {

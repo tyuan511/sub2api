@@ -1,12 +1,12 @@
 <template>
-  <div class="mt-3 grid grid-cols-3 divide-x divide-gray-200/80 dark:divide-dark-700/80">
-    <div class="min-w-0 pr-2">
-      <div class="text-[10px] font-medium leading-tight text-gray-500 dark:text-gray-400">
+  <div class="mt-3 grid grid-cols-2 gap-3">
+    <div>
+      <div class="text-[11px] uppercase tracking-widest text-gray-400">
         {{ windowLabel }}
       </div>
       <div class="mt-1 flex items-baseline gap-0.5">
         <span
-          class="text-xl font-semibold tabular-nums leading-none"
+          class="text-3xl font-bold tabular-nums leading-none"
           :style="colorStyle"
         >
           {{ displayValue }}
@@ -17,32 +17,13 @@
         >%</span>
       </div>
     </div>
-
-    <div class="min-w-0 px-2">
-      <div class="text-[10px] font-medium leading-tight text-gray-500 dark:text-gray-400">
-        {{ t('monitorCommon.firstToken') }}
-      </div>
-      <div class="mt-1 flex items-baseline gap-0.5">
-        <span
-          class="text-xl font-semibold tabular-nums leading-none"
-          :class="firstTokenColorClass"
-        >
-          {{ firstTokenDisplayValue }}
-        </span>
-        <span
-          class="text-xs font-medium leading-none"
-          :class="firstTokenColorClass"
-        >ms</span>
-      </div>
-    </div>
-
-    <div class="min-w-0 pl-2">
-      <div class="text-[10px] font-medium leading-tight text-gray-500 dark:text-gray-400">
+    <div class="border-l border-gray-100 dark:border-dark-700/60 pl-3">
+      <div class="text-[11px] uppercase tracking-widest text-gray-400">
         {{ t('monitorCommon.cacheHitRate') }}
       </div>
       <div class="mt-1 flex items-baseline gap-0.5">
         <span
-          class="text-xl font-semibold tabular-nums leading-none"
+          class="text-3xl font-bold tabular-nums leading-none"
           :style="cacheColorStyle"
         >
           {{ cacheDisplayValue }}
@@ -66,12 +47,10 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { hslForPct } from '@/composables/useChannelMonitorFormat'
-import { firstTokenSeverity, LATENCY_TEXT_CLASSES } from '@/utils/latencyHealth'
 
 const props = defineProps<{
   windowLabel: string
   value: number | null
-  firstTokenMs?: number | null
   cacheHitRate: number | null
   samplesLabel?: string
 }>()
@@ -96,19 +75,5 @@ const cacheDisplayValue = computed(() => {
 const cacheColorStyle = computed(() => {
   const colour = hslForPct(props.cacheHitRate)
   return colour ? { color: colour } : { color: 'rgb(156 163 175)' }
-})
-
-const firstTokenDisplayValue = computed(() => {
-  if (props.firstTokenMs == null || Number.isNaN(props.firstTokenMs)) {
-    return t('monitorCommon.latencyEmpty')
-  }
-  return String(Math.round(props.firstTokenMs))
-})
-
-const firstTokenColorClass = computed(() => {
-  if (props.firstTokenMs == null || Number.isNaN(props.firstTokenMs)) {
-    return 'text-gray-900 dark:text-gray-100'
-  }
-  return LATENCY_TEXT_CLASSES[firstTokenSeverity(props.firstTokenMs)]
 })
 </script>

@@ -52,7 +52,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { t } = useI18n()
-const { statusLabel, formatLatency, formatRelativeTime } = useChannelMonitorFormat()
+const { statusLabel, formatLatency, formatTokensPerSecond, formatRelativeTime } = useChannelMonitorFormat()
 
 interface Bar {
   colorClass: string
@@ -106,13 +106,14 @@ const displayBars = computed<Bar[]>(() => {
       : STATUS_COLOR[status] ?? STATUS_COLOR.empty
     const heightPct = STATUS_HEIGHT[status] ?? STATUS_HEIGHT.empty
     const firstToken = formatLatency(point.first_token_ms)
+    const tokensPerSecond = formatTokensPerSecond(point.tokens_per_second)
     const relative = formatRelativeTime(point.checked_at)
     const label = statusLabel(point.status)
     bars.push({
       colorClass,
       heightPct,
       title: point.first_token_ms != null
-        ? `${relative} · ${label} · ${t('monitorCommon.firstToken')} ${firstToken}ms`
+        ? `${relative} · ${label} · ${t('monitorCommon.firstToken')} ${firstToken}ms · ${t('monitorCommon.tokenSpeed')} ${tokensPerSecond} Token/s`
         : `${relative} · ${label}`,
     })
   }

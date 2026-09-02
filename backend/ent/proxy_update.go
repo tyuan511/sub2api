@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/ent/accountproxy"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 )
@@ -263,21 +262,6 @@ func (_u *ProxyUpdate) AddAccounts(v ...*Account) *ProxyUpdate {
 	return _u.AddAccountIDs(ids...)
 }
 
-// AddAccountProxyPoolIDs adds the "account_proxy_pool" edge to the AccountProxy entity by IDs.
-func (_u *ProxyUpdate) AddAccountProxyPoolIDs(ids ...int64) *ProxyUpdate {
-	_u.mutation.AddAccountProxyPoolIDs(ids...)
-	return _u
-}
-
-// AddAccountProxyPool adds the "account_proxy_pool" edges to the AccountProxy entity.
-func (_u *ProxyUpdate) AddAccountProxyPool(v ...*AccountProxy) *ProxyUpdate {
-	ids := make([]int64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddAccountProxyPoolIDs(ids...)
-}
-
 // SetBackupProxy sets the "backup_proxy" edge to the Proxy entity.
 func (_u *ProxyUpdate) SetBackupProxy(v *Proxy) *ProxyUpdate {
 	return _u.SetBackupProxyID(v.ID)
@@ -322,27 +306,6 @@ func (_u *ProxyUpdate) RemoveAccounts(v ...*Account) *ProxyUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAccountIDs(ids...)
-}
-
-// ClearAccountProxyPool clears all "account_proxy_pool" edges to the AccountProxy entity.
-func (_u *ProxyUpdate) ClearAccountProxyPool() *ProxyUpdate {
-	_u.mutation.ClearAccountProxyPool()
-	return _u
-}
-
-// RemoveAccountProxyPoolIDs removes the "account_proxy_pool" edge to AccountProxy entities by IDs.
-func (_u *ProxyUpdate) RemoveAccountProxyPoolIDs(ids ...int64) *ProxyUpdate {
-	_u.mutation.RemoveAccountProxyPoolIDs(ids...)
-	return _u
-}
-
-// RemoveAccountProxyPool removes "account_proxy_pool" edges to AccountProxy entities.
-func (_u *ProxyUpdate) RemoveAccountProxyPool(v ...*AccountProxy) *ProxyUpdate {
-	ids := make([]int64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveAccountProxyPoolIDs(ids...)
 }
 
 // ClearBackupProxy clears the "backup_proxy" edge to the Proxy entity.
@@ -558,51 +521,6 @@ func (_u *ProxyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.AccountProxyPoolCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: true,
-			Table:   proxy.AccountProxyPoolTable,
-			Columns: []string{proxy.AccountProxyPoolColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(accountproxy.FieldID, field.TypeInt64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedAccountProxyPoolIDs(); len(nodes) > 0 && !_u.mutation.AccountProxyPoolCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: true,
-			Table:   proxy.AccountProxyPoolTable,
-			Columns: []string{proxy.AccountProxyPoolColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(accountproxy.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.AccountProxyPoolIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: true,
-			Table:   proxy.AccountProxyPoolTable,
-			Columns: []string{proxy.AccountProxyPoolColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(accountproxy.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -949,21 +867,6 @@ func (_u *ProxyUpdateOne) AddAccounts(v ...*Account) *ProxyUpdateOne {
 	return _u.AddAccountIDs(ids...)
 }
 
-// AddAccountProxyPoolIDs adds the "account_proxy_pool" edge to the AccountProxy entity by IDs.
-func (_u *ProxyUpdateOne) AddAccountProxyPoolIDs(ids ...int64) *ProxyUpdateOne {
-	_u.mutation.AddAccountProxyPoolIDs(ids...)
-	return _u
-}
-
-// AddAccountProxyPool adds the "account_proxy_pool" edges to the AccountProxy entity.
-func (_u *ProxyUpdateOne) AddAccountProxyPool(v ...*AccountProxy) *ProxyUpdateOne {
-	ids := make([]int64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddAccountProxyPoolIDs(ids...)
-}
-
 // SetBackupProxy sets the "backup_proxy" edge to the Proxy entity.
 func (_u *ProxyUpdateOne) SetBackupProxy(v *Proxy) *ProxyUpdateOne {
 	return _u.SetBackupProxyID(v.ID)
@@ -1008,27 +911,6 @@ func (_u *ProxyUpdateOne) RemoveAccounts(v ...*Account) *ProxyUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAccountIDs(ids...)
-}
-
-// ClearAccountProxyPool clears all "account_proxy_pool" edges to the AccountProxy entity.
-func (_u *ProxyUpdateOne) ClearAccountProxyPool() *ProxyUpdateOne {
-	_u.mutation.ClearAccountProxyPool()
-	return _u
-}
-
-// RemoveAccountProxyPoolIDs removes the "account_proxy_pool" edge to AccountProxy entities by IDs.
-func (_u *ProxyUpdateOne) RemoveAccountProxyPoolIDs(ids ...int64) *ProxyUpdateOne {
-	_u.mutation.RemoveAccountProxyPoolIDs(ids...)
-	return _u
-}
-
-// RemoveAccountProxyPool removes "account_proxy_pool" edges to AccountProxy entities.
-func (_u *ProxyUpdateOne) RemoveAccountProxyPool(v ...*AccountProxy) *ProxyUpdateOne {
-	ids := make([]int64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.RemoveAccountProxyPoolIDs(ids...)
 }
 
 // ClearBackupProxy clears the "backup_proxy" edge to the Proxy entity.
@@ -1274,51 +1156,6 @@ func (_u *ProxyUpdateOne) sqlSave(ctx context.Context) (_node *Proxy, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.AccountProxyPoolCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: true,
-			Table:   proxy.AccountProxyPoolTable,
-			Columns: []string{proxy.AccountProxyPoolColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(accountproxy.FieldID, field.TypeInt64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedAccountProxyPoolIDs(); len(nodes) > 0 && !_u.mutation.AccountProxyPoolCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: true,
-			Table:   proxy.AccountProxyPoolTable,
-			Columns: []string{proxy.AccountProxyPoolColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(accountproxy.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.AccountProxyPoolIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: true,
-			Table:   proxy.AccountProxyPoolTable,
-			Columns: []string{proxy.AccountProxyPoolColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(accountproxy.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

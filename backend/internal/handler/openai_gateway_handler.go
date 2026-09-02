@@ -1736,9 +1736,10 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 		return nil, openAISlotAcquireFailed
 	}
 
-	fastReleaseFunc, fastAcquired, err := h.concurrencyHelper.TryAcquireAccountSlotForAccount(
+	fastReleaseFunc, fastAcquired, err := h.concurrencyHelper.TryAcquireAccountSlot(
 		ctx,
-		account,
+		account.ID,
+		selection.WaitPlan.MaxConcurrency,
 	)
 	if err != nil {
 		reqLog.Warn("openai.account_slot_quick_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
@@ -1800,9 +1801,10 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	}
 	defer releaseWait()
 
-	accountReleaseFunc, err := h.concurrencyHelper.AcquireAccountSlotForAccountWithWaitTimeout(
+	accountReleaseFunc, err := h.concurrencyHelper.AcquireAccountSlotWithWaitTimeout(
 		c,
-		account,
+		account.ID,
+		selection.WaitPlan.MaxConcurrency,
 		selection.WaitPlan.Timeout,
 		reqStream,
 		streamStarted,
@@ -2226,6 +2228,10 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 
 		account := selection.Account
+		accountMaxConcurrency := account.Concurrency
+		if selection.WaitPlan != nil && selection.WaitPlan.MaxConcurrency > 0 {
+			accountMaxConcurrency = selection.WaitPlan.MaxConcurrency
+		}
 		// 终检、准入后绑定与后续 turn 级复核都使用选号结果携带的门（composite
 		// 等跨分组调度的门只存在于调度栈局部 ctx）；准入成功后并入连接 ctx。
 		admissionCtx := service.ContextWithSelectionProfitGate(ctx, selection)
@@ -2253,9 +2259,10 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "account is busy, please retry later")
 				return
 			}
-			fastReleaseFunc, fastAcquired, err := h.concurrencyHelper.TryAcquireAccountSlotForAccount(
+			fastReleaseFunc, fastAcquired, err := h.concurrencyHelper.TryAcquireAccountSlot(
 				ctx,
-				account,
+				account.ID,
+				selection.WaitPlan.MaxConcurrency,
 			)
 			if err != nil {
 				reqLog.Warn("openai.websocket_account_slot_acquire_failed", zap.Int64("account_id", account.ID), zap.Error(err))
@@ -2442,15 +2449,18 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if !userAcquired {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "too many concurrent requests, please retry later", nil)
 				}
-				accountReleaseFunc, err := h.concurrencyHelper.AcquireAccountSlotForAccountWithProxyWaitContext(ctx, account, account.ProxyID, maxConcurrencyWait)
+				accountReleaseFunc, accountAcquired, err := h.concurrencyHelper.TryAcquireAccountSlot(ctx, account.ID, accountMaxConcurrency)
 				if err != nil {
 					if userReleaseFunc != nil {
 						userReleaseFunc()
 					}
-					if errors.Is(err, context.DeadlineExceeded) {
-						return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "account is busy, please retry later", nil)
-					}
 					return service.NewOpenAIWSClientCloseError(coderws.StatusInternalError, "failed to acquire account concurrency slot", err)
+				}
+				if !accountAcquired {
+					if userReleaseFunc != nil {
+						userReleaseFunc()
+					}
+					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "account is busy, please retry later", nil)
 				}
 				// 多代理池：同一连接内复用首次绑定的出口代理（请求级 memo），
 				// 未绑定过（换号后首个 turn）时在此绑定。
@@ -2625,7 +2635,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						return
 					}
 					if currentAccountRelease == nil {
-						accountRelease, acquired, acquireErr := h.concurrencyHelper.TryAcquireAccountSlotForAccountWithProxy(ctx, account, account.ProxyID)
+						accountRelease, acquired, acquireErr := h.concurrencyHelper.TryAcquireAccountSlot(ctx, account.ID, accountMaxConcurrency)
 						if acquireErr != nil || !acquired {
 							reqLog.Warn("openai.websocket_same_account_retry_slot_unavailable",
 								zap.Int64("account_id", account.ID),

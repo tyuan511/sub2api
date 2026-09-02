@@ -117,12 +117,6 @@ func TestProxyUpdateSkipsProbeInvalidationForNonIdentityChange(t *testing.T) {
 		WithArgs(int64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	expectProxyUpdateReload(mock, 9, "same.example", "", "")
-	mock.ExpectQuery(`(?s)SELECT DISTINCT a\.id.*FROM accounts a.*account_proxies ap.*ORDER BY a\.id`).
-		WithArgs(int64(9)).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(17)))
-	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)")).
-		WithArgs(service.SchedulerOutboxEventAccountBulkChanged, nil, nil, accountIDsPayloadMatcher{want: []int64{17}}).
-		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
 	repo := newProxyRepositoryWithSQL(client, db)
@@ -201,7 +195,7 @@ func TestEnqueueProxyAccountChangesChunksLargePayloads(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(1, 1))
 	}
 
-	err = enqueueProxyAccountChanges(context.Background(), db, accountIDs)
+	err = enqueueProxyProbeAccountChanges(context.Background(), db, accountIDs)
 
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())

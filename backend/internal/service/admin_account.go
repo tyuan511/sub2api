@@ -232,15 +232,6 @@ func cloneAccountValuePointer[T any](value *T) *T {
 	return &cloned
 }
 
-func cloneAccountProxyPool(pool []AccountProxyConfig) []AccountProxyConfig {
-	if len(pool) == 0 {
-		return nil
-	}
-	cloned := make([]AccountProxyConfig, len(pool))
-	copy(cloned, pool)
-	return cloned
-}
-
 // DuplicateAccount creates a paused account from source configuration without carrying first-class
 // runtime state. Credentials and extra configuration are deep-copied so normalization of the new
 // account cannot mutate the in-memory source. Linked credential shadows are excluded because they
@@ -295,14 +286,9 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 	autoPauseOnExpired := source.AutoPauseOnExpired
 	groups, groupIDs := duplicateAccountGroups(source)
 	proxyID := source.ProxyID
-	proxyPool := cloneAccountProxyPool(source.ProxyPool)
 	if source.ProxyFallbackOriginID != nil {
 		// Proxy fallback is transient runtime state; duplicate the configured origin.
 		proxyID = source.ProxyFallbackOriginID
-		proxyPool = []AccountProxyConfig{{ProxyID: *proxyID, Concurrency: source.Concurrency, Proxy: source.Proxy}}
-	}
-	if len(proxyPool) == 0 && proxyID != nil {
-		proxyPool = []AccountProxyConfig{{ProxyID: *proxyID, Concurrency: source.Concurrency, Proxy: source.Proxy}}
 	}
 	input := &CreateAccountInput{
 		Name:                  duplicateAccountName(source.Name),
@@ -423,19 +409,6 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	delete(accountExtra, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(accountExtra, OllamaCloudUsageSnapshotExtraKey)
 	accountExtra = prepareCodexFingerprintExtraForCreate(input.Platform, input.Type, accountExtra)
-	proxyPool, err := NormalizeAccountProxyPool(input.ProxyPool)
-	if err != nil {
-		return nil, err
-	}
-	proxyID := input.ProxyID
-	if input.ProxyPool != nil {
-		if len(proxyPool) == 0 {
-			proxyID = nil
-		} else {
-			id := proxyPool[0].ProxyID
-			proxyID = &id
-		}
-	}
 	account := &Account{
 		Name:        input.Name,
 		Notes:       normalizeAccountNotes(input.Notes),
@@ -443,8 +416,7 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 		Type:        input.Type,
 		Credentials: input.Credentials,
 		Extra:       accountExtra,
-		ProxyID:     proxyID,
-		ProxyPool:   proxyPool,
+		ProxyID:     input.ProxyID,
 		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
 		Priority:    input.Priority,
 		Status:      StatusActive,
@@ -491,50 +463,7 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	return account, nil
 }
 
-func proxyPoolIDs(pool []AccountProxyConfig) []int64 {
-	ids := make([]int64, 0, len(pool))
-	for _, item := range pool {
-		ids = append(ids, item.ProxyID)
-	}
-	return ids
-}
-
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
-	if input == nil {
-		return nil, ErrAccountNilInput
-	}
-	proxyPool, err := NormalizeAccountProxyPool(input.ProxyPool)
-	if err != nil {
-		return nil, err
-	}
-	if input.ProxyPool != nil {
-		input.ProxyPool = proxyPool
-	}
-	if len(proxyPool) > 0 {
-		if s.proxyRepo == nil {
-			return nil, errors.New("proxy repository not configured")
-		}
-		proxies, err := s.proxyRepo.ListByIDs(ctx, proxyPoolIDs(proxyPool))
-		if err != nil {
-			return nil, fmt.Errorf("validate account proxy pool: %w", err)
-		}
-		if len(proxies) != len(proxyPool) {
-			return nil, errors.New("proxy_pool contains an unknown proxy")
-		}
-		proxyByID := make(map[int64]*Proxy, len(proxies))
-		for i := range proxies {
-			proxy := proxies[i]
-			proxyByID[proxy.ID] = &proxy
-		}
-		for i := range proxyPool {
-			proxyPool[i].Proxy = proxyByID[proxyPool[i].ProxyID]
-		}
-		input.ProxyPool = proxyPool
-		proxyID := proxyPool[0].ProxyID
-		input.ProxyID = &proxyID
-	} else if input.ProxyPool != nil {
-		input.ProxyID = nil
-	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err
@@ -643,9 +572,6 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 }
 
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {
-	if input == nil {
-		return nil, ErrAccountNilInput
-	}
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -818,55 +744,14 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	// 影子代理恒继承母账号(由 propagateProxyToShadows 同步),不接受独立编辑——外审 B/P1;
 	// 否则要等母账号下次改 proxy 才被覆盖,期间影子会出现"有时继承、有时独立"的漂移。
-	if input.ProxyID != nil && input.ProxyPool == nil && !account.IsCredentialShadow() {
+	if input.ProxyID != nil && !account.IsCredentialShadow() {
 		// 0 表示清除代理（前端发送 0 而不是 null 来表达清除意图）
-		// An explicit proxy edit replaces the temporary fallback choice; a later
-		// manual revert must not resurrect the endpoint the operator just removed.
-		account.ProxyFallbackOriginID = nil
 		if *input.ProxyID == 0 {
 			account.ProxyID = nil
-			account.ProxyPool = []AccountProxyConfig{}
 		} else {
 			account.ProxyID = input.ProxyID
-			account.ProxyPool = []AccountProxyConfig{{ProxyID: *input.ProxyID, Concurrency: account.Concurrency, Proxy: account.Proxy}}
 		}
 		account.Proxy = nil // 清除关联对象，防止 GORM Save 时根据 Proxy.ID 覆盖 ProxyID
-	}
-	if input.ProxyPool != nil && !account.IsCredentialShadow() {
-		// Supplying the pool is an explicit replacement of the account's proxy
-		// configuration, so it also exits any automatic proxy fallback state.
-		account.ProxyFallbackOriginID = nil
-		proxyPool, err := NormalizeAccountProxyPool(*input.ProxyPool)
-		if err != nil {
-			return nil, err
-		}
-		if len(proxyPool) > 0 {
-			if s.proxyRepo == nil {
-				return nil, errors.New("proxy repository not configured")
-			}
-			proxies, err := s.proxyRepo.ListByIDs(ctx, proxyPoolIDs(proxyPool))
-			if err != nil {
-				return nil, fmt.Errorf("validate account proxy pool: %w", err)
-			}
-			if len(proxies) != len(proxyPool) {
-				return nil, errors.New("proxy_pool contains an unknown proxy")
-			}
-			proxyByID := make(map[int64]*Proxy, len(proxies))
-			for i := range proxies {
-				proxy := proxies[i]
-				proxyByID[proxy.ID] = &proxy
-			}
-			for i := range proxyPool {
-				proxyPool[i].Proxy = proxyByID[proxyPool[i].ProxyID]
-			}
-			account.ProxyPool = proxyPool
-			proxyID := proxyPool[0].ProxyID
-			account.ProxyID = &proxyID
-		} else {
-			account.ProxyPool = []AccountProxyConfig{}
-			account.ProxyID = nil
-		}
-		account.Proxy = nil
 	}
 	if !reflect.DeepEqual(previousProbeIdentity, upstreamBillingProbeIdentity(account)) && account.Extra != nil {
 		delete(account.Extra, UpstreamBillingProbeExtraKey)
@@ -889,11 +774,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	// 只在指针非 nil 时更新 Concurrency（支持设置为 0）
 	if input.Concurrency != nil {
 		account.Concurrency = normalizeAccountConcurrency(account.Platform, account.Type, *input.Concurrency)
-		// A legacy proxy edit creates a singleton pool. Keep its cap aligned with
-		// the final account concurrency when both fields change in one request.
-		if input.ProxyID != nil && input.ProxyPool == nil && len(account.ProxyPool) == 1 {
-			account.ProxyPool[0].Concurrency = account.Concurrency
-		}
 	}
 	// 多代理池账号的并发恒等于池之和：本次没有改池时把（可能被前端/旧客户端传来的）
 	// 账号并发重新对齐，避免账号容量与池容量失配。
@@ -1035,11 +915,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 	} else if err := persist(ctx); err != nil {
 		return nil, err
-	}
-	if input.ProxyPool != nil && !account.IsCredentialShadow() {
-		if err := s.propagateProxyPoolToShadows(ctx, id, account.ProxyID, account.ProxyPool); err != nil {
-			return nil, err
-		}
 	}
 
 	// 绑定分组
@@ -1598,7 +1473,6 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 		ParentAccountID: &parentID,
 		QuotaDimension:  QuotaDimensionSpark,
 		ProxyID:         parent.ProxyID,
-		ProxyPool:       cloneAccountProxyPool(parent.ProxyPool),
 		Priority:        priority,
 		Concurrency:     concurrency,
 		Schedulable:     true,
@@ -1660,31 +1534,16 @@ func (s *adminServiceImpl) propagateProxyToShadows(ctx context.Context, parentID
 	return propagateAccountProxyToShadows(ctx, s.accountRepo, parentID, proxyID)
 }
 
-func (s *adminServiceImpl) propagateProxyPoolToShadows(ctx context.Context, parentID int64, proxyID *int64, pool []AccountProxyConfig) error {
-	return propagateAccountProxyPoolToShadows(ctx, s.accountRepo, parentID, proxyID, pool)
-}
-
 // propagateAccountProxyToShadows 把母账号的 proxy 同步到其所有 spark 影子(影子 proxy 恒继承母账号)。
 // 供 AdminService 编辑路径与 CRS 同步路径共用——后者改动母账号 proxy 后必须同样传播,否则影子保留
 // 旧 proxy 出现出站漂移(外审第8轮)。
 func propagateAccountProxyToShadows(ctx context.Context, repo AccountRepository, parentID int64, proxyID *int64) error {
-	return propagateAccountProxyPoolToShadows(ctx, repo, parentID, proxyID, nil)
-}
-
-func propagateAccountProxyPoolToShadows(ctx context.Context, repo AccountRepository, parentID int64, proxyID *int64, pool []AccountProxyConfig) error {
 	shadows, err := repo.ListShadowsByParent(ctx, parentID)
 	if err != nil {
 		return fmt.Errorf("list spark shadows for proxy propagation: %w", err)
 	}
 	for _, shadow := range shadows {
 		shadow.ProxyID = proxyID
-		if proxyID == nil {
-			shadow.ProxyPool = []AccountProxyConfig{}
-		} else if len(pool) > 0 {
-			shadow.ProxyPool = cloneAccountProxyPool(pool)
-		} else {
-			shadow.ProxyPool = []AccountProxyConfig{{ProxyID: *proxyID, Concurrency: shadow.Concurrency, Proxy: shadow.Proxy}}
-		}
 		if err := repo.Update(ctx, shadow); err != nil {
 			return fmt.Errorf("update spark shadow %d proxy: %w", shadow.ID, err)
 		}

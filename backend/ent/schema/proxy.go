@@ -73,8 +73,6 @@ func (Proxy) Edges() []ent.Edge {
 		// accounts: 使用此代理的账户（反向边）
 		edge.From("accounts", Account.Type).
 			Ref("proxy"),
-		edge.From("account_proxy_pool", AccountProxy.Type).
-			Ref("proxy"),
 		edge.To("backup_proxy", Proxy.Type).
 			Field("backup_proxy_id").
 			Unique(),

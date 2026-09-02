@@ -182,35 +182,33 @@ type AccountBulkUpdate struct {
 
 // CreateAccountRequest 创建账号请求
 type CreateAccountRequest struct {
-	Name               string               `json:"name"`
-	Notes              *string              `json:"notes"`
-	Platform           string               `json:"platform"`
-	Type               string               `json:"type"`
-	Credentials        map[string]any       `json:"credentials"`
-	Extra              map[string]any       `json:"extra"`
-	ProxyID            *int64               `json:"proxy_id"`
-	ProxyPool          []AccountProxyConfig `json:"proxy_pool,omitempty"`
-	Concurrency        int                  `json:"concurrency"`
-	Priority           int                  `json:"priority"`
-	GroupIDs           []int64              `json:"group_ids"`
-	ExpiresAt          *time.Time           `json:"expires_at"`
-	AutoPauseOnExpired *bool                `json:"auto_pause_on_expired"`
+	Name               string         `json:"name"`
+	Notes              *string        `json:"notes"`
+	Platform           string         `json:"platform"`
+	Type               string         `json:"type"`
+	Credentials        map[string]any `json:"credentials"`
+	Extra              map[string]any `json:"extra"`
+	ProxyID            *int64         `json:"proxy_id"`
+	Concurrency        int            `json:"concurrency"`
+	Priority           int            `json:"priority"`
+	GroupIDs           []int64        `json:"group_ids"`
+	ExpiresAt          *time.Time     `json:"expires_at"`
+	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
 }
 
 // UpdateAccountRequest 更新账号请求
 type UpdateAccountRequest struct {
-	Name               *string               `json:"name"`
-	Notes              *string               `json:"notes"`
-	Credentials        *map[string]any       `json:"credentials"`
-	Extra              *map[string]any       `json:"extra"`
-	ProxyID            *int64                `json:"proxy_id"`
-	ProxyPool          *[]AccountProxyConfig `json:"proxy_pool,omitempty"`
-	Concurrency        *int                  `json:"concurrency"`
-	Priority           *int                  `json:"priority"`
-	Status             *string               `json:"status"`
-	GroupIDs           *[]int64              `json:"group_ids"`
-	ExpiresAt          *time.Time            `json:"expires_at"`
-	AutoPauseOnExpired *bool                 `json:"auto_pause_on_expired"`
+	Name               *string         `json:"name"`
+	Notes              *string         `json:"notes"`
+	Credentials        *map[string]any `json:"credentials"`
+	Extra              *map[string]any `json:"extra"`
+	ProxyID            *int64          `json:"proxy_id"`
+	Concurrency        *int            `json:"concurrency"`
+	Priority           *int            `json:"priority"`
+	Status             *string         `json:"status"`
+	GroupIDs           *[]int64        `json:"group_ids"`
+	ExpiresAt          *time.Time      `json:"expires_at"`
+	AutoPauseOnExpired *bool           `json:"auto_pause_on_expired"`
 }
 
 // AccountService 账号管理服务
@@ -233,19 +231,6 @@ func NewAccountService(accountRepo AccountRepository, groupRepo GroupRepository)
 
 // Create 创建账号
 func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (*Account, error) {
-	proxyPool, err := NormalizeAccountProxyPool(req.ProxyPool)
-	if err != nil {
-		return nil, err
-	}
-	if req.ProxyPool != nil {
-		req.ProxyPool = proxyPool
-		if len(proxyPool) == 0 {
-			req.ProxyID = nil
-		} else {
-			proxyID := proxyPool[0].ProxyID
-			req.ProxyID = &proxyID
-		}
-	}
 	// 验证分组是否存在（如果指定了分组）
 	if len(req.GroupIDs) > 0 {
 		if err := s.validateGroupIDsExist(ctx, req.GroupIDs); err != nil {
@@ -262,7 +247,6 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 		Credentials: SanitizeStoredCredentials(req.Platform, req.Credentials),
 		Extra:       prepareCodexFingerprintExtraForCreate(req.Platform, req.Type, req.Extra),
 		ProxyID:     req.ProxyID,
-		ProxyPool:   req.ProxyPool,
 		Concurrency: req.Concurrency,
 		Priority:    req.Priority,
 		Status:      StatusActive,
@@ -370,40 +354,11 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	}
 
 	if req.ProxyID != nil {
-		// An explicit proxy edit supersedes an automatic fallback and must not be
-		// undone by a later manual revert operation.
-		account.ProxyFallbackOriginID = nil
 		account.ProxyID = req.ProxyID
-		if *req.ProxyID > 0 {
-			account.ProxyPool = []AccountProxyConfig{{ProxyID: *req.ProxyID, Concurrency: account.Concurrency, Proxy: account.Proxy}}
-		} else {
-			account.ProxyID = nil
-			account.ProxyPool = []AccountProxyConfig{}
-		}
-	}
-	if req.ProxyPool != nil {
-		// A supplied pool is an explicit replacement of the proxy configuration.
-		account.ProxyFallbackOriginID = nil
-		proxyPool, err := NormalizeAccountProxyPool(*req.ProxyPool)
-		if err != nil {
-			return nil, err
-		}
-		account.ProxyPool = proxyPool
-		if len(proxyPool) > 0 {
-			proxyID := proxyPool[0].ProxyID
-			account.ProxyID = &proxyID
-		} else {
-			account.ProxyID = nil
-		}
 	}
 
 	if req.Concurrency != nil {
 		account.Concurrency = *req.Concurrency
-		// Legacy proxy edits are represented as a singleton pool. Apply the new
-		// account concurrency before persisting that compatibility binding.
-		if req.ProxyID != nil && req.ProxyPool == nil && len(account.ProxyPool) == 1 {
-			account.ProxyPool[0].Concurrency = account.Concurrency
-		}
 	}
 
 	if req.Priority != nil {

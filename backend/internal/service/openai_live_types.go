@@ -50,13 +50,9 @@ type LiveCallIdentity struct {
 }
 
 type LiveCallRecord struct {
-	CallID    string
-	CallHash  string
-	AccountID int64
-	// ProxyID is the account-scoped proxy binding selected when the Live call
-	// was created. It is persisted so a later controller/observer can refresh
-	// and release the same proxy-level lease across processes.
-	ProxyID         int64
+	CallID          string
+	CallHash        string
+	AccountID       int64
 	APIKeyID        int64
 	UserID          int64
 	GroupID         int64
@@ -104,19 +100,4 @@ type LiveConcurrencyCache interface {
 	) (bool, error)
 	RefreshLiveLease(ctx context.Context, accountID, userID, apiKeyID int64, leaseID string) (bool, error)
 	ReleaseLiveLease(ctx context.Context, accountID, userID, apiKeyID int64, leaseID string) error
-}
-
-// AccountProxyLiveConcurrencyCache is optional for compatibility with old
-// test doubles and non-Redis caches. Production Redis implementations use it
-// whenever a Live call is routed through an account-scoped proxy pool.
-type AccountProxyLiveConcurrencyCache interface {
-	AcquireAccountProxyLiveLease(
-		ctx context.Context,
-		accountID, proxyID int64,
-		proxyMax int,
-		leaseID string,
-		replacingRegularSlots bool,
-	) (bool, error)
-	RefreshAccountProxyLiveLease(ctx context.Context, accountID, proxyID int64, leaseID string) (bool, error)
-	ReleaseAccountProxyLiveLease(ctx context.Context, accountID, proxyID int64, leaseID string) error
 }

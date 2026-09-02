@@ -4,7 +4,6 @@ package service
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"hash/fnv"
 	"log/slog"
 	"net/url"
@@ -85,45 +84,6 @@ type Account struct {
 	headerOverrideCacheRawPtr         uintptr
 	headerOverrideCacheRawLen         int
 	headerOverrideCacheRawSig         uint64
-}
-
-// AccountProxyConfig describes one proxy endpoint in an account's pool.
-// A zero concurrency means unlimited, matching account concurrency semantics.
-type AccountProxyConfig struct {
-	ProxyID     int64  `json:"proxy_id"`
-	Concurrency int    `json:"concurrency"`
-	Position    int    `json:"position,omitempty"`
-	Proxy       *Proxy `json:"proxy,omitempty"`
-}
-
-// NormalizeAccountProxyPool validates and copies a proxy pool while retaining
-// its configured order. Order is used as the equal-weight round-robin order.
-func NormalizeAccountProxyPool(pool []AccountProxyConfig) ([]AccountProxyConfig, error) {
-	if pool == nil {
-		return nil, nil
-	}
-	if len(pool) == 0 {
-		// Keep a non-nil empty slice so callers can distinguish an omitted
-		// proxy_pool from an explicit request to clear the pool.
-		return []AccountProxyConfig{}, nil
-	}
-	seen := make(map[int64]struct{}, len(pool))
-	out := make([]AccountProxyConfig, 0, len(pool))
-	for index, item := range pool {
-		if item.ProxyID <= 0 {
-			return nil, errors.New("proxy_pool.proxy_id must be positive")
-		}
-		if item.Concurrency < 0 {
-			return nil, errors.New("proxy_pool.concurrency must be >= 0")
-		}
-		if _, exists := seen[item.ProxyID]; exists {
-			return nil, fmt.Errorf("proxy_pool contains duplicate proxy_id %d", item.ProxyID)
-		}
-		seen[item.ProxyID] = struct{}{}
-		item.Position = index
-		out = append(out, item)
-	}
-	return out, nil
 }
 
 type OpenAIEndpointCapability string

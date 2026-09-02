@@ -27,7 +27,7 @@ func ResolveProxyFallbackTarget(start Proxy, byID map[int64]Proxy, now time.Time
 			if !ok {
 				return nil, false
 			}
-			if !(&p).IsExpired(now) && p.Status != StatusExpired && p.Status != StatusDisabled {
+			if !(&p).IsExpired(now) && p.Status != StatusExpired {
 				id := p.ID
 				return &id, true
 			}

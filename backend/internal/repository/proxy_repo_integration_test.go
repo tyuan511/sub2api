@@ -205,25 +205,6 @@ func (s *ProxyRepoSuite) TestCountAccountsByProxyID_Zero() {
 	s.Require().Zero(count)
 }
 
-func (s *ProxyRepoSuite) TestCountAccountsByProxyID_IgnoresSoftDeletedPoolAccounts() {
-	proxy := s.mustCreateProxy(&service.Proxy{Name: "p-count-deleted", Protocol: "http", Host: "127.0.0.1", Port: 8080, Status: service.StatusActive})
-	s.mustInsertAccount("a-count-deleted", nil)
-	var accountID int64
-	err := scanSingleRow(s.ctx, s.tx, `
-		SELECT id FROM accounts WHERE name = $1 ORDER BY id DESC LIMIT 1`, []any{"a-count-deleted"}, &accountID)
-	s.Require().NoError(err)
-	_, err = s.tx.ExecContext(s.ctx, `
-		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
-		VALUES ($1, $2, 3, 0)`, accountID, proxy.ID)
-	s.Require().NoError(err)
-	_, err = s.tx.ExecContext(s.ctx, `UPDATE accounts SET deleted_at = NOW() WHERE id = $1`, accountID)
-	s.Require().NoError(err)
-
-	count, err := s.repo.CountAccountsByProxyID(s.ctx, proxy.ID)
-	s.Require().NoError(err)
-	s.Require().Zero(count)
-}
-
 // --- GetAccountCountsForProxies ---
 
 func (s *ProxyRepoSuite) TestGetAccountCountsForProxies() {
@@ -233,32 +214,11 @@ func (s *ProxyRepoSuite) TestGetAccountCountsForProxies() {
 	s.mustInsertAccount("a1", &p1.ID)
 	s.mustInsertAccount("a2", &p1.ID)
 	s.mustInsertAccount("a3", &p2.ID)
-	s.mustInsertAccount("a4-pool-only", nil)
-	var poolOnlyAccountID int64
-	err := scanSingleRow(s.ctx, s.tx, `
-		SELECT id FROM accounts WHERE name = $1 ORDER BY id DESC LIMIT 1`, []any{"a4-pool-only"}, &poolOnlyAccountID)
-	s.Require().NoError(err)
-	_, err = s.tx.ExecContext(s.ctx, `
-		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
-		VALUES ($1, $2, 4, 0)`, poolOnlyAccountID, p2.ID)
-	s.Require().NoError(err)
-
-	// A partially migrated account may be present in both the legacy column and
-	// the pool. It must count once, while a pool-only account must still count.
-	s.mustInsertAccount("a5-duplicate-reference", &p1.ID)
-	var duplicateReferenceAccountID int64
-	err = scanSingleRow(s.ctx, s.tx, `
-		SELECT id FROM accounts WHERE name = $1 ORDER BY id DESC LIMIT 1`, []any{"a5-duplicate-reference"}, &duplicateReferenceAccountID)
-	s.Require().NoError(err)
-	_, err = s.tx.ExecContext(s.ctx, `
-		INSERT INTO account_proxies (account_id, proxy_id, concurrency, position)
-		VALUES ($1, $2, 4, 0)`, duplicateReferenceAccountID, p1.ID)
-	s.Require().NoError(err)
 
 	counts, err := s.repo.GetAccountCountsForProxies(s.ctx)
 	s.Require().NoError(err, "GetAccountCountsForProxies")
-	s.Require().Equal(int64(3), counts[p1.ID])
-	s.Require().Equal(int64(2), counts[p2.ID])
+	s.Require().Equal(int64(2), counts[p1.ID])
+	s.Require().Equal(int64(1), counts[p2.ID])
 }
 
 func (s *ProxyRepoSuite) TestGetAccountCountsForProxies_Empty() {

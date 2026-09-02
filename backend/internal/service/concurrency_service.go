@@ -55,15 +55,6 @@ type ConcurrencyCache interface {
 	CleanupStaleProcessSlots(ctx context.Context, activeRequestPrefix string) error
 }
 
-// AccountProxyConcurrencyCache is optional to keep existing test doubles and
-// non-Redis deployments source-compatible. The production Redis cache
-// implements it to enforce each account/proxy binding independently.
-type AccountProxyConcurrencyCache interface {
-	AcquireAccountProxySlot(ctx context.Context, accountID, proxyID int64, maxConcurrency int, requestID string) (bool, error)
-	ReleaseAccountProxySlot(ctx context.Context, accountID, proxyID int64, requestID string) error
-	NextAccountProxyIndex(ctx context.Context, accountID int64, poolSize int) (int, error)
-}
-
 type APIKeyConcurrencyCache interface {
 	TrackAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error
 	ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error
@@ -324,14 +315,6 @@ type AcquireResult struct {
 type AccountWithConcurrency struct {
 	ID             int64
 	MaxConcurrency int
-	ProxyPool      []AccountProxyWithConcurrency
-}
-
-// AccountProxyWithConcurrency describes the binding caps needed for a
-// proxy-aware load read.  It deliberately contains no endpoint credentials.
-type AccountProxyWithConcurrency struct {
-	ProxyID        int64
-	MaxConcurrency int
 }
 
 type UserWithConcurrency struct {
@@ -340,12 +323,10 @@ type UserWithConcurrency struct {
 }
 
 type AccountLoadInfo struct {
-	AccountID           int64
-	CurrentConcurrency  int
-	WaitingCount        int
-	LoadRate            int // 0-100+ (percent), including the least-loaded proxy binding
-	ProxyLoadRates      map[int64]int
-	AvailableProxyCount int
+	AccountID          int64
+	CurrentConcurrency int
+	WaitingCount       int
+	LoadRate           int // 0-100+ (percent)
 }
 
 type UserLoadInfo struct {
@@ -392,222 +373,6 @@ func (s *ConcurrencyService) AcquireAccountSlot(ctx context.Context, accountID i
 		Acquired:    false,
 		ReleaseFunc: nil,
 	}, nil
-}
-
-// AcquireAccountSlotForAccount acquires the account slot and then one proxy
-// pool slot. If every configured proxy is full, the account slot is released
-// immediately and Acquired=false is returned; callers must not fall back to a
-// proxy outside the pool.
-func (s *ConcurrencyService) AcquireAccountSlotForAccount(ctx context.Context, account *Account) (*AcquireResult, error) {
-	return s.acquireAccountSlotForAccount(ctx, account, nil)
-}
-
-// AcquireAccountSlotForAccountWithProxy acquires the account slot and the
-// binding-specific proxy slot for a request that must stay on an already
-// established proxy (for example, a later turn on the same upstream
-// WebSocket). A nil preferredProxyID uses the normal equal-weight selection.
-func (s *ConcurrencyService) AcquireAccountSlotForAccountWithProxy(ctx context.Context, account *Account, preferredProxyID *int64) (*AcquireResult, error) {
-	return s.acquireAccountSlotForAccount(ctx, account, preferredProxyID)
-}
-
-// AcquireAccountSlotForAccountWithProxyWait retries the complete composite
-// resource (account slot plus the selected account/proxy binding).  Waiting
-// only on the account key is incorrect for proxy pools because an account slot
-// may be free while every configured proxy binding is saturated.
-func (s *ConcurrencyService) AcquireAccountSlotForAccountWithProxyWait(ctx context.Context, account *Account, preferredProxyID *int64, timeout time.Duration) (*AcquireResult, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	waitCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	backoff := 100 * time.Millisecond
-	for {
-		result, err := s.AcquireAccountSlotForAccountWithProxy(waitCtx, account, preferredProxyID)
-		if err != nil || (result != nil && result.Acquired) {
-			return result, err
-		}
-		timer := time.NewTimer(backoff)
-		select {
-		case <-waitCtx.Done():
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			return &AcquireResult{Acquired: false}, context.DeadlineExceeded
-		case <-timer.C:
-		}
-		if backoff < 2*time.Second {
-			backoff = time.Duration(float64(backoff) * 1.5)
-			if backoff > 2*time.Second {
-				backoff = 2 * time.Second
-			}
-		}
-	}
-}
-
-func (s *ConcurrencyService) acquireAccountSlotForAccount(ctx context.Context, account *Account, preferredProxyID *int64) (*AcquireResult, error) {
-	if account == nil {
-		return &AcquireResult{Acquired: false}, nil
-	}
-	// Accounts written before the proxy-pool migration (or old scheduler
-	// metadata still in Redis) may have only the legacy proxy fields. Treat that
-	// representation as a singleton pool so the new proxy cap is not bypassed.
-	if account.ProxyPool == nil && account.ProxyID != nil && account.Proxy != nil {
-		account.ProxyPool = []AccountProxyConfig{{
-			ProxyID:     *account.ProxyID,
-			Concurrency: account.Concurrency,
-			Proxy:       account.Proxy,
-		}}
-	}
-	accountResult, err := s.AcquireAccountSlot(ctx, account.ID, account.Concurrency)
-	if err != nil || accountResult == nil || !accountResult.Acquired {
-		return accountResult, err
-	}
-	if len(account.ProxyPool) == 0 {
-		// A non-nil empty pool is an explicit direct-connection configuration.
-		// Do not let a stale legacy ProxyID/Proxy survive that state and bypass
-		// the pool contract in forwarding code that still reads the legacy fields.
-		if account.ProxyPool != nil {
-			account.ProxyID = nil
-			account.Proxy = nil
-		}
-		// Preserve legacy accounts that have no pool, but do not let an expired
-		// legacy endpoint bypass the final expiry guard below.
-		if account.Proxy != nil && proxyUnavailable(account.Proxy, time.Now()) {
-			if accountResult.ReleaseFunc != nil {
-				accountResult.ReleaseFunc()
-			}
-			return &AcquireResult{Acquired: false}, nil
-		}
-		return accountResult, nil
-	}
-
-	proxy, proxyRelease, ok, err := s.acquireAccountProxySlot(ctx, account, preferredProxyID)
-	if err != nil {
-		if accountResult.ReleaseFunc != nil {
-			accountResult.ReleaseFunc()
-		}
-		return nil, err
-	}
-	if !ok || proxy == nil {
-		if accountResult.ReleaseFunc != nil {
-			accountResult.ReleaseFunc()
-		}
-		return &AcquireResult{Acquired: false}, nil
-	}
-	account.ProxyID = &proxy.ID
-	account.Proxy = proxy
-	accountResult.ReleaseFunc = onceRelease(accountResult.ReleaseFunc, proxyRelease)
-	return accountResult, nil
-}
-
-// AcquireAccountProxySlot chooses equal-weight round-robin candidates and
-// skips only proxies whose own binding cap is currently full.
-func (s *ConcurrencyService) AcquireAccountProxySlot(ctx context.Context, account *Account) (*Proxy, func(), bool, error) {
-	if s == nil || account == nil || len(account.ProxyPool) == 0 {
-		return nil, nil, false, nil
-	}
-	return s.acquireAccountProxySlot(ctx, account, nil)
-}
-
-func (s *ConcurrencyService) acquireAccountProxySlot(ctx context.Context, account *Account, preferredProxyID *int64) (*Proxy, func(), bool, error) {
-	if s == nil || account == nil || len(account.ProxyPool) == 0 {
-		return nil, nil, false, nil
-	}
-	cache, distributed := s.cache.(AccountProxyConcurrencyCache)
-	start := 0
-	if preferredProxyID != nil {
-		found := false
-		for index, item := range account.ProxyPool {
-			if item.ProxyID == *preferredProxyID {
-				start = index
-				found = true
-				break
-			}
-		}
-		// A preferred binding that disappeared from the pool must not silently
-		// fall back to the legacy/default proxy and bypass the pool contract.
-		if !found {
-			return nil, nil, false, nil
-		}
-	} else if distributed {
-		var err error
-		start, err = cache.NextAccountProxyIndex(ctx, account.ID, len(account.ProxyPool))
-		if err != nil {
-			return nil, nil, false, err
-		}
-		if start < 0 {
-			start = 0
-		}
-		start %= len(account.ProxyPool)
-	}
-	proxyAttempts := len(account.ProxyPool)
-	if preferredProxyID != nil {
-		proxyAttempts = 1
-	}
-	for offset := 0; offset < proxyAttempts; offset++ {
-		item := account.ProxyPool[(start+offset)%len(account.ProxyPool)]
-		if item.Proxy == nil || item.Proxy.ID <= 0 {
-			continue
-		}
-		// Expiry cleanup and scheduler snapshot publication are asynchronous.
-		// Reject an endpoint that is already known to be expired here as a final
-		// guard, so a stale snapshot can never route traffic through it.
-		if proxyUnavailable(item.Proxy, time.Now()) {
-			continue
-		}
-		if item.Concurrency <= 0 || !distributed {
-			return item.Proxy, func() {}, true, nil
-		}
-		requestID := generateRequestID()
-		acquired, err := cache.AcquireAccountProxySlot(ctx, account.ID, item.ProxyID, item.Concurrency, requestID)
-		if err != nil {
-			return nil, nil, false, err
-		}
-		if !acquired {
-			continue
-		}
-		return item.Proxy, func() {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := cache.ReleaseAccountProxySlot(bgCtx, account.ID, item.ProxyID, requestID); err != nil {
-				logger.LegacyPrintf("service.concurrency", "Warning: failed to release account proxy slot for account %d proxy %d (req=%s): %v", account.ID, item.ProxyID, requestID, err)
-			}
-		}, true, nil
-	}
-	return nil, nil, false, nil
-}
-
-func onceRelease(releases ...func()) func() {
-	var once sync.Once
-	return func() {
-		once.Do(func() {
-			for _, release := range releases {
-				if release != nil {
-					release()
-				}
-			}
-		})
-	}
-}
-
-// proxyUnavailable treats an explicitly disabled endpoint like an expired
-// endpoint. Empty/unknown status is kept compatible with old in-memory
-// accounts and test fixtures; only statuses that are known to be unusable are
-// rejected here.
-func proxyUnavailable(proxy *Proxy, now time.Time) bool {
-	if proxy == nil {
-		return true
-	}
-	return proxy.Status == StatusExpired || proxy.Status == StatusDisabled || proxy.IsExpired(now)
 }
 
 // AcquireUserSlot attempts to acquire a concurrency slot for a user.
@@ -867,26 +632,6 @@ func (s *ConcurrencyService) fetchAccountsLoadBatch(ctx context.Context, account
 	return s.cache.GetAccountsLoadBatch(redisCtx, accounts)
 }
 
-// AccountWithConcurrencyFor builds the complete load request for an account,
-// including each account-scoped proxy binding.
-func AccountWithConcurrencyFor(account *Account) AccountWithConcurrency {
-	if account == nil {
-		return AccountWithConcurrency{}
-	}
-	request := AccountWithConcurrency{ID: account.ID, MaxConcurrency: account.EffectiveLoadFactor()}
-	if len(account.ProxyPool) == 0 {
-		return request
-	}
-	request.ProxyPool = make([]AccountProxyWithConcurrency, 0, len(account.ProxyPool))
-	for _, proxy := range account.ProxyPool {
-		request.ProxyPool = append(request.ProxyPool, AccountProxyWithConcurrency{
-			ProxyID:        proxy.ProxyID,
-			MaxConcurrency: proxy.Concurrency,
-		})
-	}
-	return request
-}
-
 func (s *ConcurrencyService) getCachedAccountLoadBatch(key string, now time.Time) (map[int64]*AccountLoadInfo, bool) {
 	s.accountLoadCacheMu.RLock()
 	cached, ok := s.accountLoadCache[key]
@@ -938,11 +683,6 @@ func accountLoadBatchCacheKey(accounts []AccountWithConcurrency) string {
 		binary.LittleEndian.PutUint64(buf[:8], uint64(account.ID))
 		binary.LittleEndian.PutUint64(buf[8:], uint64(int64(account.MaxConcurrency)))
 		_, _ = hash.Write(buf[:])
-		for _, proxy := range account.ProxyPool {
-			binary.LittleEndian.PutUint64(buf[:8], uint64(proxy.ProxyID))
-			binary.LittleEndian.PutUint64(buf[8:], uint64(int64(proxy.MaxConcurrency)))
-			_, _ = hash.Write(buf[:])
-		}
 	}
 	sum := hash.Sum(nil)
 	return strconv.Itoa(len(accounts)) + ":" + hex.EncodeToString(sum)
@@ -959,12 +699,6 @@ func cloneAccountLoadMap(loadMap map[int64]*AccountLoadInfo) map[int64]*AccountL
 			continue
 		}
 		copied := *loadInfo
-		if loadInfo.ProxyLoadRates != nil {
-			copied.ProxyLoadRates = make(map[int64]int, len(loadInfo.ProxyLoadRates))
-			for proxyID, loadRate := range loadInfo.ProxyLoadRates {
-				copied.ProxyLoadRates[proxyID] = loadRate
-			}
-		}
 		clone[accountID] = &copied
 	}
 	return clone

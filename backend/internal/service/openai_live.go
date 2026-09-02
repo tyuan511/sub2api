@@ -195,38 +195,10 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 			return nil, ErrLiveConcurrencyFull
 		}
 
-		proxyID, proxyMax, hasProxyPool := selectedLiveProxy(account)
-		if hasProxyPool {
-			proxyLiveCache, supported := liveCache.(AccountProxyLiveConcurrencyCache)
-			if !supported {
-				selection.ReleaseFunc()
-				s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID, 0)
-				return nil, ErrLiveUnavailable
-			}
-			proxyAcquired, proxyAcquireErr := proxyLiveCache.AcquireAccountProxyLiveLease(
-				ctx,
-				account.ID,
-				proxyID,
-				proxyMax,
-				leaseID,
-				true,
-			)
-			if proxyAcquireErr != nil || !proxyAcquired {
-				selection.ReleaseFunc()
-				// A timeout can happen after Redis committed the proxy lease; the
-				// idempotent release therefore also removes the proxy member.
-				s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID, proxyID)
-				if proxyAcquireErr != nil {
-					return nil, proxyAcquireErr
-				}
-				return nil, ErrLiveConcurrencyFull
-			}
-		}
-
 		created, createErr := s.createUpstreamLiveCall(ctx, account, request, attestation)
 		selection.ReleaseFunc()
 		if createErr != nil {
-			s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID, proxyID)
+			s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID)
 			if !s.shouldFailoverLiveCreateError(createErr) {
 				return nil, createErr
 			}
@@ -244,7 +216,6 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 			CallID:                created.CallID,
 			CallHash:              hashLiveCallID(created.CallID),
 			AccountID:             account.ID,
-			ProxyID:               proxyID,
 			APIKeyID:              identity.APIKeyID,
 			UserID:                identity.UserID,
 			GroupID:               liveGroupID(identity.GroupID),
@@ -261,7 +232,7 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 		}
 		mappingTTL := s.liveMaxSessionDuration() + 5*time.Minute
 		if saveErr := store.SaveLiveCall(ctx, record, mappingTTL); saveErr != nil {
-			s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID, proxyID)
+			s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID)
 			return nil, fmt.Errorf("save live call mapping: %w", saveErr)
 		}
 		created.Account = account
@@ -272,22 +243,6 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 		return nil, lastErr
 	}
 	return nil, ErrLiveUnavailable
-}
-
-// selectedLiveProxy returns the account-scoped binding selected by the
-// scheduler. A pool is considered present only when the selected binding is
-// fully identified; an incomplete selection is reported as no pool here and
-// is rejected by the normal account/proxy acquisition path before creation.
-func selectedLiveProxy(account *Account) (proxyID int64, proxyMax int, hasPool bool) {
-	if account == nil || len(account.ProxyPool) == 0 || account.ProxyID == nil || *account.ProxyID <= 0 {
-		return 0, 0, false
-	}
-	for _, item := range account.ProxyPool {
-		if item.ProxyID == *account.ProxyID {
-			return item.ProxyID, item.Concurrency, true
-		}
-	}
-	return 0, 0, false
 }
 
 func (s *OpenAIGatewayService) shouldFailoverLiveCreateError(err error) bool {
@@ -491,9 +446,6 @@ func (s *OpenAIGatewayService) dialLiveSideband(ctx context.Context, record *Liv
 	if account == nil || !account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityLive) {
 		return nil, ErrLiveUnavailable
 	}
-	if err := bindLiveCallProxy(account, record.ProxyID); err != nil {
-		return nil, err
-	}
 	headers, err := s.liveSidebandHeaders(ctx, account, record)
 	if err != nil {
 		return nil, err
@@ -509,36 +461,6 @@ func (s *OpenAIGatewayService) dialLiveSideband(ctx context.Context, record *Liv
 		return nil, errors.New("live sideband transport does not support raw frames")
 	}
 	return raw, nil
-}
-
-// bindLiveCallProxy restores the exact account-scoped proxy binding selected
-// during Live call creation. GetByID returns the legacy/default proxy (the
-// first pool entry), which is not necessarily the binding used for this call.
-// Reconnecting a sideband through that default would split one Live session
-// across different egress IPs and make the proxy lease accounting inaccurate.
-func bindLiveCallProxy(account *Account, proxyID int64) error {
-	if account == nil || proxyID <= 0 {
-		return nil
-	}
-	if len(account.ProxyPool) > 0 {
-		for _, item := range account.ProxyPool {
-			if item.ProxyID != proxyID {
-				continue
-			}
-			if item.Proxy == nil || item.Proxy.ID != proxyID {
-				return fmt.Errorf("live proxy %d is unavailable", proxyID)
-			}
-			id := proxyID
-			account.ProxyID = &id
-			account.Proxy = item.Proxy
-			return nil
-		}
-		return fmt.Errorf("live proxy %d is no longer bound to account %d", proxyID, account.ID)
-	}
-	if account.ProxyID == nil || *account.ProxyID != proxyID || account.Proxy == nil || account.Proxy.ID != proxyID {
-		return fmt.Errorf("live proxy %d is no longer available for account %d", proxyID, account.ID)
-	}
-	return nil
 }
 
 func (s *OpenAIGatewayService) GetLiveCallForIdentity(
@@ -858,21 +780,11 @@ func (s *OpenAIGatewayService) refreshLiveLease(record *LiveCallRecord) bool {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), liveRedisOperationTimeout)
 	defer cancel()
-	if record.ProxyID > 0 {
-		proxyCache, ok := cache.(AccountProxyLiveConcurrencyCache)
-		if !ok {
-			return false
-		}
-		refreshed, err := proxyCache.RefreshAccountProxyLiveLease(ctx, record.AccountID, record.ProxyID, record.LeaseID)
-		if err != nil || !refreshed {
-			return false
-		}
-	}
 	refreshed, err := cache.RefreshLiveLease(ctx, record.AccountID, record.UserID, record.APIKeyID, record.LeaseID)
 	return err == nil && refreshed
 }
 
-func (s *OpenAIGatewayService) releaseLiveLease(accountID, userID, apiKeyID int64, leaseID string, proxyID int64) {
+func (s *OpenAIGatewayService) releaseLiveLease(accountID, userID, apiKeyID int64, leaseID string) {
 	cache, err := s.liveConcurrencyCache()
 	if err != nil {
 		return
@@ -880,11 +792,6 @@ func (s *OpenAIGatewayService) releaseLiveLease(accountID, userID, apiKeyID int6
 	ctx, cancel := context.WithTimeout(context.Background(), liveRedisOperationTimeout)
 	defer cancel()
 	_ = cache.ReleaseLiveLease(ctx, accountID, userID, apiKeyID, leaseID)
-	if proxyID > 0 {
-		if proxyCache, ok := cache.(AccountProxyLiveConcurrencyCache); ok {
-			_ = proxyCache.ReleaseAccountProxyLiveLease(ctx, accountID, proxyID, leaseID)
-		}
-	}
 }
 
 func (s *OpenAIGatewayService) finalizeLiveCall(record *LiveCallRecord) {
@@ -901,7 +808,7 @@ func (s *OpenAIGatewayService) finalizeLiveCall(record *LiveCallRecord) {
 	if err != nil || !first {
 		return
 	}
-	s.releaseLiveLease(record.AccountID, record.UserID, record.APIKeyID, record.LeaseID, record.ProxyID)
+	s.releaseLiveLease(record.AccountID, record.UserID, record.APIKeyID, record.LeaseID)
 	if s.usageLogRepo == nil {
 		return
 	}

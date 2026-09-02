@@ -142,44 +142,6 @@ func TestCreateUpstreamLiveCallPreservesSession(t *testing.T) {
 	require.True(t, HTTPUpstreamRedirectsDisabled(upstream.request.Context()))
 }
 
-func TestBindLiveCallProxyRestoresSelectedPoolBinding(t *testing.T) {
-	first := &Proxy{ID: 101, Host: "first.example"}
-	second := &Proxy{ID: 202, Host: "second.example"}
-	defaultProxyID := first.ID
-	account := &Account{
-		ID:      7,
-		ProxyID: &defaultProxyID,
-		Proxy:   first,
-		ProxyPool: []AccountProxyConfig{
-			{ProxyID: first.ID, Proxy: first},
-			{ProxyID: second.ID, Proxy: second},
-		},
-	}
-
-	require.NoError(t, bindLiveCallProxy(account, second.ID))
-	require.NotNil(t, account.ProxyID)
-	require.Equal(t, second.ID, *account.ProxyID)
-	require.Same(t, second, account.Proxy)
-}
-
-func TestBindLiveCallProxyRejectsBindingRemovedFromPool(t *testing.T) {
-	first := &Proxy{ID: 101, Host: "first.example"}
-	second := &Proxy{ID: 202, Host: "second.example"}
-	defaultProxyID := first.ID
-	account := &Account{
-		ID:        7,
-		ProxyID:   &defaultProxyID,
-		Proxy:     first,
-		ProxyPool: []AccountProxyConfig{{ProxyID: first.ID, Proxy: first}},
-	}
-
-	err := bindLiveCallProxy(account, second.ID)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no longer bound")
-	require.Equal(t, defaultProxyID, *account.ProxyID, "failed rebinding must not mutate the account")
-	require.Same(t, first, account.Proxy)
-}
-
 func TestLiveAttestationCipherRoundTripAndRejectsOtherInstanceKey(t *testing.T) {
 	first := newLiveAttestationCipher(&config.Config{
 		JWT: config.JWTConfig{Secret: "first-live-secret"},

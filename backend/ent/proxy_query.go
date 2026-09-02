@@ -89,28 +89,6 @@ func (_q *ProxyQuery) QueryAccounts() *AccountQuery {
 	return query
 }
 
-// QueryAccountProxyPool chains the current query on the "account_proxy_pool" edge.
-func (_q *ProxyQuery) QueryAccountProxyPool() *AccountProxyQuery {
-	query := (&AccountProxyClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(proxy.Table, proxy.FieldID, selector),
-			sqlgraph.To(accountproxy.Table, accountproxy.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, true, proxy.AccountProxyPoolTable, proxy.AccountProxyPoolColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
 // QueryBackupProxy chains the current query on the "backup_proxy" edge.
 func (_q *ProxyQuery) QueryBackupProxy() *ProxyQuery {
 	query := (&ProxyClient{config: _q.config}).Query()
@@ -390,17 +368,6 @@ func (_q *ProxyQuery) WithAccounts(opts ...func(*AccountQuery)) *ProxyQuery {
 	return _q
 }
 
-// WithAccountProxyPool tells the query-builder to eager-load the nodes that are connected to
-// the "account_proxy_pool" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *ProxyQuery) WithAccountProxyPool(opts ...func(*AccountProxyQuery)) *ProxyQuery {
-	query := (&AccountProxyClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withAccountProxyPool = query
-	return _q
-}
-
 // WithBackupProxy tells the query-builder to eager-load the nodes that are connected to
 // the "backup_proxy" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *ProxyQuery) WithBackupProxy(opts ...func(*ProxyQuery)) *ProxyQuery {
@@ -514,7 +481,6 @@ func (_q *ProxyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proxy,
 		_spec       = _q.querySpec()
 		loadedTypes = [4]bool{
 			_q.withAccounts != nil,
-			_q.withAccountProxyPool != nil,
 			_q.withBackupProxy != nil,
 			_q.withPooledAccounts != nil,
 			_q.withAccountProxies != nil,
@@ -545,13 +511,6 @@ func (_q *ProxyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proxy,
 		if err := _q.loadAccounts(ctx, query, nodes,
 			func(n *Proxy) { n.Edges.Accounts = []*Account{} },
 			func(n *Proxy, e *Account) { n.Edges.Accounts = append(n.Edges.Accounts, e) }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withAccountProxyPool; query != nil {
-		if err := _q.loadAccountProxyPool(ctx, query, nodes,
-			func(n *Proxy) { n.Edges.AccountProxyPool = []*AccountProxy{} },
-			func(n *Proxy, e *AccountProxy) { n.Edges.AccountProxyPool = append(n.Edges.AccountProxyPool, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -606,36 +565,6 @@ func (_q *ProxyQuery) loadAccounts(ctx context.Context, query *AccountQuery, nod
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "proxy_id" returned %v for node %v`, *fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
-func (_q *ProxyQuery) loadAccountProxyPool(ctx context.Context, query *AccountProxyQuery, nodes []*Proxy, init func(*Proxy), assign func(*Proxy, *AccountProxy)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int64]*Proxy)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(accountproxy.FieldProxyID)
-	}
-	query.Where(predicate.AccountProxy(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(proxy.AccountProxyPoolColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.ProxyID
-		node, ok := nodeids[fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "proxy_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}
