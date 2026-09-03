@@ -54,7 +54,7 @@ var allowedLogFields = map[string]struct{}{
 	"action": {}, "chunk_index": {}, "chunk_total": {}, "chunk_chars": {}, "input_chars": {},
 	"input_limit": {}, "latency_ms": {}, "status": {}, "error_code": {}, "error_kind": {},
 	"queue_length": {}, "queue_capacity": {}, "stage": {}, "upstream_dispatched": {},
-	"billing_preconsumed": {}, "worker_id": {}, "reclaimed_total": {}, "attempts": {},
+	"billing_preconsumed": {}, "fail_open": {}, "worker_id": {}, "reclaimed_total": {}, "attempts": {},
 	"max_attempts": {}, "claim_version": {}, "http_status": {}, "retryable": {},
 }
 

@@ -35,7 +35,7 @@ ok github.com/mt21625457/aicodex/internal/gatewayadapter/transport 3.233s
 | 9 | Guard SSRF、DNS/Dial 复检、重定向/响应上限；`outbound_security.go` | prompt-input-audit：凭据和出站地址安全 | `prompt_outbound_security.go` | A03 |
 | 10 | Qwen3Guard `Safety/Categories` 解析；`qwen3guard.go` | prompt-input-audit：严格归一 | `prompt_qwen3guard.go` | A08 |
 | 11 | 九类官方输入风险；`qwen3guard.go`、页面 scanner catalog | prompt-input-audit：九类；console：九类配置 | `prompt_qwen3guard.go`、前端 types/viewModel | A08、C04 |
-| 12 | Safe/Controversial/Unsafe → Allow/Warn/Block；`openai_client.go`、`normalize.go` | prompt-input-audit：严格归一；guard：fail-closed | `prompt_qwen3guard.go`、`prompt_scanner.go` | A08、G06 |
+| 12 | Safe/Controversial/Unsafe → Allow/Warn/Block；`openai_client.go`、`normalize.go` | prompt-input-audit：严格归一；guard：Block fail-closed / 故障 fail-open | `prompt_qwen3guard.go`、`prompt_scanner.go` | A08、G06 |
 | 13 | 高风险 Controversial 提升、未知 Unsafe 保持 Block；`openai_client.go` | prompt-input-audit：严格归一 | `prompt_qwen3guard.go` | A08 |
 | 14 | Chat/Responses/Claude 多协议快照；`snapshot.go`、`multiprotocol.go` | prompt-input-audit：按协议提取 | `prompt_snapshot.go` | A04 |
 | 15 | Gemini、图片/媒体等 transport 传递提示词上下文；gatewayadapter changes | prompt-input-audit：所有文本入口；guard：路由覆盖 | `prompt_snapshot.go`、各 Handler 薄接线 | A04、G04 |
@@ -56,8 +56,8 @@ ok github.com/mt21625457/aicodex/internal/gatewayadapter/transport 3.233s
 | 30 | config active/expected version 和失效通知；`config.go`、`runtime.go` | prompt-input-guard：版本化热路径快照 | `prompt_config.go`、`prompt_runtime.go` | G10、C07 |
 | 31 | 同步 evaluator 不依赖 Worker；`synchronous_guard.go` | prompt-input-guard：同步门禁/结果复用 | `prompt_guard.go` | G03、G09 |
 | 32 | 总 deadline、ordered failover、bulkhead；`synchronous_guard.go` | prompt-input-guard：共享预算/故障切换 | `prompt_guard.go` | G05、G06 |
-| 33 | HTTP fail-closed 403/503；`prompt_guard.go`、router 接线 | prompt-input-guard：HTTP 稳定错误 | Handler helper + OpenAI/Claude code、Gemini ErrorInfo adapter | G03、G07 |
-| 34 | WS 4403/1013；`ws_responses.go` | prompt-input-guard：每轮 WS 门禁 | Responses WS Handler | G08 |
+| 33 | HTTP Block fail-closed 403，Guard 故障 fail-open；`prompt_guard.go`、router 接线 | prompt-input-guard：HTTP 稳定错误 | Handler helper + OpenAI/Claude code、Gemini ErrorInfo adapter | G03、G07 |
+| 34 | WS Block 4403，故障 fail-open；`ws_responses.go` | prompt-input-guard：每轮 WS 门禁 | Responses WS Handler | G08 |
 | 35 | 同步结果轻量记录、不重复 Guard；`synchronous_guard.go` | prompt-input-guard：结果复用 | `prompt_guard.go`、Repository | G09 |
 | 36 | Guard metrics Allow/Flag/Block/Unavailable/timeout/failover/bulkhead；`synchronous_guard.go`、`runtime.go` | prompt-input-guard：可观测；console：运行态 | `prompt_runtime.go`、metrics adapter | G11、C07 |
 | 37 | 事件列表/详情、复合筛选；`store.go`、controller | prompt-input-audit：查询事件；console：列表详情 | `prompt_repository.go`、`prompt_handler.go`、前端 | A12、C08 |

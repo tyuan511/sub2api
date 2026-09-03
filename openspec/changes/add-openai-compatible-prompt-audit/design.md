@@ -23,7 +23,7 @@ sub2api 当前已经存在一套完整的内容审核能力：
 - 进程内 Worker、重试、租约和滞留回收。
 - 脱敏快照、Hash、Unicode 分片、最新输入优先。
 - 九类风险和严格 `Safety/Categories` 解析。
-- 异步审计与同步 fail-closed 阻断。
+- 异步审计与同步阻断（Block fail-closed，Guard 自身故障 fail-open）。
 - HTTP、SSE、Responses WebSocket 错误映射。
 - 节点探测、运行态、事件筛选/详情/硬删除和独立控制台页面。
 
@@ -55,7 +55,7 @@ sub2api 当前已经存在一套完整的内容审核能力：
 - 在不改变现有内容审核语义的前提下完整引入提示词输入审计。
 - 使用模块化垂直目录封装新能力，限制对现有代码的修改面。
 - 保持所有现有 OpenAI/Claude/Gemini/媒体兼容入口的请求和响应 envelope。
-- 提供异步不阻塞和同步 fail-closed 两种模式。
+- 提供异步不阻塞和同步阻断两种模式；同步模式只对 Block fail-closed，Guard 故障 fail-open。
 - 在同步 Block/Unavailable 时保证无账号、无计费、无上游副作用。
 - 支持多实例持久任务消费和配置最终一致。
 - 只持久化脱敏、可关联、可复核的数据。
@@ -146,9 +146,11 @@ Coordinator 只承担：
 
 1. 现有内容审核 Block：保留原状态、错误码和文案。
 2. Prompt Guard Block：403 + `prompt_guard_blocked`。
-3. Prompt Guard Invalid：503 + `prompt_guard_invalid_response`。
-4. Prompt Guard Unavailable：503 + `prompt_guard_unavailable`。
+3. Prompt Guard Invalid：fail-open 放行，仅以 `prompt_guard_invalid_response` 记日志/指标。
+4. Prompt Guard Unavailable：fail-open 放行，仅以 `prompt_guard_unavailable` 记日志/指标。
 5. 否则 Allow。
+
+审计依赖故障不得影响用户正常使用：只有明确的 Block 才拒绝请求。
 
 两个引擎的事件和副作用独立。Coordinator 不持久化业务事件，不修改风险分数。
 
@@ -511,8 +513,8 @@ HTTP 错误：
 | 情况 | HTTP | error_code |
 | --- | ---: | --- |
 | Block | 403 | prompt_guard_blocked |
-| Unavailable | 503 | prompt_guard_unavailable |
-| Invalid response | 503 | prompt_guard_invalid_response |
+| Unavailable | 无（fail-open 放行） | 仅日志/指标 prompt_guard_unavailable |
+| Invalid response | 无（fail-open 放行） | 仅日志/指标 prompt_guard_invalid_response |
 
 Handler 使用自己已有的 OpenAI、Claude 或 Gemini error helper。正文只包含通用中文消息、code 和 request ID。
 
@@ -532,7 +534,7 @@ Responses WebSocket：
 - 首个 response.create 在用户/账号 slot、计费和上游拨号前检查。
 - 每个后续 response.create 在本轮 slot、计费和上游发送前重新检查。
 - Block：close 4403，reason prompt_guard_blocked。
-- Unavailable/Invalid：close 1013，对应稳定 reason。
+- Unavailable/Invalid：不关闭连接，fail-open 继续本轮，仅记录稳定 error_code。
 - 日志 stage=first_turn/subsequent_turn。
 
 ### 16. 同步结果采用独立轻量记录路径
@@ -648,7 +650,7 @@ prompt_audit.events_delete_previewed
 prompt_audit.events_filter_deleted
 ```
 
-字段采用 allowlist：request_id、user_id、api_key_id、group_id、provider、protocol、endpoint、model、job_id、event_id、config_version、guard_endpoint_id、decision、risk_level、action、chunk_index、chunk_total、chunk_chars、input_chars、input_limit、latency_ms、status、error_code、error_kind、queue_length/capacity、stage、upstream_dispatched、billing_preconsumed。
+字段采用 allowlist：request_id、user_id、api_key_id、group_id、provider、protocol、endpoint、model、job_id、event_id、config_version、guard_endpoint_id、decision、risk_level、action、chunk_index、chunk_total、chunk_chars、input_chars、input_limit、latency_ms、status、error_code、error_kind、queue_length/capacity、stage、upstream_dispatched、billing_preconsumed、fail_open。
 
 禁止：body、raw_prompt、payload、token、authorization、完整 Base URL/query、Redis value。
 
@@ -680,7 +682,7 @@ prompt_audit.events_filter_deleted
 ## Risks / Trade-offs
 
 - [两个同步引擎会增加首字节延迟] → 只有管理员显式开启 blocking 才发生；并行执行、最新输入优先、Block 早停、共享 deadline、连接池和分组灰度。
-- [Guard 故障在 fail-closed 下影响可用性] → 多节点有序故障切换、bulkhead、真实探测、运行态告警和一键关闭 blocking；Unavailable 与 Block 使用不同错误码。
+- [Guard 故障影响可用性] → Guard 不可用/响应非法一律 fail-open 放行，配合多节点有序故障切换、bulkhead、真实探测、运行态告警和一键关闭 blocking；Unavailable 与 Block 在日志和指标上保持区分。
 - [Qwen3Guard 误报导致合法请求被拒绝] → 先运行 async 建立误报基线，再按 group 灰度 blocking；保留独立事件，不直接触发封号。
 - [两个引擎同时 Block 时语义冲突] → 固定现有内容审核响应优先级，两个事件仍独立记录。
 - [PostgreSQL/Redis 非事务导致悬挂状态] → staging → Redis SET → queued 发布协议；staging 回收和 TTL 清理。

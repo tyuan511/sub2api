@@ -178,12 +178,16 @@ func (g *GuardEvaluator) Evaluate(ctx context.Context, cfg ActiveConfig, snapsho
 	return decision, nil
 }
 
+// logGuardFailure records a synchronous Guard failure. Such failures are
+// fail-open by policy: the request is not rejected and keeps flowing to
+// account selection, billing and upstream, so this log deliberately does not
+// claim the "no downstream side effects" that a real Block guarantees.
 func logGuardFailure(snapshot PromptSnapshot, cfg ActiveConfig, kind DecisionKind, code, guardEndpointID string, latency time.Duration) {
 	fields := snapshotLogFields(snapshot)
 	fields["config_version"] = cfg.ConfigVersion
 	LogWarn(EventGuardFailed, mergeLogFields(fields, map[string]any{
 		"decision": kind, "guard_endpoint_id": guardEndpointID, "latency_ms": latency.Milliseconds(),
-		"status": "failed", "error_code": code, "upstream_dispatched": false, "billing_preconsumed": false,
+		"status": "failed", "error_code": code, "fail_open": true,
 	}))
 }
 

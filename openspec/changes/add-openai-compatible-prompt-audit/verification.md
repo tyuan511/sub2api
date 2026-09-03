@@ -51,11 +51,11 @@
 | G03 | 门禁在副作用之前 | Block/Unavailable/Invalid 的 account/billing/upstream counter 均为 0 | Ops 请求链日志 | 通过（矩阵） |
 | G04 | 覆盖所有协议入口 | routes 自动枚举/结构测试；HTTP/SSE/WS E2E 矩阵 | 已签字路由清单 | 通过（矩阵） |
 | G05 | 同步分片共享预算且完整 | fake clock 总 deadline；Block 早停；Allow 全片；最后片失败测试 | p95/p99 指标 | 通过（自动化） |
-| G06 | 有序 fail-closed 故障切换 | 连接/429/5xx/timeout failover；401/403/invalid 终止；bulkhead 测试 | 节点运行态 | 通过（自动化） |
-| G07 | HTTP 协议兼容错误 | OpenAI/Claude 可选 code、Gemini 数值 code/status + ErrorInfo reason golden；403/503 | curl 样本（脱敏） | 通过（golden） |
-| G08 | WS 每个 response.create 门禁 | 首轮/后续轮次 Allow/Block/Unavailable/Invalid 测试；4403/1013 | WS trace（无正文） | 通过（结构+golden） |
+| G06 | 有序故障切换后 fail-open | 连接/429/5xx/timeout failover；401/403/invalid 终止；bulkhead 测试 | 节点运行态 | 通过（自动化） |
+| G07 | HTTP 协议兼容错误 | OpenAI/Claude 可选 code、Gemini 数值 code/status + ErrorInfo reason golden；403 | curl 样本（脱敏） | 通过（golden） |
+| G08 | WS 每个 response.create 门禁 | 首轮/后续轮次 Allow/Block/Unavailable/Invalid 测试；Block 4403，故障 fail-open | WS trace（无正文） | 通过（结构+golden） |
 | G09 | 同步结果复用且不重复扫描 | Guard fake 调用次数=chunk 数；record failure 不改 decision；无二次调用 | event/job 关联 SQL | 通过（自动化） |
-| G10 | 版本化热路径快照 | PostgreSQL CAS 并发保存、双实例 invalidation、last-known-good、cold-start fail-closed、无热路径 DB 测试 | expected/active version 指标 | 通过（集成） |
+| G10 | 版本化热路径快照 | PostgreSQL CAS 并发保存、双实例 invalidation、last-known-good、cold-start fail-open、无热路径 DB 测试 | expected/active version 指标 | 通过（集成） |
 | G11 | 可观测且不泄密 | 稳定日志/指标词典测试；canary 全介质扫描 | Dashboard/runtime 截图 | 通过（自动化+扫描） |
 | G12 | 禁用/回滚即时生效 | blocking→async→off 多实例测试；进行中请求边界测试 | 回滚演练记录 | 通过（自动化；生产演练待签字） |
 
@@ -145,7 +145,7 @@ make build
 | true | false | false | off | 完全保持升级前行为 |
 | true | false | true | 配置保存失败 | 无运行态变化 |
 | true | true | false | async enqueue | 无论审计依赖成败都按原流程 |
-| true | true | true | blocking evaluate | Block/Unavailable/Invalid fail-closed |
+| true | true | true | blocking evaluate | Block fail-closed；Unavailable/Invalid fail-open |
 
 ### 4.2 HTTP/SSE/WS
 
@@ -153,17 +153,17 @@ make build
 
 | 入口 | 非流式 Allow | SSE/流式 Allow | Prompt Block | Unavailable | Invalid | 必查副作用 |
 | --- | --- | --- | --- | --- | --- | --- |
-| OpenAI Chat Completions | 原 envelope | Guard 前 0 bytes，之后原流 | 403 `prompt_guard_blocked` | 503 `prompt_guard_unavailable` | 503 `prompt_guard_invalid_response` | account/billing/upstream |
-| OpenAI Responses + aliases | 原 envelope | 同上 | 403 OpenAI-compatible | 503 | 503 | account/billing/upstream |
-| Claude Messages | 原 envelope | 同上 | 403 Anthropic envelope | 503 Anthropic envelope | 503 Anthropic envelope | account/billing/upstream |
-| Gemini generateContent | 原 envelope | 原流式行为 | 403 Google envelope + ErrorInfo reason | 503 + ErrorInfo reason | 503 + ErrorInfo reason | account/billing/upstream |
-| Images/Grok media 文本入口 | 原 envelope | 保持原 keepalive 时序 | 403 | 503 | 503 | image slot/billing/upstream/task |
-| Responses WS first turn | 正常继续 | N/A | close 4403 blocked | close 1013 unavailable | close 1013 invalid | user/account slot、billing、dial |
-| Responses WS subsequent | 本轮继续 | N/A | close 4403，stage=subsequent_turn | close 1013 | close 1013 | 本轮 slot、billing、upstream write |
+| OpenAI Chat Completions | 原 envelope | Guard 前 0 bytes，之后原流 | 403 `prompt_guard_blocked` | 放行，原 envelope；仅日志 `prompt_guard_unavailable` | 放行，原 envelope；仅日志 `prompt_guard_invalid_response` | account/billing/upstream |
+| OpenAI Responses + aliases | 原 envelope | 同上 | 403 OpenAI-compatible | 放行，原 envelope | 放行，原 envelope | account/billing/upstream |
+| Claude Messages | 原 envelope | 同上 | 403 Anthropic envelope | 放行，原 envelope | 放行，原 envelope | account/billing/upstream |
+| Gemini generateContent | 原 envelope | 原流式行为 | 403 Google envelope + ErrorInfo reason | 放行，原 envelope | 放行，原 envelope | account/billing/upstream |
+| Images/Grok media 文本入口 | 原 envelope | 保持原 keepalive 时序 | 403 | 放行，原 envelope | 放行，原 envelope | image slot/billing/upstream/task |
+| Responses WS first turn | 正常继续 | N/A | close 4403 blocked | 不关闭，正常继续 | 不关闭，正常继续 | user/account slot、billing、dial |
+| Responses WS subsequent | 本轮继续 | N/A | close 4403，stage=subsequent_turn | 不关闭，正常继续 | 不关闭，正常继续 | 本轮 slot、billing、upstream write |
 
 SSE 测试不能只断言最终状态；必须在 Guard fake 阻塞时读取连接并证明还没有 header/首字节/keepalive。
 
-WS 测试必须检查 close code、短 reason、stage 日志和上游帧计数；不能把所有 1013 错误都写成同一内部错误事实。
+WS 测试必须检查 close code、短 reason、stage 日志和上游帧计数；Guard 故障必须验证连接未被关闭且本轮照常转发。
 
 ## 5. 无账号、无计费、无上游证明
 
@@ -199,13 +199,21 @@ async_media_task_create_calls
 
 ### 5.3 日志断言
 
-同步拒绝事件必须包含：
+同步 Block 拒绝事件必须包含：
 
 ```text
 upstream_dispatched=false
 billing_preconsumed=false
 stage=http|first_turn|subsequent_turn
 error_code=<stable code>
+```
+
+同步 Guard 故障（fail-open 放行）事件必须包含，且不得出现上面两个 `=false` 字段：
+
+```text
+fail_open=true
+stage=http|first_turn|subsequent_turn
+error_code=prompt_guard_unavailable|prompt_guard_invalid_response
 ```
 
 不得仅依赖日志证明无副作用；日志必须与 counter 和 DB snapshot 同时通过。
@@ -389,7 +397,7 @@ go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -cou
 1. 打开 `/admin/prompt-audit`，确认 effective mode、expected/active config version、Worker heartbeat、PostgreSQL、Redis 和至少两个 endpoint 均健康。
 2. 检查最近 5 分钟 Guard Unavailable、Invalid、timeout、bulkhead、P95/P99 和 async dropped 是否超过本节阈值。
 3. 检查 queued/retry/staging 最老年龄和容量占比；队列持续增长或 staging 未回收时禁止扩组。
-4. 对 benign、flag、block、unavailable、invalid 合成用例各执行一次，核对协议 envelope、错误码及 `upstream_dispatched=false`、`billing_preconsumed=false`。
+4. 对 benign、flag、block、unavailable、invalid 合成用例各执行一次：block 核对协议 envelope、错误码及 `upstream_dispatched=false`、`billing_preconsumed=false`；unavailable/invalid 核对请求照常放行且日志含 `fail_open=true`。
 5. 抽查最新风险事件的脱敏预览、身份分列、分类和 IssueSummary，禁止从 Redis 导出原文。
 6. 记录值班人、时间、config version、测试 group、指标快照和结论；扩组必须由安全、运营、业务责任人共同确认。
 
@@ -401,7 +409,7 @@ go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -cou
 
 1. 在 `/admin/prompt-audit` 关闭 `blocking_enabled` 并保存。
 2. 确认所有实例 `active_version == expected_version`，有效模式变为 async_audit。
-3. 用 benign 请求证明立即恢复原主流程；用 Guard unavailable 合成请求证明不再返回 503。
+3. 用 benign 请求证明立即恢复原主流程；用 Guard unavailable 合成请求证明仍按 fail-open 放行且不再产生同步扫描。
 4. 继续观察 async，保留事件用于复盘。
 
 若 async 本身引发 DB/Redis 压力或隐私问题：
@@ -423,7 +431,7 @@ go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -cou
 ### 13.3 回滚验收
 
 - 所有实例模式正确，stale config=0。
-- 新 403/503/4403/1013 已停止（除现有审核自己的响应）。
+- 新 403/4403 已停止（除现有审核自己的响应）。
 - 上游成功率、首字节延迟恢复基线。
 - 队列不继续增长，Redis payload 最迟按 TTL 清除。
 - 现有 `/admin/risk-control` 和 Content Moderation 仍正常。
@@ -459,7 +467,7 @@ go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -cou
 | 全量后端 | 临时安装 CI 同版 golangci-lint v2.9 后 `make test-backend` → 全量 Go tests pass，`0 issues` |
 | 前端 | ESLint pass；vue-tsc pass；Prompt Audit、RiskControl、Sidebar、router 共 8 个文件 34 tests pass |
 | 生产构建 | `make build` → Go binary 与 Vite production build pass，独立 `PromptAuditView` chunk 生成 |
-| 协议/副作用矩阵 | 13 个实际入口的 Guard-before-side-effect 结构测试；Block/Unavailable/Invalid counter=0；OpenAI/Responses/Claude/Gemini golden；WS 4403/1013；first/subsequent gate；媒体 task/billing gate 全部 pass |
+| 协议/副作用矩阵 | 13 个实际入口的 Guard-before-side-effect 结构测试；Block counter=0，Unavailable/Invalid 照常放行；OpenAI/Responses/Claude/Gemini golden；WS Block 4403；first/subsequent gate；媒体 task/billing gate 全部 pass |
 | 泄露门禁 | 统一 canary 覆盖日志、DB row、管理 JSON、前端保存后 DOM；测试 PostgreSQL 39 个 text/json 列全库扫描 0 命中；Redis key/channel scan 0 命中；feature 源码无 local/session storage 或 console |
 | Async 指标基线 | 100 条合成 async Worker 样本：P50/P95/P99=5/5/5ms，failure=2%，known-benign false-positive=0%，event growth=8/100；只用于验证观测链路 |
 | Deploy 容器 | Docker Hub 超时后使用已缓存的正式运行层 + 当前 `linux/arm64` embed release binary 构建离线增量镜像 `sha256:c86353b0...`；Compose 重建后 app/PostgreSQL/Redis healthy，migration 181 已登记，两张表存在，`/health`=200 |

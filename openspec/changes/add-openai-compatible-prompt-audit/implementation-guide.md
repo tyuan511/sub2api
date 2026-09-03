@@ -189,8 +189,8 @@ type Decision struct {
 
 1. Legacy content moderation Block：完全复用原状态码、文案和 `content_policy_violation`。
 2. Prompt Block：403 + `prompt_guard_blocked`。
-3. Prompt Invalid：503 + `prompt_guard_invalid_response`。
-4. Prompt Unavailable：503 + `prompt_guard_unavailable`。
+3. Prompt Invalid：fail-open 放行，仅以 `prompt_guard_invalid_response` 记日志/指标。
+4. Prompt Unavailable：fail-open 放行，仅以 `prompt_guard_unavailable` 记日志/指标。
 5. 其他：Allow；Flag 只记录，不阻断。
 
 不要让 Coordinator 暴露 Qwen 原始响应，也不要用一个布尔 `Blocked` 吞掉 unavailable/invalid 的差异。
@@ -213,7 +213,7 @@ type Decision struct {
 | --- | --- | --- | --- | --- |
 | off | 原行为 | 不运行 | 否 | 否 |
 | async_audit | 原行为 | best-effort enqueue | 否 | 否 |
-| blocking | 原行为 | 同步扫描并复用结果记录 | 是 | 是，fail-closed |
+| blocking | 原行为 | 同步扫描并复用结果记录 | 是 | 仅 Block 阻断；Guard 故障 fail-open |
 
 async 模式下应先触发/完成有界投递动作，再返回 Coordinator 结果，确保现有 Moderation 随后 Block 时 Prompt 事件仍可 best-effort 产生。投递动作必须只有短 DB/Redis 操作，不能等待 Guard。
 
@@ -408,8 +408,8 @@ input_limit, enabled, has_token, token_status
 | Gemini Generate/Stream | `POST /v1beta/models/*modelAction` | `gemini_v1beta_handler.go: GeminiV1BetaModels` | http | Google error helper |
 | OpenAI Images | `POST /v1/images/generations`、`/v1/images/edits` | `openai_images.go: Images` | http | OpenAI helper |
 | Grok image/video 文本请求 | images/videos 路由 | `grok_media.go: handleGrokMedia` | http | OpenAI helper |
-| Responses WebSocket 首轮 | `GET /v1/responses`、`/responses`、`/backend-api/codex/responses` | `openai_gateway_handler.go: ResponsesWebSocket` | first_turn | close 4403/1013 |
-| Responses WebSocket 后续轮次 | 每个 `response.create` | 同上 BeforeRequest/turn callback | subsequent_turn | close 4403/1013 |
+| Responses WebSocket 首轮 | `GET /v1/responses`、`/responses`、`/backend-api/codex/responses` | `openai_gateway_handler.go: ResponsesWebSocket` | first_turn | Block close 4403；故障 fail-open |
+| Responses WebSocket 后续轮次 | 每个 `response.create` | 同上 BeforeRequest/turn callback | subsequent_turn | Block close 4403；故障 fail-open |
 
 实施时还必须从 `backend/internal/server/routes/gateway.go` 枚举所有携带用户文本的新增/旁路入口，重点复核：
 
@@ -427,13 +427,13 @@ input_limit, enabled, has_token, token_status
 | 情况 | HTTP/SSE | WS close | reason/code |
 | --- | ---: | ---: | --- |
 | Prompt Block | 403 | 4403 | `prompt_guard_blocked` |
-| Guard Unavailable | 503 | 1013 | `prompt_guard_unavailable` |
-| Guard Invalid response | 503 | 1013 | `prompt_guard_invalid_response` |
+| Guard Unavailable | 放行（无审计错误） | 不关闭 | 仅日志/指标 `prompt_guard_unavailable` |
+| Guard Invalid response | 放行（无审计错误） | 不关闭 | 仅日志/指标 `prompt_guard_invalid_response` |
 
 - HTTP/SSE 必须保留各协议 envelope，不能所有协议统一成 Gin `{"error":"..."}`。
 - OpenAI Chat/Responses 在 error 对象添加稳定 `code`；Claude 保留 permission_error/api_error type 并添加可选 `code`。
 - Gemini 保留数值 HTTP `error.code` 和 canonical status，只在 `google.rpc.ErrorInfo.reason` 放稳定代码；metadata 仅 request_id。
-- SSE 在 Guard 结果前不得写 status/header/data/comment/keepalive；否则无法返回 403/503。
+- SSE 在 Guard 结果前不得写 status/header/data/comment/keepalive；否则无法返回 403。
 - WS 握手本身没有 Prompt，不扫描。首个 `response.create` 在任何本轮资源/上游副作用前扫描。
 - 后续每个 `response.create` 重新提取本轮输入并标记 `subsequent_turn`。
 - WS close reason 长度必须在协议限制内，只使用稳定短码；详细内部错误只进脱敏指标/日志。

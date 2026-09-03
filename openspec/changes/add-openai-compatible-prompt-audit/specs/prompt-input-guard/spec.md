@@ -40,7 +40,7 @@
 - **THEN** 两个引擎 MUST 各自记录其结果和结构化日志
 
 ### Requirement: 同步门禁必须位于外部副作用之前
-系统 MUST 在鉴权和请求格式校验完成后、账号选择、账户并发、计费资格检查、任何预扣、上游连接和上游写入之前完成同步判定。被 Block 或 fail-closed 拒绝的请求 MUST 不产生这些下游副作用。
+系统 MUST 在鉴权和请求格式校验完成后、账号选择、账户并发、计费资格检查、任何预扣、上游连接和上游写入之前完成同步判定。被 Block 拒绝的请求 MUST 不产生这些下游副作用。Guard 自身不可用或响应非法时 MUST fail-open：审计故障 MUST NOT 影响用户正常使用，请求照常进入下游。
 
 #### Scenario: HTTP 请求被 Guard 阻断
 - **WHEN** 任一支持的 HTTP 模型请求得到 Block
@@ -49,7 +49,8 @@
 
 #### Scenario: Guard 不可用
 - **WHEN** 同步模式下所有可用节点均失败
-- **THEN** 请求 MUST 在任何账号、计费或上游副作用之前返回 503
+- **THEN** 请求 MUST fail-open 进入下游，MUST NOT 因审计依赖故障而返回 503
+- **THEN** 网关决策 MUST 保留嵌套的 unavailable/invalid_response 结果供日志和指标使用
 
 ### Requirement: 同步门禁必须覆盖所有目标协议入口
 系统 SHALL 覆盖现有内容审核已接入的所有用户文本入口，并通过结构测试防止后续路由绕过。至少包括 OpenAI Chat Completions、OpenAI Responses、Claude Messages、Gemini、OpenAI Images/Grok 媒体文本 prompt，以及 Responses WebSocket 首轮和后续轮次。
@@ -69,7 +70,7 @@
 - **THEN** 路由覆盖门禁 MUST 在缺少安全审计接线时失败
 
 ### Requirement: 同步分片必须共享总预算并完整覆盖
-系统 SHALL 以有序节点列表中首个启用节点的 timeout 作为一次同步 evaluation 的总预算。所有分片和节点故障切换 MUST 共享该 deadline；任一必要分片失败、超时或无合法结果时 MUST fail-closed。
+系统 SHALL 以有序节点列表中首个启用节点的 timeout 作为一次同步 evaluation 的总预算。所有分片和节点故障切换 MUST 共享该 deadline；任一必要分片失败、超时或无合法结果时 MUST 结束为 unavailable/invalid_response 并按 fail-open 放行，MUST NOT 依据部分结果给出 Safe 判定。
 
 #### Scenario: 所有分片均为安全
 - **WHEN** 每个非空分片都在总预算内返回 Safe 或允许的 Warn
@@ -82,11 +83,11 @@
 
 #### Scenario: 最后一个必要分片失败
 - **WHEN** 前面分片安全但最后一个必要分片超时或响应无效
-- **THEN** 系统 MUST 返回 unavailable/invalid_response
-- **THEN** 系统 MUST NOT 根据部分结果放行
+- **THEN** 系统 MUST 结束为 unavailable/invalid_response
+- **THEN** 请求 MUST 按 fail-open 放行，但 MUST NOT 把部分结果记录为 Safe 判定
 
-### Requirement: 同步节点故障切换必须有序且 fail-closed
-系统 SHALL 按配置顺序尝试启用节点。连接失败、429、5xx 和超时 MAY 在总 deadline 尚有剩余时切换到下一节点；401/403、严格解析失败或耗尽节点 MUST 结束为不可用/非法响应。同步模式 MUST NOT 提供隐式 fail-open。
+### Requirement: 同步节点故障切换必须有序且耗尽后 fail-open
+系统 SHALL 按配置顺序尝试启用节点。连接失败、429、5xx 和超时 MAY 在总 deadline 尚有剩余时切换到下一节点；401/403、严格解析失败或耗尽节点 MUST 结束为不可用/非法响应。此类依赖故障 MUST fail-open 放行请求；只有 Guard 明确判定 Block 才 fail-closed。
 
 #### Scenario: 首节点暂时失败而次节点成功
 - **WHEN** 首节点返回可重试错误且次节点在剩余预算内返回合法结果
@@ -96,7 +97,7 @@
 #### Scenario: 认证失败
 - **WHEN** 节点返回 401 或 403
 - **THEN** 系统 MUST 视为不可重试配置错误
-- **THEN** 请求 MUST 返回 503 而不是按 Safe 放行
+- **THEN** 系统 MUST 记录为 unavailable 而不是 Safe 判定，请求 MUST fail-open 放行
 
 #### Scenario: 所有节点容量饱和
 - **WHEN** 全局或每节点 bulkhead 均无法接受 evaluation
@@ -118,13 +119,13 @@
 
 #### Scenario: HTTP Guard 不可用
 - **WHEN** 节点超时、连接失败、熔断或容量不足
-- **THEN** HTTP 状态 MUST 为 503
-- **THEN** error_code MUST 为 `prompt_guard_unavailable`
+- **THEN** 请求 MUST 照常进入下游并返回其原本的响应，MUST NOT 返回 503 或任何审计错误 envelope
+- **THEN** 失败 MUST 以 `prompt_guard_unavailable` 记入日志和指标
 
 #### Scenario: HTTP Guard 响应非法
 - **WHEN** Guard 输出无法严格解析
-- **THEN** HTTP 状态 MUST 为 503
-- **THEN** error_code MUST 为 `prompt_guard_invalid_response`
+- **THEN** 请求 MUST 照常进入下游并返回其原本的响应，MUST NOT 返回 503
+- **THEN** 失败 MUST 以 `prompt_guard_invalid_response` 记入日志和指标
 
 ### Requirement: Responses WebSocket 必须对每个 response.create 执行门禁
 系统 SHALL 在 WebSocket 首次和后续每个 `response.create` 帧进入本轮用户/账号并发、计费和上游发送之前执行同步 Guard。一次安全结果 MUST NOT 被复用于不同的后续帧。
@@ -141,8 +142,9 @@
 
 #### Scenario: WebSocket Guard 不可用
 - **WHEN** 首轮或后续轮次 Guard 不可用或响应非法
-- **THEN** 服务端 MUST 使用 close code 1013
-- **THEN** reason MUST 为 `prompt_guard_unavailable` 或 `prompt_guard_invalid_response`
+- **THEN** 服务端 MUST 保持连接并照常处理该帧，MUST NOT 使用 close code 1013 断开
+- **THEN** 失败 MUST 以 `prompt_guard_unavailable` 或 `prompt_guard_invalid_response` 记入日志和指标
+- **THEN** 该 fail-open 结果 MUST NOT 被缓存复用到同轮之后的帧
 
 ### Requirement: 同步结果必须复用到脱敏事件且不得重复扫描
 系统 SHALL 在一次同步 evaluation 后把已得到的归一化结果交给独立记录路径。记录路径 MUST NOT 重新调用 Guard，也 MUST NOT 需要完整提示词正文；同步结果最多对应一个任务事实和一个按存储策略决定的事件。
@@ -176,7 +178,7 @@
 
 #### Scenario: 冷启动无法加载严格配置
 - **WHEN** 实例冷启动且无法获得有效配置快照
-- **THEN** 对已知要求同步阻止的适用请求 MUST fail-closed
+- **THEN** 对已知要求同步阻止的适用请求 MUST fail-open 放行，MUST NOT 因配置不可用而拒绝流量
 - **THEN** 运行态 MUST 暴露配置加载错误
 
 ### Requirement: Guard 关键路径必须可观测且不得泄密
@@ -186,6 +188,12 @@
 - **WHEN** Guard 阻断一个请求
 - **THEN** 日志 MUST 包含 request_id、user_id、api_key_id、group_id、protocol、endpoint、model、config_version、guard_endpoint_id、decision、action、chunk_total、latency_ms、status 和 error_code
 - **THEN** 日志 MUST 明确包含 `upstream_dispatched=false` 和 `billing_preconsumed=false` 或目标项目等价字段
+
+#### Scenario: 同步 Guard 故障被 fail-open 放行
+- **WHEN** 同步 evaluation 因不可用或响应非法而失败
+- **THEN** 日志 MUST 包含 `fail_open=true` 和对应 error_code
+- **THEN** 日志 MUST NOT 声称 `upstream_dispatched=false` 或 `billing_preconsumed=false`，因为该请求并未被拦截
+- **THEN** unavailable/invalid 指标 MUST 增加，使故障在控制台可见
 
 #### Scenario: 检查日志敏感字段
 - **WHEN** 测试捕获提示词审计日志

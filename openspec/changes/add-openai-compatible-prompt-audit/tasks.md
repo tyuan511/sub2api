@@ -163,7 +163,7 @@
 
 - [x] 13.1 实现 design 中列出的 prompt_audit/prompt_guard 稳定事件词典和字段 allowlist helper
 - [x] 13.2 为关键路径补齐 request_id、user/api-key/group、protocol、endpoint、model、config/job/event/node/version、结果、耗时和错误字段
-- [x] 13.3 在同步拒绝日志中明确 upstream_dispatched=false 和 billing_preconsumed=false
+- [x] 13.3 在同步 Block 拒绝日志中明确 upstream_dispatched=false 和 billing_preconsumed=false；Guard 故障 fail-open 日志改为 fail_open=true
 - [x] 13.4 实现运行计数和延迟指标，并确保 runtime API 的字段与日志错误码使用同一词典
 - [x] 13.5 添加日志捕获测试，使用 canary prompt、API Key、Authorization 和带 query URL 证明敏感内容不出现
 - [x] 13.6 添加数据库/API/前端快照泄露测试，统一扫描 canary secret

@@ -40,7 +40,7 @@ func TestPromptAuditLogAllowlistAndErrorsDoNotLeakCanarySecrets(t *testing.T) {
 	require.NotContains(t, err.Error(), canary)
 }
 
-func TestPromptGuardFailureLogUsesCompleteAllowlistedContextAndNoSideEffects(t *testing.T) {
+func TestPromptGuardFailureLogUsesCompleteAllowlistedContextAndMarksFailOpen(t *testing.T) {
 	var output bytes.Buffer
 	previous := slog.Default()
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
@@ -60,7 +60,8 @@ func TestPromptGuardFailureLogUsesCompleteAllowlistedContextAndNoSideEffects(t *
 	}
 	require.EqualValues(t, 7, entry["config_version"])
 	require.Equal(t, ErrorCodeUnavailable, entry["error_code"])
-	require.Equal(t, false, entry["upstream_dispatched"])
-	require.Equal(t, false, entry["billing_preconsumed"])
+	require.Equal(t, true, entry["fail_open"])
+	require.NotContains(t, entry, "upstream_dispatched", "a failed Guard evaluation is fail-open, so it must not claim the request was stopped")
+	require.NotContains(t, entry, "billing_preconsumed")
 	require.EqualValues(t, 25, entry["latency_ms"])
 }
