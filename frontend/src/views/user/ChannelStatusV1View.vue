@@ -55,7 +55,7 @@ const appStore = useAppStore()
 // ── State ──
 const items = ref<UserMonitorView[]>([])
 const loading = ref(false)
-const currentWindow = ref<MonitorWindow>('7d')
+const currentWindow = ref<MonitorWindow>('3d')
 const detailCache = reactive<Record<number, UserMonitorDetail>>({})
 const showDetail = ref(false)
 const detailTarget = ref<UserMonitorView | null>(null)
@@ -110,9 +110,9 @@ async function reload(silent = false) {
 
 async function manualReload() {
   await reload(false)
-  // After base reload, refresh any cached detail records so non-7d availability
+  // After base reload, refresh any cached detail records so non-3d availability
   // values stay in sync without forcing the user to switch tabs again.
-  if (currentWindow.value !== '7d') {
+  if (currentWindow.value !== '3d') {
     await Promise.all(items.value.map(it => loadDetail(it.id, true)))
   }
 }
@@ -127,7 +127,7 @@ async function loadDetail(id: number, force = false) {
 }
 
 async function ensureDetailsForWindow() {
-  if (currentWindow.value === '7d') return
+  if (currentWindow.value === '3d') return
   await Promise.all(items.value.map(it => loadDetail(it.id)))
 }
 

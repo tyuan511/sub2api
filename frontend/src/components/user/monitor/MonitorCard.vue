@@ -98,7 +98,7 @@ const PROVIDER_TINT: Record<string, string> = {
 
 const props = defineProps<{
   item: UserMonitorView
-  window: '7d' | '15d' | '30d'
+	window: '3d' | '7d' | '15d' | '30d'
   availabilityValue: number | null
   cacheHitRate: number | null
   countdownSeconds: number

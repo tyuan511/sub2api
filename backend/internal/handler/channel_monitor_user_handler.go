@@ -62,7 +62,9 @@ type channelMonitorUserListItem struct {
 	PrimaryFirstTokenMs    *int                                 `json:"primary_first_token_ms"`
 	PrimaryTokensPerSecond *float64                             `json:"primary_tokens_per_second"`
 	PrimaryPingLatencyMs   *int                                 `json:"primary_ping_latency_ms"`
+	Availability3d         float64                              `json:"availability_3d"`
 	Availability7d         float64                              `json:"availability_7d"`
+	CacheHitRate3d         *float64                             `json:"cache_hit_rate_3d"`
 	CacheHitRate7d         *float64                             `json:"cache_hit_rate_7d"`
 	CacheHitRate15d        *float64                             `json:"cache_hit_rate_15d"`
 	CacheHitRate30d        *float64                             `json:"cache_hit_rate_30d"`
@@ -98,6 +100,7 @@ type channelMonitorUserModelStat struct {
 	LatestLatencyMs       *int     `json:"latest_latency_ms"`
 	LatestFirstTokenMs    *int     `json:"latest_first_token_ms"`
 	LatestTokensPerSecond *float64 `json:"latest_tokens_per_second"`
+	Availability3d        float64  `json:"availability_3d"`
 	Availability7d        float64  `json:"availability_7d"`
 	Availability15d       float64  `json:"availability_15d"`
 	Availability30d       float64  `json:"availability_30d"`
@@ -137,7 +140,9 @@ func userMonitorViewToItem(v *service.UserMonitorView, includeQuota bool) channe
 		PrimaryFirstTokenMs:    v.PrimaryFirstTokenMs,
 		PrimaryTokensPerSecond: v.PrimaryTokensPerSecond,
 		PrimaryPingLatencyMs:   v.PrimaryPingLatencyMs,
+		Availability3d:         v.Availability3d,
 		Availability7d:         v.Availability7d,
+		CacheHitRate3d:         v.CacheHitRate3d,
 		CacheHitRate7d:         v.CacheHitRate7d,
 		CacheHitRate15d:        v.CacheHitRate15d,
 		CacheHitRate30d:        v.CacheHitRate30d,
@@ -159,6 +164,7 @@ func userMonitorDetailToResponse(d *service.UserMonitorDetail) *channelMonitorUs
 			LatestLatencyMs:       m.LatestLatencyMs,
 			LatestFirstTokenMs:    m.LatestFirstTokenMs,
 			LatestTokensPerSecond: m.LatestTokensPerSecond,
+			Availability3d:        m.Availability3d,
 			Availability7d:        m.Availability7d,
 			Availability15d:       m.Availability15d,
 			Availability30d:       m.Availability30d,

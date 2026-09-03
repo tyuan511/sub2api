@@ -717,7 +717,7 @@ func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
 	return out, nil
 }
 
-// RefreshGroupCacheHitRateSnapshots 在监控周期内计算并持久化 7/15/30 天分组缓存命中率。
+// RefreshGroupCacheHitRateSnapshots 在监控周期内计算并持久化 3/7/15/30 天分组缓存命中率。
 // 计算发生在 RunCheck 完成后，用户页面只读取结果快照，不会在请求路径扫描 usage_logs。
 func (r *channelMonitorRepository) RefreshGroupCacheHitRateSnapshots(
 	ctx context.Context,
@@ -773,6 +773,7 @@ func (r *channelMonitorRepository) RefreshGroupCacheHitRateSnapshots(
 			computed_at = EXCLUDED.computed_at
 	`
 	if _, err := r.db.ExecContext(ctx, q, pq.Array(groupNames), pq.Array([]int{
+		3,
 		7,
 		15,
 		30,

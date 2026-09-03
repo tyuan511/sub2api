@@ -19,6 +19,7 @@
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestStatus') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestFirstToken') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.latestTokenSpeed') }}</th>
+            <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability3d') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability7d') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability15d') }}</th>
             <th class="py-2 pr-3">{{ t('channelStatus.detailColumns.availability30d') }}</th>
@@ -52,6 +53,7 @@
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
               {{ formatTokensPerSecond(m.latest_tokens_per_second) }} Token/s
             </td>
+            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_3d) }}</td>
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_7d) }}</td>
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_15d) }}</td>
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_30d) }}</td>

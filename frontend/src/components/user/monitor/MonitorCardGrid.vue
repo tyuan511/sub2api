@@ -60,7 +60,7 @@ import MonitorCard from './MonitorCard.vue'
 
 const props = defineProps<{
   items: UserMonitorView[]
-  window: '7d' | '15d' | '30d'
+  window: '3d' | '7d' | '15d' | '30d'
   countdownSeconds: number
   loading: boolean
   detailCache: Record<number, UserMonitorDetail>
@@ -73,6 +73,9 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 function resolveAvailability(item: UserMonitorView): number | null {
+  if (props.window === '3d') {
+    return item.availability_3d ?? null
+  }
   if (props.window === '7d') {
     return item.availability_7d ?? null
   }
@@ -84,6 +87,7 @@ function resolveAvailability(item: UserMonitorView): number | null {
 }
 
 function resolveCacheHitRate(item: UserMonitorView): number | null {
+  if (props.window === '3d') return item.cache_hit_rate_3d ?? null
   if (props.window === '7d') return item.cache_hit_rate_7d ?? null
   if (props.window === '15d') return item.cache_hit_rate_15d ?? null
   return item.cache_hit_rate_30d ?? null

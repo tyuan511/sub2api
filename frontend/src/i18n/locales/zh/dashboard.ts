@@ -539,6 +539,7 @@ export default {
     detailTitle: '渠道详情',
     closeDetail: '关闭',
     windowTab: {
+      '3d': '3 天',
       '7d': '7 天',
       '15d': '15 天',
       '30d': '30 天'
@@ -562,6 +563,7 @@ export default {
       latestFirstToken: '最新首字 (ms)',
       latestTokenSpeed: '最新 Token 速度',
       latestLatency: '最新延迟 (ms)',
+      availability3d: '3 天可用率',
       availability7d: '7 天可用率',
       availability15d: '15 天可用率',
       availability30d: '30 天可用率',

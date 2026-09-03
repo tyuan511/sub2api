@@ -285,7 +285,7 @@ func (h *ChannelMonitorHandler) List(c *gin.Context) {
 	response.Paginated(c, out, total, page, pageSize)
 }
 
-// batchSummaryFor 批量聚合 latest + 7d 可用率，避免每行 2 次 SQL（消除 N+1）。
+// batchSummaryFor 批量聚合 latest + 3d/7d 可用率，避免每行多次 SQL（消除 N+1）。
 func (h *ChannelMonitorHandler) batchSummaryFor(c *gin.Context, items []*service.ChannelMonitor) map[int64]service.MonitorStatusSummary {
 	ids := make([]int64, 0, len(items))
 	primaryByID := make(map[int64]string, len(items))

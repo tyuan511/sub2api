@@ -47,7 +47,7 @@ type ChannelMonitorRepository interface {
 	// 返回值按分组名称索引；没有请求记录的分组不会出现在结果中。
 	ComputeCacheHitRatesForGroups(ctx context.Context, groupNames []string, windowDays int) (map[string]*GroupCacheHitRate, error)
 	// RefreshGroupCacheHitRateSnapshots 在监控周期内计算并持久化分组缓存命中率快照。
-	// 实现应一次更新固定的 7/15/30 天窗口，避免页面读取时扫描 usage_logs。
+	// 实现应一次更新固定的 3/7/15/30 天窗口，避免页面读取时扫描 usage_logs。
 	RefreshGroupCacheHitRateSnapshots(ctx context.Context, groupNames []string) error
 	// ListGroupCacheHitRateSnapshots 读取已持久化的分组缓存命中率快照。
 	ListGroupCacheHitRateSnapshots(ctx context.Context, groupNames []string) (map[string]map[int]*GroupCacheHitRateSnapshot, error)

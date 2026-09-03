@@ -154,7 +154,7 @@ type CheckResult struct {
 	Quota *domain.MonitorQuotaSnapshot
 }
 
-// UserMonitorView 用户只读视图：监控概览（含主模型最近状态 + 7d 可用率 + 附加模型最近状态）。
+// UserMonitorView 用户只读视图：监控概览（含主模型最近状态 + 多窗口可用率 + 附加模型最近状态）。
 type UserMonitorView struct {
 	ID                     int64
 	Name                   string
@@ -166,7 +166,9 @@ type UserMonitorView struct {
 	PrimaryFirstTokenMs    *int
 	PrimaryTokensPerSecond *float64
 	PrimaryPingLatencyMs   *int     // 主模型最近一次 ping 延迟
+	Availability3d         float64  // 0-100
 	Availability7d         float64  // 0-100
+	CacheHitRate3d         *float64 // 分组 3 天缓存命中率；无用量记录时为 nil
 	CacheHitRate7d         *float64 // 分组 7 天缓存命中率；无用量记录时为 nil
 	CacheHitRate15d        *float64 // 分组 15 天缓存命中率；无用量记录时为 nil
 	CacheHitRate30d        *float64 // 分组 30 天缓存命中率；无用量记录时为 nil
@@ -220,7 +222,7 @@ type ExtraModelStatus struct {
 	TokensPerSecond *float64
 }
 
-// UserMonitorDetail 用户只读视图：监控详情（含全部模型 7d/15d/30d 可用率与平均延迟）。
+// UserMonitorDetail 用户只读视图：监控详情（含全部模型 3d/7d/15d/30d 可用率与平均延迟）。
 type UserMonitorDetail struct {
 	ID        int64
 	Name      string
@@ -236,6 +238,7 @@ type ModelDetail struct {
 	LatestLatencyMs       *int
 	LatestFirstTokenMs    *int
 	LatestTokensPerSecond *float64
+	Availability3d        float64 // 0-100
 	Availability7d        float64 // 0-100
 	Availability15d       float64
 	Availability30d       float64
@@ -292,14 +295,15 @@ type ChannelMonitorAvailability struct {
 	AvgLatencyMs      *int
 }
 
-// MonitorStatusSummary 监控状态聚合（admin list 用，单次 repo 查询消除前端 N+1）。
-// PrimaryStatus / PrimaryLatencyMs 描述主模型最近状态；Availability7d 是主模型 7 天可用率；
+// MonitorStatusSummary 监控状态聚合（admin/user list 用，单次 repo 查询消除前端 N+1）。
+// PrimaryStatus / PrimaryLatencyMs 描述主模型最近状态；Availability3d/7d 是主模型多窗口可用率；
 // ExtraModels 描述附加模型最近状态（用于 hover 展示）。
 type MonitorStatusSummary struct {
 	PrimaryStatus          string // 空字符串表示无历史
 	PrimaryLatencyMs       *int
 	PrimaryFirstTokenMs    *int
 	PrimaryTokensPerSecond *float64
+	Availability3d         float64 // 0-100，无历史时为 0
 	Availability7d         float64 // 0-100，无历史时为 0
 	ExtraModels            []ExtraModelStatus
 	LatestQuota            *domain.MonitorQuotaSnapshot // 主模型最近配额快照（配额模式）

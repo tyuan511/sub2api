@@ -534,6 +534,7 @@ export default {
     detailTitle: 'Channel Detail',
     closeDetail: 'Close',
     windowTab: {
+      '3d': '3 days',
       '7d': '7 days',
       '15d': '15 days',
       '30d': '30 days'
@@ -557,6 +558,7 @@ export default {
       latestFirstToken: 'Latest First Token (ms)',
       latestTokenSpeed: 'Latest Token Speed',
       latestLatency: 'Latest Latency (ms)',
+      availability3d: '3d Availability',
       availability7d: '7d Availability',
       availability15d: '15d Availability',
       availability30d: '30d Availability',

@@ -84,6 +84,7 @@ func (r *userViewCacheSnapshotRepoStub) ListGroupCacheHitRateSnapshots(context.C
 	r.listSnapshotsCalls++
 	return map[string]map[int]*GroupCacheHitRateSnapshot{
 		"gpt-pro-20x": {
+			3: {GroupName: "gpt-pro-20x", WindowDays: 3, InputTokens: 10, CacheReadTokens: 90, CacheHitRatePct: 90, ComputedAt: time.Now()},
 			7: {GroupName: "gpt-pro-20x", WindowDays: 7, InputTokens: 10, CacheReadTokens: 90, CacheHitRatePct: 90, ComputedAt: time.Now()},
 		},
 	}, nil
@@ -101,6 +102,8 @@ func TestListUserViewReadsPersistedCacheHitRateSnapshots(t *testing.T) {
 	views, err := svc.ListUserView(context.Background())
 	require.NoError(t, err)
 	require.Len(t, views, 1)
+	require.NotNil(t, views[0].CacheHitRate3d)
+	require.InDelta(t, 90.0, *views[0].CacheHitRate3d, 0.0001)
 	require.NotNil(t, views[0].CacheHitRate7d)
 	require.InDelta(t, 90.0, *views[0].CacheHitRate7d, 0.0001)
 	require.Nil(t, views[0].CacheHitRate15d)

@@ -36,8 +36,10 @@ export interface UserMonitorView {
 	primary_first_token_ms?: number | null
 	primary_tokens_per_second?: number | null
 	primary_ping_latency_ms: number | null
-  availability_7d: number
-  cache_hit_rate_7d: number | null
+	availability_3d: number
+	availability_7d: number
+	cache_hit_rate_3d: number | null
+	cache_hit_rate_7d: number | null
   cache_hit_rate_15d: number | null
   cache_hit_rate_30d: number | null
   extra_models: UserMonitorExtraModel[]
@@ -59,7 +61,8 @@ export interface UserMonitorModelDetail {
 	latest_latency_ms: number | null
 	latest_first_token_ms?: number | null
 	latest_tokens_per_second?: number | null
-  availability_7d: number
+	availability_3d: number
+	availability_7d: number
   availability_15d: number
   availability_30d: number
   avg_latency_7d_ms: number | null
