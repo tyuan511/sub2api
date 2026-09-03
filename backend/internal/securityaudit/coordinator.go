@@ -114,11 +114,14 @@ func prioritize(legacy *LegacyDecision, prompt *PromptDecision) Decision {
 		return Decision{Kind: DecisionBlock, HTTPStatus: http.StatusForbidden, ErrorCode: ErrorCodeBlocked,
 			ClientMessage: "提示词安全审计拒绝了该请求，请调整输入后重试", Legacy: legacy, Prompt: prompt}
 	case DecisionInvalid:
-		return Decision{Kind: DecisionInvalid, HTTPStatus: http.StatusServiceUnavailable, ErrorCode: ErrorCodeInvalidResponse,
-			ClientMessage: "提示词安全审计暂时不可用，请稍后重试", Legacy: legacy, Prompt: prompt}
+		// Guard infrastructure/format failures are fail-open by policy. Keep the
+		// nested prompt decision so logs and metrics can still expose the failure,
+		// but do not turn a dependency failure into a user-facing 503.
+		return allowDecision(legacy, prompt)
 	case DecisionUnavailable:
-		return Decision{Kind: DecisionUnavailable, HTTPStatus: http.StatusServiceUnavailable, ErrorCode: ErrorCodeUnavailable,
-			ClientMessage: "提示词安全审计暂时不可用，请稍后重试", Legacy: legacy, Prompt: prompt}
+		// A Guard node being unavailable must not make the gateway unavailable.
+		// Actual policy Blocks remain fail-closed in the case above.
+		return allowDecision(legacy, prompt)
 	case DecisionFlag:
 		return Decision{Kind: DecisionFlag, HTTPStatus: http.StatusOK, Legacy: legacy, Prompt: prompt, AllowNextStage: true}
 	default:

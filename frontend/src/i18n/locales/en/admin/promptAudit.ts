@@ -58,7 +58,7 @@ export default {
     saveBar: { enabled: 'Enable prompt audit', blocking: 'Synchronous blocking', blockingLatestTurnOnly: 'Only latest input and prior output', storePass: 'Store safe events', dirty: 'Unsaved changes', synced: 'Configuration synced' },
     blockingConfirm: {
       title: 'Enable synchronous blocking?',
-      message: 'Applicable requests wait for Guard before account selection, billing, or upstream access. Block, unavailable Guard, and invalid responses all prevent upstream access.',
+      message: 'Applicable requests wait for Guard before account selection, billing, or upstream access. A Block prevents the request; unavailable Guard or invalid responses are recorded and fail open.',
       confirm: 'I understand; enable it',
     },
     events: {

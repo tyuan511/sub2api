@@ -108,7 +108,7 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 			}
 			logSecurityAuditStart(reqLog, request, len(body), false)
 			decision := coordinator.Check(c.Request.Context(), request)
-			if decision.Kind == securityaudit.DecisionAllow {
+			if decision.Kind == securityaudit.DecisionAllow && !securityAuditPromptFailure(&decision) {
 				c.Set(securityAuditWSDedupeContextKey, securityAuditWSDedupeEntry{
 					stage: request.Stage, turn: turnNo, bodyHash: bodyHash, decision: decision,
 				})
@@ -119,11 +119,27 @@ func runSecurityAudit(c *gin.Context, reqLog *zap.Logger, coordinator *securitya
 	}
 	logSecurityAuditStart(reqLog, request, len(body), false)
 	decision := coordinator.Check(c.Request.Context(), request)
-	if decision.AllowNextStage && cacheCompletion {
+	if decision.AllowNextStage && cacheCompletion && !securityAuditPromptFailure(&decision) {
 		c.Set(securityAuditCompletedContextKey, true)
 	}
 	logSecurityAuditDone(reqLog, request, decision, false)
 	return &decision
+}
+
+// securityAuditPromptFailure reports a Prompt Guard dependency/format failure
+// that was intentionally converted to a fail-open gateway decision. Such a
+// decision must not be cached: a later check in the same request/turn should
+// get a chance to succeed after a transient Guard outage recovers.
+func securityAuditPromptFailure(decision *securityaudit.Decision) bool {
+	if decision == nil || decision.Prompt == nil {
+		return false
+	}
+	switch decision.Prompt.Kind {
+	case securityaudit.DecisionUnavailable, securityaudit.DecisionInvalid:
+		return true
+	default:
+		return false
+	}
 }
 
 func logSecurityAuditStart(reqLog *zap.Logger, request securityaudit.Request, bodyBytes int, cached bool) {

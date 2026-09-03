@@ -170,7 +170,7 @@ func TestBatchImagePromptGuardRunsBeforePersistenceOrBilling(t *testing.T) {
 	require.NotContains(t, string(requests[0].Body), "QklOQVJZX0NBTkFSWQ==")
 }
 
-func TestSecurityAuditBlockingFailuresLeaveAllDownstreamCountersAtZero(t *testing.T) {
+func TestSecurityAuditBlockingDecisionShapePerGuardOutcome(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, kind := range []securityaudit.DecisionKind{securityaudit.DecisionBlock, securityaudit.DecisionUnavailable, securityaudit.DecisionInvalid} {
 		t.Run(string(kind), func(t *testing.T) {
@@ -187,22 +187,74 @@ func TestSecurityAuditBlockingFailuresLeaveAllDownstreamCountersAtZero(t *testin
 			subject := middleware2.AuthSubject{UserID: 7, Concurrency: 2}
 			decision := runSecurityAudit(c, nil, coordinator, nil, apiKey, subject, service.ContentModerationProtocolOpenAIChat, "gpt-test", []byte(`{"messages":[{"role":"user","content":"guard me"}]}`), "http")
 			require.NotNil(t, decision)
-			require.False(t, decision.AllowNextStage)
 			require.False(t, recorder.Result().Header.Get("Content-Type") != "", "Guard evaluation itself must not start SSE/HTTP output")
 
-			accountSelections, billingChecks, billingPreconsumes, upstreamDispatches := 0, 0, 0, 0
-			if decision.AllowNextStage {
-				accountSelections++
-				billingChecks++
-				billingPreconsumes++
-				upstreamDispatches++
+			if kind == securityaudit.DecisionBlock {
+				require.False(t, decision.AllowNextStage)
+				(&OpenAIGatewayHandler{}).openAISecurityAuditError(c, decision)
+				require.Equal(t, promptDecision.HTTPStatus, recorder.Code)
+				return
 			}
-			require.Zero(t, accountSelections)
-			require.Zero(t, billingChecks)
-			require.Zero(t, billingPreconsumes)
-			require.Zero(t, upstreamDispatches)
-			(&OpenAIGatewayHandler{}).openAISecurityAuditError(c, decision)
-			require.Equal(t, promptDecision.HTTPStatus, recorder.Code)
+			// Guard availability/format failures are fail-open by policy: the
+			// gateway keeps serving and only the nested prompt decision records
+			// that Guard never produced a verdict.
+			require.True(t, decision.AllowNextStage)
+			require.Equal(t, securityaudit.DecisionAllow, decision.Kind)
+			require.Empty(t, decision.ErrorCode)
+			require.NotNil(t, decision.Prompt)
+			require.Equal(t, kind, decision.Prompt.Kind)
+			_, cached := c.Get(securityAuditCompletedContextKey)
+			require.False(t, cached, "a fail-open decision must not be cached as a completed audit")
+		})
+	}
+}
+
+// TestGuardFailureFailsOpenThroughToDownstreamExecution drives a real submit
+// handler so the fail-open policy is observed where it matters: a task is
+// persisted and the detached execution actually runs, instead of the request
+// being rejected the way a Block is.
+func TestGuardFailureFailsOpenThroughToDownstreamExecution(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, kind := range []securityaudit.DecisionKind{securityaudit.DecisionUnavailable, securityaudit.DecisionInvalid} {
+		t.Run(string(kind), func(t *testing.T) {
+			store := &asyncImageMemoryStore{tasks: map[string]*service.ImageTaskRecord{}}
+			tasks := service.NewImageTaskServiceWithUploader(store, nil, time.Hour, time.Minute)
+			engine := &handlerPromptEngine{mode: securityaudit.ModeBlocking, decision: &securityaudit.PromptDecision{
+				Kind: kind, ErrorCode: promptGuardDecision(kind).ErrorCode, AllowNextStage: false,
+			}}
+			openAI := &OpenAIGatewayHandler{securityAuditCoordinator: securityaudit.NewCoordinator(nil, engine)}
+			h := &AsyncImageHandler{tasks: tasks, openAI: openAI}
+			var executionMu sync.Mutex
+			executions := 0
+			h.execute = func(_ string, c *gin.Context) {
+				executionMu.Lock()
+				executions++
+				executionMu.Unlock()
+				c.JSON(http.StatusOK, gin.H{"created": 1, "data": []any{}})
+			}
+
+			router := gin.New()
+			router.Use(securityAuditMediaTestMiddleware)
+			router.POST("/v1/images/generations/async", h.Submit)
+			request := httptest.NewRequest(http.MethodPost, "/v1/images/generations/async", strings.NewReader(`{"model":"gpt-image-2","prompt":"guard is down"}`))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+
+			require.Equal(t, http.StatusAccepted, recorder.Code, "a Guard outage must not surface as a gateway error")
+			require.NotContains(t, recorder.Body.String(), securityaudit.ErrorCodeUnavailable)
+			require.NotContains(t, recorder.Body.String(), securityaudit.ErrorCodeInvalidResponse)
+			require.Eventually(t, func() bool {
+				executionMu.Lock()
+				defer executionMu.Unlock()
+				return executions == 1
+			}, time.Second, 10*time.Millisecond, "fail-open must reach the detached execution")
+			store.mu.RLock()
+			taskCount := len(store.tasks)
+			store.mu.RUnlock()
+			require.Equal(t, 1, taskCount, "fail-open must persist the task like a normal allow")
+			evaluated, _, _ := engine.snapshot()
+			require.Equal(t, 1, evaluated)
 		})
 	}
 }

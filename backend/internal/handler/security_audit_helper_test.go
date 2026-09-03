@@ -80,7 +80,7 @@ func TestRunSecurityAuditDeduplicatesRepeatedPayloadWithinWebSocketTurn(t *testi
 	require.Equal(t, int64(2), engine.evaluates.Load())
 }
 
-func TestRunSecurityAuditDoesNotCacheFailedWebSocketDecision(t *testing.T) {
+func TestRunSecurityAuditFailOpenPromptFailureIsNotCachedWebSocket(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := &turnCountingEngine{
 		mode: securityaudit.ModeBlocking,
@@ -100,7 +100,10 @@ func TestRunSecurityAuditDoesNotCacheFailedWebSocketDecision(t *testing.T) {
 	_, cachedAfterFailure := c.Get(securityAuditWSDedupeContextKey)
 	second := runSecurityAudit(c, nil, coordinator, nil, nil, middleware2.AuthSubject{UserID: 7}, "openai_responses", "gpt-test", payload, "subsequent_turn")
 
-	require.False(t, first.AllowNextStage)
+	require.True(t, first.AllowNextStage, "Guard availability failures are fail-open")
+	require.Equal(t, securityaudit.DecisionAllow, first.Kind)
+	require.NotNil(t, first.Prompt)
+	require.Equal(t, securityaudit.DecisionUnavailable, first.Prompt.Kind)
 	require.False(t, cachedAfterFailure)
 	require.True(t, second.AllowNextStage)
 	require.Equal(t, int64(2), engine.evaluates.Load())

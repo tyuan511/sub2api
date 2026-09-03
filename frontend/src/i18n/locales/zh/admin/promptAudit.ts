@@ -58,7 +58,7 @@ export default {
     saveBar: { enabled: '启用提示词审计', blocking: '同步阻止', blockingLatestTurnOnly: '仅审最新输入和上一轮输出', storePass: '保存安全事件', dirty: '有未保存的更改', synced: '配置已同步' },
     blockingConfirm: {
       title: '开启同步阻止？',
-      message: '适用请求会在账号选择、计费和访问上游之前等待 Guard。命中 Block、Guard 不可用或响应非法时，请求都不会访问上游。',
+      message: '适用请求会在账号选择、计费和访问上游之前等待 Guard。命中 Block 时会阻止请求；Guard 不可用或响应非法时将记录故障并默认放行。',
       confirm: '理解风险并开启',
     },
     events: {
