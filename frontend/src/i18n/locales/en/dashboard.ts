@@ -527,6 +527,11 @@ export default {
   channelStatus: {
     title: 'Channel Status',
     description: 'Inspect channel availability, latency and recent status',
+    kicker: 'Live channel observatory',
+    rangeLabel: 'Data window',
+    monitored: 'Monitored',
+    healthy: 'Healthy',
+    attention: 'Attention',
     searchPlaceholder: 'Search channels...',
     allProviders: 'All Providers',
     loadError: 'Failed to load channel status',

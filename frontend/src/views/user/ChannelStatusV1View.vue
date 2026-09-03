@@ -5,6 +5,9 @@
       :interval-seconds="DEFAULT_INTERVAL_SECONDS"
       :window="currentWindow"
       :loading="loading"
+      :channel-count="items.length"
+      :healthy-count="healthyCount"
+      :degraded-count="degradedCount"
       :auto-refresh="autoRefresh"
       @update:window="handleWindowChange"
       @refresh="manualReload"
@@ -80,6 +83,12 @@ const overallStatus = computed<OverallStatus>(() => {
   }
   return 'operational'
 })
+
+const healthyCount = computed(() =>
+  items.value.filter((item) => item.primary_status === STATUS_OPERATIONAL).length,
+)
+
+const degradedCount = computed(() => Math.max(0, items.value.length - healthyCount.value))
 
 const detailTitle = computed(() => {
   return detailTarget.value?.name || t('channelStatus.detailTitle')

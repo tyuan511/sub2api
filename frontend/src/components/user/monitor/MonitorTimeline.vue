@@ -1,23 +1,23 @@
 <template>
-  <div class="mt-4 pt-3 border-t border-gray-100 dark:border-dark-700/60">
+  <div class="mt-6 border-t border-gray-200/80 pt-5 dark:border-dark-700/80">
     <div
-      class="flex justify-between text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2"
+      class="mb-3 flex justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400"
     >
       <span>{{ t('monitorCommon.history60pts', { n: length }) }}</span>
-      <span class="tabular-nums">{{ t('monitorCommon.nextUpdateIn', { n: countdownSeconds }) }}</span>
+      <span class="font-mono tabular-nums text-gray-500 dark:text-gray-400">{{ t('monitorCommon.nextUpdateIn', { n: countdownSeconds }) }}</span>
     </div>
 
     <div
       v-if="maintenance"
-      class="flex h-5 w-full items-center justify-center rounded border border-dashed border-gray-300 dark:border-dark-600 text-[10px] uppercase tracking-widest text-gray-400"
+      class="flex h-9 w-full items-center justify-center rounded-lg border border-dashed border-gray-300 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:border-dark-600"
     >
       {{ t('monitorCommon.maintenancePaused') }}
     </div>
-    <div v-else class="flex items-end gap-[2px] h-5 w-full">
+    <div v-else class="flex h-9 w-full items-end gap-[3px] overflow-hidden rounded-lg bg-gray-50 px-1.5 py-1 dark:bg-dark-900/45">
       <div
         v-for="(bar, idx) in displayBars"
         :key="idx"
-        class="flex-1 min-w-0 rounded-sm"
+        class="min-w-0 flex-1 rounded-[3px] opacity-90 transition-[height,opacity] duration-300 group-hover:opacity-100"
         :class="bar.colorClass"
         :style="{ height: bar.heightPct + '%' }"
         :title="bar.title"
@@ -25,7 +25,7 @@
     </div>
 
     <div
-      class="mt-1 flex justify-between text-[9px] uppercase tracking-widest text-gray-400"
+      class="mt-2 flex justify-between font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-gray-400"
     >
       <span>{{ t('monitorCommon.past') }}</span>
       <span>{{ t('monitorCommon.now') }}</span>
@@ -52,7 +52,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { t } = useI18n()
-const { statusLabel, formatLatency, formatTokensPerSecond, formatRelativeTime } = useChannelMonitorFormat()
+const { statusLabel, formatLatency, formatRelativeTime } = useChannelMonitorFormat()
 
 interface Bar {
   colorClass: string
@@ -106,14 +106,13 @@ const displayBars = computed<Bar[]>(() => {
       : STATUS_COLOR[status] ?? STATUS_COLOR.empty
     const heightPct = STATUS_HEIGHT[status] ?? STATUS_HEIGHT.empty
     const firstToken = formatLatency(point.first_token_ms)
-    const tokensPerSecond = formatTokensPerSecond(point.tokens_per_second)
     const relative = formatRelativeTime(point.checked_at)
     const label = statusLabel(point.status)
     bars.push({
       colorClass,
       heightPct,
       title: point.first_token_ms != null
-        ? `${relative} · ${label} · ${t('monitorCommon.firstToken')} ${firstToken}ms · ${t('monitorCommon.tokenSpeed')} ${tokensPerSecond} Token/s`
+        ? `${relative} · ${label} · ${t('monitorCommon.firstToken')} ${firstToken}ms`
         : `${relative} · ${label}`,
     })
   }
