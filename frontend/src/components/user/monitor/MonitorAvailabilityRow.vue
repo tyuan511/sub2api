@@ -1,80 +1,77 @@
 <template>
-  <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-    <div class="relative overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-50/75 p-4 dark:border-dark-700/80 dark:bg-dark-900/45">
-      <span aria-hidden="true" class="absolute -bottom-8 -right-8 h-20 w-20 rounded-full bg-emerald-400/10 blur-xl"></span>
-      <div class="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
-        {{ windowLabel }}
-        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+  <div class="mt-5 grid grid-cols-1 gap-4 py-4 sm:grid-cols-3 sm:divide-x sm:divide-gray-100 dark:sm:divide-dark-700/70">
+    <div class="min-w-0 sm:pr-3">
+      <div class="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500"></span>
+        <span class="truncate" :title="windowLabel">{{ windowLabel }}</span>
       </div>
-      <div class="relative mt-3 flex items-end gap-1">
+      <div class="mt-2 flex min-w-0 items-baseline gap-1">
         <span
-          class="font-mono text-4xl font-bold tabular-nums leading-none tracking-tight"
+          class="min-w-0 truncate whitespace-nowrap font-mono text-[clamp(1.15rem,1.7vw,1.5rem)] font-semibold tabular-nums leading-none tracking-tight"
           :style="colorStyle"
         >
           {{ displayValue }}
         </span>
         <span
-          class="pb-0.5 text-sm font-bold leading-none"
+          class="flex-shrink-0 text-xs font-medium leading-none"
           :style="colorStyle"
         >%</span>
       </div>
-      <div class="relative mt-4 h-1.5 overflow-hidden rounded-full bg-gray-200/80 dark:bg-dark-700">
+      <div class="mt-3 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
         <span
-          class="block h-full rounded-full bg-gradient-to-r from-amber-400 via-lime-400 to-emerald-500 transition-[width] duration-500"
-          :style="{ width: percentageWidth(value) }"
+          class="block h-full rounded-full transition-[width,background-color] duration-500"
+          :style="availabilityBarStyle"
         ></span>
       </div>
     </div>
 
-    <div class="relative overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-50/75 p-4 dark:border-dark-700/80 dark:bg-dark-900/45">
-      <span aria-hidden="true" class="absolute -bottom-8 -right-8 h-20 w-20 rounded-full bg-primary-400/10 blur-xl"></span>
-      <div class="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+    <div class="min-w-0 sm:px-3">
+      <div class="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-500"></span>
         {{ t('monitorCommon.firstToken') }}
-        <span class="h-1.5 w-1.5 rounded-full bg-primary-500"></span>
       </div>
-      <div class="relative mt-3 flex items-end gap-1">
+      <div class="mt-2 flex min-w-0 items-baseline gap-1">
         <span
-          class="font-mono text-3xl font-bold tabular-nums leading-none tracking-tight"
+          class="min-w-0 truncate whitespace-nowrap font-mono text-[clamp(1.1rem,1.7vw,1.4rem)] font-semibold tabular-nums leading-none tracking-tight"
           :class="firstTokenColorClass"
         >
           {{ firstTokenDisplayValue }}
         </span>
-        <span class="pb-0.5 text-xs font-bold leading-none text-gray-400">ms</span>
+        <span class="flex-shrink-0 text-xs font-medium leading-none text-gray-400">ms</span>
       </div>
-      <div class="relative mt-4 h-1.5 overflow-hidden rounded-full bg-gray-200/80 dark:bg-dark-700">
+      <div class="mt-3 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
         <span class="block h-full w-full rounded-full" :class="firstTokenBarClass"></span>
       </div>
     </div>
 
-    <div class="relative overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-50/75 p-4 dark:border-dark-700/80 dark:bg-dark-900/45">
-      <span aria-hidden="true" class="absolute -bottom-8 -right-8 h-20 w-20 rounded-full bg-sky-400/10 blur-xl"></span>
-      <div class="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+    <div class="min-w-0 sm:pl-3">
+      <div class="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-500"></span>
         {{ t('monitorCommon.cacheHitRate') }}
-        <span class="h-1.5 w-1.5 rounded-full bg-sky-500"></span>
       </div>
-      <div class="relative mt-3 flex items-end gap-1">
+      <div class="mt-2 flex min-w-0 items-baseline gap-1">
         <span
-          class="font-mono text-4xl font-bold tabular-nums leading-none tracking-tight"
+          class="min-w-0 truncate whitespace-nowrap font-mono text-[clamp(1.15rem,1.7vw,1.5rem)] font-semibold tabular-nums leading-none tracking-tight"
           :style="cacheColorStyle"
         >
           {{ cacheDisplayValue }}
         </span>
         <span
-          class="pb-0.5 text-sm font-bold leading-none"
+          class="flex-shrink-0 text-xs font-medium leading-none"
           :style="cacheColorStyle"
         >%</span>
       </div>
-      <div class="relative mt-4 h-1.5 overflow-hidden rounded-full bg-gray-200/80 dark:bg-dark-700">
+      <div class="mt-3 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
         <span
-          class="block h-full rounded-full bg-gradient-to-r from-sky-400 to-primary-500 transition-[width] duration-500"
-          :style="{ width: percentageWidth(cacheHitRate) }"
+          class="block h-full rounded-full transition-[width,background-color] duration-500"
+          :style="cacheBarStyle"
         ></span>
       </div>
     </div>
   </div>
   <div
     v-if="samplesLabel"
-    class="mt-2 text-right font-mono text-[10px] uppercase tracking-[0.12em] text-gray-400"
+    class="mt-2 text-right text-[10px] text-gray-400"
   >
     {{ samplesLabel }}
   </div>
@@ -115,6 +112,16 @@ const cacheColorStyle = computed(() => {
   const colour = hslForPct(props.cacheHitRate)
   return colour ? { color: colour } : { color: 'rgb(156 163 175)' }
 })
+
+const availabilityBarStyle = computed(() => ({
+  width: percentageWidth(props.value),
+  backgroundColor: colorStyle.value.color,
+}))
+
+const cacheBarStyle = computed(() => ({
+  width: percentageWidth(props.cacheHitRate),
+  backgroundColor: cacheColorStyle.value.color,
+}))
 
 const firstTokenDisplayValue = computed(() => {
   if (props.firstTokenMs == null || Number.isNaN(props.firstTokenMs)) {

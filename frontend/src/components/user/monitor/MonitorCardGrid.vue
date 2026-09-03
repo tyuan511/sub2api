@@ -1,32 +1,29 @@
 <template>
-  <div class="pb-10 pt-2">
+  <div class="pb-8 pt-1">
     <div
       v-if="loading && items.length === 0"
-      class="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3"
+      class="grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3"
     >
       <div
         v-for="i in 6"
         :key="i"
-        class="relative min-h-[390px] overflow-hidden rounded-[28px] border border-gray-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(30,64,175,0.08)] dark:border-dark-700 dark:bg-dark-800/80"
+        class="min-h-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-card dark:border-dark-700 dark:bg-dark-800"
       >
         <div class="animate-pulse">
-          <div class="flex items-start gap-4">
-            <div class="h-12 w-12 rounded-2xl bg-gray-200 dark:bg-dark-700"></div>
-            <div class="flex-1 space-y-2.5 pt-1">
+          <div class="flex items-start gap-3">
+            <div class="h-10 w-10 rounded-xl bg-gray-200 dark:bg-dark-700"></div>
+            <div class="flex-1 space-y-2 pt-1">
               <div class="h-5 w-2/3 rounded bg-gray-200 dark:bg-dark-700"></div>
               <div class="h-3 w-1/2 rounded bg-gray-200 dark:bg-dark-700"></div>
             </div>
-            <div class="h-7 w-20 rounded-full bg-gray-200 dark:bg-dark-700"></div>
+            <div class="h-6 w-16 rounded-full bg-gray-200 dark:bg-dark-700"></div>
           </div>
-          <div class="mt-6 grid grid-cols-2 gap-3">
-            <div class="h-24 rounded-2xl bg-gray-100 dark:bg-dark-900/50"></div>
-            <div class="h-24 rounded-2xl bg-gray-100 dark:bg-dark-900/50"></div>
+          <div class="mt-5 grid grid-cols-3 gap-3 border-y border-gray-100 py-5 dark:border-dark-700/70">
+            <div class="h-14 rounded bg-gray-100 dark:bg-dark-900/50"></div>
+            <div class="h-14 rounded bg-gray-100 dark:bg-dark-900/50"></div>
+            <div class="h-14 rounded bg-gray-100 dark:bg-dark-900/50"></div>
           </div>
-          <div class="mt-6 grid grid-cols-2 gap-3">
-            <div class="h-28 rounded-2xl bg-gray-100 dark:bg-dark-900/50"></div>
-            <div class="h-28 rounded-2xl bg-gray-100 dark:bg-dark-900/50"></div>
-          </div>
-          <div class="mt-6 h-9 w-full rounded-lg bg-gray-100 dark:bg-dark-900/50"></div>
+          <div class="mt-5 h-8 w-full rounded-md bg-gray-100 dark:bg-dark-900/50"></div>
         </div>
       </div>
     </div>
@@ -39,13 +36,11 @@
 
     <div
       v-else
-      class="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3"
+      class="grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3"
     >
       <MonitorCard
-        v-for="(item, index) in items"
+        v-for="item in items"
         :key="item.id"
-        class="monitor-card-reveal"
-        :style="{ animationDelay: `${Math.min(index, 8) * 45}ms` }"
         :item="item"
         :window="window"
         :availability-value="resolveAvailability(item)"
@@ -94,26 +89,3 @@ function resolveCacheHitRate(item: UserMonitorView): number | null {
   return item.cache_hit_rate_30d ?? null
 }
 </script>
-
-<style scoped>
-.monitor-card-reveal {
-  animation: monitor-card-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes monitor-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .monitor-card-reveal {
-    animation: none;
-  }
-}
-</style>

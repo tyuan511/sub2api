@@ -532,11 +532,6 @@ export default {
   channelStatus: {
     title: '渠道状态',
     description: '查看渠道可用性、延迟和近期状态',
-    kicker: '实时渠道观测台',
-    rangeLabel: '数据窗口',
-    monitored: '监控渠道',
-    healthy: '运行正常',
-    attention: '需要关注',
     searchPlaceholder: '搜索渠道...',
     allProviders: '全部供应商',
     loadError: '加载渠道状态失败',

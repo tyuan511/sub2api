@@ -1,7 +1,7 @@
 <template>
-  <div class="mt-6 border-t border-gray-200/80 pt-5 dark:border-dark-700/80">
+  <div class="mt-5 border-t border-gray-100 pt-4 dark:border-dark-700/70">
     <div
-      class="mb-3 flex justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400"
+      class="mb-2.5 flex justify-between gap-3 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400"
     >
       <span>{{ t('monitorCommon.history60pts', { n: length }) }}</span>
       <span class="font-mono tabular-nums text-gray-500 dark:text-gray-400">{{ t('monitorCommon.nextUpdateIn', { n: countdownSeconds }) }}</span>
@@ -13,11 +13,11 @@
     >
       {{ t('monitorCommon.maintenancePaused') }}
     </div>
-    <div v-else class="flex h-9 w-full items-end gap-[3px] overflow-hidden rounded-lg bg-gray-50 px-1.5 py-1 dark:bg-dark-900/45">
+    <div v-else class="flex h-8 w-full items-end gap-px overflow-hidden rounded-md px-1 py-1">
       <div
         v-for="(bar, idx) in displayBars"
         :key="idx"
-        class="min-w-0 flex-1 rounded-[3px] opacity-90 transition-[height,opacity] duration-300 group-hover:opacity-100"
+        class="min-w-0 flex-1 rounded-[2px] opacity-90 transition-[height,opacity] duration-300 group-hover:opacity-100"
         :class="bar.colorClass"
         :style="{ height: bar.heightPct + '%' }"
         :title="bar.title"
@@ -25,7 +25,7 @@
     </div>
 
     <div
-      class="mt-2 flex justify-between font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-gray-400"
+      class="mt-1.5 flex justify-between font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-gray-400"
     >
       <span>{{ t('monitorCommon.past') }}</span>
       <span>{{ t('monitorCommon.now') }}</span>
