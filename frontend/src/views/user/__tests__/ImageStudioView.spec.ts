@@ -212,6 +212,24 @@ describe('image studio user flow', () => {
     expect(mocks.generate.mock.calls[0][1]).toBe('My next draft')
     wrapper.unmount()
   })
+  it('adds a cached preview as a reference after recovering from a CORS cache miss', async () => {
+    const picture = { id: 'image-1', url: 'https://blob.fastvibe.dev/images/image.png' }
+    mocks.creations = [{ id: 'creation-1', prompt: 'Original', model: 'gpt-image-2', ratio: '1:1', resolution: '1K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'completed', images: [picture], references: [] }]
+    mocks.file.mockResolvedValue({ ...picture, size: 5, content_type: 'image/png' })
+    const request = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce({ ok: true, blob: async () => new Blob(['image'], { type: 'image/png' }) })
+    vi.stubGlobal('fetch', request)
+    vi.stubGlobal('URL', class extends URL { static createObjectURL = vi.fn(() => 'blob:reference'); static revokeObjectURL = vi.fn() })
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('.picture-open').trigger('click'); await flushPromises()
+    await wrapper.get('.preview-actions button.btn-secondary').trigger('click'); await flushPromises()
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(request.mock.calls[1][0]).toBe(picture.url)
+    expect(request.mock.calls[1][1]).toMatchObject({ credentials: 'omit', cache: 'reload' })
+    expect(wrapper.find('.studio-preview').exists()).toBe(false)
+    expect(wrapper.findAll('.reference-thumbnail')).toHaveLength(1)
+    expect(mocks.showError).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
   it('enforces the reference limit and preserves the draft when an image is too large or fails to load', async () => {
     mocks.creations = [{ id: 'creation-1', prompt: 'Original', model: 'gpt-image-2', ratio: '1:1', resolution: '1K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'completed', images: [{ id: 'output-1', url: 'https://example.test/image.png' }], references: [] }]
     let blobID = 0

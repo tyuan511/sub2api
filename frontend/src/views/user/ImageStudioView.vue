@@ -103,6 +103,7 @@ import StudioGenerationPlaceholder from '@/components/image/StudioGenerationPlac
 import StudioImageSettings from '@/components/image/StudioImageSettings.vue'
 import StudioImagePreview from '@/components/image/StudioImagePreview.vue'
 import { isImageUrlFresh } from '@/utils/imageUrlCache'
+import { fetchImage } from '@/utils/fetchImage'
 
 const { t, locale } = useI18n()
 const studio = useImageStudioStore()
@@ -325,7 +326,7 @@ async function editCreation(creation: StudioCreation) {
     files = await Promise.all(creation.references.map(async reference => {
       if (reference instanceof File) return reference
       const asset = await getStudioFile(reference.id)
-      const response = await fetch(asset.url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(60000) })
+      const response = await fetchImage(asset.url, AbortSignal.timeout(60000))
       if (!response.ok) throw new Error('reference_unavailable')
       return new File([await response.blob()], reference.filename, { type: reference.content_type })
     }))
@@ -386,7 +387,7 @@ async function useAsReference(picture: StudioImage & { id?: string }, creationId
     // Renew the stored asset URL before fetching; never send API credentials to S3.
     const asset = picture.id ? await getStudioFile(picture.id) : null
     if (asset && asset.size > 10 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference'))
-    const response = await fetch(asset?.url || picture.url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: controller.signal })
+    const response = await fetchImage(asset?.url || picture.url, controller.signal)
     if (!response.ok) throw new Error(t('imageStudio.referenceUnavailable'))
     const blob = await response.blob()
     const mime = blob.type || asset?.content_type || ''
@@ -402,7 +403,7 @@ async function useAsReference(picture: StudioImage & { id?: string }, creationId
     await nextTick()
     promptInput.value?.focus()
   } catch (error) {
-    if (!disposed) app.showError(errorMessage(error, t('imageStudio.referenceUnavailable')))
+    if (!disposed) app.showError(error instanceof TypeError ? t('imageStudio.referenceUnavailable') : errorMessage(error, t('imageStudio.referenceUnavailable')))
   } finally {
     window.clearTimeout(timeout)
     addingReference.value = ''
@@ -448,7 +449,7 @@ async function download(picture: StudioImage & { id?: string }, id: string, inde
   downloading.value = imageIdentity(picture)
   try {
     await freshImage(picture)
-    const response = await fetch(picture.url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(60000) })
+    const response = await fetchImage(picture.url, AbortSignal.timeout(60000))
     if (!response.ok) throw new Error('Download failed')
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
