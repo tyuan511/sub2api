@@ -3,10 +3,6 @@
     <section class="image-studio" :aria-label="t('imageStudio.title')">
       <div ref="historyEl" class="studio-history" :aria-busy="studio.historyLoading" @scroll.passive="updateHistoryPosition">
         <div ref="historyContentEl">
-        <div class="history-heading">
-          <div class="history-labels"><h2>{{ t('imageStudio.history') }}</h2><span>{{ t('imageStudio.historyNote') }}</span></div>
-          <button class="quiet-button" @click="openCreate"><Icon name="plus" size="sm" />{{ t('imageStudio.createKey') }}</button>
-        </div>
         <p v-if="studio.historyUnavailable" class="studio-notice" role="status">{{ t('imageStudio.historyUnavailable') }}<button @click="studio.loadHistory()">{{ t('imageStudio.retry') }}</button></p>
         <button v-if="studio.hasMore" class="btn btn-secondary mx-auto mb-6 block" :disabled="studio.loadingMore" @click="loadOlderHistory">{{ t('imageStudio.loadMore') }}</button>
         <div v-if="!studio.creations.length && !studio.historyLoading" class="studio-empty">
@@ -31,7 +27,7 @@
               </button>
               <div class="picture-tools">
                 <button type="button" class="picture-reference" :disabled="referenceActionDisabled(picture)" @click="useAsReference(picture, creation.id, index)"><Icon :name="addingReference === imageIdentity(picture) ? 'refresh' : 'photo'" :class="{ spinning: addingReference === imageIdentity(picture) }" size="sm" /><span>{{ referenceActionLabel(picture) }}</span></button>
-                <button class="picture-download" :aria-label="t('imageStudio.download')" :disabled="downloading === picture.url" @click="download(picture, creation.id, index)"><Icon name="download" size="sm" /></button>
+                <button class="picture-download" :aria-label="t('imageStudio.download')" :disabled="downloading === imageIdentity(picture)" @click="download(picture, creation.id, index)"><Icon name="download" size="sm" /></button>
               </div>
             </div>
           </div>
@@ -82,9 +78,7 @@
         <div class="dialog-actions"><button type="button" class="btn btn-secondary" :disabled="creating" @click="showCreate = false">{{ t('imageStudio.cancel') }}</button><button type="submit" class="btn btn-primary" :disabled="creating || !createGroupId || !keyName.trim()">{{ creating ? t('imageStudio.creating') : t('imageStudio.create') }}</button></div>
       </form>
     </BaseDialog>
-    <BaseDialog :show="!!preview" :title="t('imageStudio.preview')" width="extra-wide" close-on-click-outside @close="preview = null">
-      <template v-if="preview"><img class="preview-image" :src="preview.picture.url" :alt="preview.creation.prompt" referrerpolicy="no-referrer" /><p class="preview-prompt">{{ preview.picture.revisedPrompt || preview.creation.prompt }}</p><div class="dialog-actions"><button type="button" class="btn btn-secondary" :disabled="referenceActionDisabled(preview.picture)" @click="useAsReference(preview.picture, preview.creation.id, preview.index)"><Icon name="photo" size="sm" />{{ referenceActionLabel(preview.picture) }}</button><a :href="preview.picture.url" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">{{ t('imageStudio.openOriginal') }}</a><button class="btn btn-primary" :disabled="downloading === preview.picture.url" @click="download(preview.picture, preview.creation.id, preview.index)"><Icon name="download" size="sm" />{{ t('imageStudio.download') }}</button></div></template>
-    </BaseDialog>
+    <StudioImagePreview :creation="preview?.creation || null" :index="preview?.index || 0" :downloading="!!preview && downloading === imageIdentity(preview.picture)" :reference-disabled="!!preview && referenceActionDisabled(preview.picture)" :reference-label="preview ? referenceActionLabel(preview.picture) : ''" @close="preview = null" @select="selectPreview" @error="refreshImage" @download="preview && download(preview.picture, preview.creation.id, preview.index)" @reference="preview && useAsReference(preview.picture, preview.creation.id, preview.index)" />
   </AppLayout>
 </template>
 
@@ -107,6 +101,8 @@ import Icon from '@/components/icons/Icon.vue'
 import StudioReferencePicker from '@/components/image/StudioReferencePicker.vue'
 import StudioGenerationPlaceholder from '@/components/image/StudioGenerationPlaceholder.vue'
 import StudioImageSettings from '@/components/image/StudioImageSettings.vue'
+import StudioImagePreview from '@/components/image/StudioImagePreview.vue'
+import { isImageUrlFresh } from '@/utils/imageUrlCache'
 
 const { t, locale } = useI18n()
 const studio = useImageStudioStore()
@@ -413,24 +409,43 @@ async function useAsReference(picture: StudioImage & { id?: string }, creationId
     if (referenceController === controller) referenceController = undefined
   }
 }
-async function freshImage(picture: StudioImage & { id?: string }) {
-  if (picture.id) picture.url = (await getStudioFile(picture.id)).url
-  return picture.url
+const imageRefreshes = new Map<string, Promise<string>>()
+async function freshImage(picture: StudioImage & { id?: string }, force = false) {
+  if (!picture.id || (!force && isImageUrlFresh(picture.url))) return picture.url
+  const id = picture.id
+  let request = imageRefreshes.get(id)
+  if (!request) {
+    request = getStudioFile(id).then(asset => asset.url).finally(() => imageRefreshes.delete(id))
+    imageRefreshes.set(id, request)
+  }
+  const url = await request
+  if (!disposed) picture.url = url
+  return url
 }
 const refreshedImages = new Map<string, number>()
-async function refreshImage(picture: StudioImage & { id?: string }) {
+async function refreshImage(picture: StudioImage & { id?: string }, force = false) {
   const key = picture.id || picture.url
-  if (!picture.id || Date.now() - (refreshedImages.get(key) || 0) < 30000) { brokenImages.value.add(picture.url); return }
+  if (imageRefreshes.has(key)) return
+  if (!picture.id || (!force && Date.now() - (refreshedImages.get(key) || 0) < 30000)) { brokenImages.value.add(picture.url); return }
   refreshedImages.set(key, Date.now())
-  try { const previous = picture.url; await freshImage(picture); if (previous === picture.url) brokenImages.value.add(picture.url) }
+  try { const previous = picture.url; await freshImage(picture, true); if (previous === picture.url) brokenImages.value.add(picture.url) }
   catch { brokenImages.value.add(picture.url) }
 }
 async function openPreview(picture: StudioImage & { id?: string }, creation: StudioCreation, index: number) {
-  try { await freshImage(picture); preview.value = { picture, creation, index } }
+  preview.value = { picture, creation, index }
+  try { await freshImage(picture) }
   catch { app.showError(t('imageStudio.imageUnavailable')) }
 }
+function selectPreview(index: number) {
+  const creation = preview.value?.creation
+  const picture = creation?.images[index]
+  if (creation && picture) {
+    preview.value = { picture, creation, index }
+    void freshImage(picture).catch(() => { /* The image error handler retries unavailable links. */ })
+  }
+}
 async function download(picture: StudioImage & { id?: string }, id: string, index: number) {
-  downloading.value = picture.url
+  downloading.value = imageIdentity(picture)
   try {
     await freshImage(picture)
     const response = await fetch(picture.url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(60000) })
@@ -469,13 +484,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .image-studio { --studio-bg: var(--fv-page); --studio-surface: #fff; --studio-ink: #222530; --studio-muted: #858a97; --studio-line: #e9ebf0; --studio-accent: #8070ed; display: flex; flex-direction: column; height: calc(100dvh - 64px); min-height: 560px; margin: -32px; color: var(--studio-ink); background: var(--studio-bg); overflow: hidden; }
 .dark .image-studio { --studio-surface: #222329; --studio-ink: #f2f1f7; --studio-muted: #9b9aa8; --studio-line: #303138; --studio-accent: #b1a5ff; }
-.quiet-button { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--studio-muted); }
-.quiet-button:hover { color: var(--studio-accent); }
 .studio-history { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 28px 32px 40px; scrollbar-width: thin; }
-.history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
-.history-labels { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
-.history-heading h2 { font-size: 13px; font-weight: 500; }
-.history-heading span { color: var(--studio-muted); font-size: 11px; }
 .studio-empty { min-height: 300px; display: flex; align-items: center; flex-direction: column; justify-content: center; padding: 32px 12px; text-align: center; }
 .empty-art { width: 110px; height: 90px; position: relative; margin-bottom: 26px; }
 .art-sheet { position: absolute; width: 70px; height: 76px; border: 1px solid color-mix(in srgb, var(--studio-accent) 20%, var(--studio-line)); border-radius: 12px; }
@@ -521,12 +530,13 @@ onBeforeUnmount(() => {
 .partial-notice { font-size: 12px; color: var(--studio-muted); margin-top: 10px; }
 .composer-dock { flex-shrink: 0; padding: 12px 32px 64px; background: var(--studio-bg); }
 .studio-composer { padding: 12px; border: 1px solid var(--studio-line); border-radius: 20px; background: var(--studio-surface); box-shadow: 0 4px 24px #30304004; }
-.studio-composer:focus-within { border-color: color-mix(in srgb, var(--studio-accent) 40%, var(--studio-line)); box-shadow: 0 4px 24px #8070ed06; }
 .composer-input { display: flex; align-items: flex-start; gap: 10px; min-height: 94px; }
 .composer-prompt { flex: 1; min-width: 0; }
-.composer-prompt :deep(textarea) { resize: none; min-width: 0; min-height: 82px; max-height: 180px; padding: 6px 0; border: 0; outline: 0; border-radius: 0; background: transparent; color: var(--studio-ink); font-size: 14px; line-height: 1.8; box-shadow: none; }
+.studio-composer .composer-prompt :deep(textarea) { resize: none; min-width: 0; min-height: 82px; max-height: 180px; padding: 6px 0; border: 0; outline: 0; border-radius: 0; background: transparent; color: var(--studio-ink); font-size: 14px; line-height: 1.8; box-shadow: none; }
+.dark .studio-composer .composer-prompt :deep(textarea) { background: transparent; }
 .composer-prompt :deep(textarea::placeholder) { color: var(--studio-muted); opacity: .8; }
-.composer-prompt :deep(textarea:focus-visible) { outline: none; box-shadow: none; }
+.studio-composer .composer-prompt :deep(textarea:focus),
+.studio-composer .composer-prompt :deep(textarea:focus-visible) { outline: none; box-shadow: none; }
 .composer-toolbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding-top: 13px; }
 .composer-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .composer-select { min-width: 72px; }
@@ -554,18 +564,13 @@ onBeforeUnmount(() => {
 .create-group-field { display: flex; flex-direction: column; gap: 8px; }
 .create-group-field > label { font-size: 13px; }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 10px; }
-.preview-image { width: 100%; max-height: 65dvh; object-fit: contain; border-radius: 8px; }
-.preview-prompt { margin-top: 16px; font-size: 13px; color: var(--fv-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .spinning { animation: spin 2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1280px) { .composer-toolbar { flex-wrap: wrap; } .composer-submit { margin-left: auto; } }
 @media (min-width: 768px) and (max-width: 1023px) { .image-studio { margin: -24px; } }
 @media (max-width: 767px) {
   .image-studio { margin: -16px; }
-  .quiet-button { font-size: 10px; flex-shrink: 0; padding-top: 2px; }
   .studio-history { padding: 18px 16px; }
-  .history-heading { align-items: flex-start; gap: 10px; }
-  .history-labels { flex-direction: column; gap: 5px; }
   .studio-empty { padding: 24px 0; }
   .studio-empty h2 { font-size: 20px; }
   .studio-empty > p { line-height: 1.8; }
@@ -575,7 +580,7 @@ onBeforeUnmount(() => {
   .composer-dock { padding: 8px 12px 64px; }
   .studio-composer { padding: 10px 10px 12px; border-radius: 14px; }
   .composer-input { gap: 10px; min-height: 94px; }
-  .composer-prompt :deep(textarea) { font-size: 13px; min-height: 82px; max-height: 130px; }
+  .studio-composer .composer-prompt :deep(textarea) { font-size: 13px; min-height: 82px; max-height: 130px; }
   .composer-toolbar { gap: 10px; padding-top: 6px; }
   .composer-select :deep(.select-trigger) { min-height: 32px; padding: 6px 8px; }
   .key-select { max-width: 210px; }

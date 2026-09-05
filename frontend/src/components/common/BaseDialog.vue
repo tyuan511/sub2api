@@ -4,6 +4,7 @@
       <div
         v-if="show"
         class="modal-overlay"
+        :class="{ 'media-dialog': variant === 'media' }"
         :style="zIndexStyle"
         :aria-labelledby="dialogId"
         role="dialog"
@@ -65,6 +66,7 @@ interface Props {
   closeOnClickOutside?: boolean
   showCloseButton?: boolean
   zIndex?: number
+  variant?: 'default' | 'media'
 }
 
 interface Emits {
@@ -76,7 +78,8 @@ const props = withDefaults(defineProps<Props>(), {
   closeOnEscape: true,
   closeOnClickOutside: false,
   showCloseButton: true,
-  zIndex: 50
+  zIndex: 50,
+  variant: 'default'
 })
 
 const emit = defineEmits<Emits>()
@@ -109,6 +112,14 @@ const handleClose = () => {
 const handleEscape = (event: KeyboardEvent) => {
   if (props.show && props.closeOnEscape && event.key === 'Escape') {
     emit('close')
+  }
+  if (props.show && props.variant === 'media' && event.key === 'Tab' && dialogRef.value) {
+    const elements = Array.from(dialogRef.value.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], [tabindex="0"]'))
+      .filter(element => element.getClientRects().length > 0)
+    const first = elements[0]
+    const last = elements[elements.length - 1]
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
   }
 }
 
@@ -155,3 +166,16 @@ onUnmounted(() => {
   document.body.classList.remove('modal-open')
 })
 </script>
+
+<style scoped>
+.media-dialog { padding: 24px; background: rgb(9 12 18 / .78); backdrop-filter: blur(12px); }
+.media-dialog .modal-content { width: 100%; max-width: 1600px; height: min(900px, calc(100dvh - 48px)); max-height: calc(100dvh - 48px); overflow: hidden; border-radius: 20px; box-shadow: 0 24px 100px rgb(0 0 0 / .3); }
+.media-dialog .modal-header { padding: 12px 20px; }
+.media-dialog .modal-title { font-size: 14px; }
+.media-dialog .modal-body { padding: 0; min-height: 0; overflow: hidden; }
+@media (max-width: 640px) {
+  .media-dialog { padding: 8px; }
+  .media-dialog .modal-content { height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); border-radius: 14px; }
+  .media-dialog .modal-header { padding: 10px 16px; }
+}
+</style>

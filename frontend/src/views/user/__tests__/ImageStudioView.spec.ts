@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import Select from '@/components/common/Select.vue'
 import StudioImageSettings from '@/components/image/StudioImageSettings.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), groups: vi.fn(
 vi.mock('@/api/keys', () => ({ keysAPI: { list: mocks.list, create: mocks.create } }))
 vi.mock('@/api/groups', () => ({ userGroupsAPI: { getUserGroupRates: mocks.rates } }))
 vi.mock('@/api/imageStudio', async importOriginal => ({ ...await importOriginal<object>(), getImageGenerationGroups: mocks.groups, getImageStudioStatus: mocks.status, getStudioFile: mocks.file }))
-vi.mock('@/stores/imageStudio', () => ({ useImageStudioStore: () => ({ creations: mocks.creations, remove: mocks.remove, get generating() { return mocks.creations.some(item => item.status === 'generating') }, historyLoading: false, historyUnavailable: false, generate: mocks.generate, resume: mocks.resume, resumePending: mocks.resumePending }) }))
+vi.mock('@/stores/imageStudio', () => ({ useImageStudioStore: () => ({ creations: reactive(mocks.creations), remove: mocks.remove, get generating() { return mocks.creations.some(item => item.status === 'generating') }, historyLoading: false, historyUnavailable: false, generate: mocks.generate, resume: mocks.resume, resumePending: mocks.resumePending }) }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError: mocks.showError, showSuccess: mocks.showSuccess }) }))
 vi.mock('vue-i18n', async importOriginal => ({ ...await importOriginal<object>(), useI18n: () => ({
   locale: ref('en'),
@@ -77,6 +77,46 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('image studio user flow', () => {
+  it('reuses valid signatures on repeated previews and cycles only the selected batch', async () => {
+    const url = (index: number) => `https://images.test/${index}.png?X-Amz-Date=20990905T080000Z&X-Amz-Expires=3600`
+    const batch = { id: 'batch', prompt: 'Batch prompt', model: 'gpt-image-2', ratio: '16:9', resolution: '1K', count: 3, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'completed', images: [1, 2, 3].map(index => ({ id: `image-${index}`, url: url(index) })), references: [] } as StudioCreation
+    mocks.creations = [batch, { ...batch, id: 'other', images: [{ id: 'other-image', url: 'https://images.test/other.png' }] }]
+    const wrapper = render(); await flushPromises()
+    await wrapper.findAll('.picture-open')[2].trigger('click'); await flushPromises()
+    expect(wrapper.get('.preview-position').text()).toBe('2 / 3')
+    expect(wrapper.findAll('.preview-thumbnails button')).toHaveLength(3)
+    await wrapper.get('[aria-label="Next image"]').trigger('click')
+    expect(wrapper.get('.preview-position').text()).toBe('3 / 3')
+    await wrapper.get('[aria-label="Next image"]').trigger('click')
+    expect(wrapper.get('.preview-position').text()).toBe('1 / 3')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' })); await flushPromises()
+    expect(wrapper.get('.preview-position').text()).toBe('3 / 3')
+    await wrapper.get('[aria-label="Image 2"]').trigger('click')
+    expect(wrapper.get('.preview-original').attributes('href')).toBe(url(2))
+    const gallery = wrapper.findComponent({ name: 'StudioImagePreview' })
+    gallery.vm.$emit('close'); await flushPromises()
+    await wrapper.findAll('.picture-open')[2].trigger('click'); await flushPromises()
+    expect(mocks.file).not.toHaveBeenCalled()
+    expect(wrapper.get('.preview-original').attributes('href')).toBe(url(2))
+    wrapper.unmount()
+  })
+  it('renews expired signatures and retries early failures without refreshing healthy links', async () => {
+    const renewed = 'https://images.test/fresh.png?X-Amz-Date=20990905T080000Z&X-Amz-Expires=3600'
+    const image = { id: 'image', url: 'https://images.test/old.png?X-Amz-Date=20200101T000000Z&X-Amz-Expires=3600' }
+    mocks.creations = [{ id: 'batch', prompt: 'Prompt', model: 'gpt-image-2', ratio: '1:1', resolution: '1K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'completed', images: [image], references: [] }]
+    mocks.file.mockResolvedValue({ id: 'image', url: renewed })
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('.picture-open').trigger('click'); await flushPromises()
+    expect(mocks.file).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('.preview-original').attributes('href')).toBe(renewed)
+    expect(wrapper.find('.preview-arrow').exists()).toBe(false)
+    mocks.file.mockResolvedValue({ id: 'image', url: 'https://blob.fastvibe.dev/images/new.png' })
+    await wrapper.get('.preview-image').trigger('error'); await flushPromises()
+    expect(mocks.file).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('.preview-original').attributes('href')).toBe('https://blob.fastvibe.dev/images/new.png')
+    wrapper.unmount()
+  })
+
   it('defaults to square without an automatic option and preserves historical automatic metadata', async () => {
     mocks.creations = [{ id: 'auto', prompt: 'Automatic composition', model: 'gpt-image-2', ratio: 'auto', resolution: '1K', count: 2, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'failed', images: [], references: [] }]
     const wrapper = render(); await flushPromises()

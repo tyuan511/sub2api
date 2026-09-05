@@ -8,6 +8,7 @@ export default {
     start: 'Start migration', failed: 'Operation failed. Please try again.', migrated: 'Historical images migrated',
   },
   imageStudio: {
+    previousImage: 'Previous image', nextImage: 'Next image', batchImages: 'Images in this batch', imageNumber: 'Image {number}', loadingImage: 'Loading image…',
     autoRatio: 'Auto', autoDimensions: 'Chosen by the model', autoSizeHint: 'The model chooses dimensions from your prompt and references.',
     imageSettings: 'Ratio, resolution and count', chooseRatio: 'Aspect ratio', chooseResolution: 'Resolution', chooseCount: 'Number of images',
     dimensions: 'Dimensions', width: 'Image width', height: 'Image height',

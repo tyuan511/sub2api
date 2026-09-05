@@ -8,6 +8,7 @@ export default {
     start: '开始迁移', failed: '操作失败，请重试', migrated: '历史图片迁移完成',
   },
   imageStudio: {
+    previousImage: '上一张', nextImage: '下一张', batchImages: '本次生成的图片', imageNumber: '第 {number} 张', loadingImage: '正在加载图片…',
     autoRatio: '自动', autoDimensions: '由模型自动决定', autoSizeHint: '由模型根据提示词和参考图决定尺寸。',
     imageSettings: '比例、分辨率和数量', chooseRatio: '选择比例', chooseResolution: '选择分辨率', chooseCount: '选择生成数量',
     dimensions: '尺寸', width: '图片宽度', height: '图片高度',
