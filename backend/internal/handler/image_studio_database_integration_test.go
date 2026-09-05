@@ -7,6 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	imagepng "image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -98,6 +101,12 @@ func TestImageStudioDatabaseHistoryAndStorageMigration(t *testing.T) {
 		_, err = db.ExecContext(ctx, string(deletionMigration))
 		require.NoError(t, err)
 	}
+	thumbnailMigration, err := migrations.FS.ReadFile("243_image_studio_thumbnails.sql")
+	require.NoError(t, err)
+	for i := 0; i < 2; i++ {
+		_, err = db.ExecContext(ctx, string(thumbnailMigration))
+		require.NoError(t, err)
+	}
 	repo := repository.NewImageStudioRepository(db)
 	cfg := &config.Config{Totp: config.TotpConfig{EncryptionKey: strings.Repeat("ab", 32), EncryptionKeyConfigured: true}}
 	encryptor, err := repository.NewAESEncryptor(cfg)
@@ -117,9 +126,16 @@ func TestImageStudioDatabaseHistoryAndStorageMigration(t *testing.T) {
 		return repo.AddStorage(ctx, p, false)
 	}
 	require.NoError(t, addStorage(first))
-	const fixture = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII="
-	png, err := base64.StdEncoding.DecodeString(fixture)
-	require.NoError(t, err)
+	var fixtureBuffer bytes.Buffer
+	fixtureImage := image.NewNRGBA(image.Rect(0, 0, 1024, 512))
+	for y := 0; y < 512; y++ {
+		for x := 0; x < 1024; x++ {
+			fixtureImage.SetNRGBA(x, y, color.NRGBA{uint8(x), uint8(y), 100, 120})
+		}
+	}
+	require.NoError(t, imagepng.Encode(&fixtureBuffer, fixtureImage))
+	png := fixtureBuffer.Bytes()
+	fixture := base64.StdEncoding.EncodeToString(png)
 	ref := service.OpenAIImagesUpload{FileName: "reference.png", ContentType: "image/png", Data: png}
 	meta := service.StudioMetadata{Prompt: "Database image fixture", Model: "gpt-image-2", Ratio: "21:9", Resolution: "4K", Size: "3024x1296", Count: 1, KeyName: "test-key-name"}
 	task, tasks, err := svc.Start(ctx, service.ImageTaskOwner{UserID: 7, APIKeyID: 9}, meta, []service.OpenAIImagesUpload{ref})
@@ -141,6 +157,30 @@ func TestImageStudioDatabaseHistoryAndStorageMigration(t *testing.T) {
 	require.Len(t, creation.References, 1)
 	require.Contains(t, creation.Images[0].URL, "/first/")
 	require.Equal(t, "revised fixture", creation.Images[0].RevisedPrompt)
+	require.Contains(t, creation.Images[0].ThumbnailURL, ".thumb-v1.webp")
+	require.Contains(t, creation.References[0].ThumbnailURL, ".thumb-v1.webp")
+	_, err = svc.Thumbnail(ctx, creation.Images[0].ID, 8)
+	require.ErrorIs(t, err, service.ErrImageTaskNotFound)
+	// Simulate a historical original whose derivative has not been registered.
+	_, err = db.ExecContext(ctx, `UPDATE image_studio_files SET thumbnail_ready=FALSE WHERE id=$1`, creation.Images[0].ID)
+	require.NoError(t, err)
+	legacy, err := svc.File(ctx, creation.Images[0].ID, 7)
+	require.NoError(t, err)
+	require.Empty(t, legacy.ThumbnailURL)
+	filled, err := svc.Thumbnail(ctx, legacy.ID, 7)
+	require.NoError(t, err)
+	require.NotEmpty(t, filled.ThumbnailURL)
+	thumbResponse, err := http.Get(filled.ThumbnailURL)
+	require.NoError(t, err)
+	require.Equal(t, 200, thumbResponse.StatusCode)
+	require.Equal(t, "image/webp", thumbResponse.Header.Get("Content-Type"))
+	thumbImage, _, err := image.Decode(thumbResponse.Body)
+	thumbResponse.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, image.Rect(0, 0, 768, 384), thumbImage.Bounds())
+	require.Equal(t, legacy.SHA256, filled.SHA256)
+	_, err = svc.Thumbnail(ctx, legacy.ID, 7)
+	require.NoError(t, err, "repeated backfill should reuse the stored thumbnail")
 	_, err = svc.Get(ctx, task.ID, 8)
 	require.ErrorIs(t, err, service.ErrImageTaskNotFound)
 	_, err = svc.File(ctx, creation.Images[0].ID, 8)
@@ -196,6 +236,7 @@ func TestImageStudioDatabaseHistoryAndStorageMigration(t *testing.T) {
 	require.Equal(t, creation.ID, migrated.ID)
 	require.Equal(t, creation.Images[0].ID, migrated.Images[0].ID)
 	require.Contains(t, migrated.Images[0].URL, "/second/")
+	require.Contains(t, migrated.Images[0].ThumbnailURL, "/second/")
 	download(migrated.Images[0].ID)
 	download(migrated.References[0].ID)
 	// Files still exist in the old bucket/path for rollback.
@@ -241,6 +282,16 @@ func TestImageStudioDatabaseHistoryAndStorageMigration(t *testing.T) {
 	})
 	router.POST("/v1/images/studio/edits", handler.Submit)
 	router.GET("/api/v1/image-studio/history/:id", handler.Get)
+	router.POST("/api/v1/image-studio/files/:id/thumbnail", handler.Thumbnail)
+	thumbnailResponse := httptest.NewRecorder()
+	router.ServeHTTP(thumbnailResponse, httptest.NewRequest(http.MethodPost, "/api/v1/image-studio/files/"+creation.Images[0].ID+"/thumbnail", nil))
+	require.Equal(t, http.StatusOK, thumbnailResponse.Code)
+	require.Contains(t, thumbnailResponse.Body.String(), `"thumbnail_url"`)
+	unauthenticated := gin.New()
+	unauthenticated.POST("/api/v1/image-studio/files/:id/thumbnail", handler.Thumbnail)
+	thumbnailResponse = httptest.NewRecorder()
+	unauthenticated.ServeHTTP(thumbnailResponse, httptest.NewRequest(http.MethodPost, "/api/v1/image-studio/files/"+creation.Images[0].ID+"/thumbnail", nil))
+	require.Equal(t, http.StatusUnauthorized, thumbnailResponse.Code)
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
 	for k, v := range map[string]string{"model": "gpt-image-2", "prompt": "HTTP image fixture", "size": "1024x1024", "n": "1"} {
@@ -313,6 +364,10 @@ func TestImageStudioDatabaseHistoryAndStorageMigration(t *testing.T) {
 		require.NoError(t, err)
 		response.Body.Close()
 		require.Equal(t, http.StatusNotFound, response.StatusCode, "current objects and retained migration copies must be gone")
+		response, err = http.Get(file.ThumbnailURL)
+		require.NoError(t, err)
+		response.Body.Close()
+		require.Equal(t, http.StatusNotFound, response.StatusCode, "thumbnails must be deleted from all retained locations")
 	}
 	download(imported.Images[0].ID)
 	_, err = svc.File(ctx, creation.Images[0].ID, 7)

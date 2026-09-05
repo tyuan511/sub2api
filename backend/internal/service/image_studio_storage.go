@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -189,6 +190,22 @@ func (s *ImageStudioService) MigrateStorage(ctx context.Context, from, to int64)
 			}
 			if studioDigest(check) != file.SHA256 {
 				return fmt.Errorf("copied image checksum mismatch")
+			}
+			if file.ThumbnailReady {
+				thumbnail, err := reader.Read(ctx, StudioThumbnailKey(file.ObjectKey), 8*1024*1024)
+				if err != nil {
+					return err
+				}
+				if _, err = writer.Save(ctx, StudioThumbnailKey(key), http.DetectContentType(thumbnail), thumbnail); err != nil {
+					return err
+				}
+				copied, err := writer.Read(ctx, StudioThumbnailKey(key), 8*1024*1024)
+				if err != nil {
+					return err
+				}
+				if studioDigest(copied) != studioDigest(thumbnail) {
+					return fmt.Errorf("copied thumbnail checksum mismatch")
+				}
 			}
 			return nil
 		})

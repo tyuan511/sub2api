@@ -204,16 +204,16 @@ func (r *imageStudioRepository) DeleteCreation(ctx context.Context, id string, u
 	return tx.Commit()
 }
 func (r *imageStudioRepository) AddFile(ctx context.Context, f *service.StudioFile) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO image_studio_files(id,creation_id,storage_profile_id,object_key,kind,position,filename,content_type,size_bytes,sha256,storage_locations) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,jsonb_build_array(jsonb_build_object('storage_id',$3::bigint,'object_key',$4::text))) ON CONFLICT(id) DO UPDATE SET storage_profile_id=EXCLUDED.storage_profile_id,object_key=EXCLUDED.object_key,filename=EXCLUDED.filename,content_type=EXCLUDED.content_type,size_bytes=EXCLUDED.size_bytes,sha256=EXCLUDED.sha256,storage_locations=image_studio_files.storage_locations || EXCLUDED.storage_locations`, f.ID, f.CreationID, f.StorageID, f.ObjectKey, f.Kind, f.Position, f.Filename, f.ContentType, f.Size, f.SHA256)
+	_, err := r.db.ExecContext(ctx, `INSERT INTO image_studio_files(id,creation_id,storage_profile_id,object_key,kind,position,filename,content_type,size_bytes,sha256,storage_locations,thumbnail_ready) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,jsonb_build_array(jsonb_build_object('storage_id',$3::bigint,'object_key',$4::text)),$11) ON CONFLICT(id) DO UPDATE SET storage_profile_id=EXCLUDED.storage_profile_id,object_key=EXCLUDED.object_key,filename=EXCLUDED.filename,content_type=EXCLUDED.content_type,size_bytes=EXCLUDED.size_bytes,sha256=EXCLUDED.sha256,storage_locations=image_studio_files.storage_locations || EXCLUDED.storage_locations,thumbnail_ready=EXCLUDED.thumbnail_ready`, f.ID, f.CreationID, f.StorageID, f.ObjectKey, f.Kind, f.Position, f.Filename, f.ContentType, f.Size, f.SHA256, f.ThumbnailReady)
 	return err
 }
 
-const studioFileColumns = `f.id,f.creation_id,f.storage_profile_id,f.object_key,f.kind,f.position,f.filename,f.content_type,f.size_bytes,f.sha256,f.storage_locations`
+const studioFileColumns = `f.id,f.creation_id,f.storage_profile_id,f.object_key,f.kind,f.position,f.filename,f.content_type,f.size_bytes,f.sha256,f.storage_locations,f.thumbnail_ready`
 
 func scanStudioFile(row studioScanner) (*service.StudioFile, error) {
 	var f service.StudioFile
 	var locations []byte
-	err := row.Scan(&f.ID, &f.CreationID, &f.StorageID, &f.ObjectKey, &f.Kind, &f.Position, &f.Filename, &f.ContentType, &f.Size, &f.SHA256, &locations)
+	err := row.Scan(&f.ID, &f.CreationID, &f.StorageID, &f.ObjectKey, &f.Kind, &f.Position, &f.Filename, &f.ContentType, &f.Size, &f.SHA256, &locations, &f.ThumbnailReady)
 	if err == nil {
 		err = json.Unmarshal(locations, &f.Locations)
 	}
@@ -221,6 +221,32 @@ func scanStudioFile(row studioScanner) (*service.StudioFile, error) {
 }
 func (r *imageStudioRepository) GetFile(ctx context.Context, id string, userID int64) (*service.StudioFile, error) {
 	return scanStudioFile(r.db.QueryRowContext(ctx, `SELECT `+studioFileColumns+` FROM image_studio_files f JOIN image_studio_creations c ON c.id=f.creation_id WHERE f.id=$1 AND c.user_id=$2 AND c.deleted_at IS NULL`, id, userID))
+}
+func (r *imageStudioRepository) EnsureThumbnail(ctx context.Context, id string, userID int64, create func(service.StudioFile) error) (*service.StudioFile, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var creationID string
+	err = tx.QueryRowContext(ctx, `SELECT c.id FROM image_studio_creations c JOIN image_studio_files f ON f.creation_id=c.id WHERE f.id=$1 AND c.user_id=$2 AND c.deleted_at IS NULL FOR UPDATE OF c`, id, userID).Scan(&creationID)
+	if err != nil {
+		return nil, studioNotFound(err)
+	}
+	file, err := scanStudioFile(tx.QueryRowContext(ctx, `SELECT `+studioFileColumns+` FROM image_studio_files f WHERE f.id=$1 FOR UPDATE`, id))
+	if err != nil {
+		return nil, err
+	}
+	if !file.ThumbnailReady {
+		if err = create(*file); err != nil {
+			return nil, err
+		}
+		if _, err = tx.ExecContext(ctx, `UPDATE image_studio_files SET thumbnail_ready=TRUE WHERE id=$1`, id); err != nil {
+			return nil, err
+		}
+		file.ThumbnailReady = true
+	}
+	return file, tx.Commit()
 }
 func (r *imageStudioRepository) ListFiles(ctx context.Context, id string) ([]service.StudioFile, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT `+studioFileColumns+` FROM image_studio_files f WHERE f.creation_id=$1 ORDER BY f.kind,f.position,f.id`, id)

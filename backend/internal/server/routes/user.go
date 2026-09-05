@@ -98,6 +98,7 @@ func RegisterUserRoutes(
 		authenticated.DELETE("/image-studio/history/:id", h.ImageStudio.Delete)
 		authenticated.POST("/image-studio/history/import", h.ImageStudio.Import)
 		authenticated.GET("/image-studio/files/:id", h.ImageStudio.File)
+		authenticated.POST("/image-studio/files/:id/thumbnail", h.ImageStudio.Thumbnail)
 		authenticated.GET("/image-studio/legacy/:id", h.ImageStudio.Legacy)
 
 		// 用户可用渠道（非管理员接口）

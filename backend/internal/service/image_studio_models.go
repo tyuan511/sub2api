@@ -36,19 +36,21 @@ type StudioRecord struct {
 	StorageID int64
 }
 type StudioFile struct {
-	Locations     []StudioFileLocation `json:"-"`
-	ID            string               `json:"id"`
-	CreationID    string               `json:"-"`
-	StorageID     int64                `json:"-"`
-	ObjectKey     string               `json:"-"`
-	Kind          string               `json:"-"`
-	Position      int                  `json:"-"`
-	Filename      string               `json:"filename"`
-	ContentType   string               `json:"content_type"`
-	Size          int64                `json:"size"`
-	SHA256        string               `json:"-"`
-	URL           string               `json:"url,omitempty"`
-	RevisedPrompt string               `json:"revised_prompt,omitempty"`
+	ThumbnailReady bool                 `json:"-"`
+	ThumbnailURL   string               `json:"thumbnail_url,omitempty"`
+	Locations      []StudioFileLocation `json:"-"`
+	ID             string               `json:"id"`
+	CreationID     string               `json:"-"`
+	StorageID      int64                `json:"-"`
+	ObjectKey      string               `json:"-"`
+	Kind           string               `json:"-"`
+	Position       int                  `json:"-"`
+	Filename       string               `json:"filename"`
+	ContentType    string               `json:"content_type"`
+	Size           int64                `json:"size"`
+	SHA256         string               `json:"-"`
+	URL            string               `json:"url,omitempty"`
+	RevisedPrompt  string               `json:"revised_prompt,omitempty"`
 }
 type StudioFileLocation struct {
 	StorageID int64  `json:"storage_id"`
@@ -83,6 +85,7 @@ type ImageStudioRepository interface {
 	FindLegacy(context.Context, int64, string) (*StudioRecord, error)
 	AddFile(context.Context, *StudioFile) error
 	GetFile(context.Context, string, int64) (*StudioFile, error)
+	EnsureThumbnail(context.Context, string, int64, func(StudioFile) error) (*StudioFile, error)
 	ListFiles(context.Context, string) ([]StudioFile, error)
 	StorageFiles(context.Context, int64, int) ([]StudioFile, int64, error)
 	MoveFile(context.Context, string, int64, int64, string, func(StudioFile) error) error

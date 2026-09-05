@@ -110,6 +110,20 @@ func (h *ImageStudioHandler) Legacy(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *ImageStudioHandler) Thumbnail(c *gin.Context) {
+	userID := studioUser(c)
+	if userID == 0 {
+		return
+	}
+	file, err := h.studio.Thumbnail(c.Request.Context(), c.Param("id"), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	response.Success(c, file)
+}
+
 // Uses the gateway's existing API-key authentication, group/IP/quota checks,
 // request validation, moderation and billed generation execution.
 func (h *ImageStudioHandler) Submit(c *gin.Context) {

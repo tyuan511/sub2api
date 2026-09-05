@@ -84,6 +84,8 @@ func (s *ImageStudioService) saveFile(ctx context.Context, profile *StudioStorag
 		name = id + studioExtension(mime)
 	}
 	file := &StudioFile{ID: id, CreationID: creationID, StorageID: profile.ID, ObjectKey: key, Kind: kind, Position: position, Filename: name, ContentType: mime, Size: int64(len(data)), SHA256: studioDigest(data)}
+	// A derivative failure must not discard a successfully generated original.
+	file.ThumbnailReady = saveStudioThumbnail(ctx, storage, key, data) == nil
 	if err := s.repo.AddFile(ctx, file); err != nil {
 		return nil, err
 	}
@@ -127,6 +129,9 @@ func (s *ImageStudioService) File(ctx context.Context, id string, userID int64) 
 		return nil, err
 	}
 	file.URL, err = storage.URL(ctx, file.ObjectKey)
+	if err == nil && file.ThumbnailReady {
+		file.ThumbnailURL, _ = storage.URL(ctx, StudioThumbnailKey(file.ObjectKey))
+	}
 	return file, err
 }
 func (s *ImageStudioService) creationView(ctx context.Context, r *StudioRecord) (*StudioCreation, error) {
@@ -171,6 +176,9 @@ func (s *ImageStudioService) creationView(ctx context.Context, r *StudioRecord) 
 		// A broken storage configuration must not hide or delete the history itself.
 		if storage != nil {
 			file.URL, _ = storage.URL(ctx, file.ObjectKey)
+			if file.ThumbnailReady {
+				file.ThumbnailURL, _ = storage.URL(ctx, StudioThumbnailKey(file.ObjectKey))
+			}
 		}
 		for _, image := range result.Data {
 			if image.ID == file.ID {
@@ -243,8 +251,10 @@ func (s *ImageStudioService) Delete(ctx context.Context, id string, userID int64
 					}
 					storages[location.StorageID] = storage
 				}
-				if err := storage.Delete(ctx, location.ObjectKey); err != nil {
-					return infraerrors.New(http.StatusBadGateway, "IMAGE_DELETE_FAILED", "图片清理未完成，历史记录已保留，请稍后重试删除").WithCause(err)
+				for _, key := range []string{StudioThumbnailKey(location.ObjectKey), location.ObjectKey} {
+					if err := storage.Delete(ctx, key); err != nil {
+						return infraerrors.New(http.StatusBadGateway, "IMAGE_DELETE_FAILED", "图片清理未完成，历史记录已保留，请稍后重试删除").WithCause(err)
+					}
 				}
 			}
 		}

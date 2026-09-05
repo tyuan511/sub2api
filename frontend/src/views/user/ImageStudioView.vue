@@ -23,7 +23,7 @@
             <div v-for="(picture, index) in creation.images" :key="index" class="picture-tile" :style="{ aspectRatio: creation.ratio.replace(':', '/') }">
               <button class="picture-open" :aria-label="t('imageStudio.preview')" @click="openPreview(picture, creation, index)">
                 <span v-if="brokenImages.has(picture.url)" class="broken-image"><Icon name="exclamationTriangle" />{{ t('imageStudio.imageUnavailable') }}</span>
-                <img v-else :src="picture.url" :alt="creation.prompt" loading="lazy" referrerpolicy="no-referrer" @error="refreshImage(picture)" />
+                <StudioThumbnail v-else :image="picture" :alt="creation.prompt" />
               </button>
               <div class="picture-tools">
                 <button type="button" class="picture-reference" :disabled="referenceActionDisabled(picture)" @click="useAsReference(picture, creation.id, index)"><Icon :name="addingReference === imageIdentity(picture) ? 'refresh' : 'photo'" :class="{ spinning: addingReference === imageIdentity(picture) }" size="sm" /><span>{{ referenceActionLabel(picture) }}</span></button>
@@ -102,6 +102,7 @@ import StudioReferencePicker from '@/components/image/StudioReferencePicker.vue'
 import StudioGenerationPlaceholder from '@/components/image/StudioGenerationPlaceholder.vue'
 import StudioImageSettings from '@/components/image/StudioImageSettings.vue'
 import StudioImagePreview from '@/components/image/StudioImagePreview.vue'
+import StudioThumbnail from '@/components/image/StudioThumbnail.vue'
 import { isImageUrlFresh } from '@/utils/imageUrlCache'
 import { fetchImage } from '@/utils/fetchImage'
 

@@ -50,6 +50,7 @@ export interface ImageGenerationRequest {
 }
 export interface StudioImage {
   url: string
+  thumbnail_url?: string
   revisedPrompt?: string
 }
 
@@ -142,6 +143,12 @@ export async function getStudioFile(id: string): Promise<StudioAsset> {
 }
 export async function deleteStudioCreation(id: string) {
   await apiClient.delete(`/image-studio/history/${encodeURIComponent(id)}`, { timeout: 120000 })
+}
+
+export async function ensureStudioThumbnail(id: string): Promise<StudioAsset> {
+  const { data } = await apiClient.post<StudioAsset>(`/image-studio/files/${encodeURIComponent(id)}/thumbnail`, null, { timeout: 65000 })
+  if (!data.thumbnail_url || !sanitizeUrl(data.thumbnail_url)) throw new Error('image_thumbnail_unavailable')
+  return data
 }
 export async function importStudioHistory(metadata: Record<string, unknown>, references: File[], outputs: File[], signal?: AbortSignal) {
   const form = new FormData()

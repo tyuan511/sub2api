@@ -36,6 +36,7 @@ const render = () => mount(ImageStudioView, { global: {
     AppLayout: { template: '<div><slot /></div>' },
     BaseDialog: { props: ['show'], template: '<section v-if="show" data-testid="dialog"><slot /></section>' },
     RouterLink: { template: '<a><slot /></a>' },
+    StudioThumbnail: true,
   },
 } })
 
@@ -85,8 +86,11 @@ describe('image studio user flow', () => {
     await wrapper.findAll('.picture-open')[2].trigger('click'); await flushPromises()
     expect(wrapper.get('.preview-position').text()).toBe('2 / 3')
     expect(wrapper.findAll('.preview-thumbnails button')).toHaveLength(3)
+    expect(wrapper.findAll('.preview-image')).toHaveLength(1)
+    expect(wrapper.get('.preview-image').attributes('src')).toBe(url(2))
     await wrapper.get('[aria-label="Next image"]').trigger('click')
     expect(wrapper.get('.preview-position').text()).toBe('3 / 3')
+    expect(wrapper.findAll('.preview-image')).toHaveLength(2)
     await wrapper.get('[aria-label="Next image"]').trigger('click')
     expect(wrapper.get('.preview-position').text()).toBe('1 / 3')
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' })); await flushPromises()

@@ -3,8 +3,10 @@
     <div v-if="creation && picture" class="studio-preview">
       <div class="preview-gallery">
         <div class="preview-canvas" :aria-busy="!loaded.has(picture.url) && !failed.has(picture.url)">
-          <!-- Keep this batch mounted while switching, preserving decoded images. -->
-          <img v-for="(item, position) in creation.images" v-show="position === index && !failed.has(item.url)" :key="`${item.id || position}-${retryVersion}`" :src="item.url" :alt="creation.prompt" class="preview-image" referrerpolicy="no-referrer" @load="loaded.add(item.url)" @error="imageError(item)" />
+          <!-- Fetch only visited originals, then keep them mounted while switching. -->
+          <template v-for="(item, position) in creation.images" :key="`${item.id || position}-${retryVersion}`">
+            <img v-if="visited.has(position)" v-show="position === index && !failed.has(item.url)" :src="item.url" :alt="creation.prompt" class="preview-image" referrerpolicy="no-referrer" @load="loaded.add(item.url)" @error="imageError(item)" />
+          </template>
           <div v-if="failed.has(picture.url)" class="preview-status" role="alert"><Icon name="exclamationTriangle" /><span>{{ t('imageStudio.imageUnavailable') }}</span><button class="preview-retry" @click="retry">{{ t('imageStudio.retry') }}</button></div>
           <div v-else-if="!loaded.has(picture.url)" class="preview-status" role="status"><span class="preview-spinner" /><span>{{ t('imageStudio.loadingImage') }}</span></div>
           <template v-if="creation.images.length > 1">
@@ -14,7 +16,7 @@
         </div>
         <div class="preview-filmstrip">
           <div v-if="creation.images.length > 1" class="preview-thumbnails" :aria-label="t('imageStudio.batchImages')">
-            <button v-for="(item, position) in creation.images" :key="item.id || position" :class="{ selected: position === index }" :aria-label="t('imageStudio.imageNumber', { number: position + 1 })" :aria-pressed="position === index" @click="emit('select', position)"><img :src="item.url" alt="" referrerpolicy="no-referrer" /><span>{{ position + 1 }}</span></button>
+            <button v-for="(item, position) in creation.images" :key="item.id || position" :class="{ selected: position === index }" :aria-label="t('imageStudio.imageNumber', { number: position + 1 })" :aria-pressed="position === index" @click="emit('select', position)"><StudioThumbnail :image="item" alt="" /><span class="thumbnail-number">{{ position + 1 }}</span></button>
           </div>
           <span class="preview-position" aria-live="polite" aria-atomic="true">{{ index + 1 }} <span>/ {{ creation.images.length }}</span></span>
         </div>
@@ -41,6 +43,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import StudioThumbnail from './StudioThumbnail.vue'
 import type { StudioCreation } from '@/stores/imageStudio'
 
 const props = defineProps<{
@@ -63,7 +66,9 @@ const picture = computed(() => props.creation?.images[props.index])
 const loaded = ref(new Set<string>())
 const failed = ref(new Set<string>())
 const retryVersion = ref(0)
-watch(() => props.creation?.id, () => { loaded.value.clear(); failed.value.clear() })
+const visited = ref(new Set<number>())
+watch(() => props.creation?.id, () => { loaded.value.clear(); failed.value.clear(); visited.value.clear() })
+watch(() => [props.creation?.id, props.index], () => { if (props.creation) visited.value.add(props.index) }, { immediate: true })
 
 function imageError(item: Picture) {
   failed.value.add(item.url)
@@ -107,8 +112,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKeydown))
 .preview-thumbnails button { position: relative; width: 56px; height: 56px; padding: 3px; border-radius: 10px; border: 1px solid transparent; opacity: .55; transition: opacity .15s, border-color .15s; }
 .preview-thumbnails button:hover, .preview-thumbnails button.selected { opacity: 1; }
 .preview-thumbnails button.selected { border-color: #b5a6ff; background: rgb(181 166 255 / .13); }
-.preview-thumbnails img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
-.preview-thumbnails button span { position: absolute; bottom: 5px; right: 6px; font-size: 10px; line-height: 15px; min-width: 15px; border-radius: 4px; background: rgb(0 0 0 / .6); }
+.preview-thumbnails :deep(img) { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+.preview-thumbnails .thumbnail-number { position: absolute; bottom: 5px; right: 6px; font-size: 10px; line-height: 15px; min-width: 15px; border-radius: 4px; background: rgb(0 0 0 / .6); }
 .preview-position { position: absolute; right: 20px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .preview-position span { color: #9397a3; }
 .preview-details { display: flex; flex-direction: column; min-height: 0; padding: 24px; background: var(--fv-surface); border-left: 1px solid var(--fv-line); }

@@ -9,6 +9,7 @@
         <div class="reference-cards">
           <div v-for="(reference, index) in references" :key="isFile(reference) ? index : reference.url" class="reference-thumbnail" :style="{ '--index': index, '--angle': `${[-7, 5, -3, 7][index % 4]}deg`, zIndex: references.length - index }">
             <StudioReferenceThumbnail v-if="isFile(reference)" :file="reference" />
+            <StudioThumbnail v-else-if="'id' in reference" :image="reference" :alt="referenceName(reference)" />
             <img v-else :src="reference.url" :alt="referenceName(reference)" referrerpolicy="no-referrer" />
             <button v-if="!readOnly" type="button" class="reference-remove" :tabindex="expanded ? 0 : -1" :aria-label="t('imageStudio.removeReferenceNamed', { name: referenceName(reference) })" @click="remove(index)"><Icon name="x" size="sm" /></button>
           </div>
@@ -25,6 +26,7 @@ import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import StudioReferenceThumbnail from './StudioReferenceThumbnail.vue'
+import StudioThumbnail from './StudioThumbnail.vue'
 import type { StudioAsset } from '@/api/imageStudio'
 
 type Reference = File | StudioAsset | { file: File; url: string }
