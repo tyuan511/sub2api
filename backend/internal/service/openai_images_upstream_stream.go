@@ -230,6 +230,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAggregatedResponse(resp *http.
 		message := sanitizeUpstreamErrorMessage(streamErr.Error())
 		setOpsUpstreamError(c, http.StatusBadGateway, message, "")
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+			ProxyID: opsUpstreamProxyID(account), ProxyName: opsUpstreamProxyName(account),
 			Platform: account.Platform, AccountID: account.ID, AccountName: account.Name,
 			UpstreamStatusCode: resp.StatusCode, UpstreamRequestID: resp.Header.Get("x-request-id"),
 			Kind: "image_stream_incomplete", Message: message,
@@ -271,7 +272,8 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAggregatedResponse(resp *http.
 	c.JSON(http.StatusOK, response)
 	result := &OpenAIForwardResult{
 		RequestID: resp.Header.Get("x-request-id"), Usage: aggregate.usage,
-		Model: requestModel, UpstreamModel: upstreamModel, UpstreamEndpoint: parsed.Endpoint,
+		UpstreamHeaders: resp.Header.Clone(),
+		Model:           requestModel, UpstreamModel: upstreamModel, UpstreamEndpoint: parsed.Endpoint,
 		Stream: false, ResponseHeaders: resp.Header.Clone(), Duration: time.Since(start),
 		FirstTokenMs: aggregate.firstEventMS, ImageCount: count,
 		ImageSize: parsed.SizeTier, ImageInputSize: parsed.Size, ImageOutputSizes: aggregate.sizes,

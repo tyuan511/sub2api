@@ -42,11 +42,15 @@ func TestImageUpstreamStream_AggregatesFourResultsWithoutDuplicateBilling(t *tes
 	}
 	stream.WriteString("data: [DONE]\n\n")
 	upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(stream.String()))}}
+	upstream.resp.Header.Set("X-Provider-Request-Id", "image-request-123")
 	svc := newOpenAIImagesTestService(upstream)
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
 	require.NoError(t, err)
-	result, err := svc.ForwardImages(context.Background(), c, streamImageAccount(), body, parsed, "")
+	account := streamImageAccount()
+	account.Extra[AccountExtraUpstreamRequestIDHeader] = "X-Provider-Request-Id"
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
 	require.NoError(t, err)
+	require.Equal(t, "image-request-123", UpstreamRequestIDFromHeaders(account, result.UpstreamHeaders))
 	require.Equal(t, "text/event-stream", upstream.lastReq.Header.Get("Accept"))
 	require.True(t, gjson.GetBytes(upstream.lastBody, "stream").Bool())
 	require.Equal(t, int64(4), gjson.GetBytes(upstream.lastBody, "n").Int())
