@@ -6,7 +6,7 @@
       @click="toggle"
       :disabled="disabled"
       :aria-expanded="isOpen"
-      :aria-haspopup="true"
+      :aria-haspopup="hasPanel ? 'dialog' : 'listbox'"
       :id="id"
       :aria-label="ariaLabel ?? 'Select option'"
       :aria-describedby="ariaDescribedby"
@@ -54,11 +54,13 @@
           class="select-dropdown-portal"
           :class="[instanceId]"
           :style="dropdownStyle"
-          role="listbox"
+          :role="hasPanel ? 'dialog' : 'listbox'"
+          :aria-label="hasPanel ? ariaLabel : undefined"
           @click.stop
           @mousedown.stop
           @keydown="onDropdownKeyDown"
         >
+          <slot name="panel" :close="closePanel">
           <!-- Search input -->
           <div v-if="isSearchable" class="select-search">
             <Icon name="search" size="sm" class="text-gray-400" />
@@ -114,6 +116,7 @@
               {{ props.loading ? t('common.loading') : emptyTextDisplay }}
             </div>
           </div>
+          </slot>
         </div>
       </Transition>
     </Teleport>
@@ -121,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, useSlots } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 
@@ -154,6 +157,8 @@ interface Props {
   id?: string
   ariaLabel?: string
   ariaDescribedby?: string
+  /** Preferred width for a custom panel, clamped to the viewport. */
+  panelWidth?: number
   /** 远程搜索模式：输入不在本地过滤 options，而是防抖后 emit('search', query)，由父组件请求数据更新 options */
   remote?: boolean
   /** 远程搜索模式下的加载态：options 为空时下拉显示 loading 文案 */
@@ -180,6 +185,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
+const slots = useSlots()
+const hasPanel = computed(() => !!slots.panel)
 
 const isOpen = ref(false)
 const searchQuery = ref('')
@@ -215,6 +222,17 @@ const dropdownStyle = computed(() => {
   if (!triggerRect.value) return {}
 
   const rect = triggerRect.value
+  if (hasPanel.value) {
+    const width = Math.min(props.panelWidth ?? 560, Math.max(0, window.innerWidth - 16))
+    const above = dropdownPosition.value === 'top'
+    return {
+      position: 'fixed', zIndex: '100000020', width: `${width}px`,
+      left: `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`,
+      ...(above ? { bottom: `${window.innerHeight - rect.top + 8}px` } : { top: `${rect.bottom + 8}px` }),
+      maxHeight: `${Math.max(0, (above ? rect.top : window.innerHeight - rect.bottom) - 16)}px`,
+      overflowY: 'auto',
+    }
+  }
   const viewportRight = Math.max(dropdownViewportPadding, window.innerWidth - dropdownViewportPadding)
   const left = Math.min(
     Math.max(dropdownViewportPadding, rect.left),
@@ -355,7 +373,7 @@ const calculateDropdownPosition = () => {
     const spaceBelow = window.innerHeight - triggerRect.value.bottom
     const spaceAbove = triggerRect.value.top
 
-    if (spaceBelow < dropdownHeight && spaceAbove > dropdownHeight) {
+    if (hasPanel.value ? spaceAbove > spaceBelow : spaceBelow < dropdownHeight && spaceAbove > dropdownHeight) {
       dropdownPosition.value = 'top'
     } else {
       dropdownPosition.value = 'bottom'
@@ -382,7 +400,9 @@ watch(isOpen, (open) => {
         : initialIdx
     }
 
-    if (isSearchable.value) {
+    if (hasPanel.value) {
+      nextTick(() => dropdownRef.value?.querySelector<HTMLElement>('button[aria-pressed="true"], button, input')?.focus({ preventScroll: true }))
+    } else if (isSearchable.value) {
       nextTick(() => searchInputRef.value?.focus())
     }
     // Add scroll listener to update position
@@ -433,6 +453,10 @@ const onTriggerKeyDown = () => {
 }
 
 const onDropdownKeyDown = (e: KeyboardEvent) => {
+  if (hasPanel.value) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePanel() }
+    return
+  }
   switch (e.key) {
     case 'ArrowDown':
       e.preventDefault()
@@ -477,7 +501,11 @@ const scrollToFocused = () => {
   })
 }
 
-const handleClickOutside = (event: MouseEvent) => {
+const closePanel = () => { isOpen.value = false; triggerRef.value?.focus({ preventScroll: true }) }
+const handlePanelFocusOutside = (event: FocusEvent) => {
+  if (hasPanel.value) handleClickOutside(event)
+}
+const handleClickOutside = (event: MouseEvent | FocusEvent) => {
   const target = event.target as HTMLElement
   // Check if click is inside THIS specific instance's dropdown or trigger
   const isInDropdown = !!target.closest(`.${instanceId}`)
@@ -490,10 +518,12 @@ const handleClickOutside = (event: MouseEvent) => {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('focusin', handlePanelFocusOutside)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('focusin', handlePanelFocusOutside)
   window.removeEventListener('scroll', updateTriggerRect, { capture: true })
   window.removeEventListener('resize', calculateDropdownPosition)
   if (remoteSearchTimer) {

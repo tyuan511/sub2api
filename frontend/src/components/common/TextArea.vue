@@ -7,6 +7,8 @@
     <div class="relative">
       <textarea
         :id="id"
+        :aria-label="ariaLabel"
+        :maxlength="maxlength"
         ref="textAreaRef"
         :value="modelValue"
         :disabled="disabled"
@@ -48,6 +50,8 @@ interface Props {
   error?: string
   hint?: string
   id?: string
+  ariaLabel?: string
+  maxlength?: number
   rows?: number | string
 }
 

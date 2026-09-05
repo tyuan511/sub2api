@@ -656,6 +656,8 @@ func registerBackupRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAut
 
 		// 异步生图对象存储配置（与备份共用 S3 客户端，可直接复用备份凭证）
 		backup.GET("/image-storage", h.Admin.Backup.GetImageStorageConfig)
+		backup.GET("/image-storage/history", h.ImageStudio.StorageSettings)
+		backup.POST("/image-storage/migrate", gin.HandlerFunc(stepUpAuth), h.ImageStudio.MigrateStorage)
 		// 同 S3 配置：改写对象存储目标可将生成内容导向外部账号——要求 step-up 2FA
 		backup.PUT("/image-storage", gin.HandlerFunc(stepUpAuth), h.Admin.Backup.UpdateImageStorageConfig)
 		backup.POST("/image-storage/test", h.Admin.Backup.TestImageStorageConnection)

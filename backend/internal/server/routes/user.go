@@ -89,8 +89,16 @@ func RegisterUserRoutes(
 		groups := authenticated.Group("/groups")
 		{
 			groups.GET("/available", h.APIKey.GetAvailableGroups)
+			groups.GET("/image-generation", h.Gateway.ImageGenerationGroups)
 			groups.GET("/rates", h.APIKey.GetUserGroupRates)
 		}
+		authenticated.GET("/image-studio/status", h.ImageStudio.Status)
+		authenticated.GET("/image-studio/history", h.ImageStudio.List)
+		authenticated.GET("/image-studio/history/:id", h.ImageStudio.Get)
+		authenticated.DELETE("/image-studio/history/:id", h.ImageStudio.Delete)
+		authenticated.POST("/image-studio/history/import", h.ImageStudio.Import)
+		authenticated.GET("/image-studio/files/:id", h.ImageStudio.File)
+		authenticated.GET("/image-studio/legacy/:id", h.ImageStudio.Legacy)
 
 		// 用户可用渠道（非管理员接口）
 		channels := authenticated.Group("/channels")

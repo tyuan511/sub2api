@@ -104,7 +104,7 @@ export default {
       },
       imageStorage: {
         title: 'Async image object storage',
-        description: 'Enables the asynchronous image endpoints and offloads generated images to object storage, keeping only short links in Redis. Shares the S3 client with backups and takes effect on save — no restart needed.',
+        description: 'Shared by the async Images API and Image Studio. Changes affect new tasks; historical images retain their original storage locations.',
         enabled: 'Enable async image tasks',
         reuseBackupS3: 'Reuse the backup S3 configuration above (different bucket/prefix only)',
         bucket: 'Bucket',

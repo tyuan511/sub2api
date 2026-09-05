@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -64,6 +65,30 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 		return "", fmt.Errorf("S3 PutObject: %w", err)
 	}
 
+	return s.URL(ctx, key)
+}
+
+func (s *S3ImageStorage) Read(ctx context.Context, key string, limit int64) ([]byte, error) {
+	result, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: &s.bucket, Key: &key})
+	if err != nil {
+		return nil, err
+	}
+	defer result.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(result.Body, limit+1))
+	if err == nil && int64(len(data)) > limit {
+		return nil, fmt.Errorf("stored image exceeds size limit")
+	}
+	return data, err
+}
+
+// DeleteObject is idempotent for missing objects, allowing a partially failed
+// creation deletion to be retried without losing its database cleanup manifest.
+func (s *S3ImageStorage) Delete(ctx context.Context, key string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: &s.bucket, Key: &key})
+	return err
+}
+
+func (s *S3ImageStorage) URL(ctx context.Context, key string) (string, error) {
 	if s.publicBaseURL != "" {
 		return s.publicBaseURL + "/" + strings.TrimLeft(key, "/"), nil
 	}
