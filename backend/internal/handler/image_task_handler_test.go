@@ -21,6 +21,27 @@ type asyncImageMemoryStore struct {
 	tasks map[string]*service.ImageTaskRecord
 }
 
+func TestStudioAsyncContextUsesImageUsageEndpoints(t *testing.T) {
+	for _, operation := range []string{"generations", "edits"} {
+		t.Run(operation, func(t *testing.T) {
+			router := gin.New()
+			router.Use(InboundEndpointMiddleware())
+			path := "/v1/images/studio/" + operation
+			canonical := "/v1/images/" + operation
+			router.POST(path, func(c *gin.Context) {
+				// Match the Studio handler's handoff to the shared async runner.
+				c.Request.URL.Path = canonical + "/async"
+				taskCtx, _, cancel := newAsyncImageContext(c, nil, time.Minute)
+				defer cancel()
+				require.Equal(t, canonical, taskCtx.Request.URL.Path)
+				require.Equal(t, canonical, GetInboundEndpoint(taskCtx))
+				require.Equal(t, canonical, GetUpstreamEndpoint(taskCtx, service.PlatformOpenAI))
+			})
+			router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, path, nil))
+		})
+	}
+}
+
 func (s *asyncImageMemoryStore) Save(_ context.Context, task *service.ImageTaskRecord, _ time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
