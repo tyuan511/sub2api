@@ -21,9 +21,6 @@
         </div>
         <span v-for="particle in 6" :key="particle" class="generation-particle" :style="{ '--particle': particle }"><i /></span>
       </div>
-      <p class="generation-caption">{{ t('imageStudio.processing') }}</p>
-      <div class="generation-wave" aria-hidden="true"><i v-for="bar in 9" :key="bar" :style="{ '--bar': bar }" /></div>
-      <small>{{ t('imageStudio.processingNote') }}</small>
     </div>
   </div>
 </template>
@@ -65,8 +62,8 @@ const { t } = useI18n()
 .generation-badge { position: absolute; left: 16px; top: 15px; display: inline-flex; align-items: center; gap: 6px; color: var(--studio-accent); font-size: 10px; letter-spacing: .04em; }
 .generation-badge i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; animation: signal-breathe 2.6s ease-in-out infinite; }
 .generation-frame { position: absolute; inset: 13px; border: 1px solid color-mix(in srgb, var(--studio-accent) 22%, transparent); border-radius: 4px; mask: linear-gradient(#000, #000) left top / 10px 10px no-repeat, linear-gradient(#000, #000) right top / 10px 10px no-repeat, linear-gradient(#000, #000) left bottom / 10px 10px no-repeat, linear-gradient(#000, #000) right bottom / 10px 10px no-repeat; pointer-events: none; opacity: .6; }
-.generation-content { display: flex; align-items: center; flex-direction: column; width: 100%; padding: 42px 14px 24px; text-align: center; }
-.generation-universe { position: relative; width: clamp(90px, 40cqw, 184px); aspect-ratio: 1; margin-bottom: 22px; }
+.generation-content { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; }
+.generation-universe { position: relative; width: clamp(104px, 46cqw, 212px); aspect-ratio: 1; }
 .universe-halo { position: absolute; inset: -20%; border-radius: 50%; background: radial-gradient(circle, #a99bf43d, #bac8ff1c 42%, transparent 68%); animation: halo-breathe 5s ease-in-out infinite; animation-delay: var(--phase); }
 .orbit-plane { position: absolute; inset: 4%; border-radius: 50%; }
 .orbit-one { transform: rotate(-32deg) scaleY(.57); }
@@ -86,15 +83,8 @@ const { t } = useI18n()
 .generation-particle { position: absolute; inset: -2%; transform: rotate(calc(var(--particle) * 60deg)); }
 .generation-particle i { position: absolute; left: 50%; top: 0; width: 3px; height: 3px; border-radius: 50%; background: var(--studio-accent); opacity: .4; box-shadow: 0 0 6px #af95ff66; animation: particle-drift 4.8s ease-in-out infinite; animation-delay: calc(var(--phase) - var(--particle) * .7s); }
 .generation-particle:nth-last-child(even) { inset: 10%; }
-.generation-caption { font-size: 12px; font-weight: 500; letter-spacing: .04em; line-height: 1.8; }
-.generation-wave { display: flex; align-items: center; gap: 4px; height: 18px; margin-top: 10px; color: var(--studio-accent); }
-.generation-wave i { width: 3px; height: 12px; border-radius: 4px; background: currentColor; transform: scaleY(.3); opacity: .35; animation: wave-breathe 1.6s ease-in-out infinite; animation-delay: calc(var(--phase) - var(--bar) * .13s); }
-.generation-content small { max-width: 230px; margin-top: 10px; font-size: 10px; line-height: 1.7; color: var(--studio-muted); }
-.generation-wide .generation-content { padding: 32px 12px 18px; }
-.generation-wide .generation-universe { width: clamp(72px, 25cqw, 120px); margin-bottom: 12px; }
-.generation-wide .generation-content small { display: none; }
-.generation-panorama .generation-content { padding-top: 28px; padding-bottom: 12px; }
-.generation-panorama .generation-universe { max-width: 84px; margin-bottom: 8px; }
+.generation-wide .generation-universe { width: clamp(84px, 29cqw, 140px); }
+.generation-panorama .generation-universe { max-width: 100px; }
 @keyframes orbit-spin { to { transform: rotate(360deg); } }
 @keyframes aurora-drift { to { transform: translate(22%, 16%) scale(1.2); } }
 @keyframes sheen-drift { 0%, 15% { transform: translateX(-35%); opacity: 0; } 40% { opacity: .6; } 75%, 100% { transform: translateX(35%); opacity: 0; } }
@@ -102,14 +92,8 @@ const { t } = useI18n()
 @keyframes core-float { 50% { transform: translateY(-6px) rotate(8deg); } }
 @keyframes signal-breathe { 50% { opacity: .35; } }
 @keyframes particle-drift { 50% { transform: translate(6px, -8px); opacity: .9; } }
-@keyframes wave-breathe { 50% { transform: scaleY(1); opacity: .85; } }
 @container (max-width: 250px) {
-  .generation-content { padding: 34px 10px 16px; }
-  .generation-universe { margin-bottom: 12px; }
-  .generation-caption { font-size: 10px; letter-spacing: 0; }
-  .generation-content small { display: none; }
   .generation-badge { top: 12px; left: 12px; font-size: 9px; }
-  .generation-wave { margin-top: 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; }
