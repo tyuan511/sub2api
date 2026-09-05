@@ -533,11 +533,12 @@ onBeforeUnmount(() => {
 .studio-composer { padding: 12px; border: 1px solid var(--studio-line); border-radius: 20px; background: var(--studio-surface); box-shadow: 0 4px 24px #30304004; }
 .composer-input { display: flex; align-items: flex-start; gap: 10px; min-height: 94px; }
 .composer-prompt { flex: 1; min-width: 0; }
-.studio-composer .composer-prompt :deep(textarea) { resize: none; min-width: 0; min-height: 82px; max-height: 180px; padding: 6px 0; border: 0; outline: 0; border-radius: 0; background: transparent; color: var(--studio-ink); font-size: 14px; line-height: 1.8; box-shadow: none; }
-.dark .studio-composer .composer-prompt :deep(textarea) { background: transparent; }
-.composer-prompt :deep(textarea::placeholder) { color: var(--studio-muted); opacity: .8; }
+.studio-composer .composer-prompt :deep(textarea) { resize: none; min-width: 0; min-height: 82px; max-height: 180px; padding: 6px 0; border: 0; color: var(--studio-ink); font-size: 14px; line-height: 1.8; }
+/* The deployed site theme uses !important on form surfaces and focus rings. */
+.studio-composer .composer-prompt :deep(textarea),
 .studio-composer .composer-prompt :deep(textarea:focus),
-.studio-composer .composer-prompt :deep(textarea:focus-visible) { outline: none; box-shadow: none; }
+.studio-composer .composer-prompt :deep(textarea:focus-visible) { background: transparent !important; border-radius: 0 !important; outline: none !important; box-shadow: none !important; }
+.composer-prompt :deep(textarea::placeholder) { color: var(--studio-muted); opacity: .8; }
 .composer-toolbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding-top: 13px; }
 .composer-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .composer-select { min-width: 72px; }
