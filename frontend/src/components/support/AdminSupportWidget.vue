@@ -1,6 +1,24 @@
 <template>
+  <button
+    type="button"
+    class="admin-support-launcher relative flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+    :aria-expanded="open"
+    :aria-label="open ? '关闭客服工作台' : '打开客服工作台'"
+    :title="open ? '关闭客服工作台' : '客服工作台'"
+    @click="toggle"
+  >
+    <Icon :name="open ? 'x' : 'chatBubble'" size="md" />
+    <span class="hidden xl:inline">客服工作台</span>
+    <span
+      v-if="supportStore.unreadCount && !open"
+      class="admin-support-unread absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+    >
+      {{ Math.min(supportStore.unreadCount, 99) }}
+    </span>
+  </button>
+
   <Teleport to="body">
-    <div class="fixed bottom-4 right-4 z-[70] flex flex-col items-end gap-3">
+    <div class="fixed right-4 top-20 z-[70]">
       <transition name="admin-support-window">
         <section
           v-if="open"
@@ -64,23 +82,6 @@
           </div>
         </section>
       </transition>
-
-      <button
-        type="button"
-        class="admin-support-launcher relative flex h-12 w-12 items-center justify-center rounded-full text-white transition focus:outline-none"
-        :aria-expanded="open"
-        :aria-label="open ? '关闭客服工作台' : '打开客服工作台'"
-        :title="open ? '关闭客服工作台' : '客服工作台'"
-        @click="toggle"
-      >
-        <Icon :name="open ? 'x' : 'chatBubble'" size="md" />
-        <span
-          v-if="supportStore.unreadCount && !open"
-          class="admin-support-unread absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
-        >
-          {{ Math.min(supportStore.unreadCount, 99) }}
-        </span>
-      </button>
     </div>
   </Teleport>
 </template>
@@ -149,8 +150,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   border-color: var(--fv-line-soft);
 }
 
-.admin-support-window-brand,
-.admin-support-launcher {
+.admin-support-window-brand {
   background: var(--fv-accent);
 }
 
@@ -161,15 +161,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .admin-support-window-action:hover {
   color: var(--fv-text);
   background: var(--fv-accent-wash);
-}
-
-.admin-support-launcher {
-  box-shadow: var(--fv-shadow-accent);
-}
-
-.admin-support-launcher:hover {
-  background: var(--fv-accent-hover);
-  transform: translateY(-1px);
 }
 
 .admin-support-launcher:focus-visible {
@@ -184,13 +175,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .admin-support-window-enter-active,
 .admin-support-window-leave-active {
   transition: opacity 0.18s ease, transform 0.18s ease;
-  transform-origin: bottom right;
+  transform-origin: top right;
 }
 
 .admin-support-window-enter-from,
 .admin-support-window-leave-to {
   opacity: 0;
-  transform: translateY(12px) scale(0.985);
+  transform: translateY(-12px) scale(0.985);
 }
 
 @media (max-width: 639px) {

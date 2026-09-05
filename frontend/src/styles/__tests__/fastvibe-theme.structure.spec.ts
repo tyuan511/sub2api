@@ -54,7 +54,7 @@ describe('FastVibe source theme', () => {
     expect(adminWorkspace).toContain(':z-index="90"')
   })
 
-  it('exposes the admin support workspace only through the floating widget', () => {
+  it('exposes the admin support workspace only through the header widget', () => {
     const sidebar = read('src/components/layout/AppSidebar.vue')
     const router = read('src/router/index.ts')
     const widget = read('src/components/support/AdminSupportWidget.vue')

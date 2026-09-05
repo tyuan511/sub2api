@@ -1,9 +1,22 @@
 <template>
-  <div class="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3">
+  <button
+    type="button"
+    class="support-launcher relative flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
+    :aria-expanded="open"
+    aria-label="联系客服"
+    title="联系客服"
+    @click="toggle"
+  >
+    <Icon :name="open ? 'x' : 'chatBubble'" size="md" />
+    <span class="hidden xl:inline">联系客服</span>
+    <span v-if="supportStore.unreadCount && !open" class="support-unread absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{{ Math.min(supportStore.unreadCount, 99) }}</span>
+  </button>
+
+  <Teleport to="body">
     <transition name="support-widget">
       <section
         v-if="open"
-        class="support-chat flex h-[min(620px,calc(100dvh-6rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden border"
+        class="support-chat fixed right-4 top-20 z-40 flex h-[min(620px,calc(100dvh-6rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden border"
         aria-label="联系客服"
       >
         <header class="support-chat-header flex h-14 shrink-0 items-center justify-between border-b border-gray-200 px-3.5 dark:border-dark-700">
@@ -88,18 +101,7 @@
     </transition>
 
     <SupportImagePreview :src="previewImageURL" :alt="previewImageName" @close="closeImagePreview" />
-
-    <button
-      class="support-launcher group relative flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white transition focus:outline-none"
-      :aria-expanded="open"
-      aria-label="联系客服"
-      @click="toggle"
-    >
-      <Icon :name="open ? 'x' : 'chatBubble'" size="md" />
-      <span>联系客服</span>
-      <span v-if="supportStore.unreadCount && !open" class="support-unread absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{{ Math.min(supportStore.unreadCount, 99) }}</span>
-    </button>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -348,16 +350,6 @@ onBeforeUnmount(() => {
   background: var(--fv-accent-soft);
 }
 
-.support-launcher {
-  background: var(--fv-accent);
-  box-shadow: var(--fv-shadow-accent);
-}
-
-.support-launcher:hover {
-  background: var(--fv-accent-hover);
-  transform: translateY(-1px);
-}
-
 .support-launcher:focus-visible {
   outline: 2px solid var(--fv-accent);
   outline-offset: 3px;
@@ -370,12 +362,12 @@ onBeforeUnmount(() => {
 .support-widget-enter-active,
 .support-widget-leave-active {
   transition: opacity 0.18s ease, transform 0.18s ease;
-  transform-origin: bottom right;
+  transform-origin: top right;
 }
 
 .support-widget-enter-from,
 .support-widget-leave-to {
   opacity: 0;
-  transform: translateY(10px) scale(0.98);
+  transform: translateY(-10px) scale(0.98);
 }
 </style>

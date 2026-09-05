@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
 .creation-error p { color: var(--studio-muted); margin-top: 7px; overflow-wrap: anywhere; }
 .creation-error a { display: inline-block; margin-top: 12px; color: var(--studio-accent); }
 .partial-notice { font-size: 12px; color: var(--studio-muted); margin-top: 10px; }
-.composer-dock { flex-shrink: 0; padding: 12px 32px 64px; background: var(--studio-bg); }
+.composer-dock { flex-shrink: 0; padding: 12px 32px max(16px, env(safe-area-inset-bottom)); background: var(--studio-bg); }
 .studio-composer { padding: 12px; border: 1px solid var(--studio-line); border-radius: 20px; background: var(--studio-surface); box-shadow: 0 4px 24px #30304004; }
 .composer-input { display: flex; align-items: flex-start; gap: 10px; min-height: 94px; }
 .composer-prompt { flex: 1; min-width: 0; }
@@ -579,7 +579,7 @@ onBeforeUnmount(() => {
   .prompt-suggestions button { font-size: 11px; }
   .creation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .creation-grid:has(> :only-child) { grid-template-columns: 1fr; }
-  .composer-dock { padding: 8px 12px 64px; }
+  .composer-dock { padding: 8px 12px max(12px, env(safe-area-inset-bottom)); }
   .studio-composer { padding: 10px 10px 12px; border-radius: 14px; }
   .composer-input { gap: 10px; min-height: 94px; }
   .studio-composer .composer-prompt :deep(textarea) { font-size: 13px; min-height: 82px; max-height: 130px; }

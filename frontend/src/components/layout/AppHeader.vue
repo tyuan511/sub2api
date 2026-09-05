@@ -21,8 +21,13 @@
         </div>
       </div>
 
-      <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
+      <!-- Right: Support + Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex min-w-0 items-center gap-1 sm:gap-3">
+        <template v-if="user">
+          <AdminSupportWidget v-if="authStore.isAdmin" />
+          <SupportWidget v-else />
+        </template>
+
         <!-- Announcement Bell -->
         <AnnouncementBell v-if="user" />
 
@@ -258,6 +263,8 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
+import AdminSupportWidget from '@/components/support/AdminSupportWidget.vue'
+import SupportWidget from '@/components/support/SupportWidget.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
