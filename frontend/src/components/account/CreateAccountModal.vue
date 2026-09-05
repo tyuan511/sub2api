@@ -3316,6 +3316,38 @@
         </div>
       </div>
 
+      <!-- OpenAI APIKey images: stream upstream and aggregate results -->
+      <div
+        v-if="form.platform === 'openai' && accountCategory === 'apikey'"
+        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div>
+          <label class="input-label mb-0">{{ t('admin.accounts.openai.imagesUpstreamStream') }}</label>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.openai.imagesUpstreamStreamDesc') }}
+          </p>
+        </div>
+        <button
+          type="button"
+          data-testid="openai-images-upstream-stream-toggle"
+          role="switch"
+          :aria-label="t('admin.accounts.openai.imagesUpstreamStream')"
+          :aria-checked="openAIImagesUpstreamStreamEnabled"
+          @click="openAIImagesUpstreamStreamEnabled = !openAIImagesUpstreamStreamEnabled"
+          :class="[
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+            openAIImagesUpstreamStreamEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+          ]"
+        >
+          <span
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              openAIImagesUpstreamStreamEnabled ? 'translate-x-5' : 'translate-x-0'
+            ]"
+          />
+        </button>
+      </div>
+
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
         v-if="form.platform === 'openai' && accountCategory === 'apikey'"
@@ -4283,6 +4315,7 @@ const openAILongContextBillingTouched = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 // Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
+const openAIImagesUpstreamStreamEnabled = ref(false)
 const openAIImagesUrlToB64JsonEnabled = ref(false)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -4799,6 +4832,7 @@ watch(
     // 避免上一平台的配置行被提交到新平台账号
     headerOverrideEnabled.value = false
     headerOverrideRows.value = []
+    openAIImagesUpstreamStreamEnabled.value = false
     openAIImagesUrlToB64JsonEnabled.value = false
     grokOAuthCustomBaseUrlEnabled.value = false
     grokOAuthBaseUrl.value = ''
@@ -5229,6 +5263,7 @@ const resetForm = () => {
   customErrorCodeInput.value = null
   headerOverrideEnabled.value = false
   headerOverrideRows.value = []
+  openAIImagesUpstreamStreamEnabled.value = false
   openAIImagesUrlToB64JsonEnabled.value = false
   grokOAuthCustomBaseUrlEnabled.value = false
   grokOAuthBaseUrl.value = ''
@@ -5366,6 +5401,11 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     extra.openai_responses_mode = openAIResponsesMode.value
   } else {
     delete extra.openai_responses_mode
+  }
+  if (accountCategory.value === 'apikey' && openAIImagesUpstreamStreamEnabled.value) {
+    extra.openai_images_upstream_stream = true
+  } else {
+    delete extra.openai_images_upstream_stream
   }
   if (accountCategory.value === 'apikey' && openAIImagesUrlToB64JsonEnabled.value) {
     extra.images_url_to_b64_json = true

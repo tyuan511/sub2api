@@ -692,6 +692,8 @@ export default {
         responsesModeForceResponses: '强制 Responses',
         responsesModeForceChatCompletions: '强制 Chat Completions',
         responsesModeTextDisabledHint: '未启用 Responses / Chat Completions 端点时，此设置不适用。',
+        imagesUpstreamStream: '上游流式生图',
+        imagesUpstreamStreamDesc: '开启后以流式方式请求上游，收齐图片后返回完整结果。上游需支持流式生图，图片创作页面仍等待最终结果。',
         imagesUrlToB64Json: '生图结果 URL 转 base64',
         imagesUrlToB64JsonDesc:
           '仅对 OpenAI API Key 的 Images 非流式响应生效。上游返回的图片缺少 b64_json 但带 url 时，网关下载该 url 并以 base64 回填 b64_json（url 保留），兼容按官方接口实现的客户端；下载失败则原样返回。',

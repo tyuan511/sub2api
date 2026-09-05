@@ -268,6 +268,27 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.extra?.upstream_request_id_header).toBe('X-Oneapi-Request-Id')
   })
 
+  it('omits openai_images_upstream_stream from extra by default', async () => {
+    await submitApiKeyAccount('openai')
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra).not.toHaveProperty('openai_images_upstream_stream')
+  })
+
+  it('sends openai_images_upstream_stream in extra when the toggle is enabled', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('openai account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
+    await wrapper.get('[data-testid="openai-images-upstream-stream-toggle"]').trigger('click')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.openai_images_upstream_stream).toBe(true)
+  })
+
   it('omits images_url_to_b64_json from extra by default', async () => {
     await submitApiKeyAccount('openai')
 

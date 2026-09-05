@@ -611,6 +611,8 @@ export default {
         responsesModeForceChatCompletions: 'Force Chat Completions',
         responsesModeTextDisabledHint:
           'Not applicable when the Responses / Chat Completions endpoint is not enabled.',
+        imagesUpstreamStream: 'Stream image generation upstream',
+        imagesUpstreamStreamDesc: 'Request images from the upstream using streaming, then return the complete result. Requires upstream streaming support; Image Studio still waits for the final result.',
         imagesUrlToB64Json: 'Image result URL to base64',
         imagesUrlToB64JsonDesc:
           'Only applies to non-streaming Images responses of OpenAI API Key accounts. When an upstream image item has a url but no b64_json, the gateway downloads the url and fills b64_json with its base64 content (url is kept) for clients built on the official API; the response is returned unchanged if the download fails.',
