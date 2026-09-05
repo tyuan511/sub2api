@@ -603,6 +603,13 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
+	aggregateStream := !parsed.Stream && account.IsOpenAIImagesUpstreamStreamEnabled()
+	if aggregateStream {
+		forwardBody, forwardContentType, err = enableOpenAIImagesUpstreamStream(forwardBody, forwardContentType)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// 生图是长耗时、上游侧已产生实际成本的操作：客户端中途断开不应连带取消上游请求。
 	// detachStreamUpstreamContext 在非流式时原样返回请求 context，于是客户端一断开
 	// 就把已经在出图的上游调用打断成 context canceled，网关记 502、不扣费，而上游那边
@@ -610,6 +617,19 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	// 路径本来就无条件脱钩，这里对齐；上游侧仍由 ResponseHeaderTimeout 兜底。
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	defer releaseUpstreamCtx()
+	if aggregateStream {
+		// Detach client cancellation, but keep a finite execution deadline even
+		// when a provider sends heartbeats forever without completing an image.
+		deadline := time.Now().Add(defaultImageTaskExecutionTimeout)
+		if ctx != nil {
+			if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
+				deadline = d
+			}
+		}
+		var cancel context.CancelFunc
+		upstreamCtx, cancel = context.WithDeadline(upstreamCtx, deadline)
+		defer cancel()
+	}
 
 	token, _, err := s.GetAccessToken(upstreamCtx, account)
 	if err != nil {
@@ -618,6 +638,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint)
 	if err != nil {
 		return nil, err
+	}
+	if aggregateStream {
+		upstreamReq.Header.Set("Accept", "text/event-stream")
 	}
 
 	proxyURL := ""
@@ -639,6 +662,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			Kind:               "request_error",
 			Message:            safeErr,
 		})
+		if aggregateStream {
+			unknown := openAIImagesResultUnknownError()
+			writeOpenAIImagesUpstreamErrorResponse(c, unknown)
+			return nil, unknown
+		}
 		return nil, fmt.Errorf("upstream request failed: %s", safeErr)
 	}
 	if resp.StatusCode >= 400 {
@@ -648,6 +676,19 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		resp.Body = io.NopCloser(bytes.NewReader(respBody))
 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 		upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+		if aggregateStream && (resp.StatusCode >= 500 || resp.StatusCode == http.StatusRequestTimeout) {
+			// A timeout/5xx does not prove that paid generation was rejected.
+			// In particular, never replay a CF 524 on another account.
+			setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, "")
+			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+				Platform: account.Platform, AccountID: account.ID, AccountName: account.Name,
+				UpstreamStatusCode: resp.StatusCode, UpstreamRequestID: resp.Header.Get("x-request-id"),
+				UpstreamURL: safeUpstreamURL(upstreamReq.URL.String()), Kind: "image_result_unknown", Message: upstreamMsg,
+			})
+			unknown := openAIImagesResultUnknownError()
+			writeOpenAIImagesUpstreamErrorResponse(c, unknown)
+			return nil, unknown
+		}
 		if s.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, upstreamMsg, respBody) {
 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 				Platform:           account.Platform,
@@ -672,6 +713,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamModel)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if aggregateStream {
+		return s.forwardOpenAIImagesAggregatedResponse(resp, c, account, parsed, requestModel, upstreamModel, startTime)
+	}
 
 	var usage OpenAIUsage
 	imageCount := parsed.N
@@ -819,6 +863,10 @@ func rewriteOpenAIImagesModel(body []byte, contentType string, model string) ([]
 }
 
 func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model string) ([]byte, string, error) {
+	return rewriteOpenAIImagesMultipartFields(body, contentType, map[string]string{"model": model})
+}
+
+func rewriteOpenAIImagesMultipartFields(body []byte, contentType string, fields map[string]string) ([]byte, string, error) {
 	_, params, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		return nil, "", fmt.Errorf("parse multipart content-type: %w", err)
@@ -831,7 +879,7 @@ func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model st
 	reader := multipart.NewReader(bytes.NewReader(body), boundary)
 	var buffer bytes.Buffer
 	writer := multipart.NewWriter(&buffer)
-	modelWritten := false
+	written := make(map[string]bool, len(fields))
 
 	for {
 		part, err := reader.NextPart()
@@ -850,12 +898,12 @@ func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model st
 			return nil, "", fmt.Errorf("create multipart part: %w", err)
 		}
 
-		if formName == "model" && part.FileName() == "" {
-			if _, err := target.Write([]byte(model)); err != nil {
+		if value, replace := fields[formName]; replace && part.FileName() == "" {
+			if _, err := target.Write([]byte(value)); err != nil {
 				_ = part.Close()
-				return nil, "", fmt.Errorf("rewrite multipart model: %w", err)
+				return nil, "", fmt.Errorf("rewrite multipart field %s: %w", formName, err)
 			}
-			modelWritten = true
+			written[formName] = true
 			_ = part.Close()
 			continue
 		}
@@ -866,9 +914,11 @@ func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model st
 		_ = part.Close()
 	}
 
-	if !modelWritten {
-		if err := writer.WriteField("model", model); err != nil {
-			return nil, "", fmt.Errorf("append multipart model field: %w", err)
+	for name, value := range fields {
+		if !written[name] {
+			if err := writer.WriteField(name, value); err != nil {
+				return nil, "", fmt.Errorf("append multipart field %s: %w", name, err)
+			}
 		}
 	}
 	if err := writer.Close(); err != nil {
