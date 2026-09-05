@@ -19,6 +19,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -42,6 +44,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingattempt"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -72,6 +77,8 @@ const (
 
 	// Node types.
 	TypeAPIKey                        = "APIKey"
+	TypeAPIKeyGroupRoute              = "APIKeyGroupRoute"
+	TypeAPIKeyRouteConfigOutbox       = "APIKeyRouteConfigOutbox"
 	TypeAccount                       = "Account"
 	TypeAccountGroup                  = "AccountGroup"
 	TypeAccountProxy                  = "AccountProxy"
@@ -100,6 +107,9 @@ const (
 	TypePromoCodeUsage                = "PromoCodeUsage"
 	TypeProxy                         = "Proxy"
 	TypeRedeemCode                    = "RedeemCode"
+	TypeRoutingArtifactVersion        = "RoutingArtifactVersion"
+	TypeRoutingAttempt                = "RoutingAttempt"
+	TypeRoutingExperiment             = "RoutingExperiment"
 	TypeSecuritySecret                = "SecuritySecret"
 	TypeSetting                       = "Setting"
 	TypeSubscriptionPlan              = "SubscriptionPlan"
@@ -122,51 +132,69 @@ const (
 // APIKeyMutation represents an operation that mutates the APIKey nodes in the graph.
 type APIKeyMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int64
-	created_at         *time.Time
-	updated_at         *time.Time
-	deleted_at         *time.Time
-	key                *string
-	name               *string
-	status             *string
-	last_used_at       *time.Time
-	ip_whitelist       *[]string
-	appendip_whitelist []string
-	ip_blacklist       *[]string
-	appendip_blacklist []string
-	quota              *float64
-	addquota           *float64
-	quota_used         *float64
-	addquota_used      *float64
-	expires_at         *time.Time
-	rate_limit_5h      *float64
-	addrate_limit_5h   *float64
-	rate_limit_1d      *float64
-	addrate_limit_1d   *float64
-	rate_limit_7d      *float64
-	addrate_limit_7d   *float64
-	usage_5h           *float64
-	addusage_5h        *float64
-	usage_1d           *float64
-	addusage_1d        *float64
-	usage_7d           *float64
-	addusage_7d        *float64
-	window_5h_start    *time.Time
-	window_1d_start    *time.Time
-	window_7d_start    *time.Time
-	clearedFields      map[string]struct{}
-	user               *int64
-	cleareduser        bool
-	group              *int64
-	clearedgroup       bool
-	usage_logs         map[int64]struct{}
-	removedusage_logs  map[int64]struct{}
-	clearedusage_logs  bool
-	done               bool
-	oldValue           func(context.Context) (*APIKey, error)
-	predicates         []predicate.APIKey
+	op                                Op
+	typ                               string
+	id                                *int64
+	created_at                        *time.Time
+	updated_at                        *time.Time
+	deleted_at                        *time.Time
+	key                               *string
+	name                              *string
+	schedule_mode                     *string
+	smart_preference                  *string
+	smart_balance_bps                 *int
+	addsmart_balance_bps              *int
+	routing_min_success_rate          *int
+	addrouting_min_success_rate       *int
+	routing_state_version             *int64
+	addrouting_state_version          *int64
+	route_version                     *int64
+	addroute_version                  *int64
+	routing_dependency_version        *int64
+	addrouting_dependency_version     *int64
+	status                            *string
+	last_used_at                      *time.Time
+	ip_whitelist                      *[]string
+	appendip_whitelist                []string
+	ip_blacklist                      *[]string
+	appendip_blacklist                []string
+	quota                             *float64
+	addquota                          *float64
+	quota_used                        *float64
+	addquota_used                     *float64
+	expires_at                        *time.Time
+	rate_limit_5h                     *float64
+	addrate_limit_5h                  *float64
+	rate_limit_1d                     *float64
+	addrate_limit_1d                  *float64
+	rate_limit_7d                     *float64
+	addrate_limit_7d                  *float64
+	usage_5h                          *float64
+	addusage_5h                       *float64
+	usage_1d                          *float64
+	addusage_1d                       *float64
+	usage_7d                          *float64
+	addusage_7d                       *float64
+	window_5h_start                   *time.Time
+	window_1d_start                   *time.Time
+	window_7d_start                   *time.Time
+	clearedFields                     map[string]struct{}
+	user                              *int64
+	cleareduser                       bool
+	group                             *int64
+	clearedgroup                      bool
+	group_routes                      map[int64]struct{}
+	removedgroup_routes               map[int64]struct{}
+	clearedgroup_routes               bool
+	route_config_outbox_events        map[int64]struct{}
+	removedroute_config_outbox_events map[int64]struct{}
+	clearedroute_config_outbox_events bool
+	usage_logs                        map[int64]struct{}
+	removedusage_logs                 map[int64]struct{}
+	clearedusage_logs                 bool
+	done                              bool
+	oldValue                          func(context.Context) (*APIKey, error)
+	predicates                        []predicate.APIKey
 }
 
 var _ ent.Mutation = (*APIKeyMutation)(nil)
@@ -543,6 +571,385 @@ func (m *APIKeyMutation) GroupIDCleared() bool {
 func (m *APIKeyMutation) ResetGroupID() {
 	m.group = nil
 	delete(m.clearedFields, apikey.FieldGroupID)
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (m *APIKeyMutation) SetScheduleMode(s string) {
+	m.schedule_mode = &s
+}
+
+// ScheduleMode returns the value of the "schedule_mode" field in the mutation.
+func (m *APIKeyMutation) ScheduleMode() (r string, exists bool) {
+	v := m.schedule_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScheduleMode returns the old "schedule_mode" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldScheduleMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScheduleMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScheduleMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScheduleMode: %w", err)
+	}
+	return oldValue.ScheduleMode, nil
+}
+
+// ResetScheduleMode resets all changes to the "schedule_mode" field.
+func (m *APIKeyMutation) ResetScheduleMode() {
+	m.schedule_mode = nil
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (m *APIKeyMutation) SetSmartPreference(s string) {
+	m.smart_preference = &s
+}
+
+// SmartPreference returns the value of the "smart_preference" field in the mutation.
+func (m *APIKeyMutation) SmartPreference() (r string, exists bool) {
+	v := m.smart_preference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSmartPreference returns the old "smart_preference" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldSmartPreference(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSmartPreference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSmartPreference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSmartPreference: %w", err)
+	}
+	return oldValue.SmartPreference, nil
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (m *APIKeyMutation) ClearSmartPreference() {
+	m.smart_preference = nil
+	m.clearedFields[apikey.FieldSmartPreference] = struct{}{}
+}
+
+// SmartPreferenceCleared returns if the "smart_preference" field was cleared in this mutation.
+func (m *APIKeyMutation) SmartPreferenceCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldSmartPreference]
+	return ok
+}
+
+// ResetSmartPreference resets all changes to the "smart_preference" field.
+func (m *APIKeyMutation) ResetSmartPreference() {
+	m.smart_preference = nil
+	delete(m.clearedFields, apikey.FieldSmartPreference)
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (m *APIKeyMutation) SetSmartBalanceBps(i int) {
+	m.smart_balance_bps = &i
+	m.addsmart_balance_bps = nil
+}
+
+// SmartBalanceBps returns the value of the "smart_balance_bps" field in the mutation.
+func (m *APIKeyMutation) SmartBalanceBps() (r int, exists bool) {
+	v := m.smart_balance_bps
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSmartBalanceBps returns the old "smart_balance_bps" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldSmartBalanceBps(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSmartBalanceBps is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSmartBalanceBps requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSmartBalanceBps: %w", err)
+	}
+	return oldValue.SmartBalanceBps, nil
+}
+
+// AddSmartBalanceBps adds i to the "smart_balance_bps" field.
+func (m *APIKeyMutation) AddSmartBalanceBps(i int) {
+	if m.addsmart_balance_bps != nil {
+		*m.addsmart_balance_bps += i
+	} else {
+		m.addsmart_balance_bps = &i
+	}
+}
+
+// AddedSmartBalanceBps returns the value that was added to the "smart_balance_bps" field in this mutation.
+func (m *APIKeyMutation) AddedSmartBalanceBps() (r int, exists bool) {
+	v := m.addsmart_balance_bps
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSmartBalanceBps clears the value of the "smart_balance_bps" field.
+func (m *APIKeyMutation) ClearSmartBalanceBps() {
+	m.smart_balance_bps = nil
+	m.addsmart_balance_bps = nil
+	m.clearedFields[apikey.FieldSmartBalanceBps] = struct{}{}
+}
+
+// SmartBalanceBpsCleared returns if the "smart_balance_bps" field was cleared in this mutation.
+func (m *APIKeyMutation) SmartBalanceBpsCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldSmartBalanceBps]
+	return ok
+}
+
+// ResetSmartBalanceBps resets all changes to the "smart_balance_bps" field.
+func (m *APIKeyMutation) ResetSmartBalanceBps() {
+	m.smart_balance_bps = nil
+	m.addsmart_balance_bps = nil
+	delete(m.clearedFields, apikey.FieldSmartBalanceBps)
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (m *APIKeyMutation) SetRoutingMinSuccessRate(i int) {
+	m.routing_min_success_rate = &i
+	m.addrouting_min_success_rate = nil
+}
+
+// RoutingMinSuccessRate returns the value of the "routing_min_success_rate" field in the mutation.
+func (m *APIKeyMutation) RoutingMinSuccessRate() (r int, exists bool) {
+	v := m.routing_min_success_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingMinSuccessRate returns the old "routing_min_success_rate" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldRoutingMinSuccessRate(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingMinSuccessRate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingMinSuccessRate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingMinSuccessRate: %w", err)
+	}
+	return oldValue.RoutingMinSuccessRate, nil
+}
+
+// AddRoutingMinSuccessRate adds i to the "routing_min_success_rate" field.
+func (m *APIKeyMutation) AddRoutingMinSuccessRate(i int) {
+	if m.addrouting_min_success_rate != nil {
+		*m.addrouting_min_success_rate += i
+	} else {
+		m.addrouting_min_success_rate = &i
+	}
+}
+
+// AddedRoutingMinSuccessRate returns the value that was added to the "routing_min_success_rate" field in this mutation.
+func (m *APIKeyMutation) AddedRoutingMinSuccessRate() (r int, exists bool) {
+	v := m.addrouting_min_success_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoutingMinSuccessRate resets all changes to the "routing_min_success_rate" field.
+func (m *APIKeyMutation) ResetRoutingMinSuccessRate() {
+	m.routing_min_success_rate = nil
+	m.addrouting_min_success_rate = nil
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (m *APIKeyMutation) SetRoutingStateVersion(i int64) {
+	m.routing_state_version = &i
+	m.addrouting_state_version = nil
+}
+
+// RoutingStateVersion returns the value of the "routing_state_version" field in the mutation.
+func (m *APIKeyMutation) RoutingStateVersion() (r int64, exists bool) {
+	v := m.routing_state_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingStateVersion returns the old "routing_state_version" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldRoutingStateVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingStateVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingStateVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingStateVersion: %w", err)
+	}
+	return oldValue.RoutingStateVersion, nil
+}
+
+// AddRoutingStateVersion adds i to the "routing_state_version" field.
+func (m *APIKeyMutation) AddRoutingStateVersion(i int64) {
+	if m.addrouting_state_version != nil {
+		*m.addrouting_state_version += i
+	} else {
+		m.addrouting_state_version = &i
+	}
+}
+
+// AddedRoutingStateVersion returns the value that was added to the "routing_state_version" field in this mutation.
+func (m *APIKeyMutation) AddedRoutingStateVersion() (r int64, exists bool) {
+	v := m.addrouting_state_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoutingStateVersion resets all changes to the "routing_state_version" field.
+func (m *APIKeyMutation) ResetRoutingStateVersion() {
+	m.routing_state_version = nil
+	m.addrouting_state_version = nil
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (m *APIKeyMutation) SetRouteVersion(i int64) {
+	m.route_version = &i
+	m.addroute_version = nil
+}
+
+// RouteVersion returns the value of the "route_version" field in the mutation.
+func (m *APIKeyMutation) RouteVersion() (r int64, exists bool) {
+	v := m.route_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRouteVersion returns the old "route_version" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldRouteVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRouteVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRouteVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRouteVersion: %w", err)
+	}
+	return oldValue.RouteVersion, nil
+}
+
+// AddRouteVersion adds i to the "route_version" field.
+func (m *APIKeyMutation) AddRouteVersion(i int64) {
+	if m.addroute_version != nil {
+		*m.addroute_version += i
+	} else {
+		m.addroute_version = &i
+	}
+}
+
+// AddedRouteVersion returns the value that was added to the "route_version" field in this mutation.
+func (m *APIKeyMutation) AddedRouteVersion() (r int64, exists bool) {
+	v := m.addroute_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRouteVersion resets all changes to the "route_version" field.
+func (m *APIKeyMutation) ResetRouteVersion() {
+	m.route_version = nil
+	m.addroute_version = nil
+}
+
+// SetRoutingDependencyVersion sets the "routing_dependency_version" field.
+func (m *APIKeyMutation) SetRoutingDependencyVersion(i int64) {
+	m.routing_dependency_version = &i
+	m.addrouting_dependency_version = nil
+}
+
+// RoutingDependencyVersion returns the value of the "routing_dependency_version" field in the mutation.
+func (m *APIKeyMutation) RoutingDependencyVersion() (r int64, exists bool) {
+	v := m.routing_dependency_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingDependencyVersion returns the old "routing_dependency_version" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldRoutingDependencyVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingDependencyVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingDependencyVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingDependencyVersion: %w", err)
+	}
+	return oldValue.RoutingDependencyVersion, nil
+}
+
+// AddRoutingDependencyVersion adds i to the "routing_dependency_version" field.
+func (m *APIKeyMutation) AddRoutingDependencyVersion(i int64) {
+	if m.addrouting_dependency_version != nil {
+		*m.addrouting_dependency_version += i
+	} else {
+		m.addrouting_dependency_version = &i
+	}
+}
+
+// AddedRoutingDependencyVersion returns the value that was added to the "routing_dependency_version" field in this mutation.
+func (m *APIKeyMutation) AddedRoutingDependencyVersion() (r int64, exists bool) {
+	v := m.addrouting_dependency_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoutingDependencyVersion resets all changes to the "routing_dependency_version" field.
+func (m *APIKeyMutation) ResetRoutingDependencyVersion() {
+	m.routing_dependency_version = nil
+	m.addrouting_dependency_version = nil
 }
 
 // SetStatus sets the "status" field.
@@ -1458,6 +1865,114 @@ func (m *APIKeyMutation) ResetGroup() {
 	m.clearedgroup = false
 }
 
+// AddGroupRouteIDs adds the "group_routes" edge to the APIKeyGroupRoute entity by ids.
+func (m *APIKeyMutation) AddGroupRouteIDs(ids ...int64) {
+	if m.group_routes == nil {
+		m.group_routes = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.group_routes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearGroupRoutes clears the "group_routes" edge to the APIKeyGroupRoute entity.
+func (m *APIKeyMutation) ClearGroupRoutes() {
+	m.clearedgroup_routes = true
+}
+
+// GroupRoutesCleared reports if the "group_routes" edge to the APIKeyGroupRoute entity was cleared.
+func (m *APIKeyMutation) GroupRoutesCleared() bool {
+	return m.clearedgroup_routes
+}
+
+// RemoveGroupRouteIDs removes the "group_routes" edge to the APIKeyGroupRoute entity by IDs.
+func (m *APIKeyMutation) RemoveGroupRouteIDs(ids ...int64) {
+	if m.removedgroup_routes == nil {
+		m.removedgroup_routes = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.group_routes, ids[i])
+		m.removedgroup_routes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedGroupRoutes returns the removed IDs of the "group_routes" edge to the APIKeyGroupRoute entity.
+func (m *APIKeyMutation) RemovedGroupRoutesIDs() (ids []int64) {
+	for id := range m.removedgroup_routes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// GroupRoutesIDs returns the "group_routes" edge IDs in the mutation.
+func (m *APIKeyMutation) GroupRoutesIDs() (ids []int64) {
+	for id := range m.group_routes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetGroupRoutes resets all changes to the "group_routes" edge.
+func (m *APIKeyMutation) ResetGroupRoutes() {
+	m.group_routes = nil
+	m.clearedgroup_routes = false
+	m.removedgroup_routes = nil
+}
+
+// AddRouteConfigOutboxEventIDs adds the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity by ids.
+func (m *APIKeyMutation) AddRouteConfigOutboxEventIDs(ids ...int64) {
+	if m.route_config_outbox_events == nil {
+		m.route_config_outbox_events = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.route_config_outbox_events[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRouteConfigOutboxEvents clears the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity.
+func (m *APIKeyMutation) ClearRouteConfigOutboxEvents() {
+	m.clearedroute_config_outbox_events = true
+}
+
+// RouteConfigOutboxEventsCleared reports if the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity was cleared.
+func (m *APIKeyMutation) RouteConfigOutboxEventsCleared() bool {
+	return m.clearedroute_config_outbox_events
+}
+
+// RemoveRouteConfigOutboxEventIDs removes the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity by IDs.
+func (m *APIKeyMutation) RemoveRouteConfigOutboxEventIDs(ids ...int64) {
+	if m.removedroute_config_outbox_events == nil {
+		m.removedroute_config_outbox_events = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.route_config_outbox_events, ids[i])
+		m.removedroute_config_outbox_events[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRouteConfigOutboxEvents returns the removed IDs of the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity.
+func (m *APIKeyMutation) RemovedRouteConfigOutboxEventsIDs() (ids []int64) {
+	for id := range m.removedroute_config_outbox_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RouteConfigOutboxEventsIDs returns the "route_config_outbox_events" edge IDs in the mutation.
+func (m *APIKeyMutation) RouteConfigOutboxEventsIDs() (ids []int64) {
+	for id := range m.route_config_outbox_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRouteConfigOutboxEvents resets all changes to the "route_config_outbox_events" edge.
+func (m *APIKeyMutation) ResetRouteConfigOutboxEvents() {
+	m.route_config_outbox_events = nil
+	m.clearedroute_config_outbox_events = false
+	m.removedroute_config_outbox_events = nil
+}
+
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by ids.
 func (m *APIKeyMutation) AddUsageLogIDs(ids ...int64) {
 	if m.usage_logs == nil {
@@ -1546,7 +2061,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 30)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1567,6 +2082,27 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.group != nil {
 		fields = append(fields, apikey.FieldGroupID)
+	}
+	if m.schedule_mode != nil {
+		fields = append(fields, apikey.FieldScheduleMode)
+	}
+	if m.smart_preference != nil {
+		fields = append(fields, apikey.FieldSmartPreference)
+	}
+	if m.smart_balance_bps != nil {
+		fields = append(fields, apikey.FieldSmartBalanceBps)
+	}
+	if m.routing_min_success_rate != nil {
+		fields = append(fields, apikey.FieldRoutingMinSuccessRate)
+	}
+	if m.routing_state_version != nil {
+		fields = append(fields, apikey.FieldRoutingStateVersion)
+	}
+	if m.route_version != nil {
+		fields = append(fields, apikey.FieldRouteVersion)
+	}
+	if m.routing_dependency_version != nil {
+		fields = append(fields, apikey.FieldRoutingDependencyVersion)
 	}
 	if m.status != nil {
 		fields = append(fields, apikey.FieldStatus)
@@ -1638,6 +2174,20 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case apikey.FieldGroupID:
 		return m.GroupID()
+	case apikey.FieldScheduleMode:
+		return m.ScheduleMode()
+	case apikey.FieldSmartPreference:
+		return m.SmartPreference()
+	case apikey.FieldSmartBalanceBps:
+		return m.SmartBalanceBps()
+	case apikey.FieldRoutingMinSuccessRate:
+		return m.RoutingMinSuccessRate()
+	case apikey.FieldRoutingStateVersion:
+		return m.RoutingStateVersion()
+	case apikey.FieldRouteVersion:
+		return m.RouteVersion()
+	case apikey.FieldRoutingDependencyVersion:
+		return m.RoutingDependencyVersion()
 	case apikey.FieldStatus:
 		return m.Status()
 	case apikey.FieldLastUsedAt:
@@ -1693,6 +2243,20 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldName(ctx)
 	case apikey.FieldGroupID:
 		return m.OldGroupID(ctx)
+	case apikey.FieldScheduleMode:
+		return m.OldScheduleMode(ctx)
+	case apikey.FieldSmartPreference:
+		return m.OldSmartPreference(ctx)
+	case apikey.FieldSmartBalanceBps:
+		return m.OldSmartBalanceBps(ctx)
+	case apikey.FieldRoutingMinSuccessRate:
+		return m.OldRoutingMinSuccessRate(ctx)
+	case apikey.FieldRoutingStateVersion:
+		return m.OldRoutingStateVersion(ctx)
+	case apikey.FieldRouteVersion:
+		return m.OldRouteVersion(ctx)
+	case apikey.FieldRoutingDependencyVersion:
+		return m.OldRoutingDependencyVersion(ctx)
 	case apikey.FieldStatus:
 		return m.OldStatus(ctx)
 	case apikey.FieldLastUsedAt:
@@ -1782,6 +2346,55 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetGroupID(v)
+		return nil
+	case apikey.FieldScheduleMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScheduleMode(v)
+		return nil
+	case apikey.FieldSmartPreference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSmartPreference(v)
+		return nil
+	case apikey.FieldSmartBalanceBps:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSmartBalanceBps(v)
+		return nil
+	case apikey.FieldRoutingMinSuccessRate:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingMinSuccessRate(v)
+		return nil
+	case apikey.FieldRoutingStateVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingStateVersion(v)
+		return nil
+	case apikey.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRouteVersion(v)
+		return nil
+	case apikey.FieldRoutingDependencyVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingDependencyVersion(v)
 		return nil
 	case apikey.FieldStatus:
 		v, ok := value.(string)
@@ -1903,6 +2516,21 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *APIKeyMutation) AddedFields() []string {
 	var fields []string
+	if m.addsmart_balance_bps != nil {
+		fields = append(fields, apikey.FieldSmartBalanceBps)
+	}
+	if m.addrouting_min_success_rate != nil {
+		fields = append(fields, apikey.FieldRoutingMinSuccessRate)
+	}
+	if m.addrouting_state_version != nil {
+		fields = append(fields, apikey.FieldRoutingStateVersion)
+	}
+	if m.addroute_version != nil {
+		fields = append(fields, apikey.FieldRouteVersion)
+	}
+	if m.addrouting_dependency_version != nil {
+		fields = append(fields, apikey.FieldRoutingDependencyVersion)
+	}
 	if m.addquota != nil {
 		fields = append(fields, apikey.FieldQuota)
 	}
@@ -1935,6 +2563,16 @@ func (m *APIKeyMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case apikey.FieldSmartBalanceBps:
+		return m.AddedSmartBalanceBps()
+	case apikey.FieldRoutingMinSuccessRate:
+		return m.AddedRoutingMinSuccessRate()
+	case apikey.FieldRoutingStateVersion:
+		return m.AddedRoutingStateVersion()
+	case apikey.FieldRouteVersion:
+		return m.AddedRouteVersion()
+	case apikey.FieldRoutingDependencyVersion:
+		return m.AddedRoutingDependencyVersion()
 	case apikey.FieldQuota:
 		return m.AddedQuota()
 	case apikey.FieldQuotaUsed:
@@ -1960,6 +2598,41 @@ func (m *APIKeyMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *APIKeyMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case apikey.FieldSmartBalanceBps:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSmartBalanceBps(v)
+		return nil
+	case apikey.FieldRoutingMinSuccessRate:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoutingMinSuccessRate(v)
+		return nil
+	case apikey.FieldRoutingStateVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoutingStateVersion(v)
+		return nil
+	case apikey.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRouteVersion(v)
+		return nil
+	case apikey.FieldRoutingDependencyVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoutingDependencyVersion(v)
+		return nil
 	case apikey.FieldQuota:
 		v, ok := value.(float64)
 		if !ok {
@@ -2030,6 +2703,12 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	if m.FieldCleared(apikey.FieldGroupID) {
 		fields = append(fields, apikey.FieldGroupID)
 	}
+	if m.FieldCleared(apikey.FieldSmartPreference) {
+		fields = append(fields, apikey.FieldSmartPreference)
+	}
+	if m.FieldCleared(apikey.FieldSmartBalanceBps) {
+		fields = append(fields, apikey.FieldSmartBalanceBps)
+	}
 	if m.FieldCleared(apikey.FieldLastUsedAt) {
 		fields = append(fields, apikey.FieldLastUsedAt)
 	}
@@ -2070,6 +2749,12 @@ func (m *APIKeyMutation) ClearField(name string) error {
 		return nil
 	case apikey.FieldGroupID:
 		m.ClearGroupID()
+		return nil
+	case apikey.FieldSmartPreference:
+		m.ClearSmartPreference()
+		return nil
+	case apikey.FieldSmartBalanceBps:
+		m.ClearSmartBalanceBps()
 		return nil
 	case apikey.FieldLastUsedAt:
 		m.ClearLastUsedAt()
@@ -2120,6 +2805,27 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldGroupID:
 		m.ResetGroupID()
+		return nil
+	case apikey.FieldScheduleMode:
+		m.ResetScheduleMode()
+		return nil
+	case apikey.FieldSmartPreference:
+		m.ResetSmartPreference()
+		return nil
+	case apikey.FieldSmartBalanceBps:
+		m.ResetSmartBalanceBps()
+		return nil
+	case apikey.FieldRoutingMinSuccessRate:
+		m.ResetRoutingMinSuccessRate()
+		return nil
+	case apikey.FieldRoutingStateVersion:
+		m.ResetRoutingStateVersion()
+		return nil
+	case apikey.FieldRouteVersion:
+		m.ResetRouteVersion()
+		return nil
+	case apikey.FieldRoutingDependencyVersion:
+		m.ResetRoutingDependencyVersion()
 		return nil
 	case apikey.FieldStatus:
 		m.ResetStatus()
@@ -2175,12 +2881,18 @@ func (m *APIKeyMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *APIKeyMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.user != nil {
 		edges = append(edges, apikey.EdgeUser)
 	}
 	if m.group != nil {
 		edges = append(edges, apikey.EdgeGroup)
+	}
+	if m.group_routes != nil {
+		edges = append(edges, apikey.EdgeGroupRoutes)
+	}
+	if m.route_config_outbox_events != nil {
+		edges = append(edges, apikey.EdgeRouteConfigOutboxEvents)
 	}
 	if m.usage_logs != nil {
 		edges = append(edges, apikey.EdgeUsageLogs)
@@ -2200,6 +2912,18 @@ func (m *APIKeyMutation) AddedIDs(name string) []ent.Value {
 		if id := m.group; id != nil {
 			return []ent.Value{*id}
 		}
+	case apikey.EdgeGroupRoutes:
+		ids := make([]ent.Value, 0, len(m.group_routes))
+		for id := range m.group_routes {
+			ids = append(ids, id)
+		}
+		return ids
+	case apikey.EdgeRouteConfigOutboxEvents:
+		ids := make([]ent.Value, 0, len(m.route_config_outbox_events))
+		for id := range m.route_config_outbox_events {
+			ids = append(ids, id)
+		}
+		return ids
 	case apikey.EdgeUsageLogs:
 		ids := make([]ent.Value, 0, len(m.usage_logs))
 		for id := range m.usage_logs {
@@ -2212,7 +2936,13 @@ func (m *APIKeyMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *APIKeyMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
+	if m.removedgroup_routes != nil {
+		edges = append(edges, apikey.EdgeGroupRoutes)
+	}
+	if m.removedroute_config_outbox_events != nil {
+		edges = append(edges, apikey.EdgeRouteConfigOutboxEvents)
+	}
 	if m.removedusage_logs != nil {
 		edges = append(edges, apikey.EdgeUsageLogs)
 	}
@@ -2223,6 +2953,18 @@ func (m *APIKeyMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *APIKeyMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case apikey.EdgeGroupRoutes:
+		ids := make([]ent.Value, 0, len(m.removedgroup_routes))
+		for id := range m.removedgroup_routes {
+			ids = append(ids, id)
+		}
+		return ids
+	case apikey.EdgeRouteConfigOutboxEvents:
+		ids := make([]ent.Value, 0, len(m.removedroute_config_outbox_events))
+		for id := range m.removedroute_config_outbox_events {
+			ids = append(ids, id)
+		}
+		return ids
 	case apikey.EdgeUsageLogs:
 		ids := make([]ent.Value, 0, len(m.removedusage_logs))
 		for id := range m.removedusage_logs {
@@ -2235,12 +2977,18 @@ func (m *APIKeyMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *APIKeyMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.cleareduser {
 		edges = append(edges, apikey.EdgeUser)
 	}
 	if m.clearedgroup {
 		edges = append(edges, apikey.EdgeGroup)
+	}
+	if m.clearedgroup_routes {
+		edges = append(edges, apikey.EdgeGroupRoutes)
+	}
+	if m.clearedroute_config_outbox_events {
+		edges = append(edges, apikey.EdgeRouteConfigOutboxEvents)
 	}
 	if m.clearedusage_logs {
 		edges = append(edges, apikey.EdgeUsageLogs)
@@ -2256,6 +3004,10 @@ func (m *APIKeyMutation) EdgeCleared(name string) bool {
 		return m.cleareduser
 	case apikey.EdgeGroup:
 		return m.clearedgroup
+	case apikey.EdgeGroupRoutes:
+		return m.clearedgroup_routes
+	case apikey.EdgeRouteConfigOutboxEvents:
+		return m.clearedroute_config_outbox_events
 	case apikey.EdgeUsageLogs:
 		return m.clearedusage_logs
 	}
@@ -2286,11 +3038,1961 @@ func (m *APIKeyMutation) ResetEdge(name string) error {
 	case apikey.EdgeGroup:
 		m.ResetGroup()
 		return nil
+	case apikey.EdgeGroupRoutes:
+		m.ResetGroupRoutes()
+		return nil
+	case apikey.EdgeRouteConfigOutboxEvents:
+		m.ResetRouteConfigOutboxEvents()
+		return nil
 	case apikey.EdgeUsageLogs:
 		m.ResetUsageLogs()
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey edge %s", name)
+}
+
+// APIKeyGroupRouteMutation represents an operation that mutates the APIKeyGroupRoute nodes in the graph.
+type APIKeyGroupRouteMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int64
+	priority       *int
+	addpriority    *int
+	enabled        *bool
+	created_at     *time.Time
+	updated_at     *time.Time
+	clearedFields  map[string]struct{}
+	api_key        *int64
+	clearedapi_key bool
+	group          *int64
+	clearedgroup   bool
+	done           bool
+	oldValue       func(context.Context) (*APIKeyGroupRoute, error)
+	predicates     []predicate.APIKeyGroupRoute
+}
+
+var _ ent.Mutation = (*APIKeyGroupRouteMutation)(nil)
+
+// apikeygrouprouteOption allows management of the mutation configuration using functional options.
+type apikeygrouprouteOption func(*APIKeyGroupRouteMutation)
+
+// newAPIKeyGroupRouteMutation creates new mutation for the APIKeyGroupRoute entity.
+func newAPIKeyGroupRouteMutation(c config, op Op, opts ...apikeygrouprouteOption) *APIKeyGroupRouteMutation {
+	m := &APIKeyGroupRouteMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAPIKeyGroupRoute,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAPIKeyGroupRouteID sets the ID field of the mutation.
+func withAPIKeyGroupRouteID(id int64) apikeygrouprouteOption {
+	return func(m *APIKeyGroupRouteMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *APIKeyGroupRoute
+		)
+		m.oldValue = func(ctx context.Context) (*APIKeyGroupRoute, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().APIKeyGroupRoute.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAPIKeyGroupRoute sets the old APIKeyGroupRoute of the mutation.
+func withAPIKeyGroupRoute(node *APIKeyGroupRoute) apikeygrouprouteOption {
+	return func(m *APIKeyGroupRouteMutation) {
+		m.oldValue = func(context.Context) (*APIKeyGroupRoute, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m APIKeyGroupRouteMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m APIKeyGroupRouteMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *APIKeyGroupRouteMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *APIKeyGroupRouteMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().APIKeyGroupRoute.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *APIKeyGroupRouteMutation) SetAPIKeyID(i int64) {
+	m.api_key = &i
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *APIKeyGroupRouteMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the APIKeyGroupRoute entity.
+// If the APIKeyGroupRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyGroupRouteMutation) OldAPIKeyID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *APIKeyGroupRouteMutation) ResetAPIKeyID() {
+	m.api_key = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *APIKeyGroupRouteMutation) SetGroupID(i int64) {
+	m.group = &i
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *APIKeyGroupRouteMutation) GroupID() (r int64, exists bool) {
+	v := m.group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the APIKeyGroupRoute entity.
+// If the APIKeyGroupRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyGroupRouteMutation) OldGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *APIKeyGroupRouteMutation) ResetGroupID() {
+	m.group = nil
+}
+
+// SetPriority sets the "priority" field.
+func (m *APIKeyGroupRouteMutation) SetPriority(i int) {
+	m.priority = &i
+	m.addpriority = nil
+}
+
+// Priority returns the value of the "priority" field in the mutation.
+func (m *APIKeyGroupRouteMutation) Priority() (r int, exists bool) {
+	v := m.priority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPriority returns the old "priority" field's value of the APIKeyGroupRoute entity.
+// If the APIKeyGroupRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyGroupRouteMutation) OldPriority(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPriority is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPriority requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPriority: %w", err)
+	}
+	return oldValue.Priority, nil
+}
+
+// AddPriority adds i to the "priority" field.
+func (m *APIKeyGroupRouteMutation) AddPriority(i int) {
+	if m.addpriority != nil {
+		*m.addpriority += i
+	} else {
+		m.addpriority = &i
+	}
+}
+
+// AddedPriority returns the value that was added to the "priority" field in this mutation.
+func (m *APIKeyGroupRouteMutation) AddedPriority() (r int, exists bool) {
+	v := m.addpriority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPriority resets all changes to the "priority" field.
+func (m *APIKeyGroupRouteMutation) ResetPriority() {
+	m.priority = nil
+	m.addpriority = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *APIKeyGroupRouteMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *APIKeyGroupRouteMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the APIKeyGroupRoute entity.
+// If the APIKeyGroupRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyGroupRouteMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *APIKeyGroupRouteMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *APIKeyGroupRouteMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *APIKeyGroupRouteMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the APIKeyGroupRoute entity.
+// If the APIKeyGroupRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyGroupRouteMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *APIKeyGroupRouteMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *APIKeyGroupRouteMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *APIKeyGroupRouteMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the APIKeyGroupRoute entity.
+// If the APIKeyGroupRoute object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyGroupRouteMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *APIKeyGroupRouteMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearAPIKey clears the "api_key" edge to the APIKey entity.
+func (m *APIKeyGroupRouteMutation) ClearAPIKey() {
+	m.clearedapi_key = true
+	m.clearedFields[apikeygrouproute.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyCleared reports if the "api_key" edge to the APIKey entity was cleared.
+func (m *APIKeyGroupRouteMutation) APIKeyCleared() bool {
+	return m.clearedapi_key
+}
+
+// APIKeyIDs returns the "api_key" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// APIKeyID instead. It exists only for internal usage by the builders.
+func (m *APIKeyGroupRouteMutation) APIKeyIDs() (ids []int64) {
+	if id := m.api_key; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAPIKey resets all changes to the "api_key" edge.
+func (m *APIKeyGroupRouteMutation) ResetAPIKey() {
+	m.api_key = nil
+	m.clearedapi_key = false
+}
+
+// ClearGroup clears the "group" edge to the Group entity.
+func (m *APIKeyGroupRouteMutation) ClearGroup() {
+	m.clearedgroup = true
+	m.clearedFields[apikeygrouproute.FieldGroupID] = struct{}{}
+}
+
+// GroupCleared reports if the "group" edge to the Group entity was cleared.
+func (m *APIKeyGroupRouteMutation) GroupCleared() bool {
+	return m.clearedgroup
+}
+
+// GroupIDs returns the "group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// GroupID instead. It exists only for internal usage by the builders.
+func (m *APIKeyGroupRouteMutation) GroupIDs() (ids []int64) {
+	if id := m.group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetGroup resets all changes to the "group" edge.
+func (m *APIKeyGroupRouteMutation) ResetGroup() {
+	m.group = nil
+	m.clearedgroup = false
+}
+
+// Where appends a list predicates to the APIKeyGroupRouteMutation builder.
+func (m *APIKeyGroupRouteMutation) Where(ps ...predicate.APIKeyGroupRoute) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the APIKeyGroupRouteMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *APIKeyGroupRouteMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.APIKeyGroupRoute, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *APIKeyGroupRouteMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *APIKeyGroupRouteMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (APIKeyGroupRoute).
+func (m *APIKeyGroupRouteMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *APIKeyGroupRouteMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.api_key != nil {
+		fields = append(fields, apikeygrouproute.FieldAPIKeyID)
+	}
+	if m.group != nil {
+		fields = append(fields, apikeygrouproute.FieldGroupID)
+	}
+	if m.priority != nil {
+		fields = append(fields, apikeygrouproute.FieldPriority)
+	}
+	if m.enabled != nil {
+		fields = append(fields, apikeygrouproute.FieldEnabled)
+	}
+	if m.created_at != nil {
+		fields = append(fields, apikeygrouproute.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, apikeygrouproute.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *APIKeyGroupRouteMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case apikeygrouproute.FieldAPIKeyID:
+		return m.APIKeyID()
+	case apikeygrouproute.FieldGroupID:
+		return m.GroupID()
+	case apikeygrouproute.FieldPriority:
+		return m.Priority()
+	case apikeygrouproute.FieldEnabled:
+		return m.Enabled()
+	case apikeygrouproute.FieldCreatedAt:
+		return m.CreatedAt()
+	case apikeygrouproute.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *APIKeyGroupRouteMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case apikeygrouproute.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case apikeygrouproute.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case apikeygrouproute.FieldPriority:
+		return m.OldPriority(ctx)
+	case apikeygrouproute.FieldEnabled:
+		return m.OldEnabled(ctx)
+	case apikeygrouproute.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case apikeygrouproute.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown APIKeyGroupRoute field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *APIKeyGroupRouteMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case apikeygrouproute.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case apikeygrouproute.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case apikeygrouproute.FieldPriority:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPriority(v)
+		return nil
+	case apikeygrouproute.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
+	case apikeygrouproute.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case apikeygrouproute.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyGroupRoute field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *APIKeyGroupRouteMutation) AddedFields() []string {
+	var fields []string
+	if m.addpriority != nil {
+		fields = append(fields, apikeygrouproute.FieldPriority)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *APIKeyGroupRouteMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case apikeygrouproute.FieldPriority:
+		return m.AddedPriority()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *APIKeyGroupRouteMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case apikeygrouproute.FieldPriority:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPriority(v)
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyGroupRoute numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *APIKeyGroupRouteMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *APIKeyGroupRouteMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *APIKeyGroupRouteMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown APIKeyGroupRoute nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *APIKeyGroupRouteMutation) ResetField(name string) error {
+	switch name {
+	case apikeygrouproute.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case apikeygrouproute.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case apikeygrouproute.FieldPriority:
+		m.ResetPriority()
+		return nil
+	case apikeygrouproute.FieldEnabled:
+		m.ResetEnabled()
+		return nil
+	case apikeygrouproute.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case apikeygrouproute.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyGroupRoute field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *APIKeyGroupRouteMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.api_key != nil {
+		edges = append(edges, apikeygrouproute.EdgeAPIKey)
+	}
+	if m.group != nil {
+		edges = append(edges, apikeygrouproute.EdgeGroup)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *APIKeyGroupRouteMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case apikeygrouproute.EdgeAPIKey:
+		if id := m.api_key; id != nil {
+			return []ent.Value{*id}
+		}
+	case apikeygrouproute.EdgeGroup:
+		if id := m.group; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *APIKeyGroupRouteMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *APIKeyGroupRouteMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *APIKeyGroupRouteMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedapi_key {
+		edges = append(edges, apikeygrouproute.EdgeAPIKey)
+	}
+	if m.clearedgroup {
+		edges = append(edges, apikeygrouproute.EdgeGroup)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *APIKeyGroupRouteMutation) EdgeCleared(name string) bool {
+	switch name {
+	case apikeygrouproute.EdgeAPIKey:
+		return m.clearedapi_key
+	case apikeygrouproute.EdgeGroup:
+		return m.clearedgroup
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *APIKeyGroupRouteMutation) ClearEdge(name string) error {
+	switch name {
+	case apikeygrouproute.EdgeAPIKey:
+		m.ClearAPIKey()
+		return nil
+	case apikeygrouproute.EdgeGroup:
+		m.ClearGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyGroupRoute unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *APIKeyGroupRouteMutation) ResetEdge(name string) error {
+	switch name {
+	case apikeygrouproute.EdgeAPIKey:
+		m.ResetAPIKey()
+		return nil
+	case apikeygrouproute.EdgeGroup:
+		m.ResetGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyGroupRoute edge %s", name)
+}
+
+// APIKeyRouteConfigOutboxMutation represents an operation that mutates the APIKeyRouteConfigOutbox nodes in the graph.
+type APIKeyRouteConfigOutboxMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *int64
+	event_key        *string
+	route_version    *int64
+	addroute_version *int64
+	event_type       *string
+	payload          *jsontext.Value
+	appendpayload    jsontext.Value
+	attempts         *int
+	addattempts      *int
+	available_at     *time.Time
+	claimed_at       *time.Time
+	claimed_by       *string
+	delivered_at     *time.Time
+	last_error       *string
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	api_key          *int64
+	clearedapi_key   bool
+	done             bool
+	oldValue         func(context.Context) (*APIKeyRouteConfigOutbox, error)
+	predicates       []predicate.APIKeyRouteConfigOutbox
+}
+
+var _ ent.Mutation = (*APIKeyRouteConfigOutboxMutation)(nil)
+
+// apikeyrouteconfigoutboxOption allows management of the mutation configuration using functional options.
+type apikeyrouteconfigoutboxOption func(*APIKeyRouteConfigOutboxMutation)
+
+// newAPIKeyRouteConfigOutboxMutation creates new mutation for the APIKeyRouteConfigOutbox entity.
+func newAPIKeyRouteConfigOutboxMutation(c config, op Op, opts ...apikeyrouteconfigoutboxOption) *APIKeyRouteConfigOutboxMutation {
+	m := &APIKeyRouteConfigOutboxMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAPIKeyRouteConfigOutbox,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAPIKeyRouteConfigOutboxID sets the ID field of the mutation.
+func withAPIKeyRouteConfigOutboxID(id int64) apikeyrouteconfigoutboxOption {
+	return func(m *APIKeyRouteConfigOutboxMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *APIKeyRouteConfigOutbox
+		)
+		m.oldValue = func(ctx context.Context) (*APIKeyRouteConfigOutbox, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().APIKeyRouteConfigOutbox.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAPIKeyRouteConfigOutbox sets the old APIKeyRouteConfigOutbox of the mutation.
+func withAPIKeyRouteConfigOutbox(node *APIKeyRouteConfigOutbox) apikeyrouteconfigoutboxOption {
+	return func(m *APIKeyRouteConfigOutboxMutation) {
+		m.oldValue = func(context.Context) (*APIKeyRouteConfigOutbox, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m APIKeyRouteConfigOutboxMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m APIKeyRouteConfigOutboxMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *APIKeyRouteConfigOutboxMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().APIKeyRouteConfigOutbox.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventKey sets the "event_key" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetEventKey(s string) {
+	m.event_key = &s
+}
+
+// EventKey returns the value of the "event_key" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) EventKey() (r string, exists bool) {
+	v := m.event_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventKey returns the old "event_key" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldEventKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventKey: %w", err)
+	}
+	return oldValue.EventKey, nil
+}
+
+// ResetEventKey resets all changes to the "event_key" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetEventKey() {
+	m.event_key = nil
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetAPIKeyID(i int64) {
+	m.api_key = &i
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldAPIKeyID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetAPIKeyID() {
+	m.api_key = nil
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetRouteVersion(i int64) {
+	m.route_version = &i
+	m.addroute_version = nil
+}
+
+// RouteVersion returns the value of the "route_version" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) RouteVersion() (r int64, exists bool) {
+	v := m.route_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRouteVersion returns the old "route_version" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldRouteVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRouteVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRouteVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRouteVersion: %w", err)
+	}
+	return oldValue.RouteVersion, nil
+}
+
+// AddRouteVersion adds i to the "route_version" field.
+func (m *APIKeyRouteConfigOutboxMutation) AddRouteVersion(i int64) {
+	if m.addroute_version != nil {
+		*m.addroute_version += i
+	} else {
+		m.addroute_version = &i
+	}
+}
+
+// AddedRouteVersion returns the value that was added to the "route_version" field in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) AddedRouteVersion() (r int64, exists bool) {
+	v := m.addroute_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRouteVersion resets all changes to the "route_version" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetRouteVersion() {
+	m.route_version = nil
+	m.addroute_version = nil
+}
+
+// SetEventType sets the "event_type" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetEventType(s string) {
+	m.event_type = &s
+}
+
+// EventType returns the value of the "event_type" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) EventType() (r string, exists bool) {
+	v := m.event_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventType returns the old "event_type" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldEventType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventType: %w", err)
+	}
+	return oldValue.EventType, nil
+}
+
+// ResetEventType resets all changes to the "event_type" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetEventType() {
+	m.event_type = nil
+}
+
+// SetPayload sets the "payload" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetPayload(j jsontext.Value) {
+	m.payload = &j
+	m.appendpayload = nil
+}
+
+// Payload returns the value of the "payload" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) Payload() (r jsontext.Value, exists bool) {
+	v := m.payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayload returns the old "payload" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldPayload(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayload: %w", err)
+	}
+	return oldValue.Payload, nil
+}
+
+// AppendPayload adds j to the "payload" field.
+func (m *APIKeyRouteConfigOutboxMutation) AppendPayload(j jsontext.Value) {
+	m.appendpayload = append(m.appendpayload, j...)
+}
+
+// AppendedPayload returns the list of values that were appended to the "payload" field in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) AppendedPayload() (jsontext.Value, bool) {
+	if len(m.appendpayload) == 0 {
+		return nil, false
+	}
+	return m.appendpayload, true
+}
+
+// ClearPayload clears the value of the "payload" field.
+func (m *APIKeyRouteConfigOutboxMutation) ClearPayload() {
+	m.payload = nil
+	m.appendpayload = nil
+	m.clearedFields[apikeyrouteconfigoutbox.FieldPayload] = struct{}{}
+}
+
+// PayloadCleared returns if the "payload" field was cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) PayloadCleared() bool {
+	_, ok := m.clearedFields[apikeyrouteconfigoutbox.FieldPayload]
+	return ok
+}
+
+// ResetPayload resets all changes to the "payload" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetPayload() {
+	m.payload = nil
+	m.appendpayload = nil
+	delete(m.clearedFields, apikeyrouteconfigoutbox.FieldPayload)
+}
+
+// SetAttempts sets the "attempts" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetAttempts(i int) {
+	m.attempts = &i
+	m.addattempts = nil
+}
+
+// Attempts returns the value of the "attempts" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) Attempts() (r int, exists bool) {
+	v := m.attempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttempts returns the old "attempts" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldAttempts(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttempts is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttempts requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttempts: %w", err)
+	}
+	return oldValue.Attempts, nil
+}
+
+// AddAttempts adds i to the "attempts" field.
+func (m *APIKeyRouteConfigOutboxMutation) AddAttempts(i int) {
+	if m.addattempts != nil {
+		*m.addattempts += i
+	} else {
+		m.addattempts = &i
+	}
+}
+
+// AddedAttempts returns the value that was added to the "attempts" field in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) AddedAttempts() (r int, exists bool) {
+	v := m.addattempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAttempts resets all changes to the "attempts" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetAttempts() {
+	m.attempts = nil
+	m.addattempts = nil
+}
+
+// SetAvailableAt sets the "available_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetAvailableAt(t time.Time) {
+	m.available_at = &t
+}
+
+// AvailableAt returns the value of the "available_at" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) AvailableAt() (r time.Time, exists bool) {
+	v := m.available_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAvailableAt returns the old "available_at" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldAvailableAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAvailableAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAvailableAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAvailableAt: %w", err)
+	}
+	return oldValue.AvailableAt, nil
+}
+
+// ResetAvailableAt resets all changes to the "available_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetAvailableAt() {
+	m.available_at = nil
+}
+
+// SetClaimedAt sets the "claimed_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetClaimedAt(t time.Time) {
+	m.claimed_at = &t
+}
+
+// ClaimedAt returns the value of the "claimed_at" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) ClaimedAt() (r time.Time, exists bool) {
+	v := m.claimed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClaimedAt returns the old "claimed_at" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldClaimedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClaimedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClaimedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClaimedAt: %w", err)
+	}
+	return oldValue.ClaimedAt, nil
+}
+
+// ClearClaimedAt clears the value of the "claimed_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) ClearClaimedAt() {
+	m.claimed_at = nil
+	m.clearedFields[apikeyrouteconfigoutbox.FieldClaimedAt] = struct{}{}
+}
+
+// ClaimedAtCleared returns if the "claimed_at" field was cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) ClaimedAtCleared() bool {
+	_, ok := m.clearedFields[apikeyrouteconfigoutbox.FieldClaimedAt]
+	return ok
+}
+
+// ResetClaimedAt resets all changes to the "claimed_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetClaimedAt() {
+	m.claimed_at = nil
+	delete(m.clearedFields, apikeyrouteconfigoutbox.FieldClaimedAt)
+}
+
+// SetClaimedBy sets the "claimed_by" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetClaimedBy(s string) {
+	m.claimed_by = &s
+}
+
+// ClaimedBy returns the value of the "claimed_by" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) ClaimedBy() (r string, exists bool) {
+	v := m.claimed_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClaimedBy returns the old "claimed_by" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldClaimedBy(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClaimedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClaimedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClaimedBy: %w", err)
+	}
+	return oldValue.ClaimedBy, nil
+}
+
+// ClearClaimedBy clears the value of the "claimed_by" field.
+func (m *APIKeyRouteConfigOutboxMutation) ClearClaimedBy() {
+	m.claimed_by = nil
+	m.clearedFields[apikeyrouteconfigoutbox.FieldClaimedBy] = struct{}{}
+}
+
+// ClaimedByCleared returns if the "claimed_by" field was cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) ClaimedByCleared() bool {
+	_, ok := m.clearedFields[apikeyrouteconfigoutbox.FieldClaimedBy]
+	return ok
+}
+
+// ResetClaimedBy resets all changes to the "claimed_by" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetClaimedBy() {
+	m.claimed_by = nil
+	delete(m.clearedFields, apikeyrouteconfigoutbox.FieldClaimedBy)
+}
+
+// SetDeliveredAt sets the "delivered_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetDeliveredAt(t time.Time) {
+	m.delivered_at = &t
+}
+
+// DeliveredAt returns the value of the "delivered_at" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) DeliveredAt() (r time.Time, exists bool) {
+	v := m.delivered_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeliveredAt returns the old "delivered_at" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldDeliveredAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeliveredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeliveredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeliveredAt: %w", err)
+	}
+	return oldValue.DeliveredAt, nil
+}
+
+// ClearDeliveredAt clears the value of the "delivered_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) ClearDeliveredAt() {
+	m.delivered_at = nil
+	m.clearedFields[apikeyrouteconfigoutbox.FieldDeliveredAt] = struct{}{}
+}
+
+// DeliveredAtCleared returns if the "delivered_at" field was cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) DeliveredAtCleared() bool {
+	_, ok := m.clearedFields[apikeyrouteconfigoutbox.FieldDeliveredAt]
+	return ok
+}
+
+// ResetDeliveredAt resets all changes to the "delivered_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetDeliveredAt() {
+	m.delivered_at = nil
+	delete(m.clearedFields, apikeyrouteconfigoutbox.FieldDeliveredAt)
+}
+
+// SetLastError sets the "last_error" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetLastError(s string) {
+	m.last_error = &s
+}
+
+// LastError returns the value of the "last_error" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) LastError() (r string, exists bool) {
+	v := m.last_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastError returns the old "last_error" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldLastError(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastError: %w", err)
+	}
+	return oldValue.LastError, nil
+}
+
+// ClearLastError clears the value of the "last_error" field.
+func (m *APIKeyRouteConfigOutboxMutation) ClearLastError() {
+	m.last_error = nil
+	m.clearedFields[apikeyrouteconfigoutbox.FieldLastError] = struct{}{}
+}
+
+// LastErrorCleared returns if the "last_error" field was cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) LastErrorCleared() bool {
+	_, ok := m.clearedFields[apikeyrouteconfigoutbox.FieldLastError]
+	return ok
+}
+
+// ResetLastError resets all changes to the "last_error" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetLastError() {
+	m.last_error = nil
+	delete(m.clearedFields, apikeyrouteconfigoutbox.FieldLastError)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *APIKeyRouteConfigOutboxMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the APIKeyRouteConfigOutbox entity.
+// If the APIKeyRouteConfigOutbox object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyRouteConfigOutboxMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *APIKeyRouteConfigOutboxMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearAPIKey clears the "api_key" edge to the APIKey entity.
+func (m *APIKeyRouteConfigOutboxMutation) ClearAPIKey() {
+	m.clearedapi_key = true
+	m.clearedFields[apikeyrouteconfigoutbox.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyCleared reports if the "api_key" edge to the APIKey entity was cleared.
+func (m *APIKeyRouteConfigOutboxMutation) APIKeyCleared() bool {
+	return m.clearedapi_key
+}
+
+// APIKeyIDs returns the "api_key" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// APIKeyID instead. It exists only for internal usage by the builders.
+func (m *APIKeyRouteConfigOutboxMutation) APIKeyIDs() (ids []int64) {
+	if id := m.api_key; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAPIKey resets all changes to the "api_key" edge.
+func (m *APIKeyRouteConfigOutboxMutation) ResetAPIKey() {
+	m.api_key = nil
+	m.clearedapi_key = false
+}
+
+// Where appends a list predicates to the APIKeyRouteConfigOutboxMutation builder.
+func (m *APIKeyRouteConfigOutboxMutation) Where(ps ...predicate.APIKeyRouteConfigOutbox) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the APIKeyRouteConfigOutboxMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *APIKeyRouteConfigOutboxMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.APIKeyRouteConfigOutbox, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *APIKeyRouteConfigOutboxMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *APIKeyRouteConfigOutboxMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (APIKeyRouteConfigOutbox).
+func (m *APIKeyRouteConfigOutboxMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *APIKeyRouteConfigOutboxMutation) Fields() []string {
+	fields := make([]string, 0, 13)
+	if m.event_key != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldEventKey)
+	}
+	if m.api_key != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldAPIKeyID)
+	}
+	if m.route_version != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldRouteVersion)
+	}
+	if m.event_type != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldEventType)
+	}
+	if m.payload != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldPayload)
+	}
+	if m.attempts != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldAttempts)
+	}
+	if m.available_at != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldAvailableAt)
+	}
+	if m.claimed_at != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldClaimedAt)
+	}
+	if m.claimed_by != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldClaimedBy)
+	}
+	if m.delivered_at != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldDeliveredAt)
+	}
+	if m.last_error != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldLastError)
+	}
+	if m.created_at != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *APIKeyRouteConfigOutboxMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case apikeyrouteconfigoutbox.FieldEventKey:
+		return m.EventKey()
+	case apikeyrouteconfigoutbox.FieldAPIKeyID:
+		return m.APIKeyID()
+	case apikeyrouteconfigoutbox.FieldRouteVersion:
+		return m.RouteVersion()
+	case apikeyrouteconfigoutbox.FieldEventType:
+		return m.EventType()
+	case apikeyrouteconfigoutbox.FieldPayload:
+		return m.Payload()
+	case apikeyrouteconfigoutbox.FieldAttempts:
+		return m.Attempts()
+	case apikeyrouteconfigoutbox.FieldAvailableAt:
+		return m.AvailableAt()
+	case apikeyrouteconfigoutbox.FieldClaimedAt:
+		return m.ClaimedAt()
+	case apikeyrouteconfigoutbox.FieldClaimedBy:
+		return m.ClaimedBy()
+	case apikeyrouteconfigoutbox.FieldDeliveredAt:
+		return m.DeliveredAt()
+	case apikeyrouteconfigoutbox.FieldLastError:
+		return m.LastError()
+	case apikeyrouteconfigoutbox.FieldCreatedAt:
+		return m.CreatedAt()
+	case apikeyrouteconfigoutbox.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *APIKeyRouteConfigOutboxMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case apikeyrouteconfigoutbox.FieldEventKey:
+		return m.OldEventKey(ctx)
+	case apikeyrouteconfigoutbox.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case apikeyrouteconfigoutbox.FieldRouteVersion:
+		return m.OldRouteVersion(ctx)
+	case apikeyrouteconfigoutbox.FieldEventType:
+		return m.OldEventType(ctx)
+	case apikeyrouteconfigoutbox.FieldPayload:
+		return m.OldPayload(ctx)
+	case apikeyrouteconfigoutbox.FieldAttempts:
+		return m.OldAttempts(ctx)
+	case apikeyrouteconfigoutbox.FieldAvailableAt:
+		return m.OldAvailableAt(ctx)
+	case apikeyrouteconfigoutbox.FieldClaimedAt:
+		return m.OldClaimedAt(ctx)
+	case apikeyrouteconfigoutbox.FieldClaimedBy:
+		return m.OldClaimedBy(ctx)
+	case apikeyrouteconfigoutbox.FieldDeliveredAt:
+		return m.OldDeliveredAt(ctx)
+	case apikeyrouteconfigoutbox.FieldLastError:
+		return m.OldLastError(ctx)
+	case apikeyrouteconfigoutbox.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case apikeyrouteconfigoutbox.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown APIKeyRouteConfigOutbox field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *APIKeyRouteConfigOutboxMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case apikeyrouteconfigoutbox.FieldEventKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventKey(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRouteVersion(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldEventType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventType(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldPayload:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayload(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttempts(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldAvailableAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAvailableAt(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldClaimedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClaimedAt(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldClaimedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClaimedBy(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldDeliveredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeliveredAt(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldLastError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastError(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyRouteConfigOutbox field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) AddedFields() []string {
+	var fields []string
+	if m.addroute_version != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldRouteVersion)
+	}
+	if m.addattempts != nil {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldAttempts)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *APIKeyRouteConfigOutboxMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case apikeyrouteconfigoutbox.FieldRouteVersion:
+		return m.AddedRouteVersion()
+	case apikeyrouteconfigoutbox.FieldAttempts:
+		return m.AddedAttempts()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *APIKeyRouteConfigOutboxMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case apikeyrouteconfigoutbox.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRouteVersion(v)
+		return nil
+	case apikeyrouteconfigoutbox.FieldAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttempts(v)
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyRouteConfigOutbox numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *APIKeyRouteConfigOutboxMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(apikeyrouteconfigoutbox.FieldPayload) {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldPayload)
+	}
+	if m.FieldCleared(apikeyrouteconfigoutbox.FieldClaimedAt) {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldClaimedAt)
+	}
+	if m.FieldCleared(apikeyrouteconfigoutbox.FieldClaimedBy) {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldClaimedBy)
+	}
+	if m.FieldCleared(apikeyrouteconfigoutbox.FieldDeliveredAt) {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldDeliveredAt)
+	}
+	if m.FieldCleared(apikeyrouteconfigoutbox.FieldLastError) {
+		fields = append(fields, apikeyrouteconfigoutbox.FieldLastError)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *APIKeyRouteConfigOutboxMutation) ClearField(name string) error {
+	switch name {
+	case apikeyrouteconfigoutbox.FieldPayload:
+		m.ClearPayload()
+		return nil
+	case apikeyrouteconfigoutbox.FieldClaimedAt:
+		m.ClearClaimedAt()
+		return nil
+	case apikeyrouteconfigoutbox.FieldClaimedBy:
+		m.ClearClaimedBy()
+		return nil
+	case apikeyrouteconfigoutbox.FieldDeliveredAt:
+		m.ClearDeliveredAt()
+		return nil
+	case apikeyrouteconfigoutbox.FieldLastError:
+		m.ClearLastError()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyRouteConfigOutbox nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *APIKeyRouteConfigOutboxMutation) ResetField(name string) error {
+	switch name {
+	case apikeyrouteconfigoutbox.FieldEventKey:
+		m.ResetEventKey()
+		return nil
+	case apikeyrouteconfigoutbox.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case apikeyrouteconfigoutbox.FieldRouteVersion:
+		m.ResetRouteVersion()
+		return nil
+	case apikeyrouteconfigoutbox.FieldEventType:
+		m.ResetEventType()
+		return nil
+	case apikeyrouteconfigoutbox.FieldPayload:
+		m.ResetPayload()
+		return nil
+	case apikeyrouteconfigoutbox.FieldAttempts:
+		m.ResetAttempts()
+		return nil
+	case apikeyrouteconfigoutbox.FieldAvailableAt:
+		m.ResetAvailableAt()
+		return nil
+	case apikeyrouteconfigoutbox.FieldClaimedAt:
+		m.ResetClaimedAt()
+		return nil
+	case apikeyrouteconfigoutbox.FieldClaimedBy:
+		m.ResetClaimedBy()
+		return nil
+	case apikeyrouteconfigoutbox.FieldDeliveredAt:
+		m.ResetDeliveredAt()
+		return nil
+	case apikeyrouteconfigoutbox.FieldLastError:
+		m.ResetLastError()
+		return nil
+	case apikeyrouteconfigoutbox.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case apikeyrouteconfigoutbox.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyRouteConfigOutbox field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.api_key != nil {
+		edges = append(edges, apikeyrouteconfigoutbox.EdgeAPIKey)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case apikeyrouteconfigoutbox.EdgeAPIKey:
+		if id := m.api_key; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedapi_key {
+		edges = append(edges, apikeyrouteconfigoutbox.EdgeAPIKey)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *APIKeyRouteConfigOutboxMutation) EdgeCleared(name string) bool {
+	switch name {
+	case apikeyrouteconfigoutbox.EdgeAPIKey:
+		return m.clearedapi_key
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *APIKeyRouteConfigOutboxMutation) ClearEdge(name string) error {
+	switch name {
+	case apikeyrouteconfigoutbox.EdgeAPIKey:
+		m.ClearAPIKey()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyRouteConfigOutbox unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *APIKeyRouteConfigOutboxMutation) ResetEdge(name string) error {
+	switch name {
+	case apikeyrouteconfigoutbox.EdgeAPIKey:
+		m.ResetAPIKey()
+		return nil
+	}
+	return fmt.Errorf("unknown APIKeyRouteConfigOutbox edge %s", name)
 }
 
 // AccountMutation represents an operation that mutates the Account nodes in the graph.
@@ -24215,6 +26917,9 @@ type GroupMutation struct {
 	api_keys                                map[int64]struct{}
 	removedapi_keys                         map[int64]struct{}
 	clearedapi_keys                         bool
+	api_key_group_routes                    map[int64]struct{}
+	removedapi_key_group_routes             map[int64]struct{}
+	clearedapi_key_group_routes             bool
 	redeem_codes                            map[int64]struct{}
 	removedredeem_codes                     map[int64]struct{}
 	clearedredeem_codes                     bool
@@ -27615,6 +30320,60 @@ func (m *GroupMutation) ResetAPIKeys() {
 	m.removedapi_keys = nil
 }
 
+// AddAPIKeyGroupRouteIDs adds the "api_key_group_routes" edge to the APIKeyGroupRoute entity by ids.
+func (m *GroupMutation) AddAPIKeyGroupRouteIDs(ids ...int64) {
+	if m.api_key_group_routes == nil {
+		m.api_key_group_routes = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.api_key_group_routes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAPIKeyGroupRoutes clears the "api_key_group_routes" edge to the APIKeyGroupRoute entity.
+func (m *GroupMutation) ClearAPIKeyGroupRoutes() {
+	m.clearedapi_key_group_routes = true
+}
+
+// APIKeyGroupRoutesCleared reports if the "api_key_group_routes" edge to the APIKeyGroupRoute entity was cleared.
+func (m *GroupMutation) APIKeyGroupRoutesCleared() bool {
+	return m.clearedapi_key_group_routes
+}
+
+// RemoveAPIKeyGroupRouteIDs removes the "api_key_group_routes" edge to the APIKeyGroupRoute entity by IDs.
+func (m *GroupMutation) RemoveAPIKeyGroupRouteIDs(ids ...int64) {
+	if m.removedapi_key_group_routes == nil {
+		m.removedapi_key_group_routes = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.api_key_group_routes, ids[i])
+		m.removedapi_key_group_routes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAPIKeyGroupRoutes returns the removed IDs of the "api_key_group_routes" edge to the APIKeyGroupRoute entity.
+func (m *GroupMutation) RemovedAPIKeyGroupRoutesIDs() (ids []int64) {
+	for id := range m.removedapi_key_group_routes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// APIKeyGroupRoutesIDs returns the "api_key_group_routes" edge IDs in the mutation.
+func (m *GroupMutation) APIKeyGroupRoutesIDs() (ids []int64) {
+	for id := range m.api_key_group_routes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAPIKeyGroupRoutes resets all changes to the "api_key_group_routes" edge.
+func (m *GroupMutation) ResetAPIKeyGroupRoutes() {
+	m.api_key_group_routes = nil
+	m.clearedapi_key_group_routes = false
+	m.removedapi_key_group_routes = nil
+}
+
 // AddRedeemCodeIDs adds the "redeem_codes" edge to the RedeemCode entity by ids.
 func (m *GroupMutation) AddRedeemCodeIDs(ids ...int64) {
 	if m.redeem_codes == nil {
@@ -29568,9 +32327,12 @@ func (m *GroupMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.api_keys != nil {
 		edges = append(edges, group.EdgeAPIKeys)
+	}
+	if m.api_key_group_routes != nil {
+		edges = append(edges, group.EdgeAPIKeyGroupRoutes)
 	}
 	if m.redeem_codes != nil {
 		edges = append(edges, group.EdgeRedeemCodes)
@@ -29597,6 +32359,12 @@ func (m *GroupMutation) AddedIDs(name string) []ent.Value {
 	case group.EdgeAPIKeys:
 		ids := make([]ent.Value, 0, len(m.api_keys))
 		for id := range m.api_keys {
+			ids = append(ids, id)
+		}
+		return ids
+	case group.EdgeAPIKeyGroupRoutes:
+		ids := make([]ent.Value, 0, len(m.api_key_group_routes))
+		for id := range m.api_key_group_routes {
 			ids = append(ids, id)
 		}
 		return ids
@@ -29636,9 +32404,12 @@ func (m *GroupMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedapi_keys != nil {
 		edges = append(edges, group.EdgeAPIKeys)
+	}
+	if m.removedapi_key_group_routes != nil {
+		edges = append(edges, group.EdgeAPIKeyGroupRoutes)
 	}
 	if m.removedredeem_codes != nil {
 		edges = append(edges, group.EdgeRedeemCodes)
@@ -29665,6 +32436,12 @@ func (m *GroupMutation) RemovedIDs(name string) []ent.Value {
 	case group.EdgeAPIKeys:
 		ids := make([]ent.Value, 0, len(m.removedapi_keys))
 		for id := range m.removedapi_keys {
+			ids = append(ids, id)
+		}
+		return ids
+	case group.EdgeAPIKeyGroupRoutes:
+		ids := make([]ent.Value, 0, len(m.removedapi_key_group_routes))
+		for id := range m.removedapi_key_group_routes {
 			ids = append(ids, id)
 		}
 		return ids
@@ -29704,9 +32481,12 @@ func (m *GroupMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.clearedapi_keys {
 		edges = append(edges, group.EdgeAPIKeys)
+	}
+	if m.clearedapi_key_group_routes {
+		edges = append(edges, group.EdgeAPIKeyGroupRoutes)
 	}
 	if m.clearedredeem_codes {
 		edges = append(edges, group.EdgeRedeemCodes)
@@ -29732,6 +32512,8 @@ func (m *GroupMutation) EdgeCleared(name string) bool {
 	switch name {
 	case group.EdgeAPIKeys:
 		return m.clearedapi_keys
+	case group.EdgeAPIKeyGroupRoutes:
+		return m.clearedapi_key_group_routes
 	case group.EdgeRedeemCodes:
 		return m.clearedredeem_codes
 	case group.EdgeSubscriptions:
@@ -29760,6 +32542,9 @@ func (m *GroupMutation) ResetEdge(name string) error {
 	switch name {
 	case group.EdgeAPIKeys:
 		m.ResetAPIKeys()
+		return nil
+	case group.EdgeAPIKeyGroupRoutes:
+		m.ResetAPIKeyGroupRoutes()
 		return nil
 	case group.EdgeRedeemCodes:
 		m.ResetRedeemCodes()
@@ -41907,6 +44692,7064 @@ func (m *RedeemCodeMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown RedeemCode edge %s", name)
 }
 
+// RoutingArtifactVersionMutation represents an operation that mutates the RoutingArtifactVersion nodes in the graph.
+type RoutingArtifactVersionMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *int64
+	artifact_kind      *string
+	version            *string
+	parent_version     *string
+	platform           *string
+	model_family       *string
+	endpoint_kind      *string
+	preference         *string
+	status             *string
+	schema_version     *string
+	checksum           *string
+	payload            *jsontext.Value
+	appendpayload      jsontext.Value
+	dependencies       *jsontext.Value
+	appenddependencies jsontext.Value
+	lineage            *jsontext.Value
+	appendlineage      jsontext.Value
+	activated_at       *time.Time
+	retired_at         *time.Time
+	created_at         *time.Time
+	clearedFields      map[string]struct{}
+	creator            *int64
+	clearedcreator     bool
+	done               bool
+	oldValue           func(context.Context) (*RoutingArtifactVersion, error)
+	predicates         []predicate.RoutingArtifactVersion
+}
+
+var _ ent.Mutation = (*RoutingArtifactVersionMutation)(nil)
+
+// routingartifactversionOption allows management of the mutation configuration using functional options.
+type routingartifactversionOption func(*RoutingArtifactVersionMutation)
+
+// newRoutingArtifactVersionMutation creates new mutation for the RoutingArtifactVersion entity.
+func newRoutingArtifactVersionMutation(c config, op Op, opts ...routingartifactversionOption) *RoutingArtifactVersionMutation {
+	m := &RoutingArtifactVersionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRoutingArtifactVersion,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRoutingArtifactVersionID sets the ID field of the mutation.
+func withRoutingArtifactVersionID(id int64) routingartifactversionOption {
+	return func(m *RoutingArtifactVersionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RoutingArtifactVersion
+		)
+		m.oldValue = func(ctx context.Context) (*RoutingArtifactVersion, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RoutingArtifactVersion.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRoutingArtifactVersion sets the old RoutingArtifactVersion of the mutation.
+func withRoutingArtifactVersion(node *RoutingArtifactVersion) routingartifactversionOption {
+	return func(m *RoutingArtifactVersionMutation) {
+		m.oldValue = func(context.Context) (*RoutingArtifactVersion, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RoutingArtifactVersionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RoutingArtifactVersionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RoutingArtifactVersionMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RoutingArtifactVersionMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RoutingArtifactVersion.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetArtifactKind sets the "artifact_kind" field.
+func (m *RoutingArtifactVersionMutation) SetArtifactKind(s string) {
+	m.artifact_kind = &s
+}
+
+// ArtifactKind returns the value of the "artifact_kind" field in the mutation.
+func (m *RoutingArtifactVersionMutation) ArtifactKind() (r string, exists bool) {
+	v := m.artifact_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldArtifactKind returns the old "artifact_kind" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldArtifactKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldArtifactKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldArtifactKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldArtifactKind: %w", err)
+	}
+	return oldValue.ArtifactKind, nil
+}
+
+// ResetArtifactKind resets all changes to the "artifact_kind" field.
+func (m *RoutingArtifactVersionMutation) ResetArtifactKind() {
+	m.artifact_kind = nil
+}
+
+// SetVersion sets the "version" field.
+func (m *RoutingArtifactVersionMutation) SetVersion(s string) {
+	m.version = &s
+}
+
+// Version returns the value of the "version" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Version() (r string, exists bool) {
+	v := m.version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVersion returns the old "version" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVersion: %w", err)
+	}
+	return oldValue.Version, nil
+}
+
+// ResetVersion resets all changes to the "version" field.
+func (m *RoutingArtifactVersionMutation) ResetVersion() {
+	m.version = nil
+}
+
+// SetParentVersion sets the "parent_version" field.
+func (m *RoutingArtifactVersionMutation) SetParentVersion(s string) {
+	m.parent_version = &s
+}
+
+// ParentVersion returns the value of the "parent_version" field in the mutation.
+func (m *RoutingArtifactVersionMutation) ParentVersion() (r string, exists bool) {
+	v := m.parent_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParentVersion returns the old "parent_version" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldParentVersion(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParentVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParentVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParentVersion: %w", err)
+	}
+	return oldValue.ParentVersion, nil
+}
+
+// ClearParentVersion clears the value of the "parent_version" field.
+func (m *RoutingArtifactVersionMutation) ClearParentVersion() {
+	m.parent_version = nil
+	m.clearedFields[routingartifactversion.FieldParentVersion] = struct{}{}
+}
+
+// ParentVersionCleared returns if the "parent_version" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) ParentVersionCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldParentVersion]
+	return ok
+}
+
+// ResetParentVersion resets all changes to the "parent_version" field.
+func (m *RoutingArtifactVersionMutation) ResetParentVersion() {
+	m.parent_version = nil
+	delete(m.clearedFields, routingartifactversion.FieldParentVersion)
+}
+
+// SetPlatform sets the "platform" field.
+func (m *RoutingArtifactVersionMutation) SetPlatform(s string) {
+	m.platform = &s
+}
+
+// Platform returns the value of the "platform" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Platform() (r string, exists bool) {
+	v := m.platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatform returns the old "platform" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldPlatform(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatform: %w", err)
+	}
+	return oldValue.Platform, nil
+}
+
+// ResetPlatform resets all changes to the "platform" field.
+func (m *RoutingArtifactVersionMutation) ResetPlatform() {
+	m.platform = nil
+}
+
+// SetModelFamily sets the "model_family" field.
+func (m *RoutingArtifactVersionMutation) SetModelFamily(s string) {
+	m.model_family = &s
+}
+
+// ModelFamily returns the value of the "model_family" field in the mutation.
+func (m *RoutingArtifactVersionMutation) ModelFamily() (r string, exists bool) {
+	v := m.model_family
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelFamily returns the old "model_family" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldModelFamily(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelFamily is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelFamily requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelFamily: %w", err)
+	}
+	return oldValue.ModelFamily, nil
+}
+
+// ResetModelFamily resets all changes to the "model_family" field.
+func (m *RoutingArtifactVersionMutation) ResetModelFamily() {
+	m.model_family = nil
+}
+
+// SetEndpointKind sets the "endpoint_kind" field.
+func (m *RoutingArtifactVersionMutation) SetEndpointKind(s string) {
+	m.endpoint_kind = &s
+}
+
+// EndpointKind returns the value of the "endpoint_kind" field in the mutation.
+func (m *RoutingArtifactVersionMutation) EndpointKind() (r string, exists bool) {
+	v := m.endpoint_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndpointKind returns the old "endpoint_kind" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldEndpointKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndpointKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndpointKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndpointKind: %w", err)
+	}
+	return oldValue.EndpointKind, nil
+}
+
+// ResetEndpointKind resets all changes to the "endpoint_kind" field.
+func (m *RoutingArtifactVersionMutation) ResetEndpointKind() {
+	m.endpoint_kind = nil
+}
+
+// SetPreference sets the "preference" field.
+func (m *RoutingArtifactVersionMutation) SetPreference(s string) {
+	m.preference = &s
+}
+
+// Preference returns the value of the "preference" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Preference() (r string, exists bool) {
+	v := m.preference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPreference returns the old "preference" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldPreference(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPreference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPreference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPreference: %w", err)
+	}
+	return oldValue.Preference, nil
+}
+
+// ClearPreference clears the value of the "preference" field.
+func (m *RoutingArtifactVersionMutation) ClearPreference() {
+	m.preference = nil
+	m.clearedFields[routingartifactversion.FieldPreference] = struct{}{}
+}
+
+// PreferenceCleared returns if the "preference" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) PreferenceCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldPreference]
+	return ok
+}
+
+// ResetPreference resets all changes to the "preference" field.
+func (m *RoutingArtifactVersionMutation) ResetPreference() {
+	m.preference = nil
+	delete(m.clearedFields, routingartifactversion.FieldPreference)
+}
+
+// SetStatus sets the "status" field.
+func (m *RoutingArtifactVersionMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *RoutingArtifactVersionMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetSchemaVersion sets the "schema_version" field.
+func (m *RoutingArtifactVersionMutation) SetSchemaVersion(s string) {
+	m.schema_version = &s
+}
+
+// SchemaVersion returns the value of the "schema_version" field in the mutation.
+func (m *RoutingArtifactVersionMutation) SchemaVersion() (r string, exists bool) {
+	v := m.schema_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSchemaVersion returns the old "schema_version" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldSchemaVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSchemaVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSchemaVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSchemaVersion: %w", err)
+	}
+	return oldValue.SchemaVersion, nil
+}
+
+// ResetSchemaVersion resets all changes to the "schema_version" field.
+func (m *RoutingArtifactVersionMutation) ResetSchemaVersion() {
+	m.schema_version = nil
+}
+
+// SetChecksum sets the "checksum" field.
+func (m *RoutingArtifactVersionMutation) SetChecksum(s string) {
+	m.checksum = &s
+}
+
+// Checksum returns the value of the "checksum" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Checksum() (r string, exists bool) {
+	v := m.checksum
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChecksum returns the old "checksum" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldChecksum(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChecksum is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChecksum requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChecksum: %w", err)
+	}
+	return oldValue.Checksum, nil
+}
+
+// ResetChecksum resets all changes to the "checksum" field.
+func (m *RoutingArtifactVersionMutation) ResetChecksum() {
+	m.checksum = nil
+}
+
+// SetPayload sets the "payload" field.
+func (m *RoutingArtifactVersionMutation) SetPayload(j jsontext.Value) {
+	m.payload = &j
+	m.appendpayload = nil
+}
+
+// Payload returns the value of the "payload" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Payload() (r jsontext.Value, exists bool) {
+	v := m.payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayload returns the old "payload" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldPayload(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayload: %w", err)
+	}
+	return oldValue.Payload, nil
+}
+
+// AppendPayload adds j to the "payload" field.
+func (m *RoutingArtifactVersionMutation) AppendPayload(j jsontext.Value) {
+	m.appendpayload = append(m.appendpayload, j...)
+}
+
+// AppendedPayload returns the list of values that were appended to the "payload" field in this mutation.
+func (m *RoutingArtifactVersionMutation) AppendedPayload() (jsontext.Value, bool) {
+	if len(m.appendpayload) == 0 {
+		return nil, false
+	}
+	return m.appendpayload, true
+}
+
+// ClearPayload clears the value of the "payload" field.
+func (m *RoutingArtifactVersionMutation) ClearPayload() {
+	m.payload = nil
+	m.appendpayload = nil
+	m.clearedFields[routingartifactversion.FieldPayload] = struct{}{}
+}
+
+// PayloadCleared returns if the "payload" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) PayloadCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldPayload]
+	return ok
+}
+
+// ResetPayload resets all changes to the "payload" field.
+func (m *RoutingArtifactVersionMutation) ResetPayload() {
+	m.payload = nil
+	m.appendpayload = nil
+	delete(m.clearedFields, routingartifactversion.FieldPayload)
+}
+
+// SetDependencies sets the "dependencies" field.
+func (m *RoutingArtifactVersionMutation) SetDependencies(j jsontext.Value) {
+	m.dependencies = &j
+	m.appenddependencies = nil
+}
+
+// Dependencies returns the value of the "dependencies" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Dependencies() (r jsontext.Value, exists bool) {
+	v := m.dependencies
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDependencies returns the old "dependencies" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldDependencies(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDependencies is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDependencies requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDependencies: %w", err)
+	}
+	return oldValue.Dependencies, nil
+}
+
+// AppendDependencies adds j to the "dependencies" field.
+func (m *RoutingArtifactVersionMutation) AppendDependencies(j jsontext.Value) {
+	m.appenddependencies = append(m.appenddependencies, j...)
+}
+
+// AppendedDependencies returns the list of values that were appended to the "dependencies" field in this mutation.
+func (m *RoutingArtifactVersionMutation) AppendedDependencies() (jsontext.Value, bool) {
+	if len(m.appenddependencies) == 0 {
+		return nil, false
+	}
+	return m.appenddependencies, true
+}
+
+// ClearDependencies clears the value of the "dependencies" field.
+func (m *RoutingArtifactVersionMutation) ClearDependencies() {
+	m.dependencies = nil
+	m.appenddependencies = nil
+	m.clearedFields[routingartifactversion.FieldDependencies] = struct{}{}
+}
+
+// DependenciesCleared returns if the "dependencies" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) DependenciesCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldDependencies]
+	return ok
+}
+
+// ResetDependencies resets all changes to the "dependencies" field.
+func (m *RoutingArtifactVersionMutation) ResetDependencies() {
+	m.dependencies = nil
+	m.appenddependencies = nil
+	delete(m.clearedFields, routingartifactversion.FieldDependencies)
+}
+
+// SetLineage sets the "lineage" field.
+func (m *RoutingArtifactVersionMutation) SetLineage(j jsontext.Value) {
+	m.lineage = &j
+	m.appendlineage = nil
+}
+
+// Lineage returns the value of the "lineage" field in the mutation.
+func (m *RoutingArtifactVersionMutation) Lineage() (r jsontext.Value, exists bool) {
+	v := m.lineage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLineage returns the old "lineage" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldLineage(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLineage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLineage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLineage: %w", err)
+	}
+	return oldValue.Lineage, nil
+}
+
+// AppendLineage adds j to the "lineage" field.
+func (m *RoutingArtifactVersionMutation) AppendLineage(j jsontext.Value) {
+	m.appendlineage = append(m.appendlineage, j...)
+}
+
+// AppendedLineage returns the list of values that were appended to the "lineage" field in this mutation.
+func (m *RoutingArtifactVersionMutation) AppendedLineage() (jsontext.Value, bool) {
+	if len(m.appendlineage) == 0 {
+		return nil, false
+	}
+	return m.appendlineage, true
+}
+
+// ClearLineage clears the value of the "lineage" field.
+func (m *RoutingArtifactVersionMutation) ClearLineage() {
+	m.lineage = nil
+	m.appendlineage = nil
+	m.clearedFields[routingartifactversion.FieldLineage] = struct{}{}
+}
+
+// LineageCleared returns if the "lineage" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) LineageCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldLineage]
+	return ok
+}
+
+// ResetLineage resets all changes to the "lineage" field.
+func (m *RoutingArtifactVersionMutation) ResetLineage() {
+	m.lineage = nil
+	m.appendlineage = nil
+	delete(m.clearedFields, routingartifactversion.FieldLineage)
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *RoutingArtifactVersionMutation) SetCreatedBy(i int64) {
+	m.creator = &i
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *RoutingArtifactVersionMutation) CreatedBy() (r int64, exists bool) {
+	v := m.creator
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldCreatedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (m *RoutingArtifactVersionMutation) ClearCreatedBy() {
+	m.creator = nil
+	m.clearedFields[routingartifactversion.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "created_by" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *RoutingArtifactVersionMutation) ResetCreatedBy() {
+	m.creator = nil
+	delete(m.clearedFields, routingartifactversion.FieldCreatedBy)
+}
+
+// SetActivatedAt sets the "activated_at" field.
+func (m *RoutingArtifactVersionMutation) SetActivatedAt(t time.Time) {
+	m.activated_at = &t
+}
+
+// ActivatedAt returns the value of the "activated_at" field in the mutation.
+func (m *RoutingArtifactVersionMutation) ActivatedAt() (r time.Time, exists bool) {
+	v := m.activated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivatedAt returns the old "activated_at" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldActivatedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivatedAt: %w", err)
+	}
+	return oldValue.ActivatedAt, nil
+}
+
+// ClearActivatedAt clears the value of the "activated_at" field.
+func (m *RoutingArtifactVersionMutation) ClearActivatedAt() {
+	m.activated_at = nil
+	m.clearedFields[routingartifactversion.FieldActivatedAt] = struct{}{}
+}
+
+// ActivatedAtCleared returns if the "activated_at" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) ActivatedAtCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldActivatedAt]
+	return ok
+}
+
+// ResetActivatedAt resets all changes to the "activated_at" field.
+func (m *RoutingArtifactVersionMutation) ResetActivatedAt() {
+	m.activated_at = nil
+	delete(m.clearedFields, routingartifactversion.FieldActivatedAt)
+}
+
+// SetRetiredAt sets the "retired_at" field.
+func (m *RoutingArtifactVersionMutation) SetRetiredAt(t time.Time) {
+	m.retired_at = &t
+}
+
+// RetiredAt returns the value of the "retired_at" field in the mutation.
+func (m *RoutingArtifactVersionMutation) RetiredAt() (r time.Time, exists bool) {
+	v := m.retired_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRetiredAt returns the old "retired_at" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldRetiredAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRetiredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRetiredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRetiredAt: %w", err)
+	}
+	return oldValue.RetiredAt, nil
+}
+
+// ClearRetiredAt clears the value of the "retired_at" field.
+func (m *RoutingArtifactVersionMutation) ClearRetiredAt() {
+	m.retired_at = nil
+	m.clearedFields[routingartifactversion.FieldRetiredAt] = struct{}{}
+}
+
+// RetiredAtCleared returns if the "retired_at" field was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) RetiredAtCleared() bool {
+	_, ok := m.clearedFields[routingartifactversion.FieldRetiredAt]
+	return ok
+}
+
+// ResetRetiredAt resets all changes to the "retired_at" field.
+func (m *RoutingArtifactVersionMutation) ResetRetiredAt() {
+	m.retired_at = nil
+	delete(m.clearedFields, routingartifactversion.FieldRetiredAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RoutingArtifactVersionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RoutingArtifactVersionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RoutingArtifactVersion entity.
+// If the RoutingArtifactVersion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingArtifactVersionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RoutingArtifactVersionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetCreatorID sets the "creator" edge to the User entity by id.
+func (m *RoutingArtifactVersionMutation) SetCreatorID(id int64) {
+	m.creator = &id
+}
+
+// ClearCreator clears the "creator" edge to the User entity.
+func (m *RoutingArtifactVersionMutation) ClearCreator() {
+	m.clearedcreator = true
+	m.clearedFields[routingartifactversion.FieldCreatedBy] = struct{}{}
+}
+
+// CreatorCleared reports if the "creator" edge to the User entity was cleared.
+func (m *RoutingArtifactVersionMutation) CreatorCleared() bool {
+	return m.CreatedByCleared() || m.clearedcreator
+}
+
+// CreatorID returns the "creator" edge ID in the mutation.
+func (m *RoutingArtifactVersionMutation) CreatorID() (id int64, exists bool) {
+	if m.creator != nil {
+		return *m.creator, true
+	}
+	return
+}
+
+// CreatorIDs returns the "creator" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CreatorID instead. It exists only for internal usage by the builders.
+func (m *RoutingArtifactVersionMutation) CreatorIDs() (ids []int64) {
+	if id := m.creator; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCreator resets all changes to the "creator" edge.
+func (m *RoutingArtifactVersionMutation) ResetCreator() {
+	m.creator = nil
+	m.clearedcreator = false
+}
+
+// Where appends a list predicates to the RoutingArtifactVersionMutation builder.
+func (m *RoutingArtifactVersionMutation) Where(ps ...predicate.RoutingArtifactVersion) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RoutingArtifactVersionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RoutingArtifactVersionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RoutingArtifactVersion, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RoutingArtifactVersionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RoutingArtifactVersionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RoutingArtifactVersion).
+func (m *RoutingArtifactVersionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RoutingArtifactVersionMutation) Fields() []string {
+	fields := make([]string, 0, 17)
+	if m.artifact_kind != nil {
+		fields = append(fields, routingartifactversion.FieldArtifactKind)
+	}
+	if m.version != nil {
+		fields = append(fields, routingartifactversion.FieldVersion)
+	}
+	if m.parent_version != nil {
+		fields = append(fields, routingartifactversion.FieldParentVersion)
+	}
+	if m.platform != nil {
+		fields = append(fields, routingartifactversion.FieldPlatform)
+	}
+	if m.model_family != nil {
+		fields = append(fields, routingartifactversion.FieldModelFamily)
+	}
+	if m.endpoint_kind != nil {
+		fields = append(fields, routingartifactversion.FieldEndpointKind)
+	}
+	if m.preference != nil {
+		fields = append(fields, routingartifactversion.FieldPreference)
+	}
+	if m.status != nil {
+		fields = append(fields, routingartifactversion.FieldStatus)
+	}
+	if m.schema_version != nil {
+		fields = append(fields, routingartifactversion.FieldSchemaVersion)
+	}
+	if m.checksum != nil {
+		fields = append(fields, routingartifactversion.FieldChecksum)
+	}
+	if m.payload != nil {
+		fields = append(fields, routingartifactversion.FieldPayload)
+	}
+	if m.dependencies != nil {
+		fields = append(fields, routingartifactversion.FieldDependencies)
+	}
+	if m.lineage != nil {
+		fields = append(fields, routingartifactversion.FieldLineage)
+	}
+	if m.creator != nil {
+		fields = append(fields, routingartifactversion.FieldCreatedBy)
+	}
+	if m.activated_at != nil {
+		fields = append(fields, routingartifactversion.FieldActivatedAt)
+	}
+	if m.retired_at != nil {
+		fields = append(fields, routingartifactversion.FieldRetiredAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, routingartifactversion.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RoutingArtifactVersionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case routingartifactversion.FieldArtifactKind:
+		return m.ArtifactKind()
+	case routingartifactversion.FieldVersion:
+		return m.Version()
+	case routingartifactversion.FieldParentVersion:
+		return m.ParentVersion()
+	case routingartifactversion.FieldPlatform:
+		return m.Platform()
+	case routingartifactversion.FieldModelFamily:
+		return m.ModelFamily()
+	case routingartifactversion.FieldEndpointKind:
+		return m.EndpointKind()
+	case routingartifactversion.FieldPreference:
+		return m.Preference()
+	case routingartifactversion.FieldStatus:
+		return m.Status()
+	case routingartifactversion.FieldSchemaVersion:
+		return m.SchemaVersion()
+	case routingartifactversion.FieldChecksum:
+		return m.Checksum()
+	case routingartifactversion.FieldPayload:
+		return m.Payload()
+	case routingartifactversion.FieldDependencies:
+		return m.Dependencies()
+	case routingartifactversion.FieldLineage:
+		return m.Lineage()
+	case routingartifactversion.FieldCreatedBy:
+		return m.CreatedBy()
+	case routingartifactversion.FieldActivatedAt:
+		return m.ActivatedAt()
+	case routingartifactversion.FieldRetiredAt:
+		return m.RetiredAt()
+	case routingartifactversion.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RoutingArtifactVersionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case routingartifactversion.FieldArtifactKind:
+		return m.OldArtifactKind(ctx)
+	case routingartifactversion.FieldVersion:
+		return m.OldVersion(ctx)
+	case routingartifactversion.FieldParentVersion:
+		return m.OldParentVersion(ctx)
+	case routingartifactversion.FieldPlatform:
+		return m.OldPlatform(ctx)
+	case routingartifactversion.FieldModelFamily:
+		return m.OldModelFamily(ctx)
+	case routingartifactversion.FieldEndpointKind:
+		return m.OldEndpointKind(ctx)
+	case routingartifactversion.FieldPreference:
+		return m.OldPreference(ctx)
+	case routingartifactversion.FieldStatus:
+		return m.OldStatus(ctx)
+	case routingartifactversion.FieldSchemaVersion:
+		return m.OldSchemaVersion(ctx)
+	case routingartifactversion.FieldChecksum:
+		return m.OldChecksum(ctx)
+	case routingartifactversion.FieldPayload:
+		return m.OldPayload(ctx)
+	case routingartifactversion.FieldDependencies:
+		return m.OldDependencies(ctx)
+	case routingartifactversion.FieldLineage:
+		return m.OldLineage(ctx)
+	case routingartifactversion.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case routingartifactversion.FieldActivatedAt:
+		return m.OldActivatedAt(ctx)
+	case routingartifactversion.FieldRetiredAt:
+		return m.OldRetiredAt(ctx)
+	case routingartifactversion.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown RoutingArtifactVersion field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RoutingArtifactVersionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case routingartifactversion.FieldArtifactKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetArtifactKind(v)
+		return nil
+	case routingartifactversion.FieldVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVersion(v)
+		return nil
+	case routingartifactversion.FieldParentVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParentVersion(v)
+		return nil
+	case routingartifactversion.FieldPlatform:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatform(v)
+		return nil
+	case routingartifactversion.FieldModelFamily:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelFamily(v)
+		return nil
+	case routingartifactversion.FieldEndpointKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndpointKind(v)
+		return nil
+	case routingartifactversion.FieldPreference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPreference(v)
+		return nil
+	case routingartifactversion.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case routingartifactversion.FieldSchemaVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSchemaVersion(v)
+		return nil
+	case routingartifactversion.FieldChecksum:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChecksum(v)
+		return nil
+	case routingartifactversion.FieldPayload:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayload(v)
+		return nil
+	case routingartifactversion.FieldDependencies:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDependencies(v)
+		return nil
+	case routingartifactversion.FieldLineage:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLineage(v)
+		return nil
+	case routingartifactversion.FieldCreatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case routingartifactversion.FieldActivatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivatedAt(v)
+		return nil
+	case routingartifactversion.FieldRetiredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRetiredAt(v)
+		return nil
+	case routingartifactversion.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingArtifactVersion field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RoutingArtifactVersionMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RoutingArtifactVersionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RoutingArtifactVersionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown RoutingArtifactVersion numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RoutingArtifactVersionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(routingartifactversion.FieldParentVersion) {
+		fields = append(fields, routingartifactversion.FieldParentVersion)
+	}
+	if m.FieldCleared(routingartifactversion.FieldPreference) {
+		fields = append(fields, routingartifactversion.FieldPreference)
+	}
+	if m.FieldCleared(routingartifactversion.FieldPayload) {
+		fields = append(fields, routingartifactversion.FieldPayload)
+	}
+	if m.FieldCleared(routingartifactversion.FieldDependencies) {
+		fields = append(fields, routingartifactversion.FieldDependencies)
+	}
+	if m.FieldCleared(routingartifactversion.FieldLineage) {
+		fields = append(fields, routingartifactversion.FieldLineage)
+	}
+	if m.FieldCleared(routingartifactversion.FieldCreatedBy) {
+		fields = append(fields, routingartifactversion.FieldCreatedBy)
+	}
+	if m.FieldCleared(routingartifactversion.FieldActivatedAt) {
+		fields = append(fields, routingartifactversion.FieldActivatedAt)
+	}
+	if m.FieldCleared(routingartifactversion.FieldRetiredAt) {
+		fields = append(fields, routingartifactversion.FieldRetiredAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RoutingArtifactVersionMutation) ClearField(name string) error {
+	switch name {
+	case routingartifactversion.FieldParentVersion:
+		m.ClearParentVersion()
+		return nil
+	case routingartifactversion.FieldPreference:
+		m.ClearPreference()
+		return nil
+	case routingartifactversion.FieldPayload:
+		m.ClearPayload()
+		return nil
+	case routingartifactversion.FieldDependencies:
+		m.ClearDependencies()
+		return nil
+	case routingartifactversion.FieldLineage:
+		m.ClearLineage()
+		return nil
+	case routingartifactversion.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	case routingartifactversion.FieldActivatedAt:
+		m.ClearActivatedAt()
+		return nil
+	case routingartifactversion.FieldRetiredAt:
+		m.ClearRetiredAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingArtifactVersion nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RoutingArtifactVersionMutation) ResetField(name string) error {
+	switch name {
+	case routingartifactversion.FieldArtifactKind:
+		m.ResetArtifactKind()
+		return nil
+	case routingartifactversion.FieldVersion:
+		m.ResetVersion()
+		return nil
+	case routingartifactversion.FieldParentVersion:
+		m.ResetParentVersion()
+		return nil
+	case routingartifactversion.FieldPlatform:
+		m.ResetPlatform()
+		return nil
+	case routingartifactversion.FieldModelFamily:
+		m.ResetModelFamily()
+		return nil
+	case routingartifactversion.FieldEndpointKind:
+		m.ResetEndpointKind()
+		return nil
+	case routingartifactversion.FieldPreference:
+		m.ResetPreference()
+		return nil
+	case routingartifactversion.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case routingartifactversion.FieldSchemaVersion:
+		m.ResetSchemaVersion()
+		return nil
+	case routingartifactversion.FieldChecksum:
+		m.ResetChecksum()
+		return nil
+	case routingartifactversion.FieldPayload:
+		m.ResetPayload()
+		return nil
+	case routingartifactversion.FieldDependencies:
+		m.ResetDependencies()
+		return nil
+	case routingartifactversion.FieldLineage:
+		m.ResetLineage()
+		return nil
+	case routingartifactversion.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case routingartifactversion.FieldActivatedAt:
+		m.ResetActivatedAt()
+		return nil
+	case routingartifactversion.FieldRetiredAt:
+		m.ResetRetiredAt()
+		return nil
+	case routingartifactversion.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingArtifactVersion field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RoutingArtifactVersionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.creator != nil {
+		edges = append(edges, routingartifactversion.EdgeCreator)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RoutingArtifactVersionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case routingartifactversion.EdgeCreator:
+		if id := m.creator; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RoutingArtifactVersionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RoutingArtifactVersionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedcreator {
+		edges = append(edges, routingartifactversion.EdgeCreator)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RoutingArtifactVersionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case routingartifactversion.EdgeCreator:
+		return m.clearedcreator
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RoutingArtifactVersionMutation) ClearEdge(name string) error {
+	switch name {
+	case routingartifactversion.EdgeCreator:
+		m.ClearCreator()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingArtifactVersion unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RoutingArtifactVersionMutation) ResetEdge(name string) error {
+	switch name {
+	case routingartifactversion.EdgeCreator:
+		m.ResetCreator()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingArtifactVersion edge %s", name)
+}
+
+// RoutingAttemptMutation represents an operation that mutates the RoutingAttempt nodes in the graph.
+type RoutingAttemptMutation struct {
+	config
+	op                          Op
+	typ                         string
+	id                          *int64
+	event_id                    *string
+	routing_decision_id         *string
+	request_id                  *string
+	api_key_id                  *int64
+	addapi_key_id               *int64
+	route_version               *int64
+	addroute_version            *int64
+	initial_group_id            *int64
+	addinitial_group_id         *int64
+	attempted_group_id          *int64
+	addattempted_group_id       *int64
+	effective_group_id          *int64
+	addeffective_group_id       *int64
+	selected_group_id           *int64
+	addselected_group_id        *int64
+	schedule_mode               *string
+	smart_preference            *string
+	smart_balance_bps           *int
+	addsmart_balance_bps        *int
+	routing_min_success_rate    *int
+	addrouting_min_success_rate *int
+	routing_state_version       *int64
+	addrouting_state_version    *int64
+	attempt_index               *int
+	addattempt_index            *int
+	platform                    *string
+	model_family                *string
+	endpoint_kind               *string
+	strategy_version            *string
+	score_version               *string
+	feature_schema_version      *string
+	model_version               *string
+	experiment_id               *string
+	experiment_bucket           *int
+	addexperiment_bucket        *int
+	sample_probability          *float64
+	addsample_probability       *float64
+	action_propensity           *float64
+	addaction_propensity        *float64
+	assignment_reason           *string
+	candidates                  *jsontext.Value
+	appendcandidates            jsontext.Value
+	selected_reason             *string
+	outcome_visibility          *string
+	outcome_category            *string
+	retryable                   *bool
+	semantic_output             *bool
+	switched_group              *bool
+	sticky_broken               *bool
+	breaker_transition          *string
+	queue_ms                    *int
+	addqueue_ms                 *int
+	ttft_ms                     *int
+	addttft_ms                  *int
+	duration_ms                 *int
+	addduration_ms              *int
+	actual_usage                *jsontext.Value
+	appendactual_usage          jsontext.Value
+	billable_usage              *jsontext.Value
+	appendbillable_usage        jsontext.Value
+	actual_cost                 *float64
+	addactual_cost              *float64
+	billed_cost                 *float64
+	addbilled_cost              *float64
+	cache_cold_due_to_failover  *bool
+	event_priority              *string
+	occurred_at                 *time.Time
+	created_at                  *time.Time
+	clearedFields               map[string]struct{}
+	done                        bool
+	oldValue                    func(context.Context) (*RoutingAttempt, error)
+	predicates                  []predicate.RoutingAttempt
+}
+
+var _ ent.Mutation = (*RoutingAttemptMutation)(nil)
+
+// routingattemptOption allows management of the mutation configuration using functional options.
+type routingattemptOption func(*RoutingAttemptMutation)
+
+// newRoutingAttemptMutation creates new mutation for the RoutingAttempt entity.
+func newRoutingAttemptMutation(c config, op Op, opts ...routingattemptOption) *RoutingAttemptMutation {
+	m := &RoutingAttemptMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRoutingAttempt,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRoutingAttemptID sets the ID field of the mutation.
+func withRoutingAttemptID(id int64) routingattemptOption {
+	return func(m *RoutingAttemptMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RoutingAttempt
+		)
+		m.oldValue = func(ctx context.Context) (*RoutingAttempt, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RoutingAttempt.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRoutingAttempt sets the old RoutingAttempt of the mutation.
+func withRoutingAttempt(node *RoutingAttempt) routingattemptOption {
+	return func(m *RoutingAttemptMutation) {
+		m.oldValue = func(context.Context) (*RoutingAttempt, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RoutingAttemptMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RoutingAttemptMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RoutingAttemptMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RoutingAttemptMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RoutingAttempt.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *RoutingAttemptMutation) SetEventID(s string) {
+	m.event_id = &s
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *RoutingAttemptMutation) EventID() (r string, exists bool) {
+	v := m.event_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldEventID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *RoutingAttemptMutation) ResetEventID() {
+	m.event_id = nil
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (m *RoutingAttemptMutation) SetRoutingDecisionID(s string) {
+	m.routing_decision_id = &s
+}
+
+// RoutingDecisionID returns the value of the "routing_decision_id" field in the mutation.
+func (m *RoutingAttemptMutation) RoutingDecisionID() (r string, exists bool) {
+	v := m.routing_decision_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingDecisionID returns the old "routing_decision_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldRoutingDecisionID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingDecisionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingDecisionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingDecisionID: %w", err)
+	}
+	return oldValue.RoutingDecisionID, nil
+}
+
+// ResetRoutingDecisionID resets all changes to the "routing_decision_id" field.
+func (m *RoutingAttemptMutation) ResetRoutingDecisionID() {
+	m.routing_decision_id = nil
+}
+
+// SetRequestID sets the "request_id" field.
+func (m *RoutingAttemptMutation) SetRequestID(s string) {
+	m.request_id = &s
+}
+
+// RequestID returns the value of the "request_id" field in the mutation.
+func (m *RoutingAttemptMutation) RequestID() (r string, exists bool) {
+	v := m.request_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestID returns the old "request_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldRequestID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestID: %w", err)
+	}
+	return oldValue.RequestID, nil
+}
+
+// ClearRequestID clears the value of the "request_id" field.
+func (m *RoutingAttemptMutation) ClearRequestID() {
+	m.request_id = nil
+	m.clearedFields[routingattempt.FieldRequestID] = struct{}{}
+}
+
+// RequestIDCleared returns if the "request_id" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) RequestIDCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldRequestID]
+	return ok
+}
+
+// ResetRequestID resets all changes to the "request_id" field.
+func (m *RoutingAttemptMutation) ResetRequestID() {
+	m.request_id = nil
+	delete(m.clearedFields, routingattempt.FieldRequestID)
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *RoutingAttemptMutation) SetAPIKeyID(i int64) {
+	m.api_key_id = &i
+	m.addapi_key_id = nil
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *RoutingAttemptMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldAPIKeyID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// AddAPIKeyID adds i to the "api_key_id" field.
+func (m *RoutingAttemptMutation) AddAPIKeyID(i int64) {
+	if m.addapi_key_id != nil {
+		*m.addapi_key_id += i
+	} else {
+		m.addapi_key_id = &i
+	}
+}
+
+// AddedAPIKeyID returns the value that was added to the "api_key_id" field in this mutation.
+func (m *RoutingAttemptMutation) AddedAPIKeyID() (r int64, exists bool) {
+	v := m.addapi_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (m *RoutingAttemptMutation) ClearAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	m.clearedFields[routingattempt.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyIDCleared returns if the "api_key_id" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) APIKeyIDCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldAPIKeyID]
+	return ok
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *RoutingAttemptMutation) ResetAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	delete(m.clearedFields, routingattempt.FieldAPIKeyID)
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (m *RoutingAttemptMutation) SetRouteVersion(i int64) {
+	m.route_version = &i
+	m.addroute_version = nil
+}
+
+// RouteVersion returns the value of the "route_version" field in the mutation.
+func (m *RoutingAttemptMutation) RouteVersion() (r int64, exists bool) {
+	v := m.route_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRouteVersion returns the old "route_version" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldRouteVersion(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRouteVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRouteVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRouteVersion: %w", err)
+	}
+	return oldValue.RouteVersion, nil
+}
+
+// AddRouteVersion adds i to the "route_version" field.
+func (m *RoutingAttemptMutation) AddRouteVersion(i int64) {
+	if m.addroute_version != nil {
+		*m.addroute_version += i
+	} else {
+		m.addroute_version = &i
+	}
+}
+
+// AddedRouteVersion returns the value that was added to the "route_version" field in this mutation.
+func (m *RoutingAttemptMutation) AddedRouteVersion() (r int64, exists bool) {
+	v := m.addroute_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRouteVersion resets all changes to the "route_version" field.
+func (m *RoutingAttemptMutation) ResetRouteVersion() {
+	m.route_version = nil
+	m.addroute_version = nil
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (m *RoutingAttemptMutation) SetInitialGroupID(i int64) {
+	m.initial_group_id = &i
+	m.addinitial_group_id = nil
+}
+
+// InitialGroupID returns the value of the "initial_group_id" field in the mutation.
+func (m *RoutingAttemptMutation) InitialGroupID() (r int64, exists bool) {
+	v := m.initial_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInitialGroupID returns the old "initial_group_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldInitialGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInitialGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInitialGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInitialGroupID: %w", err)
+	}
+	return oldValue.InitialGroupID, nil
+}
+
+// AddInitialGroupID adds i to the "initial_group_id" field.
+func (m *RoutingAttemptMutation) AddInitialGroupID(i int64) {
+	if m.addinitial_group_id != nil {
+		*m.addinitial_group_id += i
+	} else {
+		m.addinitial_group_id = &i
+	}
+}
+
+// AddedInitialGroupID returns the value that was added to the "initial_group_id" field in this mutation.
+func (m *RoutingAttemptMutation) AddedInitialGroupID() (r int64, exists bool) {
+	v := m.addinitial_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearInitialGroupID clears the value of the "initial_group_id" field.
+func (m *RoutingAttemptMutation) ClearInitialGroupID() {
+	m.initial_group_id = nil
+	m.addinitial_group_id = nil
+	m.clearedFields[routingattempt.FieldInitialGroupID] = struct{}{}
+}
+
+// InitialGroupIDCleared returns if the "initial_group_id" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) InitialGroupIDCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldInitialGroupID]
+	return ok
+}
+
+// ResetInitialGroupID resets all changes to the "initial_group_id" field.
+func (m *RoutingAttemptMutation) ResetInitialGroupID() {
+	m.initial_group_id = nil
+	m.addinitial_group_id = nil
+	delete(m.clearedFields, routingattempt.FieldInitialGroupID)
+}
+
+// SetAttemptedGroupID sets the "attempted_group_id" field.
+func (m *RoutingAttemptMutation) SetAttemptedGroupID(i int64) {
+	m.attempted_group_id = &i
+	m.addattempted_group_id = nil
+}
+
+// AttemptedGroupID returns the value of the "attempted_group_id" field in the mutation.
+func (m *RoutingAttemptMutation) AttemptedGroupID() (r int64, exists bool) {
+	v := m.attempted_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttemptedGroupID returns the old "attempted_group_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldAttemptedGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttemptedGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttemptedGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttemptedGroupID: %w", err)
+	}
+	return oldValue.AttemptedGroupID, nil
+}
+
+// AddAttemptedGroupID adds i to the "attempted_group_id" field.
+func (m *RoutingAttemptMutation) AddAttemptedGroupID(i int64) {
+	if m.addattempted_group_id != nil {
+		*m.addattempted_group_id += i
+	} else {
+		m.addattempted_group_id = &i
+	}
+}
+
+// AddedAttemptedGroupID returns the value that was added to the "attempted_group_id" field in this mutation.
+func (m *RoutingAttemptMutation) AddedAttemptedGroupID() (r int64, exists bool) {
+	v := m.addattempted_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAttemptedGroupID clears the value of the "attempted_group_id" field.
+func (m *RoutingAttemptMutation) ClearAttemptedGroupID() {
+	m.attempted_group_id = nil
+	m.addattempted_group_id = nil
+	m.clearedFields[routingattempt.FieldAttemptedGroupID] = struct{}{}
+}
+
+// AttemptedGroupIDCleared returns if the "attempted_group_id" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) AttemptedGroupIDCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldAttemptedGroupID]
+	return ok
+}
+
+// ResetAttemptedGroupID resets all changes to the "attempted_group_id" field.
+func (m *RoutingAttemptMutation) ResetAttemptedGroupID() {
+	m.attempted_group_id = nil
+	m.addattempted_group_id = nil
+	delete(m.clearedFields, routingattempt.FieldAttemptedGroupID)
+}
+
+// SetEffectiveGroupID sets the "effective_group_id" field.
+func (m *RoutingAttemptMutation) SetEffectiveGroupID(i int64) {
+	m.effective_group_id = &i
+	m.addeffective_group_id = nil
+}
+
+// EffectiveGroupID returns the value of the "effective_group_id" field in the mutation.
+func (m *RoutingAttemptMutation) EffectiveGroupID() (r int64, exists bool) {
+	v := m.effective_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEffectiveGroupID returns the old "effective_group_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldEffectiveGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEffectiveGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEffectiveGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEffectiveGroupID: %w", err)
+	}
+	return oldValue.EffectiveGroupID, nil
+}
+
+// AddEffectiveGroupID adds i to the "effective_group_id" field.
+func (m *RoutingAttemptMutation) AddEffectiveGroupID(i int64) {
+	if m.addeffective_group_id != nil {
+		*m.addeffective_group_id += i
+	} else {
+		m.addeffective_group_id = &i
+	}
+}
+
+// AddedEffectiveGroupID returns the value that was added to the "effective_group_id" field in this mutation.
+func (m *RoutingAttemptMutation) AddedEffectiveGroupID() (r int64, exists bool) {
+	v := m.addeffective_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearEffectiveGroupID clears the value of the "effective_group_id" field.
+func (m *RoutingAttemptMutation) ClearEffectiveGroupID() {
+	m.effective_group_id = nil
+	m.addeffective_group_id = nil
+	m.clearedFields[routingattempt.FieldEffectiveGroupID] = struct{}{}
+}
+
+// EffectiveGroupIDCleared returns if the "effective_group_id" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) EffectiveGroupIDCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldEffectiveGroupID]
+	return ok
+}
+
+// ResetEffectiveGroupID resets all changes to the "effective_group_id" field.
+func (m *RoutingAttemptMutation) ResetEffectiveGroupID() {
+	m.effective_group_id = nil
+	m.addeffective_group_id = nil
+	delete(m.clearedFields, routingattempt.FieldEffectiveGroupID)
+}
+
+// SetSelectedGroupID sets the "selected_group_id" field.
+func (m *RoutingAttemptMutation) SetSelectedGroupID(i int64) {
+	m.selected_group_id = &i
+	m.addselected_group_id = nil
+}
+
+// SelectedGroupID returns the value of the "selected_group_id" field in the mutation.
+func (m *RoutingAttemptMutation) SelectedGroupID() (r int64, exists bool) {
+	v := m.selected_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSelectedGroupID returns the old "selected_group_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldSelectedGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSelectedGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSelectedGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSelectedGroupID: %w", err)
+	}
+	return oldValue.SelectedGroupID, nil
+}
+
+// AddSelectedGroupID adds i to the "selected_group_id" field.
+func (m *RoutingAttemptMutation) AddSelectedGroupID(i int64) {
+	if m.addselected_group_id != nil {
+		*m.addselected_group_id += i
+	} else {
+		m.addselected_group_id = &i
+	}
+}
+
+// AddedSelectedGroupID returns the value that was added to the "selected_group_id" field in this mutation.
+func (m *RoutingAttemptMutation) AddedSelectedGroupID() (r int64, exists bool) {
+	v := m.addselected_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSelectedGroupID clears the value of the "selected_group_id" field.
+func (m *RoutingAttemptMutation) ClearSelectedGroupID() {
+	m.selected_group_id = nil
+	m.addselected_group_id = nil
+	m.clearedFields[routingattempt.FieldSelectedGroupID] = struct{}{}
+}
+
+// SelectedGroupIDCleared returns if the "selected_group_id" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) SelectedGroupIDCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldSelectedGroupID]
+	return ok
+}
+
+// ResetSelectedGroupID resets all changes to the "selected_group_id" field.
+func (m *RoutingAttemptMutation) ResetSelectedGroupID() {
+	m.selected_group_id = nil
+	m.addselected_group_id = nil
+	delete(m.clearedFields, routingattempt.FieldSelectedGroupID)
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (m *RoutingAttemptMutation) SetScheduleMode(s string) {
+	m.schedule_mode = &s
+}
+
+// ScheduleMode returns the value of the "schedule_mode" field in the mutation.
+func (m *RoutingAttemptMutation) ScheduleMode() (r string, exists bool) {
+	v := m.schedule_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScheduleMode returns the old "schedule_mode" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldScheduleMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScheduleMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScheduleMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScheduleMode: %w", err)
+	}
+	return oldValue.ScheduleMode, nil
+}
+
+// ResetScheduleMode resets all changes to the "schedule_mode" field.
+func (m *RoutingAttemptMutation) ResetScheduleMode() {
+	m.schedule_mode = nil
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (m *RoutingAttemptMutation) SetSmartPreference(s string) {
+	m.smart_preference = &s
+}
+
+// SmartPreference returns the value of the "smart_preference" field in the mutation.
+func (m *RoutingAttemptMutation) SmartPreference() (r string, exists bool) {
+	v := m.smart_preference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSmartPreference returns the old "smart_preference" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldSmartPreference(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSmartPreference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSmartPreference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSmartPreference: %w", err)
+	}
+	return oldValue.SmartPreference, nil
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (m *RoutingAttemptMutation) ClearSmartPreference() {
+	m.smart_preference = nil
+	m.clearedFields[routingattempt.FieldSmartPreference] = struct{}{}
+}
+
+// SmartPreferenceCleared returns if the "smart_preference" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) SmartPreferenceCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldSmartPreference]
+	return ok
+}
+
+// ResetSmartPreference resets all changes to the "smart_preference" field.
+func (m *RoutingAttemptMutation) ResetSmartPreference() {
+	m.smart_preference = nil
+	delete(m.clearedFields, routingattempt.FieldSmartPreference)
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (m *RoutingAttemptMutation) SetSmartBalanceBps(i int) {
+	m.smart_balance_bps = &i
+	m.addsmart_balance_bps = nil
+}
+
+// SmartBalanceBps returns the value of the "smart_balance_bps" field in the mutation.
+func (m *RoutingAttemptMutation) SmartBalanceBps() (r int, exists bool) {
+	v := m.smart_balance_bps
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSmartBalanceBps returns the old "smart_balance_bps" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldSmartBalanceBps(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSmartBalanceBps is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSmartBalanceBps requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSmartBalanceBps: %w", err)
+	}
+	return oldValue.SmartBalanceBps, nil
+}
+
+// AddSmartBalanceBps adds i to the "smart_balance_bps" field.
+func (m *RoutingAttemptMutation) AddSmartBalanceBps(i int) {
+	if m.addsmart_balance_bps != nil {
+		*m.addsmart_balance_bps += i
+	} else {
+		m.addsmart_balance_bps = &i
+	}
+}
+
+// AddedSmartBalanceBps returns the value that was added to the "smart_balance_bps" field in this mutation.
+func (m *RoutingAttemptMutation) AddedSmartBalanceBps() (r int, exists bool) {
+	v := m.addsmart_balance_bps
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSmartBalanceBps clears the value of the "smart_balance_bps" field.
+func (m *RoutingAttemptMutation) ClearSmartBalanceBps() {
+	m.smart_balance_bps = nil
+	m.addsmart_balance_bps = nil
+	m.clearedFields[routingattempt.FieldSmartBalanceBps] = struct{}{}
+}
+
+// SmartBalanceBpsCleared returns if the "smart_balance_bps" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) SmartBalanceBpsCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldSmartBalanceBps]
+	return ok
+}
+
+// ResetSmartBalanceBps resets all changes to the "smart_balance_bps" field.
+func (m *RoutingAttemptMutation) ResetSmartBalanceBps() {
+	m.smart_balance_bps = nil
+	m.addsmart_balance_bps = nil
+	delete(m.clearedFields, routingattempt.FieldSmartBalanceBps)
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (m *RoutingAttemptMutation) SetRoutingMinSuccessRate(i int) {
+	m.routing_min_success_rate = &i
+	m.addrouting_min_success_rate = nil
+}
+
+// RoutingMinSuccessRate returns the value of the "routing_min_success_rate" field in the mutation.
+func (m *RoutingAttemptMutation) RoutingMinSuccessRate() (r int, exists bool) {
+	v := m.routing_min_success_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingMinSuccessRate returns the old "routing_min_success_rate" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldRoutingMinSuccessRate(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingMinSuccessRate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingMinSuccessRate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingMinSuccessRate: %w", err)
+	}
+	return oldValue.RoutingMinSuccessRate, nil
+}
+
+// AddRoutingMinSuccessRate adds i to the "routing_min_success_rate" field.
+func (m *RoutingAttemptMutation) AddRoutingMinSuccessRate(i int) {
+	if m.addrouting_min_success_rate != nil {
+		*m.addrouting_min_success_rate += i
+	} else {
+		m.addrouting_min_success_rate = &i
+	}
+}
+
+// AddedRoutingMinSuccessRate returns the value that was added to the "routing_min_success_rate" field in this mutation.
+func (m *RoutingAttemptMutation) AddedRoutingMinSuccessRate() (r int, exists bool) {
+	v := m.addrouting_min_success_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRoutingMinSuccessRate resets all changes to the "routing_min_success_rate" field.
+func (m *RoutingAttemptMutation) ResetRoutingMinSuccessRate() {
+	m.routing_min_success_rate = nil
+	m.addrouting_min_success_rate = nil
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (m *RoutingAttemptMutation) SetRoutingStateVersion(i int64) {
+	m.routing_state_version = &i
+	m.addrouting_state_version = nil
+}
+
+// RoutingStateVersion returns the value of the "routing_state_version" field in the mutation.
+func (m *RoutingAttemptMutation) RoutingStateVersion() (r int64, exists bool) {
+	v := m.routing_state_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingStateVersion returns the old "routing_state_version" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldRoutingStateVersion(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingStateVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingStateVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingStateVersion: %w", err)
+	}
+	return oldValue.RoutingStateVersion, nil
+}
+
+// AddRoutingStateVersion adds i to the "routing_state_version" field.
+func (m *RoutingAttemptMutation) AddRoutingStateVersion(i int64) {
+	if m.addrouting_state_version != nil {
+		*m.addrouting_state_version += i
+	} else {
+		m.addrouting_state_version = &i
+	}
+}
+
+// AddedRoutingStateVersion returns the value that was added to the "routing_state_version" field in this mutation.
+func (m *RoutingAttemptMutation) AddedRoutingStateVersion() (r int64, exists bool) {
+	v := m.addrouting_state_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearRoutingStateVersion clears the value of the "routing_state_version" field.
+func (m *RoutingAttemptMutation) ClearRoutingStateVersion() {
+	m.routing_state_version = nil
+	m.addrouting_state_version = nil
+	m.clearedFields[routingattempt.FieldRoutingStateVersion] = struct{}{}
+}
+
+// RoutingStateVersionCleared returns if the "routing_state_version" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) RoutingStateVersionCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldRoutingStateVersion]
+	return ok
+}
+
+// ResetRoutingStateVersion resets all changes to the "routing_state_version" field.
+func (m *RoutingAttemptMutation) ResetRoutingStateVersion() {
+	m.routing_state_version = nil
+	m.addrouting_state_version = nil
+	delete(m.clearedFields, routingattempt.FieldRoutingStateVersion)
+}
+
+// SetAttemptIndex sets the "attempt_index" field.
+func (m *RoutingAttemptMutation) SetAttemptIndex(i int) {
+	m.attempt_index = &i
+	m.addattempt_index = nil
+}
+
+// AttemptIndex returns the value of the "attempt_index" field in the mutation.
+func (m *RoutingAttemptMutation) AttemptIndex() (r int, exists bool) {
+	v := m.attempt_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttemptIndex returns the old "attempt_index" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldAttemptIndex(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttemptIndex is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttemptIndex requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttemptIndex: %w", err)
+	}
+	return oldValue.AttemptIndex, nil
+}
+
+// AddAttemptIndex adds i to the "attempt_index" field.
+func (m *RoutingAttemptMutation) AddAttemptIndex(i int) {
+	if m.addattempt_index != nil {
+		*m.addattempt_index += i
+	} else {
+		m.addattempt_index = &i
+	}
+}
+
+// AddedAttemptIndex returns the value that was added to the "attempt_index" field in this mutation.
+func (m *RoutingAttemptMutation) AddedAttemptIndex() (r int, exists bool) {
+	v := m.addattempt_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAttemptIndex resets all changes to the "attempt_index" field.
+func (m *RoutingAttemptMutation) ResetAttemptIndex() {
+	m.attempt_index = nil
+	m.addattempt_index = nil
+}
+
+// SetPlatform sets the "platform" field.
+func (m *RoutingAttemptMutation) SetPlatform(s string) {
+	m.platform = &s
+}
+
+// Platform returns the value of the "platform" field in the mutation.
+func (m *RoutingAttemptMutation) Platform() (r string, exists bool) {
+	v := m.platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatform returns the old "platform" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldPlatform(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatform: %w", err)
+	}
+	return oldValue.Platform, nil
+}
+
+// ResetPlatform resets all changes to the "platform" field.
+func (m *RoutingAttemptMutation) ResetPlatform() {
+	m.platform = nil
+}
+
+// SetModelFamily sets the "model_family" field.
+func (m *RoutingAttemptMutation) SetModelFamily(s string) {
+	m.model_family = &s
+}
+
+// ModelFamily returns the value of the "model_family" field in the mutation.
+func (m *RoutingAttemptMutation) ModelFamily() (r string, exists bool) {
+	v := m.model_family
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelFamily returns the old "model_family" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldModelFamily(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelFamily is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelFamily requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelFamily: %w", err)
+	}
+	return oldValue.ModelFamily, nil
+}
+
+// ResetModelFamily resets all changes to the "model_family" field.
+func (m *RoutingAttemptMutation) ResetModelFamily() {
+	m.model_family = nil
+}
+
+// SetEndpointKind sets the "endpoint_kind" field.
+func (m *RoutingAttemptMutation) SetEndpointKind(s string) {
+	m.endpoint_kind = &s
+}
+
+// EndpointKind returns the value of the "endpoint_kind" field in the mutation.
+func (m *RoutingAttemptMutation) EndpointKind() (r string, exists bool) {
+	v := m.endpoint_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndpointKind returns the old "endpoint_kind" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldEndpointKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndpointKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndpointKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndpointKind: %w", err)
+	}
+	return oldValue.EndpointKind, nil
+}
+
+// ResetEndpointKind resets all changes to the "endpoint_kind" field.
+func (m *RoutingAttemptMutation) ResetEndpointKind() {
+	m.endpoint_kind = nil
+}
+
+// SetStrategyVersion sets the "strategy_version" field.
+func (m *RoutingAttemptMutation) SetStrategyVersion(s string) {
+	m.strategy_version = &s
+}
+
+// StrategyVersion returns the value of the "strategy_version" field in the mutation.
+func (m *RoutingAttemptMutation) StrategyVersion() (r string, exists bool) {
+	v := m.strategy_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStrategyVersion returns the old "strategy_version" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldStrategyVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStrategyVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStrategyVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStrategyVersion: %w", err)
+	}
+	return oldValue.StrategyVersion, nil
+}
+
+// ResetStrategyVersion resets all changes to the "strategy_version" field.
+func (m *RoutingAttemptMutation) ResetStrategyVersion() {
+	m.strategy_version = nil
+}
+
+// SetScoreVersion sets the "score_version" field.
+func (m *RoutingAttemptMutation) SetScoreVersion(s string) {
+	m.score_version = &s
+}
+
+// ScoreVersion returns the value of the "score_version" field in the mutation.
+func (m *RoutingAttemptMutation) ScoreVersion() (r string, exists bool) {
+	v := m.score_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScoreVersion returns the old "score_version" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldScoreVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScoreVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScoreVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScoreVersion: %w", err)
+	}
+	return oldValue.ScoreVersion, nil
+}
+
+// ResetScoreVersion resets all changes to the "score_version" field.
+func (m *RoutingAttemptMutation) ResetScoreVersion() {
+	m.score_version = nil
+}
+
+// SetFeatureSchemaVersion sets the "feature_schema_version" field.
+func (m *RoutingAttemptMutation) SetFeatureSchemaVersion(s string) {
+	m.feature_schema_version = &s
+}
+
+// FeatureSchemaVersion returns the value of the "feature_schema_version" field in the mutation.
+func (m *RoutingAttemptMutation) FeatureSchemaVersion() (r string, exists bool) {
+	v := m.feature_schema_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFeatureSchemaVersion returns the old "feature_schema_version" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldFeatureSchemaVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFeatureSchemaVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFeatureSchemaVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFeatureSchemaVersion: %w", err)
+	}
+	return oldValue.FeatureSchemaVersion, nil
+}
+
+// ResetFeatureSchemaVersion resets all changes to the "feature_schema_version" field.
+func (m *RoutingAttemptMutation) ResetFeatureSchemaVersion() {
+	m.feature_schema_version = nil
+}
+
+// SetModelVersion sets the "model_version" field.
+func (m *RoutingAttemptMutation) SetModelVersion(s string) {
+	m.model_version = &s
+}
+
+// ModelVersion returns the value of the "model_version" field in the mutation.
+func (m *RoutingAttemptMutation) ModelVersion() (r string, exists bool) {
+	v := m.model_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelVersion returns the old "model_version" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldModelVersion(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelVersion: %w", err)
+	}
+	return oldValue.ModelVersion, nil
+}
+
+// ClearModelVersion clears the value of the "model_version" field.
+func (m *RoutingAttemptMutation) ClearModelVersion() {
+	m.model_version = nil
+	m.clearedFields[routingattempt.FieldModelVersion] = struct{}{}
+}
+
+// ModelVersionCleared returns if the "model_version" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) ModelVersionCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldModelVersion]
+	return ok
+}
+
+// ResetModelVersion resets all changes to the "model_version" field.
+func (m *RoutingAttemptMutation) ResetModelVersion() {
+	m.model_version = nil
+	delete(m.clearedFields, routingattempt.FieldModelVersion)
+}
+
+// SetExperimentID sets the "experiment_id" field.
+func (m *RoutingAttemptMutation) SetExperimentID(s string) {
+	m.experiment_id = &s
+}
+
+// ExperimentID returns the value of the "experiment_id" field in the mutation.
+func (m *RoutingAttemptMutation) ExperimentID() (r string, exists bool) {
+	v := m.experiment_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExperimentID returns the old "experiment_id" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldExperimentID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExperimentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExperimentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExperimentID: %w", err)
+	}
+	return oldValue.ExperimentID, nil
+}
+
+// ClearExperimentID clears the value of the "experiment_id" field.
+func (m *RoutingAttemptMutation) ClearExperimentID() {
+	m.experiment_id = nil
+	m.clearedFields[routingattempt.FieldExperimentID] = struct{}{}
+}
+
+// ExperimentIDCleared returns if the "experiment_id" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) ExperimentIDCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldExperimentID]
+	return ok
+}
+
+// ResetExperimentID resets all changes to the "experiment_id" field.
+func (m *RoutingAttemptMutation) ResetExperimentID() {
+	m.experiment_id = nil
+	delete(m.clearedFields, routingattempt.FieldExperimentID)
+}
+
+// SetExperimentBucket sets the "experiment_bucket" field.
+func (m *RoutingAttemptMutation) SetExperimentBucket(i int) {
+	m.experiment_bucket = &i
+	m.addexperiment_bucket = nil
+}
+
+// ExperimentBucket returns the value of the "experiment_bucket" field in the mutation.
+func (m *RoutingAttemptMutation) ExperimentBucket() (r int, exists bool) {
+	v := m.experiment_bucket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExperimentBucket returns the old "experiment_bucket" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldExperimentBucket(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExperimentBucket is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExperimentBucket requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExperimentBucket: %w", err)
+	}
+	return oldValue.ExperimentBucket, nil
+}
+
+// AddExperimentBucket adds i to the "experiment_bucket" field.
+func (m *RoutingAttemptMutation) AddExperimentBucket(i int) {
+	if m.addexperiment_bucket != nil {
+		*m.addexperiment_bucket += i
+	} else {
+		m.addexperiment_bucket = &i
+	}
+}
+
+// AddedExperimentBucket returns the value that was added to the "experiment_bucket" field in this mutation.
+func (m *RoutingAttemptMutation) AddedExperimentBucket() (r int, exists bool) {
+	v := m.addexperiment_bucket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearExperimentBucket clears the value of the "experiment_bucket" field.
+func (m *RoutingAttemptMutation) ClearExperimentBucket() {
+	m.experiment_bucket = nil
+	m.addexperiment_bucket = nil
+	m.clearedFields[routingattempt.FieldExperimentBucket] = struct{}{}
+}
+
+// ExperimentBucketCleared returns if the "experiment_bucket" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) ExperimentBucketCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldExperimentBucket]
+	return ok
+}
+
+// ResetExperimentBucket resets all changes to the "experiment_bucket" field.
+func (m *RoutingAttemptMutation) ResetExperimentBucket() {
+	m.experiment_bucket = nil
+	m.addexperiment_bucket = nil
+	delete(m.clearedFields, routingattempt.FieldExperimentBucket)
+}
+
+// SetSampleProbability sets the "sample_probability" field.
+func (m *RoutingAttemptMutation) SetSampleProbability(f float64) {
+	m.sample_probability = &f
+	m.addsample_probability = nil
+}
+
+// SampleProbability returns the value of the "sample_probability" field in the mutation.
+func (m *RoutingAttemptMutation) SampleProbability() (r float64, exists bool) {
+	v := m.sample_probability
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSampleProbability returns the old "sample_probability" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldSampleProbability(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSampleProbability is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSampleProbability requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSampleProbability: %w", err)
+	}
+	return oldValue.SampleProbability, nil
+}
+
+// AddSampleProbability adds f to the "sample_probability" field.
+func (m *RoutingAttemptMutation) AddSampleProbability(f float64) {
+	if m.addsample_probability != nil {
+		*m.addsample_probability += f
+	} else {
+		m.addsample_probability = &f
+	}
+}
+
+// AddedSampleProbability returns the value that was added to the "sample_probability" field in this mutation.
+func (m *RoutingAttemptMutation) AddedSampleProbability() (r float64, exists bool) {
+	v := m.addsample_probability
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSampleProbability resets all changes to the "sample_probability" field.
+func (m *RoutingAttemptMutation) ResetSampleProbability() {
+	m.sample_probability = nil
+	m.addsample_probability = nil
+}
+
+// SetActionPropensity sets the "action_propensity" field.
+func (m *RoutingAttemptMutation) SetActionPropensity(f float64) {
+	m.action_propensity = &f
+	m.addaction_propensity = nil
+}
+
+// ActionPropensity returns the value of the "action_propensity" field in the mutation.
+func (m *RoutingAttemptMutation) ActionPropensity() (r float64, exists bool) {
+	v := m.action_propensity
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActionPropensity returns the old "action_propensity" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldActionPropensity(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActionPropensity is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActionPropensity requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActionPropensity: %w", err)
+	}
+	return oldValue.ActionPropensity, nil
+}
+
+// AddActionPropensity adds f to the "action_propensity" field.
+func (m *RoutingAttemptMutation) AddActionPropensity(f float64) {
+	if m.addaction_propensity != nil {
+		*m.addaction_propensity += f
+	} else {
+		m.addaction_propensity = &f
+	}
+}
+
+// AddedActionPropensity returns the value that was added to the "action_propensity" field in this mutation.
+func (m *RoutingAttemptMutation) AddedActionPropensity() (r float64, exists bool) {
+	v := m.addaction_propensity
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearActionPropensity clears the value of the "action_propensity" field.
+func (m *RoutingAttemptMutation) ClearActionPropensity() {
+	m.action_propensity = nil
+	m.addaction_propensity = nil
+	m.clearedFields[routingattempt.FieldActionPropensity] = struct{}{}
+}
+
+// ActionPropensityCleared returns if the "action_propensity" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) ActionPropensityCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldActionPropensity]
+	return ok
+}
+
+// ResetActionPropensity resets all changes to the "action_propensity" field.
+func (m *RoutingAttemptMutation) ResetActionPropensity() {
+	m.action_propensity = nil
+	m.addaction_propensity = nil
+	delete(m.clearedFields, routingattempt.FieldActionPropensity)
+}
+
+// SetAssignmentReason sets the "assignment_reason" field.
+func (m *RoutingAttemptMutation) SetAssignmentReason(s string) {
+	m.assignment_reason = &s
+}
+
+// AssignmentReason returns the value of the "assignment_reason" field in the mutation.
+func (m *RoutingAttemptMutation) AssignmentReason() (r string, exists bool) {
+	v := m.assignment_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAssignmentReason returns the old "assignment_reason" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldAssignmentReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAssignmentReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAssignmentReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAssignmentReason: %w", err)
+	}
+	return oldValue.AssignmentReason, nil
+}
+
+// ResetAssignmentReason resets all changes to the "assignment_reason" field.
+func (m *RoutingAttemptMutation) ResetAssignmentReason() {
+	m.assignment_reason = nil
+}
+
+// SetCandidates sets the "candidates" field.
+func (m *RoutingAttemptMutation) SetCandidates(j jsontext.Value) {
+	m.candidates = &j
+	m.appendcandidates = nil
+}
+
+// Candidates returns the value of the "candidates" field in the mutation.
+func (m *RoutingAttemptMutation) Candidates() (r jsontext.Value, exists bool) {
+	v := m.candidates
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCandidates returns the old "candidates" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldCandidates(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCandidates is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCandidates requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCandidates: %w", err)
+	}
+	return oldValue.Candidates, nil
+}
+
+// AppendCandidates adds j to the "candidates" field.
+func (m *RoutingAttemptMutation) AppendCandidates(j jsontext.Value) {
+	m.appendcandidates = append(m.appendcandidates, j...)
+}
+
+// AppendedCandidates returns the list of values that were appended to the "candidates" field in this mutation.
+func (m *RoutingAttemptMutation) AppendedCandidates() (jsontext.Value, bool) {
+	if len(m.appendcandidates) == 0 {
+		return nil, false
+	}
+	return m.appendcandidates, true
+}
+
+// ClearCandidates clears the value of the "candidates" field.
+func (m *RoutingAttemptMutation) ClearCandidates() {
+	m.candidates = nil
+	m.appendcandidates = nil
+	m.clearedFields[routingattempt.FieldCandidates] = struct{}{}
+}
+
+// CandidatesCleared returns if the "candidates" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) CandidatesCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldCandidates]
+	return ok
+}
+
+// ResetCandidates resets all changes to the "candidates" field.
+func (m *RoutingAttemptMutation) ResetCandidates() {
+	m.candidates = nil
+	m.appendcandidates = nil
+	delete(m.clearedFields, routingattempt.FieldCandidates)
+}
+
+// SetSelectedReason sets the "selected_reason" field.
+func (m *RoutingAttemptMutation) SetSelectedReason(s string) {
+	m.selected_reason = &s
+}
+
+// SelectedReason returns the value of the "selected_reason" field in the mutation.
+func (m *RoutingAttemptMutation) SelectedReason() (r string, exists bool) {
+	v := m.selected_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSelectedReason returns the old "selected_reason" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldSelectedReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSelectedReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSelectedReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSelectedReason: %w", err)
+	}
+	return oldValue.SelectedReason, nil
+}
+
+// ClearSelectedReason clears the value of the "selected_reason" field.
+func (m *RoutingAttemptMutation) ClearSelectedReason() {
+	m.selected_reason = nil
+	m.clearedFields[routingattempt.FieldSelectedReason] = struct{}{}
+}
+
+// SelectedReasonCleared returns if the "selected_reason" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) SelectedReasonCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldSelectedReason]
+	return ok
+}
+
+// ResetSelectedReason resets all changes to the "selected_reason" field.
+func (m *RoutingAttemptMutation) ResetSelectedReason() {
+	m.selected_reason = nil
+	delete(m.clearedFields, routingattempt.FieldSelectedReason)
+}
+
+// SetOutcomeVisibility sets the "outcome_visibility" field.
+func (m *RoutingAttemptMutation) SetOutcomeVisibility(s string) {
+	m.outcome_visibility = &s
+}
+
+// OutcomeVisibility returns the value of the "outcome_visibility" field in the mutation.
+func (m *RoutingAttemptMutation) OutcomeVisibility() (r string, exists bool) {
+	v := m.outcome_visibility
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutcomeVisibility returns the old "outcome_visibility" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldOutcomeVisibility(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutcomeVisibility is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutcomeVisibility requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutcomeVisibility: %w", err)
+	}
+	return oldValue.OutcomeVisibility, nil
+}
+
+// ResetOutcomeVisibility resets all changes to the "outcome_visibility" field.
+func (m *RoutingAttemptMutation) ResetOutcomeVisibility() {
+	m.outcome_visibility = nil
+}
+
+// SetOutcomeCategory sets the "outcome_category" field.
+func (m *RoutingAttemptMutation) SetOutcomeCategory(s string) {
+	m.outcome_category = &s
+}
+
+// OutcomeCategory returns the value of the "outcome_category" field in the mutation.
+func (m *RoutingAttemptMutation) OutcomeCategory() (r string, exists bool) {
+	v := m.outcome_category
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutcomeCategory returns the old "outcome_category" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldOutcomeCategory(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutcomeCategory is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutcomeCategory requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutcomeCategory: %w", err)
+	}
+	return oldValue.OutcomeCategory, nil
+}
+
+// ClearOutcomeCategory clears the value of the "outcome_category" field.
+func (m *RoutingAttemptMutation) ClearOutcomeCategory() {
+	m.outcome_category = nil
+	m.clearedFields[routingattempt.FieldOutcomeCategory] = struct{}{}
+}
+
+// OutcomeCategoryCleared returns if the "outcome_category" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) OutcomeCategoryCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldOutcomeCategory]
+	return ok
+}
+
+// ResetOutcomeCategory resets all changes to the "outcome_category" field.
+func (m *RoutingAttemptMutation) ResetOutcomeCategory() {
+	m.outcome_category = nil
+	delete(m.clearedFields, routingattempt.FieldOutcomeCategory)
+}
+
+// SetRetryable sets the "retryable" field.
+func (m *RoutingAttemptMutation) SetRetryable(b bool) {
+	m.retryable = &b
+}
+
+// Retryable returns the value of the "retryable" field in the mutation.
+func (m *RoutingAttemptMutation) Retryable() (r bool, exists bool) {
+	v := m.retryable
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRetryable returns the old "retryable" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldRetryable(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRetryable is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRetryable requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRetryable: %w", err)
+	}
+	return oldValue.Retryable, nil
+}
+
+// ResetRetryable resets all changes to the "retryable" field.
+func (m *RoutingAttemptMutation) ResetRetryable() {
+	m.retryable = nil
+}
+
+// SetSemanticOutput sets the "semantic_output" field.
+func (m *RoutingAttemptMutation) SetSemanticOutput(b bool) {
+	m.semantic_output = &b
+}
+
+// SemanticOutput returns the value of the "semantic_output" field in the mutation.
+func (m *RoutingAttemptMutation) SemanticOutput() (r bool, exists bool) {
+	v := m.semantic_output
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSemanticOutput returns the old "semantic_output" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldSemanticOutput(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSemanticOutput is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSemanticOutput requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSemanticOutput: %w", err)
+	}
+	return oldValue.SemanticOutput, nil
+}
+
+// ResetSemanticOutput resets all changes to the "semantic_output" field.
+func (m *RoutingAttemptMutation) ResetSemanticOutput() {
+	m.semantic_output = nil
+}
+
+// SetSwitchedGroup sets the "switched_group" field.
+func (m *RoutingAttemptMutation) SetSwitchedGroup(b bool) {
+	m.switched_group = &b
+}
+
+// SwitchedGroup returns the value of the "switched_group" field in the mutation.
+func (m *RoutingAttemptMutation) SwitchedGroup() (r bool, exists bool) {
+	v := m.switched_group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSwitchedGroup returns the old "switched_group" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldSwitchedGroup(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSwitchedGroup is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSwitchedGroup requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSwitchedGroup: %w", err)
+	}
+	return oldValue.SwitchedGroup, nil
+}
+
+// ResetSwitchedGroup resets all changes to the "switched_group" field.
+func (m *RoutingAttemptMutation) ResetSwitchedGroup() {
+	m.switched_group = nil
+}
+
+// SetStickyBroken sets the "sticky_broken" field.
+func (m *RoutingAttemptMutation) SetStickyBroken(b bool) {
+	m.sticky_broken = &b
+}
+
+// StickyBroken returns the value of the "sticky_broken" field in the mutation.
+func (m *RoutingAttemptMutation) StickyBroken() (r bool, exists bool) {
+	v := m.sticky_broken
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStickyBroken returns the old "sticky_broken" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldStickyBroken(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStickyBroken is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStickyBroken requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStickyBroken: %w", err)
+	}
+	return oldValue.StickyBroken, nil
+}
+
+// ResetStickyBroken resets all changes to the "sticky_broken" field.
+func (m *RoutingAttemptMutation) ResetStickyBroken() {
+	m.sticky_broken = nil
+}
+
+// SetBreakerTransition sets the "breaker_transition" field.
+func (m *RoutingAttemptMutation) SetBreakerTransition(s string) {
+	m.breaker_transition = &s
+}
+
+// BreakerTransition returns the value of the "breaker_transition" field in the mutation.
+func (m *RoutingAttemptMutation) BreakerTransition() (r string, exists bool) {
+	v := m.breaker_transition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBreakerTransition returns the old "breaker_transition" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldBreakerTransition(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBreakerTransition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBreakerTransition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBreakerTransition: %w", err)
+	}
+	return oldValue.BreakerTransition, nil
+}
+
+// ClearBreakerTransition clears the value of the "breaker_transition" field.
+func (m *RoutingAttemptMutation) ClearBreakerTransition() {
+	m.breaker_transition = nil
+	m.clearedFields[routingattempt.FieldBreakerTransition] = struct{}{}
+}
+
+// BreakerTransitionCleared returns if the "breaker_transition" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) BreakerTransitionCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldBreakerTransition]
+	return ok
+}
+
+// ResetBreakerTransition resets all changes to the "breaker_transition" field.
+func (m *RoutingAttemptMutation) ResetBreakerTransition() {
+	m.breaker_transition = nil
+	delete(m.clearedFields, routingattempt.FieldBreakerTransition)
+}
+
+// SetQueueMs sets the "queue_ms" field.
+func (m *RoutingAttemptMutation) SetQueueMs(i int) {
+	m.queue_ms = &i
+	m.addqueue_ms = nil
+}
+
+// QueueMs returns the value of the "queue_ms" field in the mutation.
+func (m *RoutingAttemptMutation) QueueMs() (r int, exists bool) {
+	v := m.queue_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldQueueMs returns the old "queue_ms" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldQueueMs(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldQueueMs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldQueueMs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldQueueMs: %w", err)
+	}
+	return oldValue.QueueMs, nil
+}
+
+// AddQueueMs adds i to the "queue_ms" field.
+func (m *RoutingAttemptMutation) AddQueueMs(i int) {
+	if m.addqueue_ms != nil {
+		*m.addqueue_ms += i
+	} else {
+		m.addqueue_ms = &i
+	}
+}
+
+// AddedQueueMs returns the value that was added to the "queue_ms" field in this mutation.
+func (m *RoutingAttemptMutation) AddedQueueMs() (r int, exists bool) {
+	v := m.addqueue_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearQueueMs clears the value of the "queue_ms" field.
+func (m *RoutingAttemptMutation) ClearQueueMs() {
+	m.queue_ms = nil
+	m.addqueue_ms = nil
+	m.clearedFields[routingattempt.FieldQueueMs] = struct{}{}
+}
+
+// QueueMsCleared returns if the "queue_ms" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) QueueMsCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldQueueMs]
+	return ok
+}
+
+// ResetQueueMs resets all changes to the "queue_ms" field.
+func (m *RoutingAttemptMutation) ResetQueueMs() {
+	m.queue_ms = nil
+	m.addqueue_ms = nil
+	delete(m.clearedFields, routingattempt.FieldQueueMs)
+}
+
+// SetTtftMs sets the "ttft_ms" field.
+func (m *RoutingAttemptMutation) SetTtftMs(i int) {
+	m.ttft_ms = &i
+	m.addttft_ms = nil
+}
+
+// TtftMs returns the value of the "ttft_ms" field in the mutation.
+func (m *RoutingAttemptMutation) TtftMs() (r int, exists bool) {
+	v := m.ttft_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTtftMs returns the old "ttft_ms" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldTtftMs(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTtftMs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTtftMs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTtftMs: %w", err)
+	}
+	return oldValue.TtftMs, nil
+}
+
+// AddTtftMs adds i to the "ttft_ms" field.
+func (m *RoutingAttemptMutation) AddTtftMs(i int) {
+	if m.addttft_ms != nil {
+		*m.addttft_ms += i
+	} else {
+		m.addttft_ms = &i
+	}
+}
+
+// AddedTtftMs returns the value that was added to the "ttft_ms" field in this mutation.
+func (m *RoutingAttemptMutation) AddedTtftMs() (r int, exists bool) {
+	v := m.addttft_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTtftMs clears the value of the "ttft_ms" field.
+func (m *RoutingAttemptMutation) ClearTtftMs() {
+	m.ttft_ms = nil
+	m.addttft_ms = nil
+	m.clearedFields[routingattempt.FieldTtftMs] = struct{}{}
+}
+
+// TtftMsCleared returns if the "ttft_ms" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) TtftMsCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldTtftMs]
+	return ok
+}
+
+// ResetTtftMs resets all changes to the "ttft_ms" field.
+func (m *RoutingAttemptMutation) ResetTtftMs() {
+	m.ttft_ms = nil
+	m.addttft_ms = nil
+	delete(m.clearedFields, routingattempt.FieldTtftMs)
+}
+
+// SetDurationMs sets the "duration_ms" field.
+func (m *RoutingAttemptMutation) SetDurationMs(i int) {
+	m.duration_ms = &i
+	m.addduration_ms = nil
+}
+
+// DurationMs returns the value of the "duration_ms" field in the mutation.
+func (m *RoutingAttemptMutation) DurationMs() (r int, exists bool) {
+	v := m.duration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDurationMs returns the old "duration_ms" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldDurationMs(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDurationMs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDurationMs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDurationMs: %w", err)
+	}
+	return oldValue.DurationMs, nil
+}
+
+// AddDurationMs adds i to the "duration_ms" field.
+func (m *RoutingAttemptMutation) AddDurationMs(i int) {
+	if m.addduration_ms != nil {
+		*m.addduration_ms += i
+	} else {
+		m.addduration_ms = &i
+	}
+}
+
+// AddedDurationMs returns the value that was added to the "duration_ms" field in this mutation.
+func (m *RoutingAttemptMutation) AddedDurationMs() (r int, exists bool) {
+	v := m.addduration_ms
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDurationMs clears the value of the "duration_ms" field.
+func (m *RoutingAttemptMutation) ClearDurationMs() {
+	m.duration_ms = nil
+	m.addduration_ms = nil
+	m.clearedFields[routingattempt.FieldDurationMs] = struct{}{}
+}
+
+// DurationMsCleared returns if the "duration_ms" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) DurationMsCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldDurationMs]
+	return ok
+}
+
+// ResetDurationMs resets all changes to the "duration_ms" field.
+func (m *RoutingAttemptMutation) ResetDurationMs() {
+	m.duration_ms = nil
+	m.addduration_ms = nil
+	delete(m.clearedFields, routingattempt.FieldDurationMs)
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (m *RoutingAttemptMutation) SetActualUsage(j jsontext.Value) {
+	m.actual_usage = &j
+	m.appendactual_usage = nil
+}
+
+// ActualUsage returns the value of the "actual_usage" field in the mutation.
+func (m *RoutingAttemptMutation) ActualUsage() (r jsontext.Value, exists bool) {
+	v := m.actual_usage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualUsage returns the old "actual_usage" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldActualUsage(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualUsage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualUsage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualUsage: %w", err)
+	}
+	return oldValue.ActualUsage, nil
+}
+
+// AppendActualUsage adds j to the "actual_usage" field.
+func (m *RoutingAttemptMutation) AppendActualUsage(j jsontext.Value) {
+	m.appendactual_usage = append(m.appendactual_usage, j...)
+}
+
+// AppendedActualUsage returns the list of values that were appended to the "actual_usage" field in this mutation.
+func (m *RoutingAttemptMutation) AppendedActualUsage() (jsontext.Value, bool) {
+	if len(m.appendactual_usage) == 0 {
+		return nil, false
+	}
+	return m.appendactual_usage, true
+}
+
+// ClearActualUsage clears the value of the "actual_usage" field.
+func (m *RoutingAttemptMutation) ClearActualUsage() {
+	m.actual_usage = nil
+	m.appendactual_usage = nil
+	m.clearedFields[routingattempt.FieldActualUsage] = struct{}{}
+}
+
+// ActualUsageCleared returns if the "actual_usage" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) ActualUsageCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldActualUsage]
+	return ok
+}
+
+// ResetActualUsage resets all changes to the "actual_usage" field.
+func (m *RoutingAttemptMutation) ResetActualUsage() {
+	m.actual_usage = nil
+	m.appendactual_usage = nil
+	delete(m.clearedFields, routingattempt.FieldActualUsage)
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (m *RoutingAttemptMutation) SetBillableUsage(j jsontext.Value) {
+	m.billable_usage = &j
+	m.appendbillable_usage = nil
+}
+
+// BillableUsage returns the value of the "billable_usage" field in the mutation.
+func (m *RoutingAttemptMutation) BillableUsage() (r jsontext.Value, exists bool) {
+	v := m.billable_usage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillableUsage returns the old "billable_usage" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldBillableUsage(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillableUsage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillableUsage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillableUsage: %w", err)
+	}
+	return oldValue.BillableUsage, nil
+}
+
+// AppendBillableUsage adds j to the "billable_usage" field.
+func (m *RoutingAttemptMutation) AppendBillableUsage(j jsontext.Value) {
+	m.appendbillable_usage = append(m.appendbillable_usage, j...)
+}
+
+// AppendedBillableUsage returns the list of values that were appended to the "billable_usage" field in this mutation.
+func (m *RoutingAttemptMutation) AppendedBillableUsage() (jsontext.Value, bool) {
+	if len(m.appendbillable_usage) == 0 {
+		return nil, false
+	}
+	return m.appendbillable_usage, true
+}
+
+// ClearBillableUsage clears the value of the "billable_usage" field.
+func (m *RoutingAttemptMutation) ClearBillableUsage() {
+	m.billable_usage = nil
+	m.appendbillable_usage = nil
+	m.clearedFields[routingattempt.FieldBillableUsage] = struct{}{}
+}
+
+// BillableUsageCleared returns if the "billable_usage" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) BillableUsageCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldBillableUsage]
+	return ok
+}
+
+// ResetBillableUsage resets all changes to the "billable_usage" field.
+func (m *RoutingAttemptMutation) ResetBillableUsage() {
+	m.billable_usage = nil
+	m.appendbillable_usage = nil
+	delete(m.clearedFields, routingattempt.FieldBillableUsage)
+}
+
+// SetActualCost sets the "actual_cost" field.
+func (m *RoutingAttemptMutation) SetActualCost(f float64) {
+	m.actual_cost = &f
+	m.addactual_cost = nil
+}
+
+// ActualCost returns the value of the "actual_cost" field in the mutation.
+func (m *RoutingAttemptMutation) ActualCost() (r float64, exists bool) {
+	v := m.actual_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualCost returns the old "actual_cost" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldActualCost(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualCost: %w", err)
+	}
+	return oldValue.ActualCost, nil
+}
+
+// AddActualCost adds f to the "actual_cost" field.
+func (m *RoutingAttemptMutation) AddActualCost(f float64) {
+	if m.addactual_cost != nil {
+		*m.addactual_cost += f
+	} else {
+		m.addactual_cost = &f
+	}
+}
+
+// AddedActualCost returns the value that was added to the "actual_cost" field in this mutation.
+func (m *RoutingAttemptMutation) AddedActualCost() (r float64, exists bool) {
+	v := m.addactual_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearActualCost clears the value of the "actual_cost" field.
+func (m *RoutingAttemptMutation) ClearActualCost() {
+	m.actual_cost = nil
+	m.addactual_cost = nil
+	m.clearedFields[routingattempt.FieldActualCost] = struct{}{}
+}
+
+// ActualCostCleared returns if the "actual_cost" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) ActualCostCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldActualCost]
+	return ok
+}
+
+// ResetActualCost resets all changes to the "actual_cost" field.
+func (m *RoutingAttemptMutation) ResetActualCost() {
+	m.actual_cost = nil
+	m.addactual_cost = nil
+	delete(m.clearedFields, routingattempt.FieldActualCost)
+}
+
+// SetBilledCost sets the "billed_cost" field.
+func (m *RoutingAttemptMutation) SetBilledCost(f float64) {
+	m.billed_cost = &f
+	m.addbilled_cost = nil
+}
+
+// BilledCost returns the value of the "billed_cost" field in the mutation.
+func (m *RoutingAttemptMutation) BilledCost() (r float64, exists bool) {
+	v := m.billed_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBilledCost returns the old "billed_cost" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldBilledCost(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBilledCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBilledCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBilledCost: %w", err)
+	}
+	return oldValue.BilledCost, nil
+}
+
+// AddBilledCost adds f to the "billed_cost" field.
+func (m *RoutingAttemptMutation) AddBilledCost(f float64) {
+	if m.addbilled_cost != nil {
+		*m.addbilled_cost += f
+	} else {
+		m.addbilled_cost = &f
+	}
+}
+
+// AddedBilledCost returns the value that was added to the "billed_cost" field in this mutation.
+func (m *RoutingAttemptMutation) AddedBilledCost() (r float64, exists bool) {
+	v := m.addbilled_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBilledCost clears the value of the "billed_cost" field.
+func (m *RoutingAttemptMutation) ClearBilledCost() {
+	m.billed_cost = nil
+	m.addbilled_cost = nil
+	m.clearedFields[routingattempt.FieldBilledCost] = struct{}{}
+}
+
+// BilledCostCleared returns if the "billed_cost" field was cleared in this mutation.
+func (m *RoutingAttemptMutation) BilledCostCleared() bool {
+	_, ok := m.clearedFields[routingattempt.FieldBilledCost]
+	return ok
+}
+
+// ResetBilledCost resets all changes to the "billed_cost" field.
+func (m *RoutingAttemptMutation) ResetBilledCost() {
+	m.billed_cost = nil
+	m.addbilled_cost = nil
+	delete(m.clearedFields, routingattempt.FieldBilledCost)
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (m *RoutingAttemptMutation) SetCacheColdDueToFailover(b bool) {
+	m.cache_cold_due_to_failover = &b
+}
+
+// CacheColdDueToFailover returns the value of the "cache_cold_due_to_failover" field in the mutation.
+func (m *RoutingAttemptMutation) CacheColdDueToFailover() (r bool, exists bool) {
+	v := m.cache_cold_due_to_failover
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheColdDueToFailover returns the old "cache_cold_due_to_failover" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldCacheColdDueToFailover(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheColdDueToFailover is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheColdDueToFailover requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheColdDueToFailover: %w", err)
+	}
+	return oldValue.CacheColdDueToFailover, nil
+}
+
+// ResetCacheColdDueToFailover resets all changes to the "cache_cold_due_to_failover" field.
+func (m *RoutingAttemptMutation) ResetCacheColdDueToFailover() {
+	m.cache_cold_due_to_failover = nil
+}
+
+// SetEventPriority sets the "event_priority" field.
+func (m *RoutingAttemptMutation) SetEventPriority(s string) {
+	m.event_priority = &s
+}
+
+// EventPriority returns the value of the "event_priority" field in the mutation.
+func (m *RoutingAttemptMutation) EventPriority() (r string, exists bool) {
+	v := m.event_priority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventPriority returns the old "event_priority" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldEventPriority(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventPriority is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventPriority requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventPriority: %w", err)
+	}
+	return oldValue.EventPriority, nil
+}
+
+// ResetEventPriority resets all changes to the "event_priority" field.
+func (m *RoutingAttemptMutation) ResetEventPriority() {
+	m.event_priority = nil
+}
+
+// SetOccurredAt sets the "occurred_at" field.
+func (m *RoutingAttemptMutation) SetOccurredAt(t time.Time) {
+	m.occurred_at = &t
+}
+
+// OccurredAt returns the value of the "occurred_at" field in the mutation.
+func (m *RoutingAttemptMutation) OccurredAt() (r time.Time, exists bool) {
+	v := m.occurred_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOccurredAt returns the old "occurred_at" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldOccurredAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOccurredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOccurredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOccurredAt: %w", err)
+	}
+	return oldValue.OccurredAt, nil
+}
+
+// ResetOccurredAt resets all changes to the "occurred_at" field.
+func (m *RoutingAttemptMutation) ResetOccurredAt() {
+	m.occurred_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RoutingAttemptMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RoutingAttemptMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RoutingAttempt entity.
+// If the RoutingAttempt object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingAttemptMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RoutingAttemptMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the RoutingAttemptMutation builder.
+func (m *RoutingAttemptMutation) Where(ps ...predicate.RoutingAttempt) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RoutingAttemptMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RoutingAttemptMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RoutingAttempt, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RoutingAttemptMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RoutingAttemptMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RoutingAttempt).
+func (m *RoutingAttemptMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RoutingAttemptMutation) Fields() []string {
+	fields := make([]string, 0, 47)
+	if m.event_id != nil {
+		fields = append(fields, routingattempt.FieldEventID)
+	}
+	if m.routing_decision_id != nil {
+		fields = append(fields, routingattempt.FieldRoutingDecisionID)
+	}
+	if m.request_id != nil {
+		fields = append(fields, routingattempt.FieldRequestID)
+	}
+	if m.api_key_id != nil {
+		fields = append(fields, routingattempt.FieldAPIKeyID)
+	}
+	if m.route_version != nil {
+		fields = append(fields, routingattempt.FieldRouteVersion)
+	}
+	if m.initial_group_id != nil {
+		fields = append(fields, routingattempt.FieldInitialGroupID)
+	}
+	if m.attempted_group_id != nil {
+		fields = append(fields, routingattempt.FieldAttemptedGroupID)
+	}
+	if m.effective_group_id != nil {
+		fields = append(fields, routingattempt.FieldEffectiveGroupID)
+	}
+	if m.selected_group_id != nil {
+		fields = append(fields, routingattempt.FieldSelectedGroupID)
+	}
+	if m.schedule_mode != nil {
+		fields = append(fields, routingattempt.FieldScheduleMode)
+	}
+	if m.smart_preference != nil {
+		fields = append(fields, routingattempt.FieldSmartPreference)
+	}
+	if m.smart_balance_bps != nil {
+		fields = append(fields, routingattempt.FieldSmartBalanceBps)
+	}
+	if m.routing_min_success_rate != nil {
+		fields = append(fields, routingattempt.FieldRoutingMinSuccessRate)
+	}
+	if m.routing_state_version != nil {
+		fields = append(fields, routingattempt.FieldRoutingStateVersion)
+	}
+	if m.attempt_index != nil {
+		fields = append(fields, routingattempt.FieldAttemptIndex)
+	}
+	if m.platform != nil {
+		fields = append(fields, routingattempt.FieldPlatform)
+	}
+	if m.model_family != nil {
+		fields = append(fields, routingattempt.FieldModelFamily)
+	}
+	if m.endpoint_kind != nil {
+		fields = append(fields, routingattempt.FieldEndpointKind)
+	}
+	if m.strategy_version != nil {
+		fields = append(fields, routingattempt.FieldStrategyVersion)
+	}
+	if m.score_version != nil {
+		fields = append(fields, routingattempt.FieldScoreVersion)
+	}
+	if m.feature_schema_version != nil {
+		fields = append(fields, routingattempt.FieldFeatureSchemaVersion)
+	}
+	if m.model_version != nil {
+		fields = append(fields, routingattempt.FieldModelVersion)
+	}
+	if m.experiment_id != nil {
+		fields = append(fields, routingattempt.FieldExperimentID)
+	}
+	if m.experiment_bucket != nil {
+		fields = append(fields, routingattempt.FieldExperimentBucket)
+	}
+	if m.sample_probability != nil {
+		fields = append(fields, routingattempt.FieldSampleProbability)
+	}
+	if m.action_propensity != nil {
+		fields = append(fields, routingattempt.FieldActionPropensity)
+	}
+	if m.assignment_reason != nil {
+		fields = append(fields, routingattempt.FieldAssignmentReason)
+	}
+	if m.candidates != nil {
+		fields = append(fields, routingattempt.FieldCandidates)
+	}
+	if m.selected_reason != nil {
+		fields = append(fields, routingattempt.FieldSelectedReason)
+	}
+	if m.outcome_visibility != nil {
+		fields = append(fields, routingattempt.FieldOutcomeVisibility)
+	}
+	if m.outcome_category != nil {
+		fields = append(fields, routingattempt.FieldOutcomeCategory)
+	}
+	if m.retryable != nil {
+		fields = append(fields, routingattempt.FieldRetryable)
+	}
+	if m.semantic_output != nil {
+		fields = append(fields, routingattempt.FieldSemanticOutput)
+	}
+	if m.switched_group != nil {
+		fields = append(fields, routingattempt.FieldSwitchedGroup)
+	}
+	if m.sticky_broken != nil {
+		fields = append(fields, routingattempt.FieldStickyBroken)
+	}
+	if m.breaker_transition != nil {
+		fields = append(fields, routingattempt.FieldBreakerTransition)
+	}
+	if m.queue_ms != nil {
+		fields = append(fields, routingattempt.FieldQueueMs)
+	}
+	if m.ttft_ms != nil {
+		fields = append(fields, routingattempt.FieldTtftMs)
+	}
+	if m.duration_ms != nil {
+		fields = append(fields, routingattempt.FieldDurationMs)
+	}
+	if m.actual_usage != nil {
+		fields = append(fields, routingattempt.FieldActualUsage)
+	}
+	if m.billable_usage != nil {
+		fields = append(fields, routingattempt.FieldBillableUsage)
+	}
+	if m.actual_cost != nil {
+		fields = append(fields, routingattempt.FieldActualCost)
+	}
+	if m.billed_cost != nil {
+		fields = append(fields, routingattempt.FieldBilledCost)
+	}
+	if m.cache_cold_due_to_failover != nil {
+		fields = append(fields, routingattempt.FieldCacheColdDueToFailover)
+	}
+	if m.event_priority != nil {
+		fields = append(fields, routingattempt.FieldEventPriority)
+	}
+	if m.occurred_at != nil {
+		fields = append(fields, routingattempt.FieldOccurredAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, routingattempt.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RoutingAttemptMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case routingattempt.FieldEventID:
+		return m.EventID()
+	case routingattempt.FieldRoutingDecisionID:
+		return m.RoutingDecisionID()
+	case routingattempt.FieldRequestID:
+		return m.RequestID()
+	case routingattempt.FieldAPIKeyID:
+		return m.APIKeyID()
+	case routingattempt.FieldRouteVersion:
+		return m.RouteVersion()
+	case routingattempt.FieldInitialGroupID:
+		return m.InitialGroupID()
+	case routingattempt.FieldAttemptedGroupID:
+		return m.AttemptedGroupID()
+	case routingattempt.FieldEffectiveGroupID:
+		return m.EffectiveGroupID()
+	case routingattempt.FieldSelectedGroupID:
+		return m.SelectedGroupID()
+	case routingattempt.FieldScheduleMode:
+		return m.ScheduleMode()
+	case routingattempt.FieldSmartPreference:
+		return m.SmartPreference()
+	case routingattempt.FieldSmartBalanceBps:
+		return m.SmartBalanceBps()
+	case routingattempt.FieldRoutingMinSuccessRate:
+		return m.RoutingMinSuccessRate()
+	case routingattempt.FieldRoutingStateVersion:
+		return m.RoutingStateVersion()
+	case routingattempt.FieldAttemptIndex:
+		return m.AttemptIndex()
+	case routingattempt.FieldPlatform:
+		return m.Platform()
+	case routingattempt.FieldModelFamily:
+		return m.ModelFamily()
+	case routingattempt.FieldEndpointKind:
+		return m.EndpointKind()
+	case routingattempt.FieldStrategyVersion:
+		return m.StrategyVersion()
+	case routingattempt.FieldScoreVersion:
+		return m.ScoreVersion()
+	case routingattempt.FieldFeatureSchemaVersion:
+		return m.FeatureSchemaVersion()
+	case routingattempt.FieldModelVersion:
+		return m.ModelVersion()
+	case routingattempt.FieldExperimentID:
+		return m.ExperimentID()
+	case routingattempt.FieldExperimentBucket:
+		return m.ExperimentBucket()
+	case routingattempt.FieldSampleProbability:
+		return m.SampleProbability()
+	case routingattempt.FieldActionPropensity:
+		return m.ActionPropensity()
+	case routingattempt.FieldAssignmentReason:
+		return m.AssignmentReason()
+	case routingattempt.FieldCandidates:
+		return m.Candidates()
+	case routingattempt.FieldSelectedReason:
+		return m.SelectedReason()
+	case routingattempt.FieldOutcomeVisibility:
+		return m.OutcomeVisibility()
+	case routingattempt.FieldOutcomeCategory:
+		return m.OutcomeCategory()
+	case routingattempt.FieldRetryable:
+		return m.Retryable()
+	case routingattempt.FieldSemanticOutput:
+		return m.SemanticOutput()
+	case routingattempt.FieldSwitchedGroup:
+		return m.SwitchedGroup()
+	case routingattempt.FieldStickyBroken:
+		return m.StickyBroken()
+	case routingattempt.FieldBreakerTransition:
+		return m.BreakerTransition()
+	case routingattempt.FieldQueueMs:
+		return m.QueueMs()
+	case routingattempt.FieldTtftMs:
+		return m.TtftMs()
+	case routingattempt.FieldDurationMs:
+		return m.DurationMs()
+	case routingattempt.FieldActualUsage:
+		return m.ActualUsage()
+	case routingattempt.FieldBillableUsage:
+		return m.BillableUsage()
+	case routingattempt.FieldActualCost:
+		return m.ActualCost()
+	case routingattempt.FieldBilledCost:
+		return m.BilledCost()
+	case routingattempt.FieldCacheColdDueToFailover:
+		return m.CacheColdDueToFailover()
+	case routingattempt.FieldEventPriority:
+		return m.EventPriority()
+	case routingattempt.FieldOccurredAt:
+		return m.OccurredAt()
+	case routingattempt.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RoutingAttemptMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case routingattempt.FieldEventID:
+		return m.OldEventID(ctx)
+	case routingattempt.FieldRoutingDecisionID:
+		return m.OldRoutingDecisionID(ctx)
+	case routingattempt.FieldRequestID:
+		return m.OldRequestID(ctx)
+	case routingattempt.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
+	case routingattempt.FieldRouteVersion:
+		return m.OldRouteVersion(ctx)
+	case routingattempt.FieldInitialGroupID:
+		return m.OldInitialGroupID(ctx)
+	case routingattempt.FieldAttemptedGroupID:
+		return m.OldAttemptedGroupID(ctx)
+	case routingattempt.FieldEffectiveGroupID:
+		return m.OldEffectiveGroupID(ctx)
+	case routingattempt.FieldSelectedGroupID:
+		return m.OldSelectedGroupID(ctx)
+	case routingattempt.FieldScheduleMode:
+		return m.OldScheduleMode(ctx)
+	case routingattempt.FieldSmartPreference:
+		return m.OldSmartPreference(ctx)
+	case routingattempt.FieldSmartBalanceBps:
+		return m.OldSmartBalanceBps(ctx)
+	case routingattempt.FieldRoutingMinSuccessRate:
+		return m.OldRoutingMinSuccessRate(ctx)
+	case routingattempt.FieldRoutingStateVersion:
+		return m.OldRoutingStateVersion(ctx)
+	case routingattempt.FieldAttemptIndex:
+		return m.OldAttemptIndex(ctx)
+	case routingattempt.FieldPlatform:
+		return m.OldPlatform(ctx)
+	case routingattempt.FieldModelFamily:
+		return m.OldModelFamily(ctx)
+	case routingattempt.FieldEndpointKind:
+		return m.OldEndpointKind(ctx)
+	case routingattempt.FieldStrategyVersion:
+		return m.OldStrategyVersion(ctx)
+	case routingattempt.FieldScoreVersion:
+		return m.OldScoreVersion(ctx)
+	case routingattempt.FieldFeatureSchemaVersion:
+		return m.OldFeatureSchemaVersion(ctx)
+	case routingattempt.FieldModelVersion:
+		return m.OldModelVersion(ctx)
+	case routingattempt.FieldExperimentID:
+		return m.OldExperimentID(ctx)
+	case routingattempt.FieldExperimentBucket:
+		return m.OldExperimentBucket(ctx)
+	case routingattempt.FieldSampleProbability:
+		return m.OldSampleProbability(ctx)
+	case routingattempt.FieldActionPropensity:
+		return m.OldActionPropensity(ctx)
+	case routingattempt.FieldAssignmentReason:
+		return m.OldAssignmentReason(ctx)
+	case routingattempt.FieldCandidates:
+		return m.OldCandidates(ctx)
+	case routingattempt.FieldSelectedReason:
+		return m.OldSelectedReason(ctx)
+	case routingattempt.FieldOutcomeVisibility:
+		return m.OldOutcomeVisibility(ctx)
+	case routingattempt.FieldOutcomeCategory:
+		return m.OldOutcomeCategory(ctx)
+	case routingattempt.FieldRetryable:
+		return m.OldRetryable(ctx)
+	case routingattempt.FieldSemanticOutput:
+		return m.OldSemanticOutput(ctx)
+	case routingattempt.FieldSwitchedGroup:
+		return m.OldSwitchedGroup(ctx)
+	case routingattempt.FieldStickyBroken:
+		return m.OldStickyBroken(ctx)
+	case routingattempt.FieldBreakerTransition:
+		return m.OldBreakerTransition(ctx)
+	case routingattempt.FieldQueueMs:
+		return m.OldQueueMs(ctx)
+	case routingattempt.FieldTtftMs:
+		return m.OldTtftMs(ctx)
+	case routingattempt.FieldDurationMs:
+		return m.OldDurationMs(ctx)
+	case routingattempt.FieldActualUsage:
+		return m.OldActualUsage(ctx)
+	case routingattempt.FieldBillableUsage:
+		return m.OldBillableUsage(ctx)
+	case routingattempt.FieldActualCost:
+		return m.OldActualCost(ctx)
+	case routingattempt.FieldBilledCost:
+		return m.OldBilledCost(ctx)
+	case routingattempt.FieldCacheColdDueToFailover:
+		return m.OldCacheColdDueToFailover(ctx)
+	case routingattempt.FieldEventPriority:
+		return m.OldEventPriority(ctx)
+	case routingattempt.FieldOccurredAt:
+		return m.OldOccurredAt(ctx)
+	case routingattempt.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown RoutingAttempt field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RoutingAttemptMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case routingattempt.FieldEventID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case routingattempt.FieldRoutingDecisionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingDecisionID(v)
+		return nil
+	case routingattempt.FieldRequestID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestID(v)
+		return nil
+	case routingattempt.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
+	case routingattempt.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRouteVersion(v)
+		return nil
+	case routingattempt.FieldInitialGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInitialGroupID(v)
+		return nil
+	case routingattempt.FieldAttemptedGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttemptedGroupID(v)
+		return nil
+	case routingattempt.FieldEffectiveGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEffectiveGroupID(v)
+		return nil
+	case routingattempt.FieldSelectedGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSelectedGroupID(v)
+		return nil
+	case routingattempt.FieldScheduleMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScheduleMode(v)
+		return nil
+	case routingattempt.FieldSmartPreference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSmartPreference(v)
+		return nil
+	case routingattempt.FieldSmartBalanceBps:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSmartBalanceBps(v)
+		return nil
+	case routingattempt.FieldRoutingMinSuccessRate:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingMinSuccessRate(v)
+		return nil
+	case routingattempt.FieldRoutingStateVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingStateVersion(v)
+		return nil
+	case routingattempt.FieldAttemptIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttemptIndex(v)
+		return nil
+	case routingattempt.FieldPlatform:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatform(v)
+		return nil
+	case routingattempt.FieldModelFamily:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelFamily(v)
+		return nil
+	case routingattempt.FieldEndpointKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndpointKind(v)
+		return nil
+	case routingattempt.FieldStrategyVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStrategyVersion(v)
+		return nil
+	case routingattempt.FieldScoreVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScoreVersion(v)
+		return nil
+	case routingattempt.FieldFeatureSchemaVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFeatureSchemaVersion(v)
+		return nil
+	case routingattempt.FieldModelVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelVersion(v)
+		return nil
+	case routingattempt.FieldExperimentID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExperimentID(v)
+		return nil
+	case routingattempt.FieldExperimentBucket:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExperimentBucket(v)
+		return nil
+	case routingattempt.FieldSampleProbability:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSampleProbability(v)
+		return nil
+	case routingattempt.FieldActionPropensity:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActionPropensity(v)
+		return nil
+	case routingattempt.FieldAssignmentReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAssignmentReason(v)
+		return nil
+	case routingattempt.FieldCandidates:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCandidates(v)
+		return nil
+	case routingattempt.FieldSelectedReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSelectedReason(v)
+		return nil
+	case routingattempt.FieldOutcomeVisibility:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutcomeVisibility(v)
+		return nil
+	case routingattempt.FieldOutcomeCategory:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutcomeCategory(v)
+		return nil
+	case routingattempt.FieldRetryable:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRetryable(v)
+		return nil
+	case routingattempt.FieldSemanticOutput:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSemanticOutput(v)
+		return nil
+	case routingattempt.FieldSwitchedGroup:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSwitchedGroup(v)
+		return nil
+	case routingattempt.FieldStickyBroken:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStickyBroken(v)
+		return nil
+	case routingattempt.FieldBreakerTransition:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBreakerTransition(v)
+		return nil
+	case routingattempt.FieldQueueMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetQueueMs(v)
+		return nil
+	case routingattempt.FieldTtftMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTtftMs(v)
+		return nil
+	case routingattempt.FieldDurationMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDurationMs(v)
+		return nil
+	case routingattempt.FieldActualUsage:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualUsage(v)
+		return nil
+	case routingattempt.FieldBillableUsage:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillableUsage(v)
+		return nil
+	case routingattempt.FieldActualCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualCost(v)
+		return nil
+	case routingattempt.FieldBilledCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBilledCost(v)
+		return nil
+	case routingattempt.FieldCacheColdDueToFailover:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheColdDueToFailover(v)
+		return nil
+	case routingattempt.FieldEventPriority:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventPriority(v)
+		return nil
+	case routingattempt.FieldOccurredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOccurredAt(v)
+		return nil
+	case routingattempt.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingAttempt field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RoutingAttemptMutation) AddedFields() []string {
+	var fields []string
+	if m.addapi_key_id != nil {
+		fields = append(fields, routingattempt.FieldAPIKeyID)
+	}
+	if m.addroute_version != nil {
+		fields = append(fields, routingattempt.FieldRouteVersion)
+	}
+	if m.addinitial_group_id != nil {
+		fields = append(fields, routingattempt.FieldInitialGroupID)
+	}
+	if m.addattempted_group_id != nil {
+		fields = append(fields, routingattempt.FieldAttemptedGroupID)
+	}
+	if m.addeffective_group_id != nil {
+		fields = append(fields, routingattempt.FieldEffectiveGroupID)
+	}
+	if m.addselected_group_id != nil {
+		fields = append(fields, routingattempt.FieldSelectedGroupID)
+	}
+	if m.addsmart_balance_bps != nil {
+		fields = append(fields, routingattempt.FieldSmartBalanceBps)
+	}
+	if m.addrouting_min_success_rate != nil {
+		fields = append(fields, routingattempt.FieldRoutingMinSuccessRate)
+	}
+	if m.addrouting_state_version != nil {
+		fields = append(fields, routingattempt.FieldRoutingStateVersion)
+	}
+	if m.addattempt_index != nil {
+		fields = append(fields, routingattempt.FieldAttemptIndex)
+	}
+	if m.addexperiment_bucket != nil {
+		fields = append(fields, routingattempt.FieldExperimentBucket)
+	}
+	if m.addsample_probability != nil {
+		fields = append(fields, routingattempt.FieldSampleProbability)
+	}
+	if m.addaction_propensity != nil {
+		fields = append(fields, routingattempt.FieldActionPropensity)
+	}
+	if m.addqueue_ms != nil {
+		fields = append(fields, routingattempt.FieldQueueMs)
+	}
+	if m.addttft_ms != nil {
+		fields = append(fields, routingattempt.FieldTtftMs)
+	}
+	if m.addduration_ms != nil {
+		fields = append(fields, routingattempt.FieldDurationMs)
+	}
+	if m.addactual_cost != nil {
+		fields = append(fields, routingattempt.FieldActualCost)
+	}
+	if m.addbilled_cost != nil {
+		fields = append(fields, routingattempt.FieldBilledCost)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RoutingAttemptMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case routingattempt.FieldAPIKeyID:
+		return m.AddedAPIKeyID()
+	case routingattempt.FieldRouteVersion:
+		return m.AddedRouteVersion()
+	case routingattempt.FieldInitialGroupID:
+		return m.AddedInitialGroupID()
+	case routingattempt.FieldAttemptedGroupID:
+		return m.AddedAttemptedGroupID()
+	case routingattempt.FieldEffectiveGroupID:
+		return m.AddedEffectiveGroupID()
+	case routingattempt.FieldSelectedGroupID:
+		return m.AddedSelectedGroupID()
+	case routingattempt.FieldSmartBalanceBps:
+		return m.AddedSmartBalanceBps()
+	case routingattempt.FieldRoutingMinSuccessRate:
+		return m.AddedRoutingMinSuccessRate()
+	case routingattempt.FieldRoutingStateVersion:
+		return m.AddedRoutingStateVersion()
+	case routingattempt.FieldAttemptIndex:
+		return m.AddedAttemptIndex()
+	case routingattempt.FieldExperimentBucket:
+		return m.AddedExperimentBucket()
+	case routingattempt.FieldSampleProbability:
+		return m.AddedSampleProbability()
+	case routingattempt.FieldActionPropensity:
+		return m.AddedActionPropensity()
+	case routingattempt.FieldQueueMs:
+		return m.AddedQueueMs()
+	case routingattempt.FieldTtftMs:
+		return m.AddedTtftMs()
+	case routingattempt.FieldDurationMs:
+		return m.AddedDurationMs()
+	case routingattempt.FieldActualCost:
+		return m.AddedActualCost()
+	case routingattempt.FieldBilledCost:
+		return m.AddedBilledCost()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RoutingAttemptMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case routingattempt.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAPIKeyID(v)
+		return nil
+	case routingattempt.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRouteVersion(v)
+		return nil
+	case routingattempt.FieldInitialGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInitialGroupID(v)
+		return nil
+	case routingattempt.FieldAttemptedGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttemptedGroupID(v)
+		return nil
+	case routingattempt.FieldEffectiveGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddEffectiveGroupID(v)
+		return nil
+	case routingattempt.FieldSelectedGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSelectedGroupID(v)
+		return nil
+	case routingattempt.FieldSmartBalanceBps:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSmartBalanceBps(v)
+		return nil
+	case routingattempt.FieldRoutingMinSuccessRate:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoutingMinSuccessRate(v)
+		return nil
+	case routingattempt.FieldRoutingStateVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRoutingStateVersion(v)
+		return nil
+	case routingattempt.FieldAttemptIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAttemptIndex(v)
+		return nil
+	case routingattempt.FieldExperimentBucket:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddExperimentBucket(v)
+		return nil
+	case routingattempt.FieldSampleProbability:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSampleProbability(v)
+		return nil
+	case routingattempt.FieldActionPropensity:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActionPropensity(v)
+		return nil
+	case routingattempt.FieldQueueMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddQueueMs(v)
+		return nil
+	case routingattempt.FieldTtftMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTtftMs(v)
+		return nil
+	case routingattempt.FieldDurationMs:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDurationMs(v)
+		return nil
+	case routingattempt.FieldActualCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualCost(v)
+		return nil
+	case routingattempt.FieldBilledCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBilledCost(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingAttempt numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RoutingAttemptMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(routingattempt.FieldRequestID) {
+		fields = append(fields, routingattempt.FieldRequestID)
+	}
+	if m.FieldCleared(routingattempt.FieldAPIKeyID) {
+		fields = append(fields, routingattempt.FieldAPIKeyID)
+	}
+	if m.FieldCleared(routingattempt.FieldInitialGroupID) {
+		fields = append(fields, routingattempt.FieldInitialGroupID)
+	}
+	if m.FieldCleared(routingattempt.FieldAttemptedGroupID) {
+		fields = append(fields, routingattempt.FieldAttemptedGroupID)
+	}
+	if m.FieldCleared(routingattempt.FieldEffectiveGroupID) {
+		fields = append(fields, routingattempt.FieldEffectiveGroupID)
+	}
+	if m.FieldCleared(routingattempt.FieldSelectedGroupID) {
+		fields = append(fields, routingattempt.FieldSelectedGroupID)
+	}
+	if m.FieldCleared(routingattempt.FieldSmartPreference) {
+		fields = append(fields, routingattempt.FieldSmartPreference)
+	}
+	if m.FieldCleared(routingattempt.FieldSmartBalanceBps) {
+		fields = append(fields, routingattempt.FieldSmartBalanceBps)
+	}
+	if m.FieldCleared(routingattempt.FieldRoutingStateVersion) {
+		fields = append(fields, routingattempt.FieldRoutingStateVersion)
+	}
+	if m.FieldCleared(routingattempt.FieldModelVersion) {
+		fields = append(fields, routingattempt.FieldModelVersion)
+	}
+	if m.FieldCleared(routingattempt.FieldExperimentID) {
+		fields = append(fields, routingattempt.FieldExperimentID)
+	}
+	if m.FieldCleared(routingattempt.FieldExperimentBucket) {
+		fields = append(fields, routingattempt.FieldExperimentBucket)
+	}
+	if m.FieldCleared(routingattempt.FieldActionPropensity) {
+		fields = append(fields, routingattempt.FieldActionPropensity)
+	}
+	if m.FieldCleared(routingattempt.FieldCandidates) {
+		fields = append(fields, routingattempt.FieldCandidates)
+	}
+	if m.FieldCleared(routingattempt.FieldSelectedReason) {
+		fields = append(fields, routingattempt.FieldSelectedReason)
+	}
+	if m.FieldCleared(routingattempt.FieldOutcomeCategory) {
+		fields = append(fields, routingattempt.FieldOutcomeCategory)
+	}
+	if m.FieldCleared(routingattempt.FieldBreakerTransition) {
+		fields = append(fields, routingattempt.FieldBreakerTransition)
+	}
+	if m.FieldCleared(routingattempt.FieldQueueMs) {
+		fields = append(fields, routingattempt.FieldQueueMs)
+	}
+	if m.FieldCleared(routingattempt.FieldTtftMs) {
+		fields = append(fields, routingattempt.FieldTtftMs)
+	}
+	if m.FieldCleared(routingattempt.FieldDurationMs) {
+		fields = append(fields, routingattempt.FieldDurationMs)
+	}
+	if m.FieldCleared(routingattempt.FieldActualUsage) {
+		fields = append(fields, routingattempt.FieldActualUsage)
+	}
+	if m.FieldCleared(routingattempt.FieldBillableUsage) {
+		fields = append(fields, routingattempt.FieldBillableUsage)
+	}
+	if m.FieldCleared(routingattempt.FieldActualCost) {
+		fields = append(fields, routingattempt.FieldActualCost)
+	}
+	if m.FieldCleared(routingattempt.FieldBilledCost) {
+		fields = append(fields, routingattempt.FieldBilledCost)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RoutingAttemptMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RoutingAttemptMutation) ClearField(name string) error {
+	switch name {
+	case routingattempt.FieldRequestID:
+		m.ClearRequestID()
+		return nil
+	case routingattempt.FieldAPIKeyID:
+		m.ClearAPIKeyID()
+		return nil
+	case routingattempt.FieldInitialGroupID:
+		m.ClearInitialGroupID()
+		return nil
+	case routingattempt.FieldAttemptedGroupID:
+		m.ClearAttemptedGroupID()
+		return nil
+	case routingattempt.FieldEffectiveGroupID:
+		m.ClearEffectiveGroupID()
+		return nil
+	case routingattempt.FieldSelectedGroupID:
+		m.ClearSelectedGroupID()
+		return nil
+	case routingattempt.FieldSmartPreference:
+		m.ClearSmartPreference()
+		return nil
+	case routingattempt.FieldSmartBalanceBps:
+		m.ClearSmartBalanceBps()
+		return nil
+	case routingattempt.FieldRoutingStateVersion:
+		m.ClearRoutingStateVersion()
+		return nil
+	case routingattempt.FieldModelVersion:
+		m.ClearModelVersion()
+		return nil
+	case routingattempt.FieldExperimentID:
+		m.ClearExperimentID()
+		return nil
+	case routingattempt.FieldExperimentBucket:
+		m.ClearExperimentBucket()
+		return nil
+	case routingattempt.FieldActionPropensity:
+		m.ClearActionPropensity()
+		return nil
+	case routingattempt.FieldCandidates:
+		m.ClearCandidates()
+		return nil
+	case routingattempt.FieldSelectedReason:
+		m.ClearSelectedReason()
+		return nil
+	case routingattempt.FieldOutcomeCategory:
+		m.ClearOutcomeCategory()
+		return nil
+	case routingattempt.FieldBreakerTransition:
+		m.ClearBreakerTransition()
+		return nil
+	case routingattempt.FieldQueueMs:
+		m.ClearQueueMs()
+		return nil
+	case routingattempt.FieldTtftMs:
+		m.ClearTtftMs()
+		return nil
+	case routingattempt.FieldDurationMs:
+		m.ClearDurationMs()
+		return nil
+	case routingattempt.FieldActualUsage:
+		m.ClearActualUsage()
+		return nil
+	case routingattempt.FieldBillableUsage:
+		m.ClearBillableUsage()
+		return nil
+	case routingattempt.FieldActualCost:
+		m.ClearActualCost()
+		return nil
+	case routingattempt.FieldBilledCost:
+		m.ClearBilledCost()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingAttempt nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RoutingAttemptMutation) ResetField(name string) error {
+	switch name {
+	case routingattempt.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case routingattempt.FieldRoutingDecisionID:
+		m.ResetRoutingDecisionID()
+		return nil
+	case routingattempt.FieldRequestID:
+		m.ResetRequestID()
+		return nil
+	case routingattempt.FieldAPIKeyID:
+		m.ResetAPIKeyID()
+		return nil
+	case routingattempt.FieldRouteVersion:
+		m.ResetRouteVersion()
+		return nil
+	case routingattempt.FieldInitialGroupID:
+		m.ResetInitialGroupID()
+		return nil
+	case routingattempt.FieldAttemptedGroupID:
+		m.ResetAttemptedGroupID()
+		return nil
+	case routingattempt.FieldEffectiveGroupID:
+		m.ResetEffectiveGroupID()
+		return nil
+	case routingattempt.FieldSelectedGroupID:
+		m.ResetSelectedGroupID()
+		return nil
+	case routingattempt.FieldScheduleMode:
+		m.ResetScheduleMode()
+		return nil
+	case routingattempt.FieldSmartPreference:
+		m.ResetSmartPreference()
+		return nil
+	case routingattempt.FieldSmartBalanceBps:
+		m.ResetSmartBalanceBps()
+		return nil
+	case routingattempt.FieldRoutingMinSuccessRate:
+		m.ResetRoutingMinSuccessRate()
+		return nil
+	case routingattempt.FieldRoutingStateVersion:
+		m.ResetRoutingStateVersion()
+		return nil
+	case routingattempt.FieldAttemptIndex:
+		m.ResetAttemptIndex()
+		return nil
+	case routingattempt.FieldPlatform:
+		m.ResetPlatform()
+		return nil
+	case routingattempt.FieldModelFamily:
+		m.ResetModelFamily()
+		return nil
+	case routingattempt.FieldEndpointKind:
+		m.ResetEndpointKind()
+		return nil
+	case routingattempt.FieldStrategyVersion:
+		m.ResetStrategyVersion()
+		return nil
+	case routingattempt.FieldScoreVersion:
+		m.ResetScoreVersion()
+		return nil
+	case routingattempt.FieldFeatureSchemaVersion:
+		m.ResetFeatureSchemaVersion()
+		return nil
+	case routingattempt.FieldModelVersion:
+		m.ResetModelVersion()
+		return nil
+	case routingattempt.FieldExperimentID:
+		m.ResetExperimentID()
+		return nil
+	case routingattempt.FieldExperimentBucket:
+		m.ResetExperimentBucket()
+		return nil
+	case routingattempt.FieldSampleProbability:
+		m.ResetSampleProbability()
+		return nil
+	case routingattempt.FieldActionPropensity:
+		m.ResetActionPropensity()
+		return nil
+	case routingattempt.FieldAssignmentReason:
+		m.ResetAssignmentReason()
+		return nil
+	case routingattempt.FieldCandidates:
+		m.ResetCandidates()
+		return nil
+	case routingattempt.FieldSelectedReason:
+		m.ResetSelectedReason()
+		return nil
+	case routingattempt.FieldOutcomeVisibility:
+		m.ResetOutcomeVisibility()
+		return nil
+	case routingattempt.FieldOutcomeCategory:
+		m.ResetOutcomeCategory()
+		return nil
+	case routingattempt.FieldRetryable:
+		m.ResetRetryable()
+		return nil
+	case routingattempt.FieldSemanticOutput:
+		m.ResetSemanticOutput()
+		return nil
+	case routingattempt.FieldSwitchedGroup:
+		m.ResetSwitchedGroup()
+		return nil
+	case routingattempt.FieldStickyBroken:
+		m.ResetStickyBroken()
+		return nil
+	case routingattempt.FieldBreakerTransition:
+		m.ResetBreakerTransition()
+		return nil
+	case routingattempt.FieldQueueMs:
+		m.ResetQueueMs()
+		return nil
+	case routingattempt.FieldTtftMs:
+		m.ResetTtftMs()
+		return nil
+	case routingattempt.FieldDurationMs:
+		m.ResetDurationMs()
+		return nil
+	case routingattempt.FieldActualUsage:
+		m.ResetActualUsage()
+		return nil
+	case routingattempt.FieldBillableUsage:
+		m.ResetBillableUsage()
+		return nil
+	case routingattempt.FieldActualCost:
+		m.ResetActualCost()
+		return nil
+	case routingattempt.FieldBilledCost:
+		m.ResetBilledCost()
+		return nil
+	case routingattempt.FieldCacheColdDueToFailover:
+		m.ResetCacheColdDueToFailover()
+		return nil
+	case routingattempt.FieldEventPriority:
+		m.ResetEventPriority()
+		return nil
+	case routingattempt.FieldOccurredAt:
+		m.ResetOccurredAt()
+		return nil
+	case routingattempt.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingAttempt field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RoutingAttemptMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RoutingAttemptMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RoutingAttemptMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RoutingAttemptMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RoutingAttemptMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RoutingAttemptMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RoutingAttemptMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown RoutingAttempt unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RoutingAttemptMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown RoutingAttempt edge %s", name)
+}
+
+// RoutingExperimentMutation represents an operation that mutates the RoutingExperiment nodes in the graph.
+type RoutingExperimentMutation struct {
+	config
+	op                         Op
+	typ                        string
+	id                         *int64
+	experiment_key             *string
+	platform                   *string
+	model_family               *string
+	endpoint_kind              *string
+	preference                 *string
+	baseline_strategy_version  *string
+	candidate_strategy_version *string
+	status                     *string
+	allocation_bps             *int
+	addallocation_bps          *int
+	bucket_salt_checksum       *string
+	guardrails                 *jsontext.Value
+	appendguardrails           jsontext.Value
+	offline_replay             *jsontext.Value
+	appendoffline_replay       jsontext.Value
+	last_evaluation            *jsontext.Value
+	appendlast_evaluation      jsontext.Value
+	last_evaluated_at          *time.Time
+	started_at                 *time.Time
+	stopped_at                 *time.Time
+	stop_reason                *string
+	created_at                 *time.Time
+	updated_at                 *time.Time
+	clearedFields              map[string]struct{}
+	approver                   *int64
+	clearedapprover            bool
+	done                       bool
+	oldValue                   func(context.Context) (*RoutingExperiment, error)
+	predicates                 []predicate.RoutingExperiment
+}
+
+var _ ent.Mutation = (*RoutingExperimentMutation)(nil)
+
+// routingexperimentOption allows management of the mutation configuration using functional options.
+type routingexperimentOption func(*RoutingExperimentMutation)
+
+// newRoutingExperimentMutation creates new mutation for the RoutingExperiment entity.
+func newRoutingExperimentMutation(c config, op Op, opts ...routingexperimentOption) *RoutingExperimentMutation {
+	m := &RoutingExperimentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeRoutingExperiment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withRoutingExperimentID sets the ID field of the mutation.
+func withRoutingExperimentID(id int64) routingexperimentOption {
+	return func(m *RoutingExperimentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *RoutingExperiment
+		)
+		m.oldValue = func(ctx context.Context) (*RoutingExperiment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().RoutingExperiment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withRoutingExperiment sets the old RoutingExperiment of the mutation.
+func withRoutingExperiment(node *RoutingExperiment) routingexperimentOption {
+	return func(m *RoutingExperimentMutation) {
+		m.oldValue = func(context.Context) (*RoutingExperiment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m RoutingExperimentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m RoutingExperimentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *RoutingExperimentMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *RoutingExperimentMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().RoutingExperiment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetExperimentKey sets the "experiment_key" field.
+func (m *RoutingExperimentMutation) SetExperimentKey(s string) {
+	m.experiment_key = &s
+}
+
+// ExperimentKey returns the value of the "experiment_key" field in the mutation.
+func (m *RoutingExperimentMutation) ExperimentKey() (r string, exists bool) {
+	v := m.experiment_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExperimentKey returns the old "experiment_key" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldExperimentKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExperimentKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExperimentKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExperimentKey: %w", err)
+	}
+	return oldValue.ExperimentKey, nil
+}
+
+// ResetExperimentKey resets all changes to the "experiment_key" field.
+func (m *RoutingExperimentMutation) ResetExperimentKey() {
+	m.experiment_key = nil
+}
+
+// SetPlatform sets the "platform" field.
+func (m *RoutingExperimentMutation) SetPlatform(s string) {
+	m.platform = &s
+}
+
+// Platform returns the value of the "platform" field in the mutation.
+func (m *RoutingExperimentMutation) Platform() (r string, exists bool) {
+	v := m.platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlatform returns the old "platform" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldPlatform(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlatform: %w", err)
+	}
+	return oldValue.Platform, nil
+}
+
+// ResetPlatform resets all changes to the "platform" field.
+func (m *RoutingExperimentMutation) ResetPlatform() {
+	m.platform = nil
+}
+
+// SetModelFamily sets the "model_family" field.
+func (m *RoutingExperimentMutation) SetModelFamily(s string) {
+	m.model_family = &s
+}
+
+// ModelFamily returns the value of the "model_family" field in the mutation.
+func (m *RoutingExperimentMutation) ModelFamily() (r string, exists bool) {
+	v := m.model_family
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelFamily returns the old "model_family" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldModelFamily(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelFamily is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelFamily requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelFamily: %w", err)
+	}
+	return oldValue.ModelFamily, nil
+}
+
+// ResetModelFamily resets all changes to the "model_family" field.
+func (m *RoutingExperimentMutation) ResetModelFamily() {
+	m.model_family = nil
+}
+
+// SetEndpointKind sets the "endpoint_kind" field.
+func (m *RoutingExperimentMutation) SetEndpointKind(s string) {
+	m.endpoint_kind = &s
+}
+
+// EndpointKind returns the value of the "endpoint_kind" field in the mutation.
+func (m *RoutingExperimentMutation) EndpointKind() (r string, exists bool) {
+	v := m.endpoint_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndpointKind returns the old "endpoint_kind" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldEndpointKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndpointKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndpointKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndpointKind: %w", err)
+	}
+	return oldValue.EndpointKind, nil
+}
+
+// ResetEndpointKind resets all changes to the "endpoint_kind" field.
+func (m *RoutingExperimentMutation) ResetEndpointKind() {
+	m.endpoint_kind = nil
+}
+
+// SetPreference sets the "preference" field.
+func (m *RoutingExperimentMutation) SetPreference(s string) {
+	m.preference = &s
+}
+
+// Preference returns the value of the "preference" field in the mutation.
+func (m *RoutingExperimentMutation) Preference() (r string, exists bool) {
+	v := m.preference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPreference returns the old "preference" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldPreference(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPreference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPreference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPreference: %w", err)
+	}
+	return oldValue.Preference, nil
+}
+
+// ResetPreference resets all changes to the "preference" field.
+func (m *RoutingExperimentMutation) ResetPreference() {
+	m.preference = nil
+}
+
+// SetBaselineStrategyVersion sets the "baseline_strategy_version" field.
+func (m *RoutingExperimentMutation) SetBaselineStrategyVersion(s string) {
+	m.baseline_strategy_version = &s
+}
+
+// BaselineStrategyVersion returns the value of the "baseline_strategy_version" field in the mutation.
+func (m *RoutingExperimentMutation) BaselineStrategyVersion() (r string, exists bool) {
+	v := m.baseline_strategy_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBaselineStrategyVersion returns the old "baseline_strategy_version" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldBaselineStrategyVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBaselineStrategyVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBaselineStrategyVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBaselineStrategyVersion: %w", err)
+	}
+	return oldValue.BaselineStrategyVersion, nil
+}
+
+// ResetBaselineStrategyVersion resets all changes to the "baseline_strategy_version" field.
+func (m *RoutingExperimentMutation) ResetBaselineStrategyVersion() {
+	m.baseline_strategy_version = nil
+}
+
+// SetCandidateStrategyVersion sets the "candidate_strategy_version" field.
+func (m *RoutingExperimentMutation) SetCandidateStrategyVersion(s string) {
+	m.candidate_strategy_version = &s
+}
+
+// CandidateStrategyVersion returns the value of the "candidate_strategy_version" field in the mutation.
+func (m *RoutingExperimentMutation) CandidateStrategyVersion() (r string, exists bool) {
+	v := m.candidate_strategy_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCandidateStrategyVersion returns the old "candidate_strategy_version" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldCandidateStrategyVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCandidateStrategyVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCandidateStrategyVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCandidateStrategyVersion: %w", err)
+	}
+	return oldValue.CandidateStrategyVersion, nil
+}
+
+// ResetCandidateStrategyVersion resets all changes to the "candidate_strategy_version" field.
+func (m *RoutingExperimentMutation) ResetCandidateStrategyVersion() {
+	m.candidate_strategy_version = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *RoutingExperimentMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *RoutingExperimentMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *RoutingExperimentMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetAllocationBps sets the "allocation_bps" field.
+func (m *RoutingExperimentMutation) SetAllocationBps(i int) {
+	m.allocation_bps = &i
+	m.addallocation_bps = nil
+}
+
+// AllocationBps returns the value of the "allocation_bps" field in the mutation.
+func (m *RoutingExperimentMutation) AllocationBps() (r int, exists bool) {
+	v := m.allocation_bps
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAllocationBps returns the old "allocation_bps" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldAllocationBps(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAllocationBps is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAllocationBps requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAllocationBps: %w", err)
+	}
+	return oldValue.AllocationBps, nil
+}
+
+// AddAllocationBps adds i to the "allocation_bps" field.
+func (m *RoutingExperimentMutation) AddAllocationBps(i int) {
+	if m.addallocation_bps != nil {
+		*m.addallocation_bps += i
+	} else {
+		m.addallocation_bps = &i
+	}
+}
+
+// AddedAllocationBps returns the value that was added to the "allocation_bps" field in this mutation.
+func (m *RoutingExperimentMutation) AddedAllocationBps() (r int, exists bool) {
+	v := m.addallocation_bps
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAllocationBps resets all changes to the "allocation_bps" field.
+func (m *RoutingExperimentMutation) ResetAllocationBps() {
+	m.allocation_bps = nil
+	m.addallocation_bps = nil
+}
+
+// SetBucketSaltChecksum sets the "bucket_salt_checksum" field.
+func (m *RoutingExperimentMutation) SetBucketSaltChecksum(s string) {
+	m.bucket_salt_checksum = &s
+}
+
+// BucketSaltChecksum returns the value of the "bucket_salt_checksum" field in the mutation.
+func (m *RoutingExperimentMutation) BucketSaltChecksum() (r string, exists bool) {
+	v := m.bucket_salt_checksum
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBucketSaltChecksum returns the old "bucket_salt_checksum" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldBucketSaltChecksum(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBucketSaltChecksum is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBucketSaltChecksum requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBucketSaltChecksum: %w", err)
+	}
+	return oldValue.BucketSaltChecksum, nil
+}
+
+// ResetBucketSaltChecksum resets all changes to the "bucket_salt_checksum" field.
+func (m *RoutingExperimentMutation) ResetBucketSaltChecksum() {
+	m.bucket_salt_checksum = nil
+}
+
+// SetGuardrails sets the "guardrails" field.
+func (m *RoutingExperimentMutation) SetGuardrails(j jsontext.Value) {
+	m.guardrails = &j
+	m.appendguardrails = nil
+}
+
+// Guardrails returns the value of the "guardrails" field in the mutation.
+func (m *RoutingExperimentMutation) Guardrails() (r jsontext.Value, exists bool) {
+	v := m.guardrails
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGuardrails returns the old "guardrails" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldGuardrails(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGuardrails is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGuardrails requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGuardrails: %w", err)
+	}
+	return oldValue.Guardrails, nil
+}
+
+// AppendGuardrails adds j to the "guardrails" field.
+func (m *RoutingExperimentMutation) AppendGuardrails(j jsontext.Value) {
+	m.appendguardrails = append(m.appendguardrails, j...)
+}
+
+// AppendedGuardrails returns the list of values that were appended to the "guardrails" field in this mutation.
+func (m *RoutingExperimentMutation) AppendedGuardrails() (jsontext.Value, bool) {
+	if len(m.appendguardrails) == 0 {
+		return nil, false
+	}
+	return m.appendguardrails, true
+}
+
+// ClearGuardrails clears the value of the "guardrails" field.
+func (m *RoutingExperimentMutation) ClearGuardrails() {
+	m.guardrails = nil
+	m.appendguardrails = nil
+	m.clearedFields[routingexperiment.FieldGuardrails] = struct{}{}
+}
+
+// GuardrailsCleared returns if the "guardrails" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) GuardrailsCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldGuardrails]
+	return ok
+}
+
+// ResetGuardrails resets all changes to the "guardrails" field.
+func (m *RoutingExperimentMutation) ResetGuardrails() {
+	m.guardrails = nil
+	m.appendguardrails = nil
+	delete(m.clearedFields, routingexperiment.FieldGuardrails)
+}
+
+// SetOfflineReplay sets the "offline_replay" field.
+func (m *RoutingExperimentMutation) SetOfflineReplay(j jsontext.Value) {
+	m.offline_replay = &j
+	m.appendoffline_replay = nil
+}
+
+// OfflineReplay returns the value of the "offline_replay" field in the mutation.
+func (m *RoutingExperimentMutation) OfflineReplay() (r jsontext.Value, exists bool) {
+	v := m.offline_replay
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOfflineReplay returns the old "offline_replay" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldOfflineReplay(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOfflineReplay is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOfflineReplay requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOfflineReplay: %w", err)
+	}
+	return oldValue.OfflineReplay, nil
+}
+
+// AppendOfflineReplay adds j to the "offline_replay" field.
+func (m *RoutingExperimentMutation) AppendOfflineReplay(j jsontext.Value) {
+	m.appendoffline_replay = append(m.appendoffline_replay, j...)
+}
+
+// AppendedOfflineReplay returns the list of values that were appended to the "offline_replay" field in this mutation.
+func (m *RoutingExperimentMutation) AppendedOfflineReplay() (jsontext.Value, bool) {
+	if len(m.appendoffline_replay) == 0 {
+		return nil, false
+	}
+	return m.appendoffline_replay, true
+}
+
+// ClearOfflineReplay clears the value of the "offline_replay" field.
+func (m *RoutingExperimentMutation) ClearOfflineReplay() {
+	m.offline_replay = nil
+	m.appendoffline_replay = nil
+	m.clearedFields[routingexperiment.FieldOfflineReplay] = struct{}{}
+}
+
+// OfflineReplayCleared returns if the "offline_replay" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) OfflineReplayCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldOfflineReplay]
+	return ok
+}
+
+// ResetOfflineReplay resets all changes to the "offline_replay" field.
+func (m *RoutingExperimentMutation) ResetOfflineReplay() {
+	m.offline_replay = nil
+	m.appendoffline_replay = nil
+	delete(m.clearedFields, routingexperiment.FieldOfflineReplay)
+}
+
+// SetLastEvaluation sets the "last_evaluation" field.
+func (m *RoutingExperimentMutation) SetLastEvaluation(j jsontext.Value) {
+	m.last_evaluation = &j
+	m.appendlast_evaluation = nil
+}
+
+// LastEvaluation returns the value of the "last_evaluation" field in the mutation.
+func (m *RoutingExperimentMutation) LastEvaluation() (r jsontext.Value, exists bool) {
+	v := m.last_evaluation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastEvaluation returns the old "last_evaluation" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldLastEvaluation(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastEvaluation is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastEvaluation requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastEvaluation: %w", err)
+	}
+	return oldValue.LastEvaluation, nil
+}
+
+// AppendLastEvaluation adds j to the "last_evaluation" field.
+func (m *RoutingExperimentMutation) AppendLastEvaluation(j jsontext.Value) {
+	m.appendlast_evaluation = append(m.appendlast_evaluation, j...)
+}
+
+// AppendedLastEvaluation returns the list of values that were appended to the "last_evaluation" field in this mutation.
+func (m *RoutingExperimentMutation) AppendedLastEvaluation() (jsontext.Value, bool) {
+	if len(m.appendlast_evaluation) == 0 {
+		return nil, false
+	}
+	return m.appendlast_evaluation, true
+}
+
+// ClearLastEvaluation clears the value of the "last_evaluation" field.
+func (m *RoutingExperimentMutation) ClearLastEvaluation() {
+	m.last_evaluation = nil
+	m.appendlast_evaluation = nil
+	m.clearedFields[routingexperiment.FieldLastEvaluation] = struct{}{}
+}
+
+// LastEvaluationCleared returns if the "last_evaluation" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) LastEvaluationCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldLastEvaluation]
+	return ok
+}
+
+// ResetLastEvaluation resets all changes to the "last_evaluation" field.
+func (m *RoutingExperimentMutation) ResetLastEvaluation() {
+	m.last_evaluation = nil
+	m.appendlast_evaluation = nil
+	delete(m.clearedFields, routingexperiment.FieldLastEvaluation)
+}
+
+// SetLastEvaluatedAt sets the "last_evaluated_at" field.
+func (m *RoutingExperimentMutation) SetLastEvaluatedAt(t time.Time) {
+	m.last_evaluated_at = &t
+}
+
+// LastEvaluatedAt returns the value of the "last_evaluated_at" field in the mutation.
+func (m *RoutingExperimentMutation) LastEvaluatedAt() (r time.Time, exists bool) {
+	v := m.last_evaluated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastEvaluatedAt returns the old "last_evaluated_at" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldLastEvaluatedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastEvaluatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastEvaluatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastEvaluatedAt: %w", err)
+	}
+	return oldValue.LastEvaluatedAt, nil
+}
+
+// ClearLastEvaluatedAt clears the value of the "last_evaluated_at" field.
+func (m *RoutingExperimentMutation) ClearLastEvaluatedAt() {
+	m.last_evaluated_at = nil
+	m.clearedFields[routingexperiment.FieldLastEvaluatedAt] = struct{}{}
+}
+
+// LastEvaluatedAtCleared returns if the "last_evaluated_at" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) LastEvaluatedAtCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldLastEvaluatedAt]
+	return ok
+}
+
+// ResetLastEvaluatedAt resets all changes to the "last_evaluated_at" field.
+func (m *RoutingExperimentMutation) ResetLastEvaluatedAt() {
+	m.last_evaluated_at = nil
+	delete(m.clearedFields, routingexperiment.FieldLastEvaluatedAt)
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *RoutingExperimentMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *RoutingExperimentMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ClearStartedAt clears the value of the "started_at" field.
+func (m *RoutingExperimentMutation) ClearStartedAt() {
+	m.started_at = nil
+	m.clearedFields[routingexperiment.FieldStartedAt] = struct{}{}
+}
+
+// StartedAtCleared returns if the "started_at" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) StartedAtCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldStartedAt]
+	return ok
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *RoutingExperimentMutation) ResetStartedAt() {
+	m.started_at = nil
+	delete(m.clearedFields, routingexperiment.FieldStartedAt)
+}
+
+// SetStoppedAt sets the "stopped_at" field.
+func (m *RoutingExperimentMutation) SetStoppedAt(t time.Time) {
+	m.stopped_at = &t
+}
+
+// StoppedAt returns the value of the "stopped_at" field in the mutation.
+func (m *RoutingExperimentMutation) StoppedAt() (r time.Time, exists bool) {
+	v := m.stopped_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStoppedAt returns the old "stopped_at" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldStoppedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStoppedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStoppedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStoppedAt: %w", err)
+	}
+	return oldValue.StoppedAt, nil
+}
+
+// ClearStoppedAt clears the value of the "stopped_at" field.
+func (m *RoutingExperimentMutation) ClearStoppedAt() {
+	m.stopped_at = nil
+	m.clearedFields[routingexperiment.FieldStoppedAt] = struct{}{}
+}
+
+// StoppedAtCleared returns if the "stopped_at" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) StoppedAtCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldStoppedAt]
+	return ok
+}
+
+// ResetStoppedAt resets all changes to the "stopped_at" field.
+func (m *RoutingExperimentMutation) ResetStoppedAt() {
+	m.stopped_at = nil
+	delete(m.clearedFields, routingexperiment.FieldStoppedAt)
+}
+
+// SetStopReason sets the "stop_reason" field.
+func (m *RoutingExperimentMutation) SetStopReason(s string) {
+	m.stop_reason = &s
+}
+
+// StopReason returns the value of the "stop_reason" field in the mutation.
+func (m *RoutingExperimentMutation) StopReason() (r string, exists bool) {
+	v := m.stop_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStopReason returns the old "stop_reason" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldStopReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStopReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStopReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStopReason: %w", err)
+	}
+	return oldValue.StopReason, nil
+}
+
+// ClearStopReason clears the value of the "stop_reason" field.
+func (m *RoutingExperimentMutation) ClearStopReason() {
+	m.stop_reason = nil
+	m.clearedFields[routingexperiment.FieldStopReason] = struct{}{}
+}
+
+// StopReasonCleared returns if the "stop_reason" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) StopReasonCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldStopReason]
+	return ok
+}
+
+// ResetStopReason resets all changes to the "stop_reason" field.
+func (m *RoutingExperimentMutation) ResetStopReason() {
+	m.stop_reason = nil
+	delete(m.clearedFields, routingexperiment.FieldStopReason)
+}
+
+// SetApprovedBy sets the "approved_by" field.
+func (m *RoutingExperimentMutation) SetApprovedBy(i int64) {
+	m.approver = &i
+}
+
+// ApprovedBy returns the value of the "approved_by" field in the mutation.
+func (m *RoutingExperimentMutation) ApprovedBy() (r int64, exists bool) {
+	v := m.approver
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldApprovedBy returns the old "approved_by" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldApprovedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldApprovedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldApprovedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldApprovedBy: %w", err)
+	}
+	return oldValue.ApprovedBy, nil
+}
+
+// ClearApprovedBy clears the value of the "approved_by" field.
+func (m *RoutingExperimentMutation) ClearApprovedBy() {
+	m.approver = nil
+	m.clearedFields[routingexperiment.FieldApprovedBy] = struct{}{}
+}
+
+// ApprovedByCleared returns if the "approved_by" field was cleared in this mutation.
+func (m *RoutingExperimentMutation) ApprovedByCleared() bool {
+	_, ok := m.clearedFields[routingexperiment.FieldApprovedBy]
+	return ok
+}
+
+// ResetApprovedBy resets all changes to the "approved_by" field.
+func (m *RoutingExperimentMutation) ResetApprovedBy() {
+	m.approver = nil
+	delete(m.clearedFields, routingexperiment.FieldApprovedBy)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *RoutingExperimentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *RoutingExperimentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *RoutingExperimentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *RoutingExperimentMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *RoutingExperimentMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the RoutingExperiment entity.
+// If the RoutingExperiment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RoutingExperimentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *RoutingExperimentMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetApproverID sets the "approver" edge to the User entity by id.
+func (m *RoutingExperimentMutation) SetApproverID(id int64) {
+	m.approver = &id
+}
+
+// ClearApprover clears the "approver" edge to the User entity.
+func (m *RoutingExperimentMutation) ClearApprover() {
+	m.clearedapprover = true
+	m.clearedFields[routingexperiment.FieldApprovedBy] = struct{}{}
+}
+
+// ApproverCleared reports if the "approver" edge to the User entity was cleared.
+func (m *RoutingExperimentMutation) ApproverCleared() bool {
+	return m.ApprovedByCleared() || m.clearedapprover
+}
+
+// ApproverID returns the "approver" edge ID in the mutation.
+func (m *RoutingExperimentMutation) ApproverID() (id int64, exists bool) {
+	if m.approver != nil {
+		return *m.approver, true
+	}
+	return
+}
+
+// ApproverIDs returns the "approver" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ApproverID instead. It exists only for internal usage by the builders.
+func (m *RoutingExperimentMutation) ApproverIDs() (ids []int64) {
+	if id := m.approver; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetApprover resets all changes to the "approver" edge.
+func (m *RoutingExperimentMutation) ResetApprover() {
+	m.approver = nil
+	m.clearedapprover = false
+}
+
+// Where appends a list predicates to the RoutingExperimentMutation builder.
+func (m *RoutingExperimentMutation) Where(ps ...predicate.RoutingExperiment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the RoutingExperimentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *RoutingExperimentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.RoutingExperiment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *RoutingExperimentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *RoutingExperimentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (RoutingExperiment).
+func (m *RoutingExperimentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *RoutingExperimentMutation) Fields() []string {
+	fields := make([]string, 0, 20)
+	if m.experiment_key != nil {
+		fields = append(fields, routingexperiment.FieldExperimentKey)
+	}
+	if m.platform != nil {
+		fields = append(fields, routingexperiment.FieldPlatform)
+	}
+	if m.model_family != nil {
+		fields = append(fields, routingexperiment.FieldModelFamily)
+	}
+	if m.endpoint_kind != nil {
+		fields = append(fields, routingexperiment.FieldEndpointKind)
+	}
+	if m.preference != nil {
+		fields = append(fields, routingexperiment.FieldPreference)
+	}
+	if m.baseline_strategy_version != nil {
+		fields = append(fields, routingexperiment.FieldBaselineStrategyVersion)
+	}
+	if m.candidate_strategy_version != nil {
+		fields = append(fields, routingexperiment.FieldCandidateStrategyVersion)
+	}
+	if m.status != nil {
+		fields = append(fields, routingexperiment.FieldStatus)
+	}
+	if m.allocation_bps != nil {
+		fields = append(fields, routingexperiment.FieldAllocationBps)
+	}
+	if m.bucket_salt_checksum != nil {
+		fields = append(fields, routingexperiment.FieldBucketSaltChecksum)
+	}
+	if m.guardrails != nil {
+		fields = append(fields, routingexperiment.FieldGuardrails)
+	}
+	if m.offline_replay != nil {
+		fields = append(fields, routingexperiment.FieldOfflineReplay)
+	}
+	if m.last_evaluation != nil {
+		fields = append(fields, routingexperiment.FieldLastEvaluation)
+	}
+	if m.last_evaluated_at != nil {
+		fields = append(fields, routingexperiment.FieldLastEvaluatedAt)
+	}
+	if m.started_at != nil {
+		fields = append(fields, routingexperiment.FieldStartedAt)
+	}
+	if m.stopped_at != nil {
+		fields = append(fields, routingexperiment.FieldStoppedAt)
+	}
+	if m.stop_reason != nil {
+		fields = append(fields, routingexperiment.FieldStopReason)
+	}
+	if m.approver != nil {
+		fields = append(fields, routingexperiment.FieldApprovedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, routingexperiment.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, routingexperiment.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *RoutingExperimentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case routingexperiment.FieldExperimentKey:
+		return m.ExperimentKey()
+	case routingexperiment.FieldPlatform:
+		return m.Platform()
+	case routingexperiment.FieldModelFamily:
+		return m.ModelFamily()
+	case routingexperiment.FieldEndpointKind:
+		return m.EndpointKind()
+	case routingexperiment.FieldPreference:
+		return m.Preference()
+	case routingexperiment.FieldBaselineStrategyVersion:
+		return m.BaselineStrategyVersion()
+	case routingexperiment.FieldCandidateStrategyVersion:
+		return m.CandidateStrategyVersion()
+	case routingexperiment.FieldStatus:
+		return m.Status()
+	case routingexperiment.FieldAllocationBps:
+		return m.AllocationBps()
+	case routingexperiment.FieldBucketSaltChecksum:
+		return m.BucketSaltChecksum()
+	case routingexperiment.FieldGuardrails:
+		return m.Guardrails()
+	case routingexperiment.FieldOfflineReplay:
+		return m.OfflineReplay()
+	case routingexperiment.FieldLastEvaluation:
+		return m.LastEvaluation()
+	case routingexperiment.FieldLastEvaluatedAt:
+		return m.LastEvaluatedAt()
+	case routingexperiment.FieldStartedAt:
+		return m.StartedAt()
+	case routingexperiment.FieldStoppedAt:
+		return m.StoppedAt()
+	case routingexperiment.FieldStopReason:
+		return m.StopReason()
+	case routingexperiment.FieldApprovedBy:
+		return m.ApprovedBy()
+	case routingexperiment.FieldCreatedAt:
+		return m.CreatedAt()
+	case routingexperiment.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *RoutingExperimentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case routingexperiment.FieldExperimentKey:
+		return m.OldExperimentKey(ctx)
+	case routingexperiment.FieldPlatform:
+		return m.OldPlatform(ctx)
+	case routingexperiment.FieldModelFamily:
+		return m.OldModelFamily(ctx)
+	case routingexperiment.FieldEndpointKind:
+		return m.OldEndpointKind(ctx)
+	case routingexperiment.FieldPreference:
+		return m.OldPreference(ctx)
+	case routingexperiment.FieldBaselineStrategyVersion:
+		return m.OldBaselineStrategyVersion(ctx)
+	case routingexperiment.FieldCandidateStrategyVersion:
+		return m.OldCandidateStrategyVersion(ctx)
+	case routingexperiment.FieldStatus:
+		return m.OldStatus(ctx)
+	case routingexperiment.FieldAllocationBps:
+		return m.OldAllocationBps(ctx)
+	case routingexperiment.FieldBucketSaltChecksum:
+		return m.OldBucketSaltChecksum(ctx)
+	case routingexperiment.FieldGuardrails:
+		return m.OldGuardrails(ctx)
+	case routingexperiment.FieldOfflineReplay:
+		return m.OldOfflineReplay(ctx)
+	case routingexperiment.FieldLastEvaluation:
+		return m.OldLastEvaluation(ctx)
+	case routingexperiment.FieldLastEvaluatedAt:
+		return m.OldLastEvaluatedAt(ctx)
+	case routingexperiment.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case routingexperiment.FieldStoppedAt:
+		return m.OldStoppedAt(ctx)
+	case routingexperiment.FieldStopReason:
+		return m.OldStopReason(ctx)
+	case routingexperiment.FieldApprovedBy:
+		return m.OldApprovedBy(ctx)
+	case routingexperiment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case routingexperiment.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown RoutingExperiment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RoutingExperimentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case routingexperiment.FieldExperimentKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExperimentKey(v)
+		return nil
+	case routingexperiment.FieldPlatform:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlatform(v)
+		return nil
+	case routingexperiment.FieldModelFamily:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelFamily(v)
+		return nil
+	case routingexperiment.FieldEndpointKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndpointKind(v)
+		return nil
+	case routingexperiment.FieldPreference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPreference(v)
+		return nil
+	case routingexperiment.FieldBaselineStrategyVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBaselineStrategyVersion(v)
+		return nil
+	case routingexperiment.FieldCandidateStrategyVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCandidateStrategyVersion(v)
+		return nil
+	case routingexperiment.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case routingexperiment.FieldAllocationBps:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAllocationBps(v)
+		return nil
+	case routingexperiment.FieldBucketSaltChecksum:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBucketSaltChecksum(v)
+		return nil
+	case routingexperiment.FieldGuardrails:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGuardrails(v)
+		return nil
+	case routingexperiment.FieldOfflineReplay:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOfflineReplay(v)
+		return nil
+	case routingexperiment.FieldLastEvaluation:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastEvaluation(v)
+		return nil
+	case routingexperiment.FieldLastEvaluatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastEvaluatedAt(v)
+		return nil
+	case routingexperiment.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case routingexperiment.FieldStoppedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStoppedAt(v)
+		return nil
+	case routingexperiment.FieldStopReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStopReason(v)
+		return nil
+	case routingexperiment.FieldApprovedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetApprovedBy(v)
+		return nil
+	case routingexperiment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case routingexperiment.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingExperiment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *RoutingExperimentMutation) AddedFields() []string {
+	var fields []string
+	if m.addallocation_bps != nil {
+		fields = append(fields, routingexperiment.FieldAllocationBps)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *RoutingExperimentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case routingexperiment.FieldAllocationBps:
+		return m.AddedAllocationBps()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *RoutingExperimentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case routingexperiment.FieldAllocationBps:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAllocationBps(v)
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingExperiment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *RoutingExperimentMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(routingexperiment.FieldGuardrails) {
+		fields = append(fields, routingexperiment.FieldGuardrails)
+	}
+	if m.FieldCleared(routingexperiment.FieldOfflineReplay) {
+		fields = append(fields, routingexperiment.FieldOfflineReplay)
+	}
+	if m.FieldCleared(routingexperiment.FieldLastEvaluation) {
+		fields = append(fields, routingexperiment.FieldLastEvaluation)
+	}
+	if m.FieldCleared(routingexperiment.FieldLastEvaluatedAt) {
+		fields = append(fields, routingexperiment.FieldLastEvaluatedAt)
+	}
+	if m.FieldCleared(routingexperiment.FieldStartedAt) {
+		fields = append(fields, routingexperiment.FieldStartedAt)
+	}
+	if m.FieldCleared(routingexperiment.FieldStoppedAt) {
+		fields = append(fields, routingexperiment.FieldStoppedAt)
+	}
+	if m.FieldCleared(routingexperiment.FieldStopReason) {
+		fields = append(fields, routingexperiment.FieldStopReason)
+	}
+	if m.FieldCleared(routingexperiment.FieldApprovedBy) {
+		fields = append(fields, routingexperiment.FieldApprovedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *RoutingExperimentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *RoutingExperimentMutation) ClearField(name string) error {
+	switch name {
+	case routingexperiment.FieldGuardrails:
+		m.ClearGuardrails()
+		return nil
+	case routingexperiment.FieldOfflineReplay:
+		m.ClearOfflineReplay()
+		return nil
+	case routingexperiment.FieldLastEvaluation:
+		m.ClearLastEvaluation()
+		return nil
+	case routingexperiment.FieldLastEvaluatedAt:
+		m.ClearLastEvaluatedAt()
+		return nil
+	case routingexperiment.FieldStartedAt:
+		m.ClearStartedAt()
+		return nil
+	case routingexperiment.FieldStoppedAt:
+		m.ClearStoppedAt()
+		return nil
+	case routingexperiment.FieldStopReason:
+		m.ClearStopReason()
+		return nil
+	case routingexperiment.FieldApprovedBy:
+		m.ClearApprovedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingExperiment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *RoutingExperimentMutation) ResetField(name string) error {
+	switch name {
+	case routingexperiment.FieldExperimentKey:
+		m.ResetExperimentKey()
+		return nil
+	case routingexperiment.FieldPlatform:
+		m.ResetPlatform()
+		return nil
+	case routingexperiment.FieldModelFamily:
+		m.ResetModelFamily()
+		return nil
+	case routingexperiment.FieldEndpointKind:
+		m.ResetEndpointKind()
+		return nil
+	case routingexperiment.FieldPreference:
+		m.ResetPreference()
+		return nil
+	case routingexperiment.FieldBaselineStrategyVersion:
+		m.ResetBaselineStrategyVersion()
+		return nil
+	case routingexperiment.FieldCandidateStrategyVersion:
+		m.ResetCandidateStrategyVersion()
+		return nil
+	case routingexperiment.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case routingexperiment.FieldAllocationBps:
+		m.ResetAllocationBps()
+		return nil
+	case routingexperiment.FieldBucketSaltChecksum:
+		m.ResetBucketSaltChecksum()
+		return nil
+	case routingexperiment.FieldGuardrails:
+		m.ResetGuardrails()
+		return nil
+	case routingexperiment.FieldOfflineReplay:
+		m.ResetOfflineReplay()
+		return nil
+	case routingexperiment.FieldLastEvaluation:
+		m.ResetLastEvaluation()
+		return nil
+	case routingexperiment.FieldLastEvaluatedAt:
+		m.ResetLastEvaluatedAt()
+		return nil
+	case routingexperiment.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case routingexperiment.FieldStoppedAt:
+		m.ResetStoppedAt()
+		return nil
+	case routingexperiment.FieldStopReason:
+		m.ResetStopReason()
+		return nil
+	case routingexperiment.FieldApprovedBy:
+		m.ResetApprovedBy()
+		return nil
+	case routingexperiment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case routingexperiment.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingExperiment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *RoutingExperimentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.approver != nil {
+		edges = append(edges, routingexperiment.EdgeApprover)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *RoutingExperimentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case routingexperiment.EdgeApprover:
+		if id := m.approver; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *RoutingExperimentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *RoutingExperimentMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *RoutingExperimentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedapprover {
+		edges = append(edges, routingexperiment.EdgeApprover)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *RoutingExperimentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case routingexperiment.EdgeApprover:
+		return m.clearedapprover
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *RoutingExperimentMutation) ClearEdge(name string) error {
+	switch name {
+	case routingexperiment.EdgeApprover:
+		m.ClearApprover()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingExperiment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *RoutingExperimentMutation) ResetEdge(name string) error {
+	switch name {
+	case routingexperiment.EdgeApprover:
+		m.ResetApprover()
+		return nil
+	}
+	return fmt.Errorf("unknown RoutingExperiment edge %s", name)
+}
+
 // SecuritySecretMutation represents an operation that mutates the SecuritySecret nodes in the graph.
 type SecuritySecretMutation struct {
 	config
@@ -51506,6 +61349,23 @@ type UsageLogMutation struct {
 	model_mapping_chain          *string
 	billing_tier                 *string
 	billing_mode                 *string
+	initial_group_id             *int64
+	addinitial_group_id          *int64
+	route_version                *int64
+	addroute_version             *int64
+	schedule_mode                *string
+	smart_preference             *string
+	group_switch_count           *int
+	addgroup_switch_count        *int
+	routing_decision_id          *string
+	cache_cold_due_to_failover   *bool
+	actual_usage                 *jsontext.Value
+	appendactual_usage           jsontext.Value
+	billable_usage               *jsontext.Value
+	appendbillable_usage         jsontext.Value
+	cache_compensation_tokens    *int
+	addcache_compensation_tokens *int
+	cache_compensation_reason    *string
 	input_tokens                 *int
 	addinput_tokens              *int
 	output_tokens                *int
@@ -52493,6 +62353,620 @@ func (m *UsageLogMutation) SubscriptionIDCleared() bool {
 func (m *UsageLogMutation) ResetSubscriptionID() {
 	m.subscription = nil
 	delete(m.clearedFields, usagelog.FieldSubscriptionID)
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (m *UsageLogMutation) SetInitialGroupID(i int64) {
+	m.initial_group_id = &i
+	m.addinitial_group_id = nil
+}
+
+// InitialGroupID returns the value of the "initial_group_id" field in the mutation.
+func (m *UsageLogMutation) InitialGroupID() (r int64, exists bool) {
+	v := m.initial_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInitialGroupID returns the old "initial_group_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldInitialGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInitialGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInitialGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInitialGroupID: %w", err)
+	}
+	return oldValue.InitialGroupID, nil
+}
+
+// AddInitialGroupID adds i to the "initial_group_id" field.
+func (m *UsageLogMutation) AddInitialGroupID(i int64) {
+	if m.addinitial_group_id != nil {
+		*m.addinitial_group_id += i
+	} else {
+		m.addinitial_group_id = &i
+	}
+}
+
+// AddedInitialGroupID returns the value that was added to the "initial_group_id" field in this mutation.
+func (m *UsageLogMutation) AddedInitialGroupID() (r int64, exists bool) {
+	v := m.addinitial_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearInitialGroupID clears the value of the "initial_group_id" field.
+func (m *UsageLogMutation) ClearInitialGroupID() {
+	m.initial_group_id = nil
+	m.addinitial_group_id = nil
+	m.clearedFields[usagelog.FieldInitialGroupID] = struct{}{}
+}
+
+// InitialGroupIDCleared returns if the "initial_group_id" field was cleared in this mutation.
+func (m *UsageLogMutation) InitialGroupIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldInitialGroupID]
+	return ok
+}
+
+// ResetInitialGroupID resets all changes to the "initial_group_id" field.
+func (m *UsageLogMutation) ResetInitialGroupID() {
+	m.initial_group_id = nil
+	m.addinitial_group_id = nil
+	delete(m.clearedFields, usagelog.FieldInitialGroupID)
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (m *UsageLogMutation) SetRouteVersion(i int64) {
+	m.route_version = &i
+	m.addroute_version = nil
+}
+
+// RouteVersion returns the value of the "route_version" field in the mutation.
+func (m *UsageLogMutation) RouteVersion() (r int64, exists bool) {
+	v := m.route_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRouteVersion returns the old "route_version" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldRouteVersion(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRouteVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRouteVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRouteVersion: %w", err)
+	}
+	return oldValue.RouteVersion, nil
+}
+
+// AddRouteVersion adds i to the "route_version" field.
+func (m *UsageLogMutation) AddRouteVersion(i int64) {
+	if m.addroute_version != nil {
+		*m.addroute_version += i
+	} else {
+		m.addroute_version = &i
+	}
+}
+
+// AddedRouteVersion returns the value that was added to the "route_version" field in this mutation.
+func (m *UsageLogMutation) AddedRouteVersion() (r int64, exists bool) {
+	v := m.addroute_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearRouteVersion clears the value of the "route_version" field.
+func (m *UsageLogMutation) ClearRouteVersion() {
+	m.route_version = nil
+	m.addroute_version = nil
+	m.clearedFields[usagelog.FieldRouteVersion] = struct{}{}
+}
+
+// RouteVersionCleared returns if the "route_version" field was cleared in this mutation.
+func (m *UsageLogMutation) RouteVersionCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldRouteVersion]
+	return ok
+}
+
+// ResetRouteVersion resets all changes to the "route_version" field.
+func (m *UsageLogMutation) ResetRouteVersion() {
+	m.route_version = nil
+	m.addroute_version = nil
+	delete(m.clearedFields, usagelog.FieldRouteVersion)
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (m *UsageLogMutation) SetScheduleMode(s string) {
+	m.schedule_mode = &s
+}
+
+// ScheduleMode returns the value of the "schedule_mode" field in the mutation.
+func (m *UsageLogMutation) ScheduleMode() (r string, exists bool) {
+	v := m.schedule_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScheduleMode returns the old "schedule_mode" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldScheduleMode(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScheduleMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScheduleMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScheduleMode: %w", err)
+	}
+	return oldValue.ScheduleMode, nil
+}
+
+// ClearScheduleMode clears the value of the "schedule_mode" field.
+func (m *UsageLogMutation) ClearScheduleMode() {
+	m.schedule_mode = nil
+	m.clearedFields[usagelog.FieldScheduleMode] = struct{}{}
+}
+
+// ScheduleModeCleared returns if the "schedule_mode" field was cleared in this mutation.
+func (m *UsageLogMutation) ScheduleModeCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldScheduleMode]
+	return ok
+}
+
+// ResetScheduleMode resets all changes to the "schedule_mode" field.
+func (m *UsageLogMutation) ResetScheduleMode() {
+	m.schedule_mode = nil
+	delete(m.clearedFields, usagelog.FieldScheduleMode)
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (m *UsageLogMutation) SetSmartPreference(s string) {
+	m.smart_preference = &s
+}
+
+// SmartPreference returns the value of the "smart_preference" field in the mutation.
+func (m *UsageLogMutation) SmartPreference() (r string, exists bool) {
+	v := m.smart_preference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSmartPreference returns the old "smart_preference" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldSmartPreference(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSmartPreference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSmartPreference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSmartPreference: %w", err)
+	}
+	return oldValue.SmartPreference, nil
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (m *UsageLogMutation) ClearSmartPreference() {
+	m.smart_preference = nil
+	m.clearedFields[usagelog.FieldSmartPreference] = struct{}{}
+}
+
+// SmartPreferenceCleared returns if the "smart_preference" field was cleared in this mutation.
+func (m *UsageLogMutation) SmartPreferenceCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldSmartPreference]
+	return ok
+}
+
+// ResetSmartPreference resets all changes to the "smart_preference" field.
+func (m *UsageLogMutation) ResetSmartPreference() {
+	m.smart_preference = nil
+	delete(m.clearedFields, usagelog.FieldSmartPreference)
+}
+
+// SetGroupSwitchCount sets the "group_switch_count" field.
+func (m *UsageLogMutation) SetGroupSwitchCount(i int) {
+	m.group_switch_count = &i
+	m.addgroup_switch_count = nil
+}
+
+// GroupSwitchCount returns the value of the "group_switch_count" field in the mutation.
+func (m *UsageLogMutation) GroupSwitchCount() (r int, exists bool) {
+	v := m.group_switch_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupSwitchCount returns the old "group_switch_count" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldGroupSwitchCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupSwitchCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupSwitchCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupSwitchCount: %w", err)
+	}
+	return oldValue.GroupSwitchCount, nil
+}
+
+// AddGroupSwitchCount adds i to the "group_switch_count" field.
+func (m *UsageLogMutation) AddGroupSwitchCount(i int) {
+	if m.addgroup_switch_count != nil {
+		*m.addgroup_switch_count += i
+	} else {
+		m.addgroup_switch_count = &i
+	}
+}
+
+// AddedGroupSwitchCount returns the value that was added to the "group_switch_count" field in this mutation.
+func (m *UsageLogMutation) AddedGroupSwitchCount() (r int, exists bool) {
+	v := m.addgroup_switch_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetGroupSwitchCount resets all changes to the "group_switch_count" field.
+func (m *UsageLogMutation) ResetGroupSwitchCount() {
+	m.group_switch_count = nil
+	m.addgroup_switch_count = nil
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (m *UsageLogMutation) SetRoutingDecisionID(s string) {
+	m.routing_decision_id = &s
+}
+
+// RoutingDecisionID returns the value of the "routing_decision_id" field in the mutation.
+func (m *UsageLogMutation) RoutingDecisionID() (r string, exists bool) {
+	v := m.routing_decision_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutingDecisionID returns the old "routing_decision_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldRoutingDecisionID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutingDecisionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutingDecisionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutingDecisionID: %w", err)
+	}
+	return oldValue.RoutingDecisionID, nil
+}
+
+// ClearRoutingDecisionID clears the value of the "routing_decision_id" field.
+func (m *UsageLogMutation) ClearRoutingDecisionID() {
+	m.routing_decision_id = nil
+	m.clearedFields[usagelog.FieldRoutingDecisionID] = struct{}{}
+}
+
+// RoutingDecisionIDCleared returns if the "routing_decision_id" field was cleared in this mutation.
+func (m *UsageLogMutation) RoutingDecisionIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldRoutingDecisionID]
+	return ok
+}
+
+// ResetRoutingDecisionID resets all changes to the "routing_decision_id" field.
+func (m *UsageLogMutation) ResetRoutingDecisionID() {
+	m.routing_decision_id = nil
+	delete(m.clearedFields, usagelog.FieldRoutingDecisionID)
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (m *UsageLogMutation) SetCacheColdDueToFailover(b bool) {
+	m.cache_cold_due_to_failover = &b
+}
+
+// CacheColdDueToFailover returns the value of the "cache_cold_due_to_failover" field in the mutation.
+func (m *UsageLogMutation) CacheColdDueToFailover() (r bool, exists bool) {
+	v := m.cache_cold_due_to_failover
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheColdDueToFailover returns the old "cache_cold_due_to_failover" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldCacheColdDueToFailover(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheColdDueToFailover is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheColdDueToFailover requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheColdDueToFailover: %w", err)
+	}
+	return oldValue.CacheColdDueToFailover, nil
+}
+
+// ResetCacheColdDueToFailover resets all changes to the "cache_cold_due_to_failover" field.
+func (m *UsageLogMutation) ResetCacheColdDueToFailover() {
+	m.cache_cold_due_to_failover = nil
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (m *UsageLogMutation) SetActualUsage(j jsontext.Value) {
+	m.actual_usage = &j
+	m.appendactual_usage = nil
+}
+
+// ActualUsage returns the value of the "actual_usage" field in the mutation.
+func (m *UsageLogMutation) ActualUsage() (r jsontext.Value, exists bool) {
+	v := m.actual_usage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualUsage returns the old "actual_usage" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualUsage(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualUsage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualUsage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualUsage: %w", err)
+	}
+	return oldValue.ActualUsage, nil
+}
+
+// AppendActualUsage adds j to the "actual_usage" field.
+func (m *UsageLogMutation) AppendActualUsage(j jsontext.Value) {
+	m.appendactual_usage = append(m.appendactual_usage, j...)
+}
+
+// AppendedActualUsage returns the list of values that were appended to the "actual_usage" field in this mutation.
+func (m *UsageLogMutation) AppendedActualUsage() (jsontext.Value, bool) {
+	if len(m.appendactual_usage) == 0 {
+		return nil, false
+	}
+	return m.appendactual_usage, true
+}
+
+// ClearActualUsage clears the value of the "actual_usage" field.
+func (m *UsageLogMutation) ClearActualUsage() {
+	m.actual_usage = nil
+	m.appendactual_usage = nil
+	m.clearedFields[usagelog.FieldActualUsage] = struct{}{}
+}
+
+// ActualUsageCleared returns if the "actual_usage" field was cleared in this mutation.
+func (m *UsageLogMutation) ActualUsageCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldActualUsage]
+	return ok
+}
+
+// ResetActualUsage resets all changes to the "actual_usage" field.
+func (m *UsageLogMutation) ResetActualUsage() {
+	m.actual_usage = nil
+	m.appendactual_usage = nil
+	delete(m.clearedFields, usagelog.FieldActualUsage)
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (m *UsageLogMutation) SetBillableUsage(j jsontext.Value) {
+	m.billable_usage = &j
+	m.appendbillable_usage = nil
+}
+
+// BillableUsage returns the value of the "billable_usage" field in the mutation.
+func (m *UsageLogMutation) BillableUsage() (r jsontext.Value, exists bool) {
+	v := m.billable_usage
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillableUsage returns the old "billable_usage" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldBillableUsage(ctx context.Context) (v jsontext.Value, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillableUsage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillableUsage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillableUsage: %w", err)
+	}
+	return oldValue.BillableUsage, nil
+}
+
+// AppendBillableUsage adds j to the "billable_usage" field.
+func (m *UsageLogMutation) AppendBillableUsage(j jsontext.Value) {
+	m.appendbillable_usage = append(m.appendbillable_usage, j...)
+}
+
+// AppendedBillableUsage returns the list of values that were appended to the "billable_usage" field in this mutation.
+func (m *UsageLogMutation) AppendedBillableUsage() (jsontext.Value, bool) {
+	if len(m.appendbillable_usage) == 0 {
+		return nil, false
+	}
+	return m.appendbillable_usage, true
+}
+
+// ClearBillableUsage clears the value of the "billable_usage" field.
+func (m *UsageLogMutation) ClearBillableUsage() {
+	m.billable_usage = nil
+	m.appendbillable_usage = nil
+	m.clearedFields[usagelog.FieldBillableUsage] = struct{}{}
+}
+
+// BillableUsageCleared returns if the "billable_usage" field was cleared in this mutation.
+func (m *UsageLogMutation) BillableUsageCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldBillableUsage]
+	return ok
+}
+
+// ResetBillableUsage resets all changes to the "billable_usage" field.
+func (m *UsageLogMutation) ResetBillableUsage() {
+	m.billable_usage = nil
+	m.appendbillable_usage = nil
+	delete(m.clearedFields, usagelog.FieldBillableUsage)
+}
+
+// SetCacheCompensationTokens sets the "cache_compensation_tokens" field.
+func (m *UsageLogMutation) SetCacheCompensationTokens(i int) {
+	m.cache_compensation_tokens = &i
+	m.addcache_compensation_tokens = nil
+}
+
+// CacheCompensationTokens returns the value of the "cache_compensation_tokens" field in the mutation.
+func (m *UsageLogMutation) CacheCompensationTokens() (r int, exists bool) {
+	v := m.cache_compensation_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheCompensationTokens returns the old "cache_compensation_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldCacheCompensationTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheCompensationTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheCompensationTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheCompensationTokens: %w", err)
+	}
+	return oldValue.CacheCompensationTokens, nil
+}
+
+// AddCacheCompensationTokens adds i to the "cache_compensation_tokens" field.
+func (m *UsageLogMutation) AddCacheCompensationTokens(i int) {
+	if m.addcache_compensation_tokens != nil {
+		*m.addcache_compensation_tokens += i
+	} else {
+		m.addcache_compensation_tokens = &i
+	}
+}
+
+// AddedCacheCompensationTokens returns the value that was added to the "cache_compensation_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedCacheCompensationTokens() (r int, exists bool) {
+	v := m.addcache_compensation_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCacheCompensationTokens resets all changes to the "cache_compensation_tokens" field.
+func (m *UsageLogMutation) ResetCacheCompensationTokens() {
+	m.cache_compensation_tokens = nil
+	m.addcache_compensation_tokens = nil
+}
+
+// SetCacheCompensationReason sets the "cache_compensation_reason" field.
+func (m *UsageLogMutation) SetCacheCompensationReason(s string) {
+	m.cache_compensation_reason = &s
+}
+
+// CacheCompensationReason returns the value of the "cache_compensation_reason" field in the mutation.
+func (m *UsageLogMutation) CacheCompensationReason() (r string, exists bool) {
+	v := m.cache_compensation_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCacheCompensationReason returns the old "cache_compensation_reason" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldCacheCompensationReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCacheCompensationReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCacheCompensationReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCacheCompensationReason: %w", err)
+	}
+	return oldValue.CacheCompensationReason, nil
+}
+
+// ClearCacheCompensationReason clears the value of the "cache_compensation_reason" field.
+func (m *UsageLogMutation) ClearCacheCompensationReason() {
+	m.cache_compensation_reason = nil
+	m.clearedFields[usagelog.FieldCacheCompensationReason] = struct{}{}
+}
+
+// CacheCompensationReasonCleared returns if the "cache_compensation_reason" field was cleared in this mutation.
+func (m *UsageLogMutation) CacheCompensationReasonCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldCacheCompensationReason]
+	return ok
+}
+
+// ResetCacheCompensationReason resets all changes to the "cache_compensation_reason" field.
+func (m *UsageLogMutation) ResetCacheCompensationReason() {
+	m.cache_compensation_reason = nil
+	delete(m.clearedFields, usagelog.FieldCacheCompensationReason)
 }
 
 // SetInputTokens sets the "input_tokens" field.
@@ -54376,7 +64850,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 49)
+	fields := make([]string, 0, 60)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -54427,6 +64901,39 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.subscription != nil {
 		fields = append(fields, usagelog.FieldSubscriptionID)
+	}
+	if m.initial_group_id != nil {
+		fields = append(fields, usagelog.FieldInitialGroupID)
+	}
+	if m.route_version != nil {
+		fields = append(fields, usagelog.FieldRouteVersion)
+	}
+	if m.schedule_mode != nil {
+		fields = append(fields, usagelog.FieldScheduleMode)
+	}
+	if m.smart_preference != nil {
+		fields = append(fields, usagelog.FieldSmartPreference)
+	}
+	if m.group_switch_count != nil {
+		fields = append(fields, usagelog.FieldGroupSwitchCount)
+	}
+	if m.routing_decision_id != nil {
+		fields = append(fields, usagelog.FieldRoutingDecisionID)
+	}
+	if m.cache_cold_due_to_failover != nil {
+		fields = append(fields, usagelog.FieldCacheColdDueToFailover)
+	}
+	if m.actual_usage != nil {
+		fields = append(fields, usagelog.FieldActualUsage)
+	}
+	if m.billable_usage != nil {
+		fields = append(fields, usagelog.FieldBillableUsage)
+	}
+	if m.cache_compensation_tokens != nil {
+		fields = append(fields, usagelog.FieldCacheCompensationTokens)
+	}
+	if m.cache_compensation_reason != nil {
+		fields = append(fields, usagelog.FieldCacheCompensationReason)
 	}
 	if m.input_tokens != nil {
 		fields = append(fields, usagelog.FieldInputTokens)
@@ -54566,6 +65073,28 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.GroupID()
 	case usagelog.FieldSubscriptionID:
 		return m.SubscriptionID()
+	case usagelog.FieldInitialGroupID:
+		return m.InitialGroupID()
+	case usagelog.FieldRouteVersion:
+		return m.RouteVersion()
+	case usagelog.FieldScheduleMode:
+		return m.ScheduleMode()
+	case usagelog.FieldSmartPreference:
+		return m.SmartPreference()
+	case usagelog.FieldGroupSwitchCount:
+		return m.GroupSwitchCount()
+	case usagelog.FieldRoutingDecisionID:
+		return m.RoutingDecisionID()
+	case usagelog.FieldCacheColdDueToFailover:
+		return m.CacheColdDueToFailover()
+	case usagelog.FieldActualUsage:
+		return m.ActualUsage()
+	case usagelog.FieldBillableUsage:
+		return m.BillableUsage()
+	case usagelog.FieldCacheCompensationTokens:
+		return m.CacheCompensationTokens()
+	case usagelog.FieldCacheCompensationReason:
+		return m.CacheCompensationReason()
 	case usagelog.FieldInputTokens:
 		return m.InputTokens()
 	case usagelog.FieldOutputTokens:
@@ -54673,6 +65202,28 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldGroupID(ctx)
 	case usagelog.FieldSubscriptionID:
 		return m.OldSubscriptionID(ctx)
+	case usagelog.FieldInitialGroupID:
+		return m.OldInitialGroupID(ctx)
+	case usagelog.FieldRouteVersion:
+		return m.OldRouteVersion(ctx)
+	case usagelog.FieldScheduleMode:
+		return m.OldScheduleMode(ctx)
+	case usagelog.FieldSmartPreference:
+		return m.OldSmartPreference(ctx)
+	case usagelog.FieldGroupSwitchCount:
+		return m.OldGroupSwitchCount(ctx)
+	case usagelog.FieldRoutingDecisionID:
+		return m.OldRoutingDecisionID(ctx)
+	case usagelog.FieldCacheColdDueToFailover:
+		return m.OldCacheColdDueToFailover(ctx)
+	case usagelog.FieldActualUsage:
+		return m.OldActualUsage(ctx)
+	case usagelog.FieldBillableUsage:
+		return m.OldBillableUsage(ctx)
+	case usagelog.FieldCacheCompensationTokens:
+		return m.OldCacheCompensationTokens(ctx)
+	case usagelog.FieldCacheCompensationReason:
+		return m.OldCacheCompensationReason(ctx)
 	case usagelog.FieldInputTokens:
 		return m.OldInputTokens(ctx)
 	case usagelog.FieldOutputTokens:
@@ -54864,6 +65415,83 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSubscriptionID(v)
+		return nil
+	case usagelog.FieldInitialGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInitialGroupID(v)
+		return nil
+	case usagelog.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRouteVersion(v)
+		return nil
+	case usagelog.FieldScheduleMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScheduleMode(v)
+		return nil
+	case usagelog.FieldSmartPreference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSmartPreference(v)
+		return nil
+	case usagelog.FieldGroupSwitchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupSwitchCount(v)
+		return nil
+	case usagelog.FieldRoutingDecisionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutingDecisionID(v)
+		return nil
+	case usagelog.FieldCacheColdDueToFailover:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheColdDueToFailover(v)
+		return nil
+	case usagelog.FieldActualUsage:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualUsage(v)
+		return nil
+	case usagelog.FieldBillableUsage:
+		v, ok := value.(jsontext.Value)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillableUsage(v)
+		return nil
+	case usagelog.FieldCacheCompensationTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheCompensationTokens(v)
+		return nil
+	case usagelog.FieldCacheCompensationReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCacheCompensationReason(v)
 		return nil
 	case usagelog.FieldInputTokens:
 		v, ok := value.(int)
@@ -55103,6 +65731,18 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addchannel_monitor_id != nil {
 		fields = append(fields, usagelog.FieldChannelMonitorID)
 	}
+	if m.addinitial_group_id != nil {
+		fields = append(fields, usagelog.FieldInitialGroupID)
+	}
+	if m.addroute_version != nil {
+		fields = append(fields, usagelog.FieldRouteVersion)
+	}
+	if m.addgroup_switch_count != nil {
+		fields = append(fields, usagelog.FieldGroupSwitchCount)
+	}
+	if m.addcache_compensation_tokens != nil {
+		fields = append(fields, usagelog.FieldCacheCompensationTokens)
+	}
 	if m.addinput_tokens != nil {
 		fields = append(fields, usagelog.FieldInputTokens)
 	}
@@ -55175,6 +65815,14 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedChannelID()
 	case usagelog.FieldChannelMonitorID:
 		return m.AddedChannelMonitorID()
+	case usagelog.FieldInitialGroupID:
+		return m.AddedInitialGroupID()
+	case usagelog.FieldRouteVersion:
+		return m.AddedRouteVersion()
+	case usagelog.FieldGroupSwitchCount:
+		return m.AddedGroupSwitchCount()
+	case usagelog.FieldCacheCompensationTokens:
+		return m.AddedCacheCompensationTokens()
 	case usagelog.FieldInputTokens:
 		return m.AddedInputTokens()
 	case usagelog.FieldOutputTokens:
@@ -55237,6 +65885,34 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddChannelMonitorID(v)
+		return nil
+	case usagelog.FieldInitialGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInitialGroupID(v)
+		return nil
+	case usagelog.FieldRouteVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRouteVersion(v)
+		return nil
+	case usagelog.FieldGroupSwitchCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddGroupSwitchCount(v)
+		return nil
+	case usagelog.FieldCacheCompensationTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCacheCompensationTokens(v)
 		return nil
 	case usagelog.FieldInputTokens:
 		v, ok := value.(int)
@@ -55425,6 +66101,30 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldSubscriptionID) {
 		fields = append(fields, usagelog.FieldSubscriptionID)
 	}
+	if m.FieldCleared(usagelog.FieldInitialGroupID) {
+		fields = append(fields, usagelog.FieldInitialGroupID)
+	}
+	if m.FieldCleared(usagelog.FieldRouteVersion) {
+		fields = append(fields, usagelog.FieldRouteVersion)
+	}
+	if m.FieldCleared(usagelog.FieldScheduleMode) {
+		fields = append(fields, usagelog.FieldScheduleMode)
+	}
+	if m.FieldCleared(usagelog.FieldSmartPreference) {
+		fields = append(fields, usagelog.FieldSmartPreference)
+	}
+	if m.FieldCleared(usagelog.FieldRoutingDecisionID) {
+		fields = append(fields, usagelog.FieldRoutingDecisionID)
+	}
+	if m.FieldCleared(usagelog.FieldActualUsage) {
+		fields = append(fields, usagelog.FieldActualUsage)
+	}
+	if m.FieldCleared(usagelog.FieldBillableUsage) {
+		fields = append(fields, usagelog.FieldBillableUsage)
+	}
+	if m.FieldCleared(usagelog.FieldCacheCompensationReason) {
+		fields = append(fields, usagelog.FieldCacheCompensationReason)
+	}
 	if m.FieldCleared(usagelog.FieldAccountRateMultiplier) {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
 	}
@@ -55513,6 +66213,30 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ClearSubscriptionID()
+		return nil
+	case usagelog.FieldInitialGroupID:
+		m.ClearInitialGroupID()
+		return nil
+	case usagelog.FieldRouteVersion:
+		m.ClearRouteVersion()
+		return nil
+	case usagelog.FieldScheduleMode:
+		m.ClearScheduleMode()
+		return nil
+	case usagelog.FieldSmartPreference:
+		m.ClearSmartPreference()
+		return nil
+	case usagelog.FieldRoutingDecisionID:
+		m.ClearRoutingDecisionID()
+		return nil
+	case usagelog.FieldActualUsage:
+		m.ClearActualUsage()
+		return nil
+	case usagelog.FieldBillableUsage:
+		m.ClearBillableUsage()
+		return nil
+	case usagelog.FieldCacheCompensationReason:
+		m.ClearCacheCompensationReason()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ClearAccountRateMultiplier()
@@ -55608,6 +66332,39 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ResetSubscriptionID()
+		return nil
+	case usagelog.FieldInitialGroupID:
+		m.ResetInitialGroupID()
+		return nil
+	case usagelog.FieldRouteVersion:
+		m.ResetRouteVersion()
+		return nil
+	case usagelog.FieldScheduleMode:
+		m.ResetScheduleMode()
+		return nil
+	case usagelog.FieldSmartPreference:
+		m.ResetSmartPreference()
+		return nil
+	case usagelog.FieldGroupSwitchCount:
+		m.ResetGroupSwitchCount()
+		return nil
+	case usagelog.FieldRoutingDecisionID:
+		m.ResetRoutingDecisionID()
+		return nil
+	case usagelog.FieldCacheColdDueToFailover:
+		m.ResetCacheColdDueToFailover()
+		return nil
+	case usagelog.FieldActualUsage:
+		m.ResetActualUsage()
+		return nil
+	case usagelog.FieldBillableUsage:
+		m.ResetBillableUsage()
+		return nil
+	case usagelog.FieldCacheCompensationTokens:
+		m.ResetCacheCompensationTokens()
+		return nil
+	case usagelog.FieldCacheCompensationReason:
+		m.ResetCacheCompensationReason()
 		return nil
 	case usagelog.FieldInputTokens:
 		m.ResetInputTokens()
@@ -55858,83 +66615,89 @@ func (m *UsageLogMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *int64
-	created_at                    *time.Time
-	updated_at                    *time.Time
-	deleted_at                    *time.Time
-	email                         *string
-	password_hash                 *string
-	role                          *string
-	balance                       *float64
-	addbalance                    *float64
-	frozen_balance                *float64
-	addfrozen_balance             *float64
-	concurrency                   *int
-	addconcurrency                *int
-	status                        *string
-	username                      *string
-	notes                         *string
-	totp_secret_encrypted         *string
-	totp_enabled                  *bool
-	totp_enabled_at               *time.Time
-	signup_source                 *string
-	last_login_at                 *time.Time
-	last_active_at                *time.Time
-	restrict_public_groups        *bool
-	balance_notify_enabled        *bool
-	balance_notify_threshold_type *string
-	balance_notify_threshold      *float64
-	addbalance_notify_threshold   *float64
-	balance_notify_extra_emails   *string
-	total_recharged               *float64
-	addtotal_recharged            *float64
-	rpm_limit                     *int
-	addrpm_limit                  *int
-	clearedFields                 map[string]struct{}
-	api_keys                      map[int64]struct{}
-	removedapi_keys               map[int64]struct{}
-	clearedapi_keys               bool
-	redeem_codes                  map[int64]struct{}
-	removedredeem_codes           map[int64]struct{}
-	clearedredeem_codes           bool
-	subscriptions                 map[int64]struct{}
-	removedsubscriptions          map[int64]struct{}
-	clearedsubscriptions          bool
-	assigned_subscriptions        map[int64]struct{}
-	removedassigned_subscriptions map[int64]struct{}
-	clearedassigned_subscriptions bool
-	announcement_reads            map[int64]struct{}
-	removedannouncement_reads     map[int64]struct{}
-	clearedannouncement_reads     bool
-	allowed_groups                map[int64]struct{}
-	removedallowed_groups         map[int64]struct{}
-	clearedallowed_groups         bool
-	usage_logs                    map[int64]struct{}
-	removedusage_logs             map[int64]struct{}
-	clearedusage_logs             bool
-	attribute_values              map[int64]struct{}
-	removedattribute_values       map[int64]struct{}
-	clearedattribute_values       bool
-	promo_code_usages             map[int64]struct{}
-	removedpromo_code_usages      map[int64]struct{}
-	clearedpromo_code_usages      bool
-	payment_orders                map[int64]struct{}
-	removedpayment_orders         map[int64]struct{}
-	clearedpayment_orders         bool
-	auth_identities               map[int64]struct{}
-	removedauth_identities        map[int64]struct{}
-	clearedauth_identities        bool
-	pending_auth_sessions         map[int64]struct{}
-	removedpending_auth_sessions  map[int64]struct{}
-	clearedpending_auth_sessions  bool
-	platform_quotas               map[int64]struct{}
-	removedplatform_quotas        map[int64]struct{}
-	clearedplatform_quotas        bool
-	done                          bool
-	oldValue                      func(context.Context) (*User, error)
-	predicates                    []predicate.User
+	op                               Op
+	typ                              string
+	id                               *int64
+	created_at                       *time.Time
+	updated_at                       *time.Time
+	deleted_at                       *time.Time
+	email                            *string
+	password_hash                    *string
+	role                             *string
+	balance                          *float64
+	addbalance                       *float64
+	frozen_balance                   *float64
+	addfrozen_balance                *float64
+	concurrency                      *int
+	addconcurrency                   *int
+	status                           *string
+	username                         *string
+	notes                            *string
+	totp_secret_encrypted            *string
+	totp_enabled                     *bool
+	totp_enabled_at                  *time.Time
+	signup_source                    *string
+	last_login_at                    *time.Time
+	last_active_at                   *time.Time
+	restrict_public_groups           *bool
+	balance_notify_enabled           *bool
+	balance_notify_threshold_type    *string
+	balance_notify_threshold         *float64
+	addbalance_notify_threshold      *float64
+	balance_notify_extra_emails      *string
+	total_recharged                  *float64
+	addtotal_recharged               *float64
+	rpm_limit                        *int
+	addrpm_limit                     *int
+	clearedFields                    map[string]struct{}
+	routing_artifact_versions        map[int64]struct{}
+	removedrouting_artifact_versions map[int64]struct{}
+	clearedrouting_artifact_versions bool
+	routing_experiments              map[int64]struct{}
+	removedrouting_experiments       map[int64]struct{}
+	clearedrouting_experiments       bool
+	api_keys                         map[int64]struct{}
+	removedapi_keys                  map[int64]struct{}
+	clearedapi_keys                  bool
+	redeem_codes                     map[int64]struct{}
+	removedredeem_codes              map[int64]struct{}
+	clearedredeem_codes              bool
+	subscriptions                    map[int64]struct{}
+	removedsubscriptions             map[int64]struct{}
+	clearedsubscriptions             bool
+	assigned_subscriptions           map[int64]struct{}
+	removedassigned_subscriptions    map[int64]struct{}
+	clearedassigned_subscriptions    bool
+	announcement_reads               map[int64]struct{}
+	removedannouncement_reads        map[int64]struct{}
+	clearedannouncement_reads        bool
+	allowed_groups                   map[int64]struct{}
+	removedallowed_groups            map[int64]struct{}
+	clearedallowed_groups            bool
+	usage_logs                       map[int64]struct{}
+	removedusage_logs                map[int64]struct{}
+	clearedusage_logs                bool
+	attribute_values                 map[int64]struct{}
+	removedattribute_values          map[int64]struct{}
+	clearedattribute_values          bool
+	promo_code_usages                map[int64]struct{}
+	removedpromo_code_usages         map[int64]struct{}
+	clearedpromo_code_usages         bool
+	payment_orders                   map[int64]struct{}
+	removedpayment_orders            map[int64]struct{}
+	clearedpayment_orders            bool
+	auth_identities                  map[int64]struct{}
+	removedauth_identities           map[int64]struct{}
+	clearedauth_identities           bool
+	pending_auth_sessions            map[int64]struct{}
+	removedpending_auth_sessions     map[int64]struct{}
+	clearedpending_auth_sessions     bool
+	platform_quotas                  map[int64]struct{}
+	removedplatform_quotas           map[int64]struct{}
+	clearedplatform_quotas           bool
+	done                             bool
+	oldValue                         func(context.Context) (*User, error)
+	predicates                       []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -57132,6 +67895,114 @@ func (m *UserMutation) AddedRpmLimit() (r int, exists bool) {
 func (m *UserMutation) ResetRpmLimit() {
 	m.rpm_limit = nil
 	m.addrpm_limit = nil
+}
+
+// AddRoutingArtifactVersionIDs adds the "routing_artifact_versions" edge to the RoutingArtifactVersion entity by ids.
+func (m *UserMutation) AddRoutingArtifactVersionIDs(ids ...int64) {
+	if m.routing_artifact_versions == nil {
+		m.routing_artifact_versions = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.routing_artifact_versions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRoutingArtifactVersions clears the "routing_artifact_versions" edge to the RoutingArtifactVersion entity.
+func (m *UserMutation) ClearRoutingArtifactVersions() {
+	m.clearedrouting_artifact_versions = true
+}
+
+// RoutingArtifactVersionsCleared reports if the "routing_artifact_versions" edge to the RoutingArtifactVersion entity was cleared.
+func (m *UserMutation) RoutingArtifactVersionsCleared() bool {
+	return m.clearedrouting_artifact_versions
+}
+
+// RemoveRoutingArtifactVersionIDs removes the "routing_artifact_versions" edge to the RoutingArtifactVersion entity by IDs.
+func (m *UserMutation) RemoveRoutingArtifactVersionIDs(ids ...int64) {
+	if m.removedrouting_artifact_versions == nil {
+		m.removedrouting_artifact_versions = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.routing_artifact_versions, ids[i])
+		m.removedrouting_artifact_versions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRoutingArtifactVersions returns the removed IDs of the "routing_artifact_versions" edge to the RoutingArtifactVersion entity.
+func (m *UserMutation) RemovedRoutingArtifactVersionsIDs() (ids []int64) {
+	for id := range m.removedrouting_artifact_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RoutingArtifactVersionsIDs returns the "routing_artifact_versions" edge IDs in the mutation.
+func (m *UserMutation) RoutingArtifactVersionsIDs() (ids []int64) {
+	for id := range m.routing_artifact_versions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRoutingArtifactVersions resets all changes to the "routing_artifact_versions" edge.
+func (m *UserMutation) ResetRoutingArtifactVersions() {
+	m.routing_artifact_versions = nil
+	m.clearedrouting_artifact_versions = false
+	m.removedrouting_artifact_versions = nil
+}
+
+// AddRoutingExperimentIDs adds the "routing_experiments" edge to the RoutingExperiment entity by ids.
+func (m *UserMutation) AddRoutingExperimentIDs(ids ...int64) {
+	if m.routing_experiments == nil {
+		m.routing_experiments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.routing_experiments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRoutingExperiments clears the "routing_experiments" edge to the RoutingExperiment entity.
+func (m *UserMutation) ClearRoutingExperiments() {
+	m.clearedrouting_experiments = true
+}
+
+// RoutingExperimentsCleared reports if the "routing_experiments" edge to the RoutingExperiment entity was cleared.
+func (m *UserMutation) RoutingExperimentsCleared() bool {
+	return m.clearedrouting_experiments
+}
+
+// RemoveRoutingExperimentIDs removes the "routing_experiments" edge to the RoutingExperiment entity by IDs.
+func (m *UserMutation) RemoveRoutingExperimentIDs(ids ...int64) {
+	if m.removedrouting_experiments == nil {
+		m.removedrouting_experiments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.routing_experiments, ids[i])
+		m.removedrouting_experiments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRoutingExperiments returns the removed IDs of the "routing_experiments" edge to the RoutingExperiment entity.
+func (m *UserMutation) RemovedRoutingExperimentsIDs() (ids []int64) {
+	for id := range m.removedrouting_experiments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RoutingExperimentsIDs returns the "routing_experiments" edge IDs in the mutation.
+func (m *UserMutation) RoutingExperimentsIDs() (ids []int64) {
+	for id := range m.routing_experiments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRoutingExperiments resets all changes to the "routing_experiments" edge.
+func (m *UserMutation) ResetRoutingExperiments() {
+	m.routing_experiments = nil
+	m.clearedrouting_experiments = false
+	m.removedrouting_experiments = nil
 }
 
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by ids.
@@ -58491,7 +69362,13 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 15)
+	if m.routing_artifact_versions != nil {
+		edges = append(edges, user.EdgeRoutingArtifactVersions)
+	}
+	if m.routing_experiments != nil {
+		edges = append(edges, user.EdgeRoutingExperiments)
+	}
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -58538,6 +69415,18 @@ func (m *UserMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *UserMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case user.EdgeRoutingArtifactVersions:
+		ids := make([]ent.Value, 0, len(m.routing_artifact_versions))
+		for id := range m.routing_artifact_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeRoutingExperiments:
+		ids := make([]ent.Value, 0, len(m.routing_experiments))
+		for id := range m.routing_experiments {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAPIKeys:
 		ids := make([]ent.Value, 0, len(m.api_keys))
 		for id := range m.api_keys {
@@ -58622,7 +69511,13 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 15)
+	if m.removedrouting_artifact_versions != nil {
+		edges = append(edges, user.EdgeRoutingArtifactVersions)
+	}
+	if m.removedrouting_experiments != nil {
+		edges = append(edges, user.EdgeRoutingExperiments)
+	}
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -58669,6 +69564,18 @@ func (m *UserMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case user.EdgeRoutingArtifactVersions:
+		ids := make([]ent.Value, 0, len(m.removedrouting_artifact_versions))
+		for id := range m.removedrouting_artifact_versions {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeRoutingExperiments:
+		ids := make([]ent.Value, 0, len(m.removedrouting_experiments))
+		for id := range m.removedrouting_experiments {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAPIKeys:
 		ids := make([]ent.Value, 0, len(m.removedapi_keys))
 		for id := range m.removedapi_keys {
@@ -58753,7 +69660,13 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 15)
+	if m.clearedrouting_artifact_versions {
+		edges = append(edges, user.EdgeRoutingArtifactVersions)
+	}
+	if m.clearedrouting_experiments {
+		edges = append(edges, user.EdgeRoutingExperiments)
+	}
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -58800,6 +69713,10 @@ func (m *UserMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *UserMutation) EdgeCleared(name string) bool {
 	switch name {
+	case user.EdgeRoutingArtifactVersions:
+		return m.clearedrouting_artifact_versions
+	case user.EdgeRoutingExperiments:
+		return m.clearedrouting_experiments
 	case user.EdgeAPIKeys:
 		return m.clearedapi_keys
 	case user.EdgeRedeemCodes:
@@ -58842,6 +69759,12 @@ func (m *UserMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *UserMutation) ResetEdge(name string) error {
 	switch name {
+	case user.EdgeRoutingArtifactVersions:
+		m.ResetRoutingArtifactVersions()
+		return nil
+	case user.EdgeRoutingExperiments:
+		m.ResetRoutingExperiments()
+		return nil
 	case user.EdgeAPIKeys:
 		m.ResetAPIKeys()
 		return nil

@@ -90,6 +90,41 @@ func GroupID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldGroupID, v))
 }
 
+// ScheduleMode applies equality check predicate on the "schedule_mode" field. It's identical to ScheduleModeEQ.
+func ScheduleMode(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldScheduleMode, v))
+}
+
+// SmartPreference applies equality check predicate on the "smart_preference" field. It's identical to SmartPreferenceEQ.
+func SmartPreference(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldSmartPreference, v))
+}
+
+// SmartBalanceBps applies equality check predicate on the "smart_balance_bps" field. It's identical to SmartBalanceBpsEQ.
+func SmartBalanceBps(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldSmartBalanceBps, v))
+}
+
+// RoutingMinSuccessRate applies equality check predicate on the "routing_min_success_rate" field. It's identical to RoutingMinSuccessRateEQ.
+func RoutingMinSuccessRate(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingMinSuccessRate, v))
+}
+
+// RoutingStateVersion applies equality check predicate on the "routing_state_version" field. It's identical to RoutingStateVersionEQ.
+func RoutingStateVersion(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingStateVersion, v))
+}
+
+// RouteVersion applies equality check predicate on the "route_version" field. It's identical to RouteVersionEQ.
+func RouteVersion(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRouteVersion, v))
+}
+
+// RoutingDependencyVersion applies equality check predicate on the "routing_dependency_version" field. It's identical to RoutingDependencyVersionEQ.
+func RoutingDependencyVersion(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingDependencyVersion, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldStatus, v))
@@ -468,6 +503,356 @@ func GroupIDIsNil() predicate.APIKey {
 // GroupIDNotNil applies the NotNil predicate on the "group_id" field.
 func GroupIDNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldGroupID))
+}
+
+// ScheduleModeEQ applies the EQ predicate on the "schedule_mode" field.
+func ScheduleModeEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldScheduleMode, v))
+}
+
+// ScheduleModeNEQ applies the NEQ predicate on the "schedule_mode" field.
+func ScheduleModeNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldScheduleMode, v))
+}
+
+// ScheduleModeIn applies the In predicate on the "schedule_mode" field.
+func ScheduleModeIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldScheduleMode, vs...))
+}
+
+// ScheduleModeNotIn applies the NotIn predicate on the "schedule_mode" field.
+func ScheduleModeNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldScheduleMode, vs...))
+}
+
+// ScheduleModeGT applies the GT predicate on the "schedule_mode" field.
+func ScheduleModeGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldScheduleMode, v))
+}
+
+// ScheduleModeGTE applies the GTE predicate on the "schedule_mode" field.
+func ScheduleModeGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldScheduleMode, v))
+}
+
+// ScheduleModeLT applies the LT predicate on the "schedule_mode" field.
+func ScheduleModeLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldScheduleMode, v))
+}
+
+// ScheduleModeLTE applies the LTE predicate on the "schedule_mode" field.
+func ScheduleModeLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldScheduleMode, v))
+}
+
+// ScheduleModeContains applies the Contains predicate on the "schedule_mode" field.
+func ScheduleModeContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldScheduleMode, v))
+}
+
+// ScheduleModeHasPrefix applies the HasPrefix predicate on the "schedule_mode" field.
+func ScheduleModeHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldScheduleMode, v))
+}
+
+// ScheduleModeHasSuffix applies the HasSuffix predicate on the "schedule_mode" field.
+func ScheduleModeHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldScheduleMode, v))
+}
+
+// ScheduleModeEqualFold applies the EqualFold predicate on the "schedule_mode" field.
+func ScheduleModeEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldScheduleMode, v))
+}
+
+// ScheduleModeContainsFold applies the ContainsFold predicate on the "schedule_mode" field.
+func ScheduleModeContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldScheduleMode, v))
+}
+
+// SmartPreferenceEQ applies the EQ predicate on the "smart_preference" field.
+func SmartPreferenceEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldSmartPreference, v))
+}
+
+// SmartPreferenceNEQ applies the NEQ predicate on the "smart_preference" field.
+func SmartPreferenceNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldSmartPreference, v))
+}
+
+// SmartPreferenceIn applies the In predicate on the "smart_preference" field.
+func SmartPreferenceIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldSmartPreference, vs...))
+}
+
+// SmartPreferenceNotIn applies the NotIn predicate on the "smart_preference" field.
+func SmartPreferenceNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldSmartPreference, vs...))
+}
+
+// SmartPreferenceGT applies the GT predicate on the "smart_preference" field.
+func SmartPreferenceGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldSmartPreference, v))
+}
+
+// SmartPreferenceGTE applies the GTE predicate on the "smart_preference" field.
+func SmartPreferenceGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldSmartPreference, v))
+}
+
+// SmartPreferenceLT applies the LT predicate on the "smart_preference" field.
+func SmartPreferenceLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldSmartPreference, v))
+}
+
+// SmartPreferenceLTE applies the LTE predicate on the "smart_preference" field.
+func SmartPreferenceLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldSmartPreference, v))
+}
+
+// SmartPreferenceContains applies the Contains predicate on the "smart_preference" field.
+func SmartPreferenceContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldSmartPreference, v))
+}
+
+// SmartPreferenceHasPrefix applies the HasPrefix predicate on the "smart_preference" field.
+func SmartPreferenceHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldSmartPreference, v))
+}
+
+// SmartPreferenceHasSuffix applies the HasSuffix predicate on the "smart_preference" field.
+func SmartPreferenceHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldSmartPreference, v))
+}
+
+// SmartPreferenceIsNil applies the IsNil predicate on the "smart_preference" field.
+func SmartPreferenceIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldSmartPreference))
+}
+
+// SmartPreferenceNotNil applies the NotNil predicate on the "smart_preference" field.
+func SmartPreferenceNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldSmartPreference))
+}
+
+// SmartPreferenceEqualFold applies the EqualFold predicate on the "smart_preference" field.
+func SmartPreferenceEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldSmartPreference, v))
+}
+
+// SmartPreferenceContainsFold applies the ContainsFold predicate on the "smart_preference" field.
+func SmartPreferenceContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldSmartPreference, v))
+}
+
+// SmartBalanceBpsEQ applies the EQ predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsEQ(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldSmartBalanceBps, v))
+}
+
+// SmartBalanceBpsNEQ applies the NEQ predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsNEQ(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldSmartBalanceBps, v))
+}
+
+// SmartBalanceBpsIn applies the In predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsIn(vs ...int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldSmartBalanceBps, vs...))
+}
+
+// SmartBalanceBpsNotIn applies the NotIn predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsNotIn(vs ...int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldSmartBalanceBps, vs...))
+}
+
+// SmartBalanceBpsGT applies the GT predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsGT(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldSmartBalanceBps, v))
+}
+
+// SmartBalanceBpsGTE applies the GTE predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsGTE(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldSmartBalanceBps, v))
+}
+
+// SmartBalanceBpsLT applies the LT predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsLT(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldSmartBalanceBps, v))
+}
+
+// SmartBalanceBpsLTE applies the LTE predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsLTE(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldSmartBalanceBps, v))
+}
+
+// SmartBalanceBpsIsNil applies the IsNil predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldSmartBalanceBps))
+}
+
+// SmartBalanceBpsNotNil applies the NotNil predicate on the "smart_balance_bps" field.
+func SmartBalanceBpsNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldSmartBalanceBps))
+}
+
+// RoutingMinSuccessRateEQ applies the EQ predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateEQ(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingMinSuccessRate, v))
+}
+
+// RoutingMinSuccessRateNEQ applies the NEQ predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateNEQ(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldRoutingMinSuccessRate, v))
+}
+
+// RoutingMinSuccessRateIn applies the In predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateIn(vs ...int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldRoutingMinSuccessRate, vs...))
+}
+
+// RoutingMinSuccessRateNotIn applies the NotIn predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateNotIn(vs ...int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldRoutingMinSuccessRate, vs...))
+}
+
+// RoutingMinSuccessRateGT applies the GT predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateGT(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldRoutingMinSuccessRate, v))
+}
+
+// RoutingMinSuccessRateGTE applies the GTE predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateGTE(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldRoutingMinSuccessRate, v))
+}
+
+// RoutingMinSuccessRateLT applies the LT predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateLT(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldRoutingMinSuccessRate, v))
+}
+
+// RoutingMinSuccessRateLTE applies the LTE predicate on the "routing_min_success_rate" field.
+func RoutingMinSuccessRateLTE(v int) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldRoutingMinSuccessRate, v))
+}
+
+// RoutingStateVersionEQ applies the EQ predicate on the "routing_state_version" field.
+func RoutingStateVersionEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingStateVersion, v))
+}
+
+// RoutingStateVersionNEQ applies the NEQ predicate on the "routing_state_version" field.
+func RoutingStateVersionNEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldRoutingStateVersion, v))
+}
+
+// RoutingStateVersionIn applies the In predicate on the "routing_state_version" field.
+func RoutingStateVersionIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldRoutingStateVersion, vs...))
+}
+
+// RoutingStateVersionNotIn applies the NotIn predicate on the "routing_state_version" field.
+func RoutingStateVersionNotIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldRoutingStateVersion, vs...))
+}
+
+// RoutingStateVersionGT applies the GT predicate on the "routing_state_version" field.
+func RoutingStateVersionGT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldRoutingStateVersion, v))
+}
+
+// RoutingStateVersionGTE applies the GTE predicate on the "routing_state_version" field.
+func RoutingStateVersionGTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldRoutingStateVersion, v))
+}
+
+// RoutingStateVersionLT applies the LT predicate on the "routing_state_version" field.
+func RoutingStateVersionLT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldRoutingStateVersion, v))
+}
+
+// RoutingStateVersionLTE applies the LTE predicate on the "routing_state_version" field.
+func RoutingStateVersionLTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldRoutingStateVersion, v))
+}
+
+// RouteVersionEQ applies the EQ predicate on the "route_version" field.
+func RouteVersionEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRouteVersion, v))
+}
+
+// RouteVersionNEQ applies the NEQ predicate on the "route_version" field.
+func RouteVersionNEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldRouteVersion, v))
+}
+
+// RouteVersionIn applies the In predicate on the "route_version" field.
+func RouteVersionIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldRouteVersion, vs...))
+}
+
+// RouteVersionNotIn applies the NotIn predicate on the "route_version" field.
+func RouteVersionNotIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldRouteVersion, vs...))
+}
+
+// RouteVersionGT applies the GT predicate on the "route_version" field.
+func RouteVersionGT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldRouteVersion, v))
+}
+
+// RouteVersionGTE applies the GTE predicate on the "route_version" field.
+func RouteVersionGTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldRouteVersion, v))
+}
+
+// RouteVersionLT applies the LT predicate on the "route_version" field.
+func RouteVersionLT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldRouteVersion, v))
+}
+
+// RouteVersionLTE applies the LTE predicate on the "route_version" field.
+func RouteVersionLTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldRouteVersion, v))
+}
+
+// RoutingDependencyVersionEQ applies the EQ predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldRoutingDependencyVersion, v))
+}
+
+// RoutingDependencyVersionNEQ applies the NEQ predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionNEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldRoutingDependencyVersion, v))
+}
+
+// RoutingDependencyVersionIn applies the In predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldRoutingDependencyVersion, vs...))
+}
+
+// RoutingDependencyVersionNotIn applies the NotIn predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionNotIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldRoutingDependencyVersion, vs...))
+}
+
+// RoutingDependencyVersionGT applies the GT predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionGT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldRoutingDependencyVersion, v))
+}
+
+// RoutingDependencyVersionGTE applies the GTE predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionGTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldRoutingDependencyVersion, v))
+}
+
+// RoutingDependencyVersionLT applies the LT predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionLT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldRoutingDependencyVersion, v))
+}
+
+// RoutingDependencyVersionLTE applies the LTE predicate on the "routing_dependency_version" field.
+func RoutingDependencyVersionLTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldRoutingDependencyVersion, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
@@ -1163,6 +1548,52 @@ func HasGroup() predicate.APIKey {
 func HasGroupWith(preds ...predicate.Group) predicate.APIKey {
 	return predicate.APIKey(func(s *sql.Selector) {
 		step := newGroupStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGroupRoutes applies the HasEdge predicate on the "group_routes" edge.
+func HasGroupRoutes() predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupRoutesTable, GroupRoutesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupRoutesWith applies the HasEdge predicate on the "group_routes" edge with a given conditions (other predicates).
+func HasGroupRoutesWith(preds ...predicate.APIKeyGroupRoute) predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := newGroupRoutesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRouteConfigOutboxEvents applies the HasEdge predicate on the "route_config_outbox_events" edge.
+func HasRouteConfigOutboxEvents() predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RouteConfigOutboxEventsTable, RouteConfigOutboxEventsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRouteConfigOutboxEventsWith applies the HasEdge predicate on the "route_config_outbox_events" edge with a given conditions (other predicates).
+func HasRouteConfigOutboxEventsWith(preds ...predicate.APIKeyRouteConfigOutbox) predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := newRouteConfigOutboxEventsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

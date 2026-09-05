@@ -2,6 +2,16 @@ export default {
     settings: {
       title: '系统设置',
       description: '管理注册、邮箱验证、默认值和 SMTP 设置',
+      routingRollout: {
+        title: '多分组与智能调度灰度名单',
+        description: '仅指定用户可使用多分组、顺序/智能调度和成功率熔断门槛。其他用户保持原来的单分组体验，管理员账号也不自动豁免。',
+        count: '{count} 位灰度用户', searchLabel: '添加用户', searchPlaceholder: '搜索用户名、邮箱，或输入完整用户 ID',
+        selected: '已选择的用户 ID', clear: '清空名单', remove: '移除用户 #{id}', noUsers: '未找到用户',
+        empty: '名单为空：保存后所有用户均使用旧版单分组体验。',
+        withdrawalHint: '保存后当前实例立即生效，其他实例最长约 5 秒刷新。移出名单不删除原配置；后续新请求固定使用原主分组，不打断已有流，但可能产生冷缓存，建议小批量操作。重新加入可恢复原配置。服务器多分组总开关仍须开启。最多 1000 位用户。',
+        limit: '最多选择 1000 位用户', loadFailed: '灰度名单读取失败，请重试后再修改。', searchFailed: '用户搜索失败，请重试。',
+        saved: '灰度名单已保存', saveFailed: '灰度名单保存失败，请检查用户是否存在后重试。',
+      },
       tabs: {
         general: '通用设置',
         agreement: '登录条款',

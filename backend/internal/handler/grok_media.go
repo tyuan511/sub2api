@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -114,6 +115,126 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	setOpsRequestContext(c, requestModel, false)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeSync))
 
+	if h.errorPassthroughService != nil {
+		service.BindErrorPassthroughService(c, h.errorPassthroughService)
+	}
+
+	subscription, _ := middleware2.GetSubscriptionFromContext(c)
+	sessionSeed := body
+	if len(sessionSeed) == 0 && strings.TrimSpace(requestID) != "" {
+		sessionSeed = []byte(requestID)
+	}
+	sessionHash := h.gatewayService.GenerateExplicitSessionHash(c, sessionSeed)
+	routeLocked := endpoint.IsVideoLookupRequest()
+	if routeLocked {
+		sessionHash = service.GrokMediaVideoRequestSessionHash(requestID, subject.UserID, apiKey.ID)
+	}
+	routeEndpoint := c.Request.URL.Path
+	grokMediaCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if candidate.Group.Platform != service.PlatformGrok {
+			return fmt.Errorf("candidate group %d is not Grok", candidate.Group.ID)
+		}
+		if endpoint.IsGenerationRequest() && !service.GroupAllowsImageGeneration(candidate.Group) {
+			return fmt.Errorf("candidate group %d does not allow media generation", candidate.Group.ID)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, routingModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("grok_media.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	boundLookupAccountID := int64(0)
+	if routeLocked && apiKeyMultiGroupRoutingActive(c) {
+		ownedAPIKey, _, ownerErr := activateAPIKeyRouteOwnedGroup(c, func(groupID int64) (bool, error) {
+			gid := groupID
+			accountID, lookupErr := h.gatewayService.ResolveGrokMediaVideoRequestAccount(c.Request.Context(), &gid, requestID, subject.UserID, apiKey.ID)
+			if lookupErr != nil {
+				return false, lookupErr
+			}
+			if accountID > 0 {
+				boundLookupAccountID = accountID
+				return true, nil
+			}
+			return false, nil
+		})
+		if ownerErr != nil || ownedAPIKey == nil {
+			reqLog.Info("grok_media.video_lookup_owner_binding_missing", zap.Error(ownerErr))
+			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+			return
+		}
+		apiKey = ownedAPIKey
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, routingModel, routeEndpoint)
+	stickyRouteSelected := false
+	routeStateDegraded := false
+	if !routeLocked {
+		stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash)
+		routeStateDegraded = stickyErr != nil
+		if stickyErr != nil {
+			reqLog.Warn("grok_media.api_key_group_route_state_degraded", zap.String("reason", "sticky_read_failed"), zap.Error(stickyErr))
+		} else if stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID {
+			stickyRouteSelected = true
+		} else if stickyGroupID > 0 && apiKeyMultiGroupRoutingActive(c) {
+			stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, grokMediaCandidateCheck)
+			if activateErr != nil {
+				middleware2.MarkAPIKeyRouteStickySelected(c)
+				middleware2.MarkAPIKeyRouteStickyBroken(c)
+				reqLog.Warn("grok_media.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+			} else if activated {
+				stickyRouteSelected = true
+				apiKey = stickyAPIKey
+				subscription = stickySubscription
+			}
+		}
+		if stickyRouteSelected {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+		}
+		if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+			smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, routingModel, routeEndpoint, sessionHash, grokMediaCandidateCheck)
+			if smartErr != nil {
+				h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+				return
+			}
+			if len(ranked) > 0 {
+				apiKey = smartAPIKey
+				subscription = smartSubscription
+			}
+		}
+	}
+	if apiKeyMultiGroupRoutingActive(c) {
+		var initialRouteChanged bool
+		var initialRouteErr error
+		if routeLocked {
+			apiKey, subscription, initialRouteErr = h.apiKeyRouteRuntime().validateInitial(c, grokMediaCandidateCheck)
+		} else {
+			apiKey, subscription, initialRouteChanged, initialRouteErr = h.apiKeyRouteRuntime().ensureInitial(c, grokMediaCandidateCheck)
+		}
+		if initialRouteErr != nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		if initialRouteChanged && stickyRouteSelected {
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		}
+	}
+	if routeLocked && boundLookupAccountID <= 0 {
+		boundLookupAccountID, err = h.gatewayService.ResolveGrokMediaVideoRequestAccount(
+			c.Request.Context(), apiKey.GroupID, requestID, subject.UserID, apiKey.ID,
+		)
+		if err != nil || boundLookupAccountID <= 0 {
+			reqLog.Info("grok_media.video_lookup_owner_binding_missing", zap.Error(err))
+			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+			return
+		}
+	}
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
 	if endpoint.IsGenerationRequest() {
 		if !service.GroupAllowsImageGeneration(apiKey.Group) {
 			h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
@@ -126,20 +247,14 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				return
 			}
 		}
-		imageReleaseFunc, acquired := h.acquireImageGenerationSlot(c, streamStarted)
-		if !acquired {
+		imageReleaseFunc, imageAcquired := h.acquireImageGenerationSlot(c, streamStarted)
+		if !imageAcquired {
 			return
 		}
 		if imageReleaseFunc != nil {
 			defer imageReleaseFunc()
 		}
 	}
-
-	if h.errorPassthroughService != nil {
-		service.BindErrorPassthroughService(c, h.errorPassthroughService)
-	}
-
-	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 
 	userReleaseFunc, acquired := h.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, false, &streamStarted, reqLog)
@@ -160,23 +275,6 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		return
 	}
 
-	sessionSeed := body
-	if len(sessionSeed) == 0 && strings.TrimSpace(requestID) != "" {
-		sessionSeed = []byte(requestID)
-	}
-	sessionHash := h.gatewayService.GenerateExplicitSessionHash(c, sessionSeed)
-	boundLookupAccountID := int64(0)
-	if endpoint.IsVideoLookupRequest() {
-		sessionHash = service.GrokMediaVideoRequestSessionHash(requestID, subject.UserID, apiKey.ID)
-		boundLookupAccountID, err = h.gatewayService.ResolveGrokMediaVideoRequestAccount(
-			c.Request.Context(), apiKey.GroupID, requestID, subject.UserID, apiKey.ID,
-		)
-		if err != nil || boundLookupAccountID <= 0 {
-			reqLog.Info("grok_media.video_lookup_owner_binding_missing", zap.Error(err))
-			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
-			return
-		}
-	}
 	// Grok 媒体（图片/视频生成与视频查询）按媒体倍率计费，不在 token 利润门
 	// 范围内：显式豁免，防止 service 层防御性装门按文本 D 误过滤媒体请求，
 	// 也防止已计费的在途视频任务因绑定账号被门排除而查询返回伪 404。
@@ -198,6 +296,39 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	}
 	routingStart := time.Now()
 	requiredCapability := grokMediaRequiredCapability(endpoint)
+	advanceGrokMediaRoute := func(routeErr error) (bool, error) {
+		// Media submissions may be accepted upstream without any response bytes.
+		// Cross-group replay is limited to pre-upstream capacity/eligibility misses.
+		if routeLocked || !endpoint.IsGenerationRequest() || lastFailoverErr != nil {
+			return false, nil
+		}
+		if routeErr != nil && !errors.Is(routeErr, service.ErrNoAvailableAccounts) {
+			return false, nil
+		}
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, routingModel, routeEndpoint, routeErr); observeErr != nil {
+				reqLog.Warn("grok_media.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, routingModel, routeEndpoint, grokMediaCandidateCheck)
+		if !advanced {
+			return false, advanceErr
+		}
+		apiKey = nextAPIKey
+		subscription = nextSubscription
+		requestCtx = service.WithOpenAIProfitControlSuppressed(c.Request.Context())
+		profitVetoCount = 0
+		failedAccountIDs = make(map[int64]struct{})
+		sameAccountRetryCount = make(map[int64]int)
+		mediaEligibilityRejected = false
+		switchCount = 0
+		oauth429FailoverState = service.OpenAIOAuth429FailoverState{}
+		reqLog.Info("grok_media.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
+		return true, nil
+	}
 
 	for {
 		if failoverClientGone(c) {
@@ -226,6 +357,11 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				zap.Error(err),
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
+			if advanced, advanceErr := advanceGrokMediaRoute(err); advanced {
+				continue
+			} else if advanceErr != nil {
+				reqLog.Warn("grok_media.api_key_group_route_advance_failed", zap.Error(advanceErr))
+			}
 			if endpoint.IsGenerationRequest() && errors.Is(err, service.ErrNoAvailableAccounts) &&
 				(len(failedAccountIDs) == 0 || (mediaEligibilityRejected && lastFailoverErr == nil)) {
 				markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -248,6 +384,11 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			return
 		}
 		if selection == nil || selection.Account == nil {
+			if advanced, advanceErr := advanceGrokMediaRoute(service.ErrNoAvailableAccounts); advanced {
+				continue
+			} else if advanceErr != nil {
+				reqLog.Warn("grok_media.api_key_group_route_advance_failed", zap.Error(advanceErr))
+			}
 			if endpoint.IsGenerationRequest() {
 				markOpsRoutingCapacityLimited(c)
 				h.errorResponse(c, http.StatusServiceUnavailable, "grok_media_no_eligible_account", "No eligible Grok media accounts")
@@ -290,6 +431,11 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 					zap.Bool("probe_failed", eligibilityErr != nil),
 				)
 				if switchCount >= maxAccountSwitches {
+					if advanced, advanceErr := advanceGrokMediaRoute(service.ErrNoAvailableAccounts); advanced {
+						continue
+					} else if advanceErr != nil {
+						reqLog.Warn("grok_media.api_key_group_route_advance_failed", zap.Error(advanceErr))
+					}
 					markOpsRoutingCapacityLimited(c)
 					h.errorResponse(c, http.StatusServiceUnavailable, "grok_media_no_eligible_account", "No eligible Grok media accounts")
 					return
@@ -412,6 +558,12 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		}
 
 		h.gatewayService.ReportOpenAIAccountScheduleResult(account, grokMediaScheduleModel(account, routingModel, result), true, nil)
+		if apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, routingModel, routeEndpoint, true); observeErr != nil {
+				reqLog.Warn("grok_media.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+			_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash, *apiKey.GroupID)
+		}
 		if isGrokVideoCreateEndpoint(endpoint) && strings.TrimSpace(result.ResponseID) != "" {
 			if err := h.gatewayService.BindGrokMediaVideoRequestAccount(
 				requestCtx, apiKey.GroupID, result.ResponseID, subject.UserID, apiKey.ID, account.ID,

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -107,7 +108,6 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 	if resolvedModel, ok := service.ResolvedUpstreamModelFromContext(c.Request.Context()); ok && strings.TrimSpace(resolvedModel) != "" {
 		modelName = strings.TrimSpace(resolvedModel)
 	}
-
 	// 强制 antigravity 模式：返回 antigravity 模型信息
 	if forcePlatform == service.PlatformAntigravity {
 		c.JSON(http.StatusOK, antigravity.FallbackGeminiModel(modelName))
@@ -184,6 +184,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	if resolvedModel, ok := service.ResolvedUpstreamModelFromContext(c.Request.Context()); ok && strings.TrimSpace(resolvedModel) != "" {
 		modelName = strings.TrimSpace(resolvedModel)
 	}
+	reqModel := modelName
 
 	stream := action == "streamGenerateContent"
 	reqLog = reqLog.With(zap.String("model", modelName), zap.String("action", action), zap.Bool("stream", stream))
@@ -204,23 +205,111 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 
 	setOpsRequestContext(c, modelName, stream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(stream, false)))
-	pricingCtx, pricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
-	c.Request = c.Request.WithContext(pricingCtx)
-
-	if decision := h.checkSecurityAudit(c, reqLog, apiKey, authSubject, service.ContentModerationProtocolGemini, modelName, body); decision != nil && !decision.AllowNextStage {
-		googleSecurityAuditError(c, decision)
-		return
-	}
-
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, modelName)
-	reqModel := modelName // 保存映射前的原始模型名
-	if channelMapping.Mapped {
-		modelName = channelMapping.MappedModel
-	}
+	var channelMapping service.ChannelMappingResult
 
 	// Get subscription (may be nil)
 	subscription, _ := middleware.GetSubscriptionFromContext(c)
+
+	// Generate the stable client session before choosing a physical group. The
+	// group-level route key must not change merely because a candidate changes.
+	sessionHash := extractGeminiCLISessionHash(c, body)
+	if sessionHash == "" {
+		parsedReq, _ := service.ParseGatewayRequest(service.NewRequestBodyRef(body), domain.PlatformGemini)
+		if parsedReq != nil {
+			parsedReq.SessionContext = &service.SessionContext{
+				ClientIP:  ip.GetClientIP(c),
+				UserAgent: c.GetHeader("User-Agent"),
+				APIKeyID:  apiKey.ID,
+			}
+		}
+		sessionHash = h.gatewayService.GenerateSessionHash(parsedReq)
+	}
+	sessionKey := sessionHash
+	if sessionHash != "" {
+		sessionKey = "gemini:" + sessionHash
+	}
+	routeEndpoint := c.Request.URL.Path
+	geminiCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if !middleware.HasForcePlatform(c) && effectiveAPIKeyPlatform(c, candidate) != service.PlatformGemini {
+			return fmt.Errorf("candidate group %d is not Gemini-compatible", candidate.Group.ID)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("gemini.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, reqModel, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionKey)
+	routeStateDegraded := stickyErr != nil
+	if stickyErr != nil {
+		reqLog.Warn("gemini.api_key_group_route_state_degraded", zap.String("reason", "sticky_read_failed"), zap.Error(stickyErr))
+	}
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, geminiCandidateCheck)
+		if activateErr != nil {
+			middleware.MarkAPIKeyRouteStickySelected(c)
+			middleware.MarkAPIKeyRouteStickyBroken(c)
+			reqLog.Warn("gemini.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+			reqLog.Info("gemini.api_key_group_sticky_hit", zap.Int64("sticky_group_id", stickyGroupID))
+		}
+	}
+	if stickyRouteSelected {
+		middleware.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, routeEndpoint, sessionKey, geminiCandidateCheck)
+		if smartErr != nil {
+			googleError(c, http.StatusServiceUnavailable, "No eligible candidate groups")
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+			state, _ := middleware.GetAPIKeyRouteState(c)
+			reqLog.Info("gemini.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
+		}
+	}
+	apiKey, subscription, initialRouteChanged, initialRouteErr := h.apiKeyRouteRuntime().ensureInitial(c, geminiCandidateCheck)
+	if initialRouteErr != nil {
+		if isAPIKeyRouteAdvanceBillingError(initialRouteErr) {
+			status, _, message, retryAfter := billingErrorDetails(errors.Unwrap(initialRouteErr))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			googleError(c, status, message)
+		} else {
+			googleError(c, http.StatusServiceUnavailable, "No eligible candidate groups")
+		}
+		return
+	}
+	if initialRouteChanged && stickyRouteSelected {
+		middleware.MarkAPIKeyRouteStickyBroken(c)
+	}
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
+	channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+	modelName = reqModel
+	if channelMapping.Mapped {
+		modelName = channelMapping.MappedModel
+	}
+	if decision := h.checkSecurityAudit(c, reqLog, apiKey, authSubject, service.ContentModerationProtocolGemini, reqModel, body); decision != nil && !decision.AllowNextStage {
+		googleSecurityAuditError(c, decision)
+		return
+	}
+	pricingCtx, pricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
+	c.Request = c.Request.WithContext(pricingCtx)
 
 	// For Gemini native API, do not send Claude-style ping frames.
 	geminiConcurrency := NewConcurrencyHelper(h.concurrencyHelper.concurrencyService, SSEPingFormatNone, 0)
@@ -251,26 +340,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		}
 		googleError(c, status, message)
 		return
-	}
-
-	// 3) select account (sticky session based on request body)
-	// 优先使用 Gemini CLI 的会话标识（privileged-user-id + tmp 目录哈希）
-	sessionHash := extractGeminiCLISessionHash(c, body)
-	if sessionHash == "" {
-		// Fallback: 使用通用的会话哈希生成逻辑（适用于其他客户端）
-		parsedReq, _ := service.ParseGatewayRequest(service.NewRequestBodyRef(body), domain.PlatformGemini)
-		if parsedReq != nil {
-			parsedReq.SessionContext = &service.SessionContext{
-				ClientIP:  ip.GetClientIP(c),
-				UserAgent: c.GetHeader("User-Agent"),
-				APIKeyID:  apiKey.ID,
-			}
-		}
-		sessionHash = h.gatewayService.GenerateSessionHash(parsedReq)
-	}
-	sessionKey := sessionHash
-	if sessionHash != "" {
-		sessionKey = "gemini:" + sessionHash
 	}
 
 	// 查询粘性会话绑定的账号 ID（用于检测账号切换）
@@ -365,10 +434,68 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		ctx := service.WithSingleAccountRetry(c.Request.Context(), true, h.metadataBridgeEnabled())
 		c.Request = c.Request.WithContext(ctx)
 	}
+	advanceGeminiRoute := func(routeErr error) (bool, error) {
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
+			middleware.MarkAPIKeyRouteStickyBroken(c)
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
+				reqLog.Warn("gemini.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, geminiCandidateCheck)
+		if !advanced {
+			return false, advanceErr
+		}
+		apiKey = nextAPIKey
+		subscription = nextSubscription
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+		modelName = reqModel
+		if channelMapping.Mapped {
+			modelName = channelMapping.MappedModel
+		}
+
+		// Account and thoughtSignature affinity is physical-group state. Never
+		// carry the old group's account binding into the new candidate.
+		sessionBoundAccountID = 0
+		if sessionKey != "" {
+			sessionBoundAccountID, _ = h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), apiKey.GroupID, sessionKey)
+			if sessionBoundAccountID > 0 {
+				ctx := service.WithPrefetchedStickySession(c.Request.Context(), sessionBoundAccountID, derefGroupID(apiKey.GroupID), h.metadataBridgeEnabled())
+				c.Request = c.Request.WithContext(ctx)
+			}
+		}
+		hasBoundSession = sessionKey != "" && sessionBoundAccountID > 0
+		cleanedForUnknownBinding = false
+		matchedDigestChain = ""
+		if !hasBoundSession && geminiDigestChain != "" {
+			useDigestFallback = true
+			geminiSessionUUID = uuid.New().String()
+			geminiPrefixHash = service.GenerateGeminiPrefixHash(
+				authSubject.UserID, apiKey.ID, ip.GetClientIP(c), c.GetHeader("User-Agent"), apiKey.Group.Platform, modelName,
+			)
+		}
+		fs = NewFailoverState(h.maxAccountSwitchesGemini, hasBoundSession)
+		ctx := service.WithSingleAccountRetry(c.Request.Context(), false, h.metadataBridgeEnabled())
+		if h.gatewayService.IsSingleAntigravityAccountGroup(ctx, apiKey.GroupID) {
+			ctx = service.WithSingleAccountRetry(ctx, true, h.metadataBridgeEnabled())
+		}
+		c.Request = c.Request.WithContext(ctx)
+		reqLog.Info("gemini.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
+		return true, nil
+	}
 
 	for {
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.FailedAccountIDs, "", int64(0)) // Gemini 不使用会话限制
 		if err != nil {
+			if advanced, advanceErr := advanceGeminiRoute(err); advanced {
+				continue
+			} else if advanceErr != nil {
+				reqLog.Warn("gemini.api_key_group_route_advance_failed", zap.Error(advanceErr))
+			}
 			if len(fs.FailedAccountIDs) == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, modelName, modelName, service.PlatformGemini)
 				if !cls.ModelNotFound {
@@ -513,6 +640,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 
 		// 5) forward (根据平台分流)
 		var result *service.ForwardResult
+		writerSizeBeforeForward := c.Writer.Size()
 		requestCtx := c.Request.Context()
 		if fs.SwitchCount > 0 {
 			requestCtx = service.WithAccountSwitchCount(requestCtx, fs.SwitchCount, h.metadataBridgeEnabled())
@@ -544,6 +672,13 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				case FailoverContinue:
 					continue
 				case FailoverExhausted:
+					if c.Writer.Size() == writerSizeBeforeForward {
+						if advanced, advanceErr := advanceGeminiRoute(fs.LastFailoverErr); advanced {
+							continue
+						} else if advanceErr != nil {
+							reqLog.Warn("gemini.api_key_group_route_advance_failed", zap.Error(advanceErr))
+						}
+					}
 					h.handleGeminiFailoverExhausted(c, fs.LastFailoverErr)
 					return
 				case FailoverCanceled:
@@ -583,6 +718,12 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		forceCacheBilling := fs.ForceCacheBilling
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
+		if apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, true); observeErr != nil {
+				reqLog.Warn("gemini.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+			_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionKey, *apiKey.GroupID)
+		}
 		// 长上下文阶梯由目录数据驱动，统一在计费路径内生效，入口无需声明。
 		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{

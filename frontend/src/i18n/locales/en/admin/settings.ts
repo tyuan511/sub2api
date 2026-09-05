@@ -1,6 +1,16 @@
 export default {
     settings: {
       title: 'System Settings',
+      routingRollout: {
+        title: 'Multi-group routing beta access',
+        description: 'Only listed users can use multiple groups, sequential/smart scheduling and success-rate circuit breaking. Everyone else keeps the single-group experience, including unlisted admins.',
+        count: '{count} beta users', searchLabel: 'Add users', searchPlaceholder: 'Search username or email, or enter an exact user ID',
+        selected: 'Selected user IDs', clear: 'Clear list', remove: 'Remove user #{id}', noUsers: 'No users found',
+        empty: 'Empty list: saving disables beta access for everyone.',
+        withdrawalHint: 'Saves apply immediately on this instance; other instances refresh within about 5 seconds. Removal preserves configuration and pins new requests to the original primary group without interrupting active streams. This may cause a cold cache; use small batches. Re-adding restores saved settings. The server routing switch must also be enabled. Up to 1,000 users.',
+        limit: 'Select up to 1,000 users', loadFailed: 'Could not load beta access. Retry before editing.', searchFailed: 'User search failed. Please retry.',
+        saved: 'Beta access saved', saveFailed: 'Could not save beta access. Check that the users still exist and retry.',
+      },
       description: 'Manage registration, email verification, default values, and SMTP settings',
       tabs: {
         general: 'General',

@@ -19,6 +19,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -366,6 +368,36 @@ func (_c *UserCreate) SetNillableRpmLimit(v *int) *UserCreate {
 		_c.SetRpmLimit(*v)
 	}
 	return _c
+}
+
+// AddRoutingArtifactVersionIDs adds the "routing_artifact_versions" edge to the RoutingArtifactVersion entity by IDs.
+func (_c *UserCreate) AddRoutingArtifactVersionIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddRoutingArtifactVersionIDs(ids...)
+	return _c
+}
+
+// AddRoutingArtifactVersions adds the "routing_artifact_versions" edges to the RoutingArtifactVersion entity.
+func (_c *UserCreate) AddRoutingArtifactVersions(v ...*RoutingArtifactVersion) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRoutingArtifactVersionIDs(ids...)
+}
+
+// AddRoutingExperimentIDs adds the "routing_experiments" edge to the RoutingExperiment entity by IDs.
+func (_c *UserCreate) AddRoutingExperimentIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddRoutingExperimentIDs(ids...)
+	return _c
+}
+
+// AddRoutingExperiments adds the "routing_experiments" edges to the RoutingExperiment entity.
+func (_c *UserCreate) AddRoutingExperiments(v ...*RoutingExperiment) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRoutingExperimentIDs(ids...)
 }
 
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
@@ -892,6 +924,38 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(user.FieldRpmLimit, field.TypeInt, value)
 		_node.RpmLimit = value
+	}
+	if nodes := _c.mutation.RoutingArtifactVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingArtifactVersionsTable,
+			Columns: []string{user.RoutingArtifactVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingartifactversion.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RoutingExperimentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingExperimentsTable,
+			Columns: []string{user.RoutingExperimentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingexperiment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

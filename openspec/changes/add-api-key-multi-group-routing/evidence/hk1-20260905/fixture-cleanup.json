@@ -1,0 +1,25 @@
+{
+  "user_id": 36,
+  "accounts": [
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242
+  ],
+  "keys": [
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71
+  ],
+  "verified_user_status": "disabled",
+  "verified_key_status": "inactive|7",
+  "verified_account_status": "inactive|f|8"
+}

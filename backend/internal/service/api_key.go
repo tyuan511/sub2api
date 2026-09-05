@@ -14,6 +14,36 @@ const (
 	StatusAPIKeyExpired        = "expired"
 )
 
+const (
+	APIKeyScheduleModeSequential = "sequential"
+	APIKeyScheduleModeSmart      = "smart"
+
+	APIKeySmartPreferencePrice    = "price"
+	APIKeySmartPreferenceSpeed    = "speed"
+	APIKeySmartPreferenceBalanced = "balanced"
+
+	DefaultMaxAPIKeyGroupRoutes = 8
+)
+
+// APIKeyGroupRoute is one user-selected physical group in an API key route set.
+// Priority is zero-based and contiguous within the key.
+type APIKeyGroupRoute struct {
+	ID        int64
+	APIKeyID  int64
+	GroupID   int64
+	Priority  int
+	Enabled   bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Group     *Group
+}
+
+// APIKeyGroupRouteInput is the write contract for replacing a route set.
+type APIKeyGroupRouteInput struct {
+	GroupID  int64 `json:"group_id"`
+	Priority int   `json:"priority"`
+}
+
 // Rate limit window durations
 const (
 	RateLimitWindow5h = 5 * time.Hour
@@ -28,14 +58,23 @@ func IsWindowExpired(windowStart *time.Time, duration time.Duration) bool {
 }
 
 type APIKey struct {
-	ID          int64
-	UserID      int64
-	Key         string
-	Name        string
-	GroupID     *int64
-	Status      string
-	IPWhitelist []string
-	IPBlacklist []string
+	ID      int64
+	UserID  int64
+	Key     string
+	Name    string
+	GroupID *int64
+	// GroupID remains the compatibility mirror of priority 0 during rollout.
+	ScheduleMode             string
+	SmartPreference          *string
+	SmartBalanceBPS          *int
+	RoutingMinSuccessRate    int
+	RoutingStateVersion      int64
+	RouteVersion             int64
+	RoutingDependencyVersion int64
+	GroupRoutes              []APIKeyGroupRoute
+	Status                   string
+	IPWhitelist              []string
+	IPBlacklist              []string
 	// 预编译的 IP 规则，用于认证热路径避免重复 ParseIP/ParseCIDR。
 	CompiledIPWhitelist *ip.CompiledIPRules `json:"-"`
 	CompiledIPBlacklist *ip.CompiledIPRules `json:"-"`
@@ -46,6 +85,9 @@ type APIKey struct {
 	User                *User
 	Group               *Group
 	CurrentConcurrency  int
+	// RoutingSelectionObservations is a control-plane-only, bounded projection
+	// of recent successful route facts. It is never loaded by the auth hot path.
+	RoutingSelectionObservations []APIKeyRoutingSelectionObservation
 
 	// Quota fields
 	Quota     float64    // Quota limit in USD (0 = unlimited)
@@ -62,6 +104,24 @@ type APIKey struct {
 	Window5hStart *time.Time // Start of current 5h window
 	Window1dStart *time.Time // Start of current 1d window
 	Window7dStart *time.Time // Start of current 7d window
+}
+
+// APIKeyRoutingSelectionObservation contains one inverse-probability-weighted
+// successful landing bucket. Route/config and strategy versions remain part of
+// the key so stale traffic never influences a newly edited route set.
+type APIKeyRoutingSelectionObservation struct {
+	APIKeyID           int64
+	RouteVersion       int64
+	Platform           string
+	ModelFamily        string
+	EndpointKind       string
+	StrategyVersion    string
+	SmartPreference    string
+	GroupID            int64
+	SampledSelections  int64
+	WeightedSelections float64
+	WeightSquares      float64
+	DataThrough        time.Time
 }
 
 func (k *APIKey) IsActive() bool {

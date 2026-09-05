@@ -16,6 +16,10 @@ type Tx struct {
 	config
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// APIKeyGroupRoute is the client for interacting with the APIKeyGroupRoute builders.
+	APIKeyGroupRoute *APIKeyGroupRouteClient
+	// APIKeyRouteConfigOutbox is the client for interacting with the APIKeyRouteConfigOutbox builders.
+	APIKeyRouteConfigOutbox *APIKeyRouteConfigOutboxClient
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
@@ -72,6 +76,12 @@ type Tx struct {
 	Proxy *ProxyClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
 	RedeemCode *RedeemCodeClient
+	// RoutingArtifactVersion is the client for interacting with the RoutingArtifactVersion builders.
+	RoutingArtifactVersion *RoutingArtifactVersionClient
+	// RoutingAttempt is the client for interacting with the RoutingAttempt builders.
+	RoutingAttempt *RoutingAttemptClient
+	// RoutingExperiment is the client for interacting with the RoutingExperiment builders.
+	RoutingExperiment *RoutingExperimentClient
 	// SecuritySecret is the client for interacting with the SecuritySecret builders.
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
@@ -238,6 +248,8 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
+	tx.APIKeyGroupRoute = NewAPIKeyGroupRouteClient(tx.config)
+	tx.APIKeyRouteConfigOutbox = NewAPIKeyRouteConfigOutboxClient(tx.config)
 	tx.Account = NewAccountClient(tx.config)
 	tx.AccountGroup = NewAccountGroupClient(tx.config)
 	tx.AccountProxy = NewAccountProxyClient(tx.config)
@@ -266,6 +278,9 @@ func (tx *Tx) init() {
 	tx.PromoCodeUsage = NewPromoCodeUsageClient(tx.config)
 	tx.Proxy = NewProxyClient(tx.config)
 	tx.RedeemCode = NewRedeemCodeClient(tx.config)
+	tx.RoutingArtifactVersion = NewRoutingArtifactVersionClient(tx.config)
+	tx.RoutingAttempt = NewRoutingAttemptClient(tx.config)
+	tx.RoutingExperiment = NewRoutingExperimentClient(tx.config)
 	tx.SecuritySecret = NewSecuritySecretClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)
 	tx.SubscriptionPlan = NewSubscriptionPlanClient(tx.config)

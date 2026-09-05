@@ -52,6 +52,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 
 	cleanup := provideCleanup(
 		nil, // entClient
+		nil, // routing background database
 		nil, // redis
 		&service.OpsMetricsCollector{},
 		&service.OpsAggregationService{},
@@ -63,6 +64,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // opsIngressRejectAggregator
 		nil, // apiKeyService
 		nil, // authCacheInvalidationWorker
+		nil, // apiKeyRouteConfigOutboxWorker
 		schedulerSnapshotSvc,
 		tokenRefreshSvc,
 		accountExpirySvc,
@@ -90,6 +92,10 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // paymentOrderExpiry
 		nil, // channelMonitorRunner
 		nil, // channelMonitorV2Aggregator
+		nil, // routingScoreBuilder
+		nil, // routingStrategyRuntime
+		nil, // routingCanaryMonitor
+		nil, // routingFactRecorder
 		nil, // quotaFlusher
 		nil, // upstreamBillingProbe
 		nil, // ollamaCloudUsage

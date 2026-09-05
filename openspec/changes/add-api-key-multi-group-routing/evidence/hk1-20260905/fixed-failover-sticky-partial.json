@@ -1,0 +1,158 @@
+{
+  "warm": {
+    "status": 200,
+    "bytes": 416,
+    "done": true,
+    "error": false,
+    "latency_ms": 21.117232739925385
+  },
+  "warm_upstream": {
+    "g0": 1
+  },
+  "failure": {
+    "status": 200,
+    "bytes": 416,
+    "done": true,
+    "error": false,
+    "latency_ms": 25.10616835206747
+  },
+  "failure_upstream": {
+    "g0": 1,
+    "g1": 1
+  },
+  "sticky": {
+    "status": 200,
+    "bytes": 416,
+    "done": true,
+    "error": false,
+    "latency_ms": 15.950465574860573
+  },
+  "sticky_upstream": {
+    "g1": 1
+  },
+  "partial": {
+    "status": 200,
+    "bytes": 413,
+    "done": false,
+    "error": true,
+    "latency_ms": 21.71071618795395
+  },
+  "partial_upstream": {
+    "g0": 1
+  },
+  "explain": {
+    "api_key_id": 66,
+    "route_version": 1,
+    "platform": "openai",
+    "model_family": "gpt-4o",
+    "endpoint_kind": "chat_completions",
+    "schedule_mode": "sequential",
+    "sequential_fallback": false,
+    "candidates": [
+      {
+        "group_id": 29,
+        "configured_priority": 0,
+        "effective_rank": 0,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 2,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 30,
+        "configured_priority": 1,
+        "effective_rank": 1,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 4,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 31,
+        "configured_priority": 2,
+        "effective_rank": 2,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 0,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 32,
+        "configured_priority": 3,
+        "effective_rank": 3,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 0,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 33,
+        "configured_priority": 4,
+        "effective_rank": 4,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 0,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 34,
+        "configured_priority": 5,
+        "effective_rank": 5,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 0,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 35,
+        "configured_priority": 6,
+        "effective_rank": 6,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 0,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 36,
+        "configured_priority": 7,
+        "effective_rank": 7,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 0,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      }
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -158,8 +159,19 @@ type UsageLog struct {
 	// UpstreamEndpoint is the normalized upstream endpoint path, e.g. /v1/responses.
 	UpstreamEndpoint *string
 
-	GroupID        *int64
-	SubscriptionID *int64
+	GroupID                 *int64
+	SubscriptionID          *int64
+	InitialGroupID          *int64
+	RouteVersion            *int64
+	ScheduleMode            *string
+	SmartPreference         *string
+	GroupSwitchCount        int
+	RoutingDecisionID       *string
+	CacheColdDueToFailover  bool
+	ActualUsage             json.RawMessage
+	BillableUsage           json.RawMessage
+	CacheCompensationTokens int
+	CacheCompensationReason *string
 
 	InputTokens         int
 	OutputTokens        int

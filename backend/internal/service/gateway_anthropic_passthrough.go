@@ -860,7 +860,7 @@ func (s *GatewayService) handleNonStreamingResponseAnthropicAPIKeyPassthrough(
 
 	usage := parseClaudeUsageFromResponseBody(body)
 	if IsForceCacheBilling(ctx) && usage.InputTokens > 0 {
-		body, err = classifyAnthropicResponseInputAsCacheRead(body, usage)
+		body, err = classifyAnthropicResponseInputAsCacheRead(body, usage, ForceCacheBillingInputTokens(ctx, usage.InputTokens))
 		if err != nil {
 			return nil, err
 		}
@@ -876,12 +876,18 @@ func (s *GatewayService) handleNonStreamingResponseAnthropicAPIKeyPassthrough(
 	return usage, nil
 }
 
-func classifyAnthropicResponseInputAsCacheRead(body []byte, usage *ClaudeUsage) ([]byte, error) {
-	classified, err := sjson.SetBytes(body, "usage.input_tokens", 0)
+func classifyAnthropicResponseInputAsCacheRead(body []byte, usage *ClaudeUsage, compensatedTokens int) ([]byte, error) {
+	if usage == nil || compensatedTokens <= 0 {
+		return body, nil
+	}
+	if compensatedTokens > usage.InputTokens {
+		compensatedTokens = usage.InputTokens
+	}
+	classified, err := sjson.SetBytes(body, "usage.input_tokens", usage.InputTokens-compensatedTokens)
 	if err != nil {
 		return nil, fmt.Errorf("classify forced cache billing input tokens: %w", err)
 	}
-	classified, err = sjson.SetBytes(classified, "usage.cache_read_input_tokens", usage.CacheReadInputTokens+usage.InputTokens)
+	classified, err = sjson.SetBytes(classified, "usage.cache_read_input_tokens", usage.CacheReadInputTokens+compensatedTokens)
 	if err != nil {
 		return nil, fmt.Errorf("classify forced cache billing cache read tokens: %w", err)
 	}

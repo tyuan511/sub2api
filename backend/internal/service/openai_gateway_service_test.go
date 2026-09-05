@@ -571,6 +571,12 @@ func TestOpenAIGatewayService_BindHTTPResponseAccount(t *testing.T) {
 	got, err := svc.getOpenAIWSStateStore().GetResponseAccount(context.Background(), groupID, "resp_http_001")
 	require.NoError(t, err)
 	require.Equal(t, account.ID, got)
+	bound, err := svc.HasOpenAIResponseBinding(context.Background(), groupID, "resp_http_001")
+	require.NoError(t, err)
+	require.True(t, bound)
+	bound, err = svc.HasOpenAIResponseBinding(context.Background(), groupID+1, "resp_http_001")
+	require.NoError(t, err)
+	require.False(t, bound)
 
 	owned, err := svc.ValidateOpenAIHTTPResponseOwner(context.Background(), groupID, "resp_http_001", 601, 501)
 	require.NoError(t, err)

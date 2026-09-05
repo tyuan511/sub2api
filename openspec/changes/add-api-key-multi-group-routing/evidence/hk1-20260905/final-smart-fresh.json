@@ -1,0 +1,7281 @@
+{
+  "report": {
+    "requests": 1000,
+    "successes": 1000,
+    "failures": 0,
+    "rps": 149.36570556725658,
+    "p50_ms": 202.4779561907053,
+    "p95_ms": 319.83712036162615,
+    "p99_ms": 421.60855885595083
+  },
+  "samples": [
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.79285296052694
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 483.6652036756277
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 207.24685583263636
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.33832004666328
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 280.2594965323806
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 270.09217441082
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 156.9068944081664
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 317.2524878755212
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.3024216517806
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 380.59920724481344
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 393.9049504697323
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 338.8761254027486
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 358.06858725845814
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 148.64552672952414
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.46097752451897
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 206.2371615320444
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 124.44806937128305
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 425.70475675165653
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 442.8806761279702
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 408.94945804029703
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 580.7720562443137
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.3582977205515
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 465.36408457905054
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 406.34695440530777
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.88856614381075
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 397.31493033468723
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 397.31844794005156
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 548.9878002554178
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 297.6855952292681
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 305.8998705819249
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.12352539598942
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.43127980828285
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 324.81903303414583
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 262.3471673578024
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 434.98037476092577
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 379.5301206409931
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 212.05691527575254
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.66987056285143
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 447.13863730430603
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 238.14071156084538
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 363.5213440284133
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 299.0141976624727
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 326.0458242148161
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 281.75066597759724
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.25487679243088
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 436.31679471582174
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 261.3673070445657
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 267.0120019465685
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 325.25110244750977
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 352.3938674479723
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 355.85184674710035
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 160.57387553155422
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.48732552677393
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.22921330481768
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 386.56935188919306
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 268.9995225518942
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 248.30099288374186
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 151.74580737948418
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.6801059767604
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 241.2124378606677
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 347.3646780475974
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 246.05283327400684
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 286.71958204358816
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 237.80498281121254
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 253.6254869773984
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 233.6238157004118
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 287.73301281034946
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 256.981635466218
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 203.14288511872292
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.3823426067829
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 181.1324516311288
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 278.82817946374416
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 285.762544721365
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 256.6753514111042
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 310.03999151289463
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.36332254111767
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.5047251880169
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 163.37927989661694
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 275.42220801115036
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 167.01007448136806
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 331.99597150087357
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.84341948479414
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 194.23506408929825
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.15052585303783
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 224.75577052682638
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 304.73335180431604
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.8728939667344
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.2353809773922
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 275.7966397330165
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.11807917058468
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 196.6964527964592
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 234.04232040047646
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 192.02415458858013
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 421.60855885595083
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 234.18442625552416
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 134.25267208367586
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 277.44522504508495
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.94482197612524
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.7402838766575
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.37502082437277
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 153.44088803976774
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 209.07589048147202
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.4779561907053
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 316.4903884753585
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 318.26333701610565
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 352.8834758326411
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 294.27228681743145
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 321.98452204465866
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 189.07647393643856
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 368.24091151356697
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 298.46349358558655
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 303.63655369728804
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 297.40256257355213
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 133.60710069537163
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 287.1281383559108
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 293.0943267419934
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 312.26566061377525
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 272.3325388506055
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 254.24089189618826
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 265.29488898813725
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 258.1433765590191
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 263.7088019400835
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 267.9422693327069
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 263.3516201749444
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 325.1715935766697
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 319.93964221328497
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 334.36485938727856
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 307.0796160027385
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.049417629838
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 264.7903226315975
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 222.65179082751274
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 248.79583157598972
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 259.2894174158573
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.6309749856591
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 247.91510868817568
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 350.9050030261278
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.74229730665684
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.84856275469065
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 277.51225139945745
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.36636292934418
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 172.8466311469674
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.8534760326147
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.1239448785782
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.75983899086714
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 228.93419302999973
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 258.64839367568493
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.5455928221345
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.2020589709282
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.7350580766797
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 237.09517158567905
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 129.14603762328625
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 309.59745217114687
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.0302221402526
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 114.64668437838554
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.8979815095663
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.1079623028636
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 207.31402188539505
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 144.3215301260352
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 235.35601515322924
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 265.99516347050667
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 316.72072131186724
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 272.01015409082174
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 166.3499567657709
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.04362229257822
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.67942459136248
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.24926014244556
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 224.97554309666157
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.30081655830145
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 233.6531588807702
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 151.07765048742294
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 319.83712036162615
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 168.53318456560373
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 134.24593955278397
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 260.26538759469986
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.76332925260067
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 149.6028332039714
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 207.09889940917492
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.39958084374666
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.1657302007079
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 270.90045996010303
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 311.11210491508245
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 189.69190772622824
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 216.17239899933338
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.851474493742
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.56110080331564
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.9654267653823
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 212.8609037026763
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 183.95054154098034
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 177.5620710104704
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.33382181078196
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 221.01628314703703
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.43221800029278
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 159.57519132643938
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 319.573936983943
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 246.2770640850067
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.83486350625753
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.23881809413433
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.7995533272624
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.4621840119362
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 113.18749561905861
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 186.55064329504967
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 169.34956703335047
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 237.14487347751856
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 197.20888696610928
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 213.23950495570898
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 264.28613532334566
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 254.70760744065046
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.15307806432247
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.07995653897524
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 254.67667914927006
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.47680819779634
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 283.1855993717909
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 139.9214928969741
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.2896949723363
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 375.7925648242235
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 149.37962498515844
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 156.65041003376245
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 160.32523941248655
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 192.131738178432
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 234.4220718368888
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 235.5146538466215
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 207.7816603705287
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 265.08206967264414
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 191.45329482853413
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 129.08568419516087
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 122.01322987675667
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 146.64760697633028
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.32756742835045
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 170.25418393313885
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 178.17843798547983
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 249.82204847037792
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 186.6479655727744
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 166.07086453586817
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.0420737862587
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 239.83759805560112
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 254.08764462918043
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 261.1633948981762
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 227.64996252954006
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 346.81377466768026
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 120.69698981940746
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 81.27153106033802
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.97343469411135
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 166.3345191627741
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 216.24115761369467
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 153.30900810658932
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 312.52437364310026
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 186.2097531557083
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.37866257876158
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 191.11618027091026
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.5903873592615
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 209.104523062706
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.17967066168785
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 106.29454720765352
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 238.79243712872267
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 203.66210862994194
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 211.103156208992
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 215.07097221910954
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.75574228167534
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 128.45935858786106
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 310.55774446576834
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.97823215276003
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.1101082637906
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 174.2214122787118
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 227.48838923871517
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 203.99290975183249
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.2179115563631
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 191.53994601219893
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 236.12714372575283
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 280.3133772686124
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 305.6944664567709
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.65726186335087
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 148.88010825961828
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.34718761593103
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 211.20941545814276
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.33616768568754
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 249.53767471015453
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 203.8293145596981
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 201.77085883915424
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 154.06937710940838
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 207.07288943231106
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 263.300615362823
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 210.67816764116287
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 233.85734483599663
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.14783665537834
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 193.55516880750656
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.04572868347168
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 217.65644662082195
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 154.494633898139
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.5506690442562
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 271.31324354559183
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 141.14372711628675
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 108.86332858353853
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 170.3707529231906
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.75258063524961
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.17053131759167
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.03666280210018
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 248.9075707271695
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 163.07714395225048
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.56182262301445
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 168.0414518341422
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 162.14936319738626
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 194.53300535678864
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.69471638649702
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 267.1392308548093
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.6911397576332
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 264.68015648424625
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 168.79249271005392
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.10028205811977
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 217.3036029562354
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 250.87058451026678
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 217.1955807134509
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 275.65057668834925
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 194.46461461484432
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 265.94846695661545
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 276.4025377109647
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.59921510517597
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 128.66954319179058
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 375.10507460683584
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 235.83250120282173
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 115.66537525504827
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 191.43863581120968
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 284.22604221850634
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 239.8627446964383
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 159.82261579483747
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.24033773690462
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.7410994246602
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.02287677675486
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 163.38700614869595
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 197.06049840897322
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.29155702888966
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 167.0909970998764
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.13711727410555
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 211.2231208011508
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 276.4892103150487
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 217.43506006896496
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.13112165778875
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.81912398338318
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 209.6900325268507
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 194.86282393336296
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.17093658447266
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.41982675343752
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 221.6249220073223
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 123.68290405720472
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 132.36752524971962
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 148.10041431337595
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 259.88971441984177
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.02116346359253
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 139.21022787690163
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 154.25605606287718
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.65819165855646
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.7420430034399
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 278.3159576356411
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 267.7915645763278
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 265.6421912834048
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.90378712117672
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.29660324007273
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.06861216574907
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 161.4743759855628
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 234.42051094025373
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.66591671854258
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.55014750361443
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.0476870983839
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 230.6135045364499
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 256.7773936316371
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.20589847117662
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 300.39557069540024
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 213.13297469168901
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 227.21749171614647
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 169.68838218599558
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 284.38050113618374
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 220.75221687555313
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 138.777625747025
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 237.1323499828577
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 266.59442856907845
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.37257079780102
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 240.20760226994753
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 134.97069105505943
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 271.5164180845022
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.78224822878838
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.27353172004223
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.6672963425517
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.3581388220191
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 248.13223630189896
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 125.37476047873497
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.75050199776888
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.83721935749054
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 220.2053079381585
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 121.36055435985327
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 256.38979487121105
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 172.88150545209646
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 153.77626661211252
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.6109940186143
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.93445397913456
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 156.20227064937353
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.52248042076826
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 209.7228355705738
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 129.09080274403095
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.28104152530432
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 125.96842274069786
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 263.71308974921703
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 245.31833454966545
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.9162733256817
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.08906020224094
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 191.86196103692055
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 146.04833256453276
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.84606260806322
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 199.65269230306149
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 224.12860300391912
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.49060943722725
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 201.555204577744
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.22451228648424
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 136.98740489780903
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.46249623596668
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 139.11546114832163
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 91.20011609047651
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 241.06649309396744
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 121.91043794155121
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 197.37832620739937
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 215.29703587293625
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.5960192978382
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.90686861425638
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 172.4739521741867
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.77585764229298
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.92149215191603
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 102.08948608487844
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 123.94610792398453
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 255.7522989809513
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 105.02600762993097
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 210.72418428957462
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.92026633024216
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.9454643726349
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 193.44603549689054
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 342.50258281826973
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 246.16776872426271
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 364.6750496700406
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 206.40358421951532
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.3937307447195
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 323.4381591901183
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 137.31282576918602
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 132.9967649653554
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 296.3522607460618
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 167.22534969449043
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.07912236452103
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.67758644372225
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.96407163888216
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.5104124993086
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 129.49058506637812
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.54585475474596
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 251.44768878817558
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 249.62548911571503
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.1341298520565
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 295.29713094234467
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.92075526714325
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 141.42699912190437
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.98952765762806
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 199.2796938866377
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.714415602386
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 203.68901919573545
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.75224623829126
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.97923581302166
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 174.91292860358953
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 192.09238328039646
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.4080670028925
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 119.95238345116377
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 118.35350189357996
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.41628517955542
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.59193722903728
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.55824037641287
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.19120920449495
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.29182229936123
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.426377043128
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 288.67516387254
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 215.71311820298433
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.02533518522978
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.6154702976346
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 156.69992472976446
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.53123269230127
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.10509561002254
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 172.05684911459684
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 145.9088707342744
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 139.0168946236372
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 258.73217079788446
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.15360891819
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.377994120121
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.36399602144957
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 215.34761227667332
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 121.19054608047009
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.11267536133528
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.59664867818356
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.7495692446828
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 222.44031354784966
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 236.92363779991865
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.08683237433434
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 160.85476242005825
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.28479273617268
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.41389801353216
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 210.85306629538536
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.8511135354638
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.50910346210003
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.20197415351868
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.40436616539955
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 313.75689897686243
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 258.8771227747202
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 161.71106044203043
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 256.7373886704445
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.13732392340899
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 206.51047583669424
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.7587204426527
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.46859389543533
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.21506092697382
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 160.06053239107132
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.53295475244522
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 172.21979517489672
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 117.01323464512825
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 156.1935329809785
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 116.72923248261213
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.75500001758337
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 194.09350026398897
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 309.9878150969744
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.67702659964561
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 252.1621696650982
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.8723682910204
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 273.76699075102806
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 233.34676586091518
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 188.4200107306242
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 242.41681769490242
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 217.25765708833933
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.7597767561674
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.18173536658287
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.5338973030448
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 217.08394214510918
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 213.3205085992813
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.88056053966284
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 123.73608537018299
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 130.6669032201171
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 259.04312543570995
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 178.81572246551514
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 199.29740577936172
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.35978353768587
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 308.8628938421607
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 240.45599810779095
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 169.00497023016214
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 254.6139918267727
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.59495616704226
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 262.5171160325408
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.44554914534092
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 162.2210070490837
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 193.93359869718552
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.49431917071342
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 163.74646965414286
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 213.6127846315503
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 236.9302213191986
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 250.84291398525238
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.5893734395504
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 222.41729125380516
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.861923083663
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 151.52726601809263
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 144.42094787955284
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.07522010803223
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 228.31059247255325
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 117.18061845749617
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.3575505465269
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 250.895282253623
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 110.42141262441874
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 216.9709475710988
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 127.45554558932781
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 188.43883648514748
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.86643058806658
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 125.8611436933279
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 239.2154699191451
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.84097319841385
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 124.32198226451874
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 170.22147215902805
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 192.4232942983508
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 168.37821528315544
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 111.23350821435452
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 186.94669660180807
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 277.49467734247446
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.5944518968463
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.20811591297388
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 101.17035917937756
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 303.2193295657635
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.33726801723242
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 166.72353725880384
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.69789051264524
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 277.56560035049915
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 155.1044788211584
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.07088770717382
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 276.5809129923582
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.10011135786772
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 233.26234612613916
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.68107914924622
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 220.3123401850462
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 181.3430478796363
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 251.96939799934626
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 209.60179716348648
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 210.47886181622744
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.55307060480118
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 178.4668294712901
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.98727902024984
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 192.4573788419366
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 212.06184476613998
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 237.59052995592356
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 221.96156531572342
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 221.44985385239124
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.64236246049404
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.16191452741623
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.01617984473705
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 185.1110802963376
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 250.95627550035715
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.7777272760868
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 199.3427611887455
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 186.1813087016344
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 132.02973920851946
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.45031498372555
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.92349350452423
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 148.89513701200485
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.1589821204543
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.45071601867676
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.6505045965314
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 155.4668704047799
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 129.99618332833052
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 335.1848963648081
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.38960687816143
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 314.62923623621464
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 134.3653043732047
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 135.28962898999453
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 280.24465031921864
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 318.31909250468016
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 374.9537216499448
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 352.59960405528545
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 179.41404785960913
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.50057400763035
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 226.69886704534292
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 159.92091968655586
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 112.06836346536875
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 303.4508768469095
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 250.58527011424303
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 285.62100883573294
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.5369819626212
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 279.85106967389584
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 256.67103193700314
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 280.93537501990795
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 243.28281451016665
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 422.68768418580294
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 251.88250746577978
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 264.69895150512457
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 267.54213590174913
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 311.00094597786665
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 268.38667318224907
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 245.1613498851657
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 299.2037031799555
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 345.1119605451822
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 353.7075826898217
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 270.56185342371464
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 362.23414819687605
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 133.01094248890877
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.87699322402477
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 206.18453435599804
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 149.9112220481038
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 193.42929311096668
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.3664341121912
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.56466830521822
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.1338588371873
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 183.48610028624535
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 275.2348259091377
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 235.4362066835165
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 160.41911579668522
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 206.89954422414303
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 267.2763681039214
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 224.26217421889305
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 244.9557352811098
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.71981206536293
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 186.75595615059137
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 181.3901262357831
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.41247699409723
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 263.38627748191357
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 159.7491977736354
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.84224686026573
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 216.7392447590828
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.0630298629403
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 207.14667905122042
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 183.5460625588894
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.5579363554716
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 192.79763754457235
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.2944314852357
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 298.75658359378576
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 194.83410939574242
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 167.6995400339365
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 222.91208989918232
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 181.50825798511505
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.43058191239834
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 181.37463741004467
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 168.12605038285255
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 253.43628134578466
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 243.9176356419921
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 191.1952095106244
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 287.8239555284381
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 161.41748894006014
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 163.43388427048922
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 166.11642856150866
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 211.5134261548519
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 127.83873360604048
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 249.10617340356112
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 168.15855260938406
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.96200988441706
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.6538346707821
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 284.17540714144707
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.75620102137327
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.55544262379408
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 278.7743601948023
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 123.92329517751932
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 292.84499026834965
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 170.3178957104683
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.84546725451946
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 227.36727260053158
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 229.9768002703786
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 70.83390932530165
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 188.92013933509588
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 211.29797026515007
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 303.63344866782427
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.62905572354794
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 192.810270935297
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 228.63822802901268
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 201.64757780730724
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 213.04275654256344
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.55022897571325
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 234.68778282403946
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 289.05726969242096
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 235.83497665822506
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.77100605517626
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 122.5995197892189
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.66366037726402
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 284.7148794680834
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 324.74095560610294
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 244.13344077765942
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.73971773684025
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.68657295405865
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 151.92896965891123
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 244.43950410932302
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 221.05168737471104
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.572834379971
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.6706439331174
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.55643436312675
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.5238650366664
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 262.65600603073835
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.0564378350973
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 254.02083806693554
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 253.62979620695114
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 151.5390882268548
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 255.77798765152693
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 236.34503223001957
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.4144095852971
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.5212303698063
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 255.5173272266984
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.18892341852188
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 253.97691689431667
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.6318522617221
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.70529598742723
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 154.6824974939227
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 201.02023147046566
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.04562819749117
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 224.91664346307516
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 285.98490357398987
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 197.90224824100733
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.4469282925129
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 243.8127687200904
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 287.88484912365675
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 144.005267880857
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.2925889864564
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.51614928990602
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 151.06375608593225
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 234.24151446670294
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 228.20150759071112
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 203.79148051142693
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.54082333296537
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 159.44704972207546
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 267.6994018256664
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.8564368635416
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 242.56093055009842
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 204.25236597657204
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.46613202244043
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 197.64894153922796
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 275.4052160307765
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.6168833374977
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.50538673251867
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 130.0793495029211
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 171.73254862427711
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.94262342900038
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.4077681005001
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.69701094180346
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 95.65683081746101
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 118.63033194094896
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.76114960759878
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.20287633687258
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 172.17925935983658
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 156.0878250747919
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.5807903110981
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.2540476694703
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 282.161065377295
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 286.0531806945801
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 137.65185326337814
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.86664636433125
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.77125604450703
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.16867317259312
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 152.38869283348322
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 277.98790391534567
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 262.814411893487
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 255.36711607128382
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 211.19734272360802
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 244.85118873417377
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.85549172759056
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 247.132059186697
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 124.7808150947094
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 207.49837905168533
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.80546256899834
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 116.80670827627182
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 168.41930150985718
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.70624258369207
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.4765650704503
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 275.98925214260817
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.16546066105366
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 154.1526736691594
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.67419178038836
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.46399145573378
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 154.8504726961255
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 258.37835762649775
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 252.2789491340518
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 189.09187149256468
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.9194489568472
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.0012495368719
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 216.19282942265272
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 209.37130507081747
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 138.97770177572966
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.70559289306402
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 239.46056049317122
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 206.77750557661057
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.01848344504833
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.88305194675922
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 144.5779725909233
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.2469509318471
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 250.04836171865463
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 166.18498880416155
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.52139911055565
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 210.03787592053413
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 230.57658597826958
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 179.52701915055513
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 271.51462342590094
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.8717429190874
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 154.55114003270864
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 131.05092104524374
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 94.35037802904844
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.75539664924145
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.43880254030228
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 213.09676580131054
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.70838256925344
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 167.96058882027864
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.97292330861092
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 218.88841688632965
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 159.40026193857193
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 137.7393677830696
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 218.19247212260962
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 275.18757712095976
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 282.86454640328884
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 210.63324250280857
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 318.06635670363903
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.8501701503992
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 214.71605729311705
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 179.20487467199564
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 217.39964373409748
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 212.31084316968918
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 161.85101214796305
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 243.13844367861748
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.8265766426921
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.2480434551835
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 189.20432310551405
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 138.02762795239687
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 161.5316029638052
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 303.4851988777518
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 266.70015696436167
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 128.65121848881245
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 264.63655289262533
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 241.70031305402517
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.93110095709562
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 252.4033421650529
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 137.65405677258968
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 194.64043620973825
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 221.61302249878645
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.2950329631567
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 238.14719542860985
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 191.1596218124032
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.64269637316465
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 176.21488217264414
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 218.90859585255384
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 313.8250261545181
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 224.54250883311033
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 238.86313941329718
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 151.13978926092386
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 190.33750984817743
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 241.29289016127586
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 170.08938360959291
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 172.85696137696505
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 278.390028513968
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 181.29378464072943
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 228.03211119025946
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 162.5533001497388
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.6359625980258
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.01133511960506
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 177.43270844221115
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 170.85103504359722
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 142.66514219343662
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.25228115916252
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.72253551334143
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.39181225001812
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 297.3428824916482
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.50824511051178
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.06429981440306
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 228.40923815965652
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.72905845195055
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 134.716073051095
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 216.9804573059082
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 136.94892264902592
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 175.82183424383402
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 222.31061104685068
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 253.66535130888224
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 180.01580704003572
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 164.0874184668064
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.26625902205706
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.81565060466528
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 157.71771408617496
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 244.3958530202508
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 202.51943450421095
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 296.5705208480358
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 182.32035171240568
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 170.4384507611394
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 296.82660195976496
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 237.49179486185312
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 169.60578691214323
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 122.07960337400436
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 184.34250820428133
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 225.8777655661106
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 183.8832562789321
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.1446193382144
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.90000388026237
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 327.44530122727156
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 208.8524317368865
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 220.17820738255978
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 232.94441029429436
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 109.70967635512352
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 144.05358768999577
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 317.13551096618176
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 231.73725325614214
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.58504946529865
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 238.2274465635419
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 200.47007780522108
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 163.6333279311657
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 132.20471888780594
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 146.50714304298162
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 233.75778645277023
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 289.433216676116
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.3493306338787
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 211.27584017813206
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 221.3754365220666
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.6005171686411
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 312.84707225859165
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 195.83875499665737
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 210.14376636594534
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 223.4841538593173
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 177.60506086051464
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 271.4329306036234
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 244.10756211727858
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 125.31505804508924
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 233.17687585949898
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 257.7526643872261
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 167.4092449247837
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 183.4566155448556
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 196.62901852279902
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 213.21633085608482
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 264.2735429108143
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 166.3971859961748
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 205.2996028214693
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 178.7805976346135
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 150.79202596098185
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 219.04368791729212
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.9756349399686
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 198.58628138899803
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 140.99768362939358
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 173.00153337419033
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 109.02560316026211
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 187.76561319828033
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 165.317689999938
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 139.86769132316113
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 158.34707766771317
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 147.87529967725277
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 143.48946884274483
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 149.57572240382433
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 155.16505390405655
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 107.84147027879953
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 132.13047944009304
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 137.99542747437954
+    }
+  ],
+  "before": {
+    "plans": 0,
+    "candidate_count_buckets": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0
+    },
+    "excluded_candidates": 0,
+    "group_switches": 0,
+    "sticky_breaks": 0,
+    "sticky_cache_hits": 0,
+    "sticky_cache_misses": 0,
+    "sticky_cache_errors": 0,
+    "sticky_binds": 0,
+    "breaker_closed": 0,
+    "breaker_open": 0,
+    "breaker_half_open": 0,
+    "breaker_recovering": 0,
+    "half_open_probes": 0,
+    "redis_degraded": 0,
+    "score_snapshot_hits": 0,
+    "score_snapshot_misses": 0,
+    "score_age_samples": 0,
+    "score_age_average_ms": 0,
+    "score_age_max_ms": 0,
+    "phase_latency": {
+      "auth_lookup": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      },
+      "plan_build": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      },
+      "smart_ranking": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      },
+      "state_read": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      },
+      "state_write": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "background_queries": {
+      "queries": 6,
+      "failures": 0,
+      "scanned_rows": 60,
+      "average_duration_ms": 48.87910566666667,
+      "max_duration_ms": 190.015234
+    },
+    "personalization": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "model_prediction": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "fact_recorder": {
+      "Queued": 0,
+      "Persisted": 0,
+      "StreamFallbacks": 0,
+      "DroppedSamples": 0,
+      "DroppedCritical": 0,
+      "Invalid": 0
+    }
+  },
+  "after": {
+    "plans": 1000,
+    "candidate_count_buckets": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 1000
+    },
+    "excluded_candidates": 0,
+    "group_switches": 0,
+    "sticky_breaks": 0,
+    "sticky_cache_hits": 0,
+    "sticky_cache_misses": 1000,
+    "sticky_cache_errors": 0,
+    "sticky_binds": 1000,
+    "breaker_closed": 10000,
+    "breaker_open": 0,
+    "breaker_half_open": 0,
+    "breaker_recovering": 0,
+    "half_open_probes": 0,
+    "redis_degraded": 0,
+    "score_snapshot_hits": 1000,
+    "score_snapshot_misses": 0,
+    "score_age_samples": 1000,
+    "score_age_average_ms": 23719.261,
+    "score_age_max_ms": 26911,
+    "phase_latency": {
+      "auth_lookup": {
+        "samples": 1000,
+        "p50_ms": 0.05,
+        "p95_ms": 0.25,
+        "p99_ms": 25,
+        "max_ms": 23.141495
+      },
+      "plan_build": {
+        "samples": 1000,
+        "p50_ms": 0.005,
+        "p95_ms": 0.01,
+        "p99_ms": 0.05,
+        "max_ms": 1.643165
+      },
+      "smart_ranking": {
+        "samples": 1000,
+        "p50_ms": 0.25,
+        "p95_ms": 0.5,
+        "p99_ms": 5,
+        "max_ms": 28.419713
+      },
+      "state_read": {
+        "samples": 1000,
+        "p50_ms": 0.25,
+        "p95_ms": 2,
+        "p99_ms": 10,
+        "max_ms": 9.551077
+      },
+      "state_write": {
+        "samples": 2000,
+        "p50_ms": 0.25,
+        "p95_ms": 5,
+        "p99_ms": 10,
+        "max_ms": 14.905045
+      }
+    },
+    "background_queries": {
+      "queries": 6,
+      "failures": 0,
+      "scanned_rows": 60,
+      "average_duration_ms": 48.87910566666667,
+      "max_duration_ms": 190.015234
+    },
+    "personalization": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "model_prediction": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "fact_recorder": {
+      "Queued": 0,
+      "Persisted": 0,
+      "StreamFallbacks": 0,
+      "DroppedSamples": 0,
+      "DroppedCritical": 0,
+      "Invalid": 0
+    }
+  }
+}

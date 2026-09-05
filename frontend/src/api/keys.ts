@@ -45,6 +45,11 @@ export async function getById(id: number): Promise<ApiKey> {
   return data
 }
 
+export async function getRoutingCapabilities(): Promise<{ multi_group_routing_enabled: boolean }> {
+  const { data } = await apiClient.get<{ multi_group_routing_enabled: boolean }>('/keys/routing-capabilities')
+  return data
+}
+
 /**
  * Create new API key
  * @param name - Key name
@@ -101,6 +106,16 @@ export async function create(
 }
 
 /**
+ * Create an API key from the complete request contract. New routing-aware
+ * callers should use this method; the positional create() wrapper remains for
+ * legacy call sites.
+ */
+export async function createWithRequest(payload: CreateApiKeyRequest): Promise<ApiKey> {
+  const { data } = await apiClient.post<ApiKey>('/keys', payload)
+  return data
+}
+
+/**
  * Update API key
  * @param id - API key ID
  * @param updates - Fields to update
@@ -133,8 +148,10 @@ export async function toggleStatus(id: number, status: 'active' | 'inactive'): P
 
 export const keysAPI = {
   list,
+  getRoutingCapabilities,
   getById,
   create,
+  createWithRequest,
   update,
   delete: deleteKey,
   toggleStatus

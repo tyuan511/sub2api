@@ -14,6 +14,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type candidateRateAuthRepoStub struct {
+	UserGroupRateRepository
+	rates       map[int64]float64
+	requestedID []int64
+}
+
+func (s *candidateRateAuthRepoStub) GetByUserAndGroupIDs(_ context.Context, _ int64, groupIDs []int64) (map[int64]float64, error) {
+	s.requestedID = append([]int64(nil), groupIDs...)
+	return cloneGroupRates(s.rates), nil
+}
+
+func (s *candidateRateAuthRepoStub) GetRPMOverrideByUserAndGroup(context.Context, int64, int64) (*int, error) {
+	return nil, nil
+}
+
 func profitAuthTestAPIKey() *APIKey {
 	groupID := int64(50)
 	return &APIKey{
@@ -53,7 +68,7 @@ func TestAPIKeyAuthSnapshotProfitControlRoundtrip(t *testing.T) {
 	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
 	require.NotNil(t, snapshot)
 	require.Equal(t, apiKeyAuthSnapshotVersion, snapshot.Version)
-	require.Equal(t, 22, snapshot.Version, "v22 起认证快照携带分组免费 Fast 开关")
+	require.Equal(t, apiKeyAuthSnapshotVersion, snapshot.Version, "认证快照同时携带候选集倍率、路由依赖版本和用户调度配置")
 
 	// 模拟 L2 缓存的完整 JSON 往返（与 apiKeyCache.SetAuthCache/GetAuthCache 同构）。
 	payload, err := json.Marshal(&APIKeyAuthCacheEntry{Snapshot: snapshot})
@@ -90,4 +105,58 @@ func TestAPIKeyAuthSnapshotOldVersionEvicted(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, used, "版本不匹配的缓存条目必须淘汰并回源重建")
 	require.Nil(t, materialized)
+}
+
+func TestAPIKeyAuthSnapshotCarriesOnlyCandidateUserRates(t *testing.T) {
+	primaryID, secondaryID := int64(50), int64(51)
+	repo := &candidateRateAuthRepoStub{rates: map[int64]float64{primaryID: 0.7, secondaryID: 0.8, 999: 9.9}}
+	svc := &APIKeyService{userGroupRateRepo: repo}
+	apiKey := profitAuthTestAPIKey()
+	apiKey.GroupRoutes = []APIKeyGroupRoute{
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: apiKey.Group},
+		{GroupID: secondaryID, Priority: 1, Enabled: true, Group: &Group{ID: secondaryID}},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+	require.ElementsMatch(t, []int64{primaryID, secondaryID}, repo.requestedID)
+	require.Equal(t, map[int64]float64{primaryID: 0.7, secondaryID: 0.8}, snapshot.User.GroupRates)
+
+	payload, err := json.Marshal(&APIKeyAuthCacheEntry{Snapshot: snapshot})
+	require.NoError(t, err)
+	var restored APIKeyAuthCacheEntry
+	require.NoError(t, json.Unmarshal(payload, &restored))
+	materialized, used, err := svc.applyAuthCacheEntry("sk-rate-roundtrip", &restored)
+	require.NoError(t, err)
+	require.True(t, used)
+	require.Equal(t, snapshot.User.GroupRates, materialized.User.GroupRates)
+}
+
+func TestAPIKeyAuthSnapshotEightCandidatesStaysWithinBoundedPayloadBudget(t *testing.T) {
+	const maxAuthSnapshotBytes = 64 << 10
+	svc := &APIKeyService{}
+	apiKey := profitAuthTestAPIKey()
+	apiKey.GroupRoutes = make([]APIKeyGroupRoute, DefaultMaxAPIKeyGroupRoutes)
+	for index := range apiKey.GroupRoutes {
+		groupID := int64(50 + index)
+		group := &Group{
+			ID: groupID, Name: "candidate", Platform: PlatformOpenAI,
+			Status: StatusActive, SubscriptionType: SubscriptionTypeStandard,
+			RateMultiplier: 1, Hydrated: true, AllowImageGeneration: true,
+			AllowBatchImageGeneration: true, AllowMessagesDispatch: true, AllowLive: true,
+			SupportedModelScopes: []string{"gpt-5", "gpt-5-mini"},
+		}
+		apiKey.GroupRoutes[index] = APIKeyGroupRoute{GroupID: groupID, Priority: index, Enabled: true, Group: group}
+		if index == 0 {
+			apiKey.GroupID = &apiKey.GroupRoutes[index].GroupID
+			apiKey.Group = group
+		}
+	}
+
+	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+	require.NotNil(t, snapshot)
+	require.Len(t, snapshot.GroupRoutes, DefaultMaxAPIKeyGroupRoutes)
+	payload, err := json.Marshal(&APIKeyAuthCacheEntry{Snapshot: snapshot})
+	require.NoError(t, err)
+	t.Logf("eight-candidate auth snapshot bytes=%d", len(payload))
+	require.LessOrEqual(t, len(payload), maxAuthSnapshotBytes)
 }

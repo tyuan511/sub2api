@@ -148,6 +148,8 @@ const (
 	FieldProfitSafetyBuffer = "profit_safety_buffer"
 	// EdgeAPIKeys holds the string denoting the api_keys edge name in mutations.
 	EdgeAPIKeys = "api_keys"
+	// EdgeAPIKeyGroupRoutes holds the string denoting the api_key_group_routes edge name in mutations.
+	EdgeAPIKeyGroupRoutes = "api_key_group_routes"
 	// EdgeRedeemCodes holds the string denoting the redeem_codes edge name in mutations.
 	EdgeRedeemCodes = "redeem_codes"
 	// EdgeSubscriptions holds the string denoting the subscriptions edge name in mutations.
@@ -171,6 +173,13 @@ const (
 	APIKeysInverseTable = "api_keys"
 	// APIKeysColumn is the table column denoting the api_keys relation/edge.
 	APIKeysColumn = "group_id"
+	// APIKeyGroupRoutesTable is the table that holds the api_key_group_routes relation/edge.
+	APIKeyGroupRoutesTable = "api_key_group_routes"
+	// APIKeyGroupRoutesInverseTable is the table name for the APIKeyGroupRoute entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeygrouproute" package.
+	APIKeyGroupRoutesInverseTable = "api_key_group_routes"
+	// APIKeyGroupRoutesColumn is the table column denoting the api_key_group_routes relation/edge.
+	APIKeyGroupRoutesColumn = "group_id"
 	// RedeemCodesTable is the table that holds the redeem_codes relation/edge.
 	RedeemCodesTable = "redeem_codes"
 	// RedeemCodesInverseTable is the table name for the RedeemCode entity.
@@ -743,6 +752,20 @@ func ByAPIKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAPIKeyGroupRoutesCount orders the results by api_key_group_routes count.
+func ByAPIKeyGroupRoutesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAPIKeyGroupRoutesStep(), opts...)
+	}
+}
+
+// ByAPIKeyGroupRoutes orders the results by api_key_group_routes terms.
+func ByAPIKeyGroupRoutes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAPIKeyGroupRoutesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByRedeemCodesCount orders the results by redeem_codes count.
 func ByRedeemCodesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -845,6 +868,13 @@ func newAPIKeysStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(APIKeysInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, APIKeysTable, APIKeysColumn),
+	)
+}
+func newAPIKeyGroupRoutesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(APIKeyGroupRoutesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, APIKeyGroupRoutesTable, APIKeyGroupRoutesColumn),
 	)
 }
 func newRedeemCodesStep() *sqlgraph.Step {

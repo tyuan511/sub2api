@@ -1,0 +1,218 @@
+{
+  "key": {
+    "id": 72,
+    "group_id": 37,
+    "schedule_mode": "smart",
+    "smart_balance_bps": 3000,
+    "routing_min_success_rate": 85,
+    "route_version": 1,
+    "quota": 0.1,
+    "quota_used": 0.0
+  },
+  "routes": [
+    {
+      "group_id": 37,
+      "priority": 0
+    },
+    {
+      "group_id": 38,
+      "priority": 1
+    }
+  ],
+  "usage_columns": [
+    {
+      "column_name": "account_id"
+    },
+    {
+      "column_name": "request_id"
+    },
+    {
+      "column_name": "input_tokens"
+    },
+    {
+      "column_name": "output_tokens"
+    },
+    {
+      "column_name": "cache_creation_tokens"
+    },
+    {
+      "column_name": "cache_read_tokens"
+    },
+    {
+      "column_name": "cache_creation_5m_tokens"
+    },
+    {
+      "column_name": "cache_creation_1h_tokens"
+    },
+    {
+      "column_name": "input_cost"
+    },
+    {
+      "column_name": "output_cost"
+    },
+    {
+      "column_name": "cache_creation_cost"
+    },
+    {
+      "column_name": "cache_read_cost"
+    },
+    {
+      "column_name": "total_cost"
+    },
+    {
+      "column_name": "actual_cost"
+    },
+    {
+      "column_name": "group_id"
+    },
+    {
+      "column_name": "first_token_ms"
+    },
+    {
+      "column_name": "request_type"
+    },
+    {
+      "column_name": "requested_model"
+    },
+    {
+      "column_name": "image_output_tokens"
+    },
+    {
+      "column_name": "image_output_cost"
+    },
+    {
+      "column_name": "account_stats_cost"
+    },
+    {
+      "column_name": "image_input_tokens"
+    },
+    {
+      "column_name": "image_input_cost"
+    },
+    {
+      "column_name": "requested_reasoning_effort"
+    },
+    {
+      "column_name": "initial_group_id"
+    },
+    {
+      "column_name": "route_version"
+    },
+    {
+      "column_name": "group_switch_count"
+    },
+    {
+      "column_name": "cache_compensation_tokens"
+    }
+  ],
+  "explain": [
+    200,
+    {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "api_key_id": 72,
+        "routing_enabled": true,
+        "route_version": 1,
+        "platform": "openai",
+        "model_family": "gpt-5",
+        "endpoint_kind": "responses",
+        "schedule_mode": "smart",
+        "smart_preference": "price",
+        "smart_balance_bps": 3000,
+        "routing_min_success_rate": 85,
+        "routing_state_version": 1,
+        "strategy_version": "routing-rules-v1",
+        "score_version": "score-1788592314",
+        "feature_version": "routing-features-v2",
+        "score_generated_at": "2026-09-05T07:11:54.317386263Z",
+        "score_age_ms": 52951,
+        "sequential_fallback": false,
+        "candidates": [
+          {
+            "group_id": 37,
+            "configured_priority": 0,
+            "effective_rank": 0,
+            "admitted": true,
+            "breaker": {
+              "state": "CLOSED",
+              "successes": 0,
+              "failures": 0,
+              "recovery_successes": 0,
+              "recovery_admissions": 0
+            },
+            "score": {
+              "group_id": 37,
+              "priority": 0,
+              "eligible": true,
+              "score": 0.5,
+              "success_rate": 1,
+              "smoothed_success_rate": 1,
+              "normalized_rate": 0.1,
+              "confidence": 0,
+              "price_confidence": 0,
+              "ttft_ms": 0,
+              "duration_ms": 0,
+              "capacity_score": 0,
+              "cache_hit_rate": 0,
+              "observation_window": "nominal",
+              "dependency_domains": [
+                "provider:openai",
+                "account_pool:cb70ab375662576bd1ac5aaf16b3fca4"
+              ],
+              "score_breakdown": {
+                "success": 0.25,
+                "price": 0.13999999999999999,
+                "speed": 0.06,
+                "capacity": 0.05
+              },
+              "shared_baseline_score": 0.5,
+              "learning_adjustment": 0
+            }
+          },
+          {
+            "group_id": 38,
+            "configured_priority": 1,
+            "effective_rank": 1,
+            "admitted": true,
+            "breaker": {
+              "state": "CLOSED",
+              "successes": 0,
+              "failures": 0,
+              "recovery_successes": 0,
+              "recovery_admissions": 0
+            },
+            "score": {
+              "group_id": 38,
+              "priority": 1,
+              "eligible": true,
+              "score": 0.5,
+              "success_rate": 1,
+              "smoothed_success_rate": 1,
+              "normalized_rate": 0.15,
+              "confidence": 0,
+              "price_confidence": 0,
+              "ttft_ms": 0,
+              "duration_ms": 0,
+              "capacity_score": 0,
+              "cache_hit_rate": 0,
+              "observation_window": "nominal",
+              "dependency_domains": [
+                "provider:openai",
+                "account_pool:9188905e74c28e489b44e954ec0b9bca"
+              ],
+              "score_breakdown": {
+                "success": 0.25,
+                "price": 0.13999999999999999,
+                "speed": 0.06,
+                "capacity": 0.05
+              },
+              "shared_baseline_score": 0.5,
+              "learning_adjustment": 0
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

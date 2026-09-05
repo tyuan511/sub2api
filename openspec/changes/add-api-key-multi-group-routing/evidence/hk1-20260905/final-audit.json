@@ -1,0 +1,140 @@
+{
+  "ordinary_smart_decisions": "3032",
+  "health_failures": "68|capacity_overflow|5\n68|route_attempt_failed|2\n68|success|7\n69|capacity_overflow|5\n69|route_attempt_failed|2\n69|success|7\n70|route_attempt_failed|6\n70|success|6",
+  "supplier_health_buckets": "29|gpt-4o|chat_completions|0|0|2\n29|gpt-4o-mini|chat_completions|7004|0|0\n35|gpt-4o|chat_completions|0|4|10\n35|gpt-4o-mini|chat_completions|41|0|0\n36|gpt-4o-mini|chat_completions|15|0|0",
+  "zero_output_usage": "0|f|2000\n8|t|3000",
+  "runtime": {
+    "plans": 1049,
+    "candidate_count_buckets": {
+      "0": 0,
+      "1": 1,
+      "2": 48,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 1000
+    },
+    "excluded_candidates": 0,
+    "group_switches": 6,
+    "sticky_breaks": 6,
+    "sticky_cache_hits": 1,
+    "sticky_cache_misses": 1044,
+    "sticky_cache_errors": 0,
+    "sticky_binds": 1044,
+    "breaker_closed": 10082,
+    "breaker_open": 2,
+    "breaker_half_open": 1,
+    "breaker_recovering": 28,
+    "half_open_probes": 1,
+    "redis_degraded": 0,
+    "score_snapshot_hits": 1000,
+    "score_snapshot_misses": 0,
+    "score_age_samples": 1000,
+    "score_age_average_ms": 23719.261,
+    "score_age_max_ms": 26911,
+    "phase_latency": {
+      "auth_lookup": {
+        "samples": 1045,
+        "p50_ms": 0.05,
+        "p95_ms": 0.25,
+        "p99_ms": 25,
+        "max_ms": 23.141495
+      },
+      "plan_build": {
+        "samples": 1049,
+        "p50_ms": 0.005,
+        "p95_ms": 0.01,
+        "p99_ms": 0.05,
+        "max_ms": 1.643165
+      },
+      "smart_ranking": {
+        "samples": 1000,
+        "p50_ms": 0.25,
+        "p95_ms": 0.5,
+        "p99_ms": 5,
+        "max_ms": 28.419713
+      },
+      "state_read": {
+        "samples": 1066,
+        "p50_ms": 0.25,
+        "p95_ms": 2,
+        "p99_ms": 10,
+        "max_ms": 9.551077
+      },
+      "state_write": {
+        "samples": 2094,
+        "p50_ms": 0.25,
+        "p95_ms": 5,
+        "p99_ms": 10,
+        "max_ms": 14.905045
+      }
+    },
+    "background_queries": {
+      "queries": 12,
+      "failures": 0,
+      "scanned_rows": 124,
+      "average_duration_ms": 35.974735333333335,
+      "max_duration_ms": 190.015234
+    },
+    "personalization": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "model_prediction": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "fact_recorder": {
+      "Queued": 12,
+      "Persisted": 12,
+      "StreamFallbacks": 0,
+      "DroppedSamples": 0,
+      "DroppedCritical": 0,
+      "Invalid": 0
+    }
+  }
+}

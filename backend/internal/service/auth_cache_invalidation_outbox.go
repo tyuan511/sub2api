@@ -61,6 +61,7 @@ type AuthCacheInvalidationHealth struct {
 
 type OpsAuthCacheInvalidationHealth struct {
 	Outbox       AuthCacheInvalidationHealth           `json:"outbox"`
+	RouteConfig  APIKeyRouteConfigOutboxHealth         `json:"route_config"`
 	Subscriber   AuthCacheInvalidationSubscriberHealth `json:"subscriber"`
 	Lookup       APIKeyAuthLookupMetrics               `json:"lookup"`
 	InvalidAbuse InvalidAuthAbuseHealth                `json:"invalid_abuse"`
@@ -73,6 +74,9 @@ func (s *OpsService) GetAuthCacheInvalidationHealth(ctx context.Context) OpsAuth
 	health := OpsAuthCacheInvalidationHealth{}
 	if s.authCacheInvalidationWorker != nil {
 		health.Outbox = s.authCacheInvalidationWorker.Health(ctx)
+	}
+	if s.apiKeyRouteConfigOutboxWorker != nil {
+		health.RouteConfig = s.apiKeyRouteConfigOutboxWorker.Health(ctx)
 	}
 	if s.apiKeyService != nil {
 		health.Subscriber = s.apiKeyService.AuthCacheInvalidationSubscriberHealth()

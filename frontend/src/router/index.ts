@@ -439,6 +439,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/routing-optimization',
+    name: 'AdminRoutingOptimization',
+    component: () => import('@/views/admin/RoutingOptimizationView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Routing Optimization',
+      titleKey: 'admin.routingOptimization.title',
+      descriptionKey: 'admin.routingOptimization.description'
+    }
+  },
+  {
     path: '/admin/audit-logs',
     name: 'AdminAuditLogs',
     component: () => import('@/views/admin/AuditLogView.vue'),

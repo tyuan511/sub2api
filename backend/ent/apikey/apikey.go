@@ -29,6 +29,20 @@ const (
 	FieldName = "name"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
+	// FieldScheduleMode holds the string denoting the schedule_mode field in the database.
+	FieldScheduleMode = "schedule_mode"
+	// FieldSmartPreference holds the string denoting the smart_preference field in the database.
+	FieldSmartPreference = "smart_preference"
+	// FieldSmartBalanceBps holds the string denoting the smart_balance_bps field in the database.
+	FieldSmartBalanceBps = "smart_balance_bps"
+	// FieldRoutingMinSuccessRate holds the string denoting the routing_min_success_rate field in the database.
+	FieldRoutingMinSuccessRate = "routing_min_success_rate"
+	// FieldRoutingStateVersion holds the string denoting the routing_state_version field in the database.
+	FieldRoutingStateVersion = "routing_state_version"
+	// FieldRouteVersion holds the string denoting the route_version field in the database.
+	FieldRouteVersion = "route_version"
+	// FieldRoutingDependencyVersion holds the string denoting the routing_dependency_version field in the database.
+	FieldRoutingDependencyVersion = "routing_dependency_version"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldLastUsedAt holds the string denoting the last_used_at field in the database.
@@ -65,6 +79,10 @@ const (
 	EdgeUser = "user"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
 	EdgeGroup = "group"
+	// EdgeGroupRoutes holds the string denoting the group_routes edge name in mutations.
+	EdgeGroupRoutes = "group_routes"
+	// EdgeRouteConfigOutboxEvents holds the string denoting the route_config_outbox_events edge name in mutations.
+	EdgeRouteConfigOutboxEvents = "route_config_outbox_events"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
 	// Table holds the table name of the apikey in the database.
@@ -83,6 +101,20 @@ const (
 	GroupInverseTable = "groups"
 	// GroupColumn is the table column denoting the group relation/edge.
 	GroupColumn = "group_id"
+	// GroupRoutesTable is the table that holds the group_routes relation/edge.
+	GroupRoutesTable = "api_key_group_routes"
+	// GroupRoutesInverseTable is the table name for the APIKeyGroupRoute entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeygrouproute" package.
+	GroupRoutesInverseTable = "api_key_group_routes"
+	// GroupRoutesColumn is the table column denoting the group_routes relation/edge.
+	GroupRoutesColumn = "api_key_id"
+	// RouteConfigOutboxEventsTable is the table that holds the route_config_outbox_events relation/edge.
+	RouteConfigOutboxEventsTable = "api_key_route_config_outbox"
+	// RouteConfigOutboxEventsInverseTable is the table name for the APIKeyRouteConfigOutbox entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeyrouteconfigoutbox" package.
+	RouteConfigOutboxEventsInverseTable = "api_key_route_config_outbox"
+	// RouteConfigOutboxEventsColumn is the table column denoting the route_config_outbox_events relation/edge.
+	RouteConfigOutboxEventsColumn = "api_key_id"
 	// UsageLogsTable is the table that holds the usage_logs relation/edge.
 	UsageLogsTable = "usage_logs"
 	// UsageLogsInverseTable is the table name for the UsageLog entity.
@@ -102,6 +134,13 @@ var Columns = []string{
 	FieldKey,
 	FieldName,
 	FieldGroupID,
+	FieldScheduleMode,
+	FieldSmartPreference,
+	FieldSmartBalanceBps,
+	FieldRoutingMinSuccessRate,
+	FieldRoutingStateVersion,
+	FieldRouteVersion,
+	FieldRoutingDependencyVersion,
 	FieldStatus,
 	FieldLastUsedAt,
 	FieldIPWhitelist,
@@ -148,6 +187,30 @@ var (
 	KeyValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultScheduleMode holds the default value on creation for the "schedule_mode" field.
+	DefaultScheduleMode string
+	// ScheduleModeValidator is a validator for the "schedule_mode" field. It is called by the builders before save.
+	ScheduleModeValidator func(string) error
+	// SmartPreferenceValidator is a validator for the "smart_preference" field. It is called by the builders before save.
+	SmartPreferenceValidator func(string) error
+	// SmartBalanceBpsValidator is a validator for the "smart_balance_bps" field. It is called by the builders before save.
+	SmartBalanceBpsValidator func(int) error
+	// DefaultRoutingMinSuccessRate holds the default value on creation for the "routing_min_success_rate" field.
+	DefaultRoutingMinSuccessRate int
+	// RoutingMinSuccessRateValidator is a validator for the "routing_min_success_rate" field. It is called by the builders before save.
+	RoutingMinSuccessRateValidator func(int) error
+	// DefaultRoutingStateVersion holds the default value on creation for the "routing_state_version" field.
+	DefaultRoutingStateVersion int64
+	// RoutingStateVersionValidator is a validator for the "routing_state_version" field. It is called by the builders before save.
+	RoutingStateVersionValidator func(int64) error
+	// DefaultRouteVersion holds the default value on creation for the "route_version" field.
+	DefaultRouteVersion int64
+	// RouteVersionValidator is a validator for the "route_version" field. It is called by the builders before save.
+	RouteVersionValidator func(int64) error
+	// DefaultRoutingDependencyVersion holds the default value on creation for the "routing_dependency_version" field.
+	DefaultRoutingDependencyVersion int64
+	// RoutingDependencyVersionValidator is a validator for the "routing_dependency_version" field. It is called by the builders before save.
+	RoutingDependencyVersionValidator func(int64) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -211,6 +274,41 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupID orders the results by the group_id field.
 func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupID, opts...).ToFunc()
+}
+
+// ByScheduleMode orders the results by the schedule_mode field.
+func ByScheduleMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldScheduleMode, opts...).ToFunc()
+}
+
+// BySmartPreference orders the results by the smart_preference field.
+func BySmartPreference(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSmartPreference, opts...).ToFunc()
+}
+
+// BySmartBalanceBps orders the results by the smart_balance_bps field.
+func BySmartBalanceBps(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSmartBalanceBps, opts...).ToFunc()
+}
+
+// ByRoutingMinSuccessRate orders the results by the routing_min_success_rate field.
+func ByRoutingMinSuccessRate(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoutingMinSuccessRate, opts...).ToFunc()
+}
+
+// ByRoutingStateVersion orders the results by the routing_state_version field.
+func ByRoutingStateVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoutingStateVersion, opts...).ToFunc()
+}
+
+// ByRouteVersion orders the results by the route_version field.
+func ByRouteVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRouteVersion, opts...).ToFunc()
+}
+
+// ByRoutingDependencyVersion orders the results by the routing_dependency_version field.
+func ByRoutingDependencyVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoutingDependencyVersion, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.
@@ -297,6 +395,34 @@ func ByGroupField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByGroupRoutesCount orders the results by group_routes count.
+func ByGroupRoutesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupRoutesStep(), opts...)
+	}
+}
+
+// ByGroupRoutes orders the results by group_routes terms.
+func ByGroupRoutes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupRoutesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByRouteConfigOutboxEventsCount orders the results by route_config_outbox_events count.
+func ByRouteConfigOutboxEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRouteConfigOutboxEventsStep(), opts...)
+	}
+}
+
+// ByRouteConfigOutboxEvents orders the results by route_config_outbox_events terms.
+func ByRouteConfigOutboxEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRouteConfigOutboxEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUsageLogsCount orders the results by usage_logs count.
 func ByUsageLogsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -322,6 +448,20 @@ func newGroupStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GroupInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, GroupTable, GroupColumn),
+	)
+}
+func newGroupRoutesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupRoutesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupRoutesTable, GroupRoutesColumn),
+	)
+}
+func newRouteConfigOutboxEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RouteConfigOutboxEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RouteConfigOutboxEventsTable, RouteConfigOutboxEventsColumn),
 	)
 }
 func newUsageLogsStep() *sqlgraph.Step {

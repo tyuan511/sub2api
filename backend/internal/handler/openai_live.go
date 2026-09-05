@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -34,7 +35,7 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Live is not supported for this platform")
 		return
 	}
-	if !liveEnabledForAPIKey(apiKey) {
+	if !liveEnabledForAPIKey(apiKey) && !apiKeyMultiGroupRoutingActive(c) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", "Live is not enabled for this group")
 		return
 	}
@@ -48,6 +49,86 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Live only supports OpenAI models for Composite groups")
 		return
 	}
+	reqLog := requestLogger(
+		c,
+		"handler.openai_gateway.live",
+		zap.Int64("user_id", subject.UserID),
+		zap.Int64("api_key_id", apiKey.ID),
+		zap.Any("group_id", apiKey.GroupID),
+	)
+	subscription, _ := middleware2.GetSubscriptionFromContext(c)
+	if h.billingCacheService == nil {
+		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Billing service unavailable")
+		return
+	}
+	routeEndpoint := c.Request.URL.Path
+	liveCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil || !liveEnabledForAPIKey(candidate) {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if !compositeTargetPlatformAllowed(c, candidate, model, service.PlatformOpenAI) {
+			return fmt.Errorf("candidate group %d does not support OpenAI Live", candidate.Group.ID)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, model, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("openai.live.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	routeSessionHash := h.gatewayService.GenerateExplicitSessionHash(c, request.Session)
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, model, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
+	routeStateDegraded := stickyErr != nil
+	if stickyErr != nil {
+		reqLog.Warn("openai.live.api_key_group_route_state_degraded", zap.Error(stickyErr))
+	}
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, liveCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+			reqLog.Warn("openai.live.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+		smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, model, routeEndpoint, routeSessionHash, liveCandidateCheck)
+		if smartErr != nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No eligible candidate groups")
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+		}
+	}
+	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, liveCandidateCheck)
+	if err != nil {
+		if isAPIKeyRouteAdvanceBillingError(err) {
+			status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(err))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No eligible candidate groups")
+		return
+	}
+	if initialRouteChanged && stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickyBroken(c)
+	}
 	if upstreamModel, ok := service.ResolvedUpstreamModelFromContext(c.Request.Context()); ok && upstreamModel != model {
 		rewrittenSession, rewriteErr := sjson.SetBytes(request.Session, "model", upstreamModel)
 		if rewriteErr != nil {
@@ -56,13 +137,7 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		}
 		request.Session = rewrittenSession
 	}
-	reqLog := requestLogger(
-		c,
-		"handler.openai_gateway.live",
-		zap.Int64("user_id", subject.UserID),
-		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
-	)
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
 	if decision := h.checkSecurityAudit(
 		c,
 		reqLog,
@@ -73,12 +148,6 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		request.Session,
 	); decision != nil && !decision.AllowNextStage {
 		h.openAISecurityAuditError(c, decision)
-		return
-	}
-
-	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	if h.billingCacheService == nil {
-		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Billing service unavailable")
 		return
 	}
 	if err := h.billingCacheService.CheckBillingEligibility(
@@ -115,8 +184,17 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 	identity := liveCallIdentity(c, apiKey, subject.UserID, subscription)
 	created, err := h.gatewayService.CreateLiveCall(c.Request.Context(), request, identity, subject.Concurrency)
 	if err != nil {
+		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+			_, _ = h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, routeEndpoint, err)
+		}
 		h.writeLiveCreateError(c, err)
 		return
+	}
+	if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+		if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, routeEndpoint, true); observeErr != nil {
+			reqLog.Warn("openai.live.api_key_group_success_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
+		_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash, *apiKey.GroupID)
 	}
 	c.Header("Location", liveSidebandLocation(c.FullPath(), created.CallID))
 	c.Data(http.StatusOK, "application/sdp", created.SDP)
@@ -209,16 +287,43 @@ func (h *OpenAIGatewayHandler) LiveSideband(c *gin.Context) {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
 		return
 	}
+	if !liveEnabledForAPIKey(apiKey) && !apiKeyMultiGroupRoutingActive(c) {
+		h.errorResponse(c, http.StatusForbidden, "permission_error", "Live is not enabled for this group")
+		return
+	}
+	var record *service.LiveCallRecord
+	var err error
+	if apiKeyMultiGroupRoutingActive(c) {
+		ownedAPIKey, _, ownerErr := activateAPIKeyRouteOwnedGroup(c, func(groupID int64) (bool, error) {
+			candidateGroupID := groupID
+			candidateRecord, lookupErr := h.gatewayService.GetLiveCallForIdentity(c.Request.Context(), c.Param("call_id"), service.LiveCallIdentity{
+				APIKeyID: apiKey.ID, UserID: subject.UserID, GroupID: &candidateGroupID,
+			})
+			if errors.Is(lookupErr, service.ErrLiveIdentityMismatch) {
+				return false, nil
+			}
+			if lookupErr != nil {
+				return false, lookupErr
+			}
+			record = candidateRecord
+			return true, nil
+		})
+		if ownerErr == nil && ownedAPIKey != nil {
+			apiKey = ownedAPIKey
+		}
+		if ownerErr != nil {
+			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Live call not found")
+			return
+		}
+	}
+	identity := service.LiveCallIdentity{APIKeyID: apiKey.ID, UserID: subject.UserID, GroupID: apiKey.GroupID}
 	if !liveEnabledForAPIKey(apiKey) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", "Live is not enabled for this group")
 		return
 	}
-	identity := service.LiveCallIdentity{
-		APIKeyID: apiKey.ID,
-		UserID:   subject.UserID,
-		GroupID:  apiKey.GroupID,
+	if record == nil {
+		record, err = h.gatewayService.GetLiveCallForIdentity(c.Request.Context(), c.Param("call_id"), identity)
 	}
-	record, err := h.gatewayService.GetLiveCallForIdentity(c.Request.Context(), c.Param("call_id"), identity)
 	if err != nil {
 		if errors.Is(err, service.ErrLiveIdentityMismatch) {
 			h.errorResponse(c, http.StatusForbidden, "permission_error", "Live call belongs to another identity")

@@ -15,6 +15,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -38,6 +40,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingattempt"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -138,6 +143,60 @@ func (f TraverseAPIKey) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.APIKeyQuery", q)
+}
+
+// The APIKeyGroupRouteFunc type is an adapter to allow the use of ordinary function as a Querier.
+type APIKeyGroupRouteFunc func(context.Context, *ent.APIKeyGroupRouteQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f APIKeyGroupRouteFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.APIKeyGroupRouteQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.APIKeyGroupRouteQuery", q)
+}
+
+// The TraverseAPIKeyGroupRoute type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAPIKeyGroupRoute func(context.Context, *ent.APIKeyGroupRouteQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAPIKeyGroupRoute) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAPIKeyGroupRoute) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.APIKeyGroupRouteQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.APIKeyGroupRouteQuery", q)
+}
+
+// The APIKeyRouteConfigOutboxFunc type is an adapter to allow the use of ordinary function as a Querier.
+type APIKeyRouteConfigOutboxFunc func(context.Context, *ent.APIKeyRouteConfigOutboxQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f APIKeyRouteConfigOutboxFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.APIKeyRouteConfigOutboxQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.APIKeyRouteConfigOutboxQuery", q)
+}
+
+// The TraverseAPIKeyRouteConfigOutbox type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAPIKeyRouteConfigOutbox func(context.Context, *ent.APIKeyRouteConfigOutboxQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAPIKeyRouteConfigOutbox) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAPIKeyRouteConfigOutbox) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.APIKeyRouteConfigOutboxQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.APIKeyRouteConfigOutboxQuery", q)
 }
 
 // The AccountFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -896,6 +955,87 @@ func (f TraverseRedeemCode) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.RedeemCodeQuery", q)
 }
 
+// The RoutingArtifactVersionFunc type is an adapter to allow the use of ordinary function as a Querier.
+type RoutingArtifactVersionFunc func(context.Context, *ent.RoutingArtifactVersionQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f RoutingArtifactVersionFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.RoutingArtifactVersionQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.RoutingArtifactVersionQuery", q)
+}
+
+// The TraverseRoutingArtifactVersion type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseRoutingArtifactVersion func(context.Context, *ent.RoutingArtifactVersionQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseRoutingArtifactVersion) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseRoutingArtifactVersion) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.RoutingArtifactVersionQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.RoutingArtifactVersionQuery", q)
+}
+
+// The RoutingAttemptFunc type is an adapter to allow the use of ordinary function as a Querier.
+type RoutingAttemptFunc func(context.Context, *ent.RoutingAttemptQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f RoutingAttemptFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.RoutingAttemptQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.RoutingAttemptQuery", q)
+}
+
+// The TraverseRoutingAttempt type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseRoutingAttempt func(context.Context, *ent.RoutingAttemptQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseRoutingAttempt) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseRoutingAttempt) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.RoutingAttemptQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.RoutingAttemptQuery", q)
+}
+
+// The RoutingExperimentFunc type is an adapter to allow the use of ordinary function as a Querier.
+type RoutingExperimentFunc func(context.Context, *ent.RoutingExperimentQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f RoutingExperimentFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.RoutingExperimentQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.RoutingExperimentQuery", q)
+}
+
+// The TraverseRoutingExperiment type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseRoutingExperiment func(context.Context, *ent.RoutingExperimentQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseRoutingExperiment) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseRoutingExperiment) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.RoutingExperimentQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.RoutingExperimentQuery", q)
+}
+
 // The SecuritySecretFunc type is an adapter to allow the use of ordinary function as a Querier.
 type SecuritySecretFunc func(context.Context, *ent.SecuritySecretQuery) (ent.Value, error)
 
@@ -1360,6 +1500,10 @@ func NewQuery(q ent.Query) (Query, error) {
 	switch q := q.(type) {
 	case *ent.APIKeyQuery:
 		return &query[*ent.APIKeyQuery, predicate.APIKey, apikey.OrderOption]{typ: ent.TypeAPIKey, tq: q}, nil
+	case *ent.APIKeyGroupRouteQuery:
+		return &query[*ent.APIKeyGroupRouteQuery, predicate.APIKeyGroupRoute, apikeygrouproute.OrderOption]{typ: ent.TypeAPIKeyGroupRoute, tq: q}, nil
+	case *ent.APIKeyRouteConfigOutboxQuery:
+		return &query[*ent.APIKeyRouteConfigOutboxQuery, predicate.APIKeyRouteConfigOutbox, apikeyrouteconfigoutbox.OrderOption]{typ: ent.TypeAPIKeyRouteConfigOutbox, tq: q}, nil
 	case *ent.AccountQuery:
 		return &query[*ent.AccountQuery, predicate.Account, account.OrderOption]{typ: ent.TypeAccount, tq: q}, nil
 	case *ent.AccountGroupQuery:
@@ -1416,6 +1560,12 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ProxyQuery, predicate.Proxy, proxy.OrderOption]{typ: ent.TypeProxy, tq: q}, nil
 	case *ent.RedeemCodeQuery:
 		return &query[*ent.RedeemCodeQuery, predicate.RedeemCode, redeemcode.OrderOption]{typ: ent.TypeRedeemCode, tq: q}, nil
+	case *ent.RoutingArtifactVersionQuery:
+		return &query[*ent.RoutingArtifactVersionQuery, predicate.RoutingArtifactVersion, routingartifactversion.OrderOption]{typ: ent.TypeRoutingArtifactVersion, tq: q}, nil
+	case *ent.RoutingAttemptQuery:
+		return &query[*ent.RoutingAttemptQuery, predicate.RoutingAttempt, routingattempt.OrderOption]{typ: ent.TypeRoutingAttempt, tq: q}, nil
+	case *ent.RoutingExperimentQuery:
+		return &query[*ent.RoutingExperimentQuery, predicate.RoutingExperiment, routingexperiment.OrderOption]{typ: ent.TypeRoutingExperiment, tq: q}, nil
 	case *ent.SecuritySecretQuery:
 		return &query[*ent.SecuritySecretQuery, predicate.SecuritySecret, securitysecret.OrderOption]{typ: ent.TypeSecuritySecret, tq: q}, nil
 	case *ent.SettingQuery:

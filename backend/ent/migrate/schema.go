@@ -17,6 +17,13 @@ var (
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "key", Type: field.TypeString, Unique: true, Size: 128},
 		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "schedule_mode", Type: field.TypeString, Size: 16, Default: "sequential"},
+		{Name: "smart_preference", Type: field.TypeString, Nullable: true, Size: 16},
+		{Name: "smart_balance_bps", Type: field.TypeInt, Nullable: true},
+		{Name: "routing_min_success_rate", Type: field.TypeInt, Default: 80},
+		{Name: "routing_state_version", Type: field.TypeInt64, Default: 1},
+		{Name: "route_version", Type: field.TypeInt64, Default: 1},
+		{Name: "routing_dependency_version", Type: field.TypeInt64, Default: 1},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
 		{Name: "ip_whitelist", Type: field.TypeJSON, Nullable: true},
@@ -44,13 +51,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "api_keys_groups_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[22]},
+				Columns:    []*schema.Column{APIKeysColumns[29]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "api_keys_users_api_keys",
-				Columns:    []*schema.Column{APIKeysColumns[23]},
+				Columns:    []*schema.Column{APIKeysColumns[30]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -59,17 +66,17 @@ var (
 			{
 				Name:    "apikey_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[23]},
+				Columns: []*schema.Column{APIKeysColumns[30]},
 			},
 			{
 				Name:    "apikey_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[22]},
+				Columns: []*schema.Column{APIKeysColumns[29]},
 			},
 			{
 				Name:    "apikey_status",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[6]},
+				Columns: []*schema.Column{APIKeysColumns[13]},
 			},
 			{
 				Name:    "apikey_deleted_at",
@@ -79,17 +86,115 @@ var (
 			{
 				Name:    "apikey_last_used_at",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[7]},
+				Columns: []*schema.Column{APIKeysColumns[14]},
 			},
 			{
 				Name:    "apikey_quota_quota_used",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[10], APIKeysColumns[11]},
+				Columns: []*schema.Column{APIKeysColumns[17], APIKeysColumns[18]},
 			},
 			{
 				Name:    "apikey_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[12]},
+				Columns: []*schema.Column{APIKeysColumns[19]},
+			},
+		},
+	}
+	// APIKeyGroupRoutesColumns holds the columns for the "api_key_group_routes" table.
+	APIKeyGroupRoutesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "priority", Type: field.TypeInt},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "api_key_id", Type: field.TypeInt64},
+		{Name: "group_id", Type: field.TypeInt64},
+	}
+	// APIKeyGroupRoutesTable holds the schema information for the "api_key_group_routes" table.
+	APIKeyGroupRoutesTable = &schema.Table{
+		Name:       "api_key_group_routes",
+		Columns:    APIKeyGroupRoutesColumns,
+		PrimaryKey: []*schema.Column{APIKeyGroupRoutesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "api_key_group_routes_api_keys_group_routes",
+				Columns:    []*schema.Column{APIKeyGroupRoutesColumns[5]},
+				RefColumns: []*schema.Column{APIKeysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "api_key_group_routes_groups_api_key_group_routes",
+				Columns:    []*schema.Column{APIKeyGroupRoutesColumns[6]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "apikeygrouproute_api_key_id_group_id",
+				Unique:  true,
+				Columns: []*schema.Column{APIKeyGroupRoutesColumns[5], APIKeyGroupRoutesColumns[6]},
+			},
+			{
+				Name:    "apikeygrouproute_api_key_id_priority",
+				Unique:  true,
+				Columns: []*schema.Column{APIKeyGroupRoutesColumns[5], APIKeyGroupRoutesColumns[1]},
+			},
+			{
+				Name:    "apikeygrouproute_group_id_api_key_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyGroupRoutesColumns[6], APIKeyGroupRoutesColumns[5]},
+			},
+			{
+				Name:    "apikeygrouproute_api_key_id_enabled_priority",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyGroupRoutesColumns[5], APIKeyGroupRoutesColumns[2], APIKeyGroupRoutesColumns[1]},
+			},
+		},
+	}
+	// APIKeyRouteConfigOutboxColumns holds the columns for the "api_key_route_config_outbox" table.
+	APIKeyRouteConfigOutboxColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "event_key", Type: field.TypeString, Unique: true, Size: 160},
+		{Name: "route_version", Type: field.TypeInt64},
+		{Name: "event_type", Type: field.TypeString, Size: 64, Default: "api_key_route_config_changed"},
+		{Name: "payload", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "attempts", Type: field.TypeInt, Default: 0},
+		{Name: "available_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "claimed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "claimed_by", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "delivered_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "last_error", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "api_key_id", Type: field.TypeInt64},
+	}
+	// APIKeyRouteConfigOutboxTable holds the schema information for the "api_key_route_config_outbox" table.
+	APIKeyRouteConfigOutboxTable = &schema.Table{
+		Name:       "api_key_route_config_outbox",
+		Columns:    APIKeyRouteConfigOutboxColumns,
+		PrimaryKey: []*schema.Column{APIKeyRouteConfigOutboxColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "api_key_route_config_outbox_api_keys_route_config_outbox_events",
+				Columns:    []*schema.Column{APIKeyRouteConfigOutboxColumns[13]},
+				RefColumns: []*schema.Column{APIKeysColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "apikeyrouteconfigoutbox_available_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyRouteConfigOutboxColumns[6], APIKeyRouteConfigOutboxColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "delivered_at IS NULL",
+				},
+			},
+			{
+				Name:    "apikeyrouteconfigoutbox_api_key_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeyRouteConfigOutboxColumns[13], APIKeyRouteConfigOutboxColumns[11]},
 			},
 		},
 	}
@@ -1585,6 +1690,187 @@ var (
 			},
 		},
 	}
+	// RoutingArtifactVersionsColumns holds the columns for the "routing_artifact_versions" table.
+	RoutingArtifactVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "artifact_kind", Type: field.TypeString, Size: 24},
+		{Name: "version", Type: field.TypeString, Size: 96},
+		{Name: "parent_version", Type: field.TypeString, Nullable: true, Size: 96},
+		{Name: "platform", Type: field.TypeString, Size: 32},
+		{Name: "model_family", Type: field.TypeString, Size: 96},
+		{Name: "endpoint_kind", Type: field.TypeString, Size: 32},
+		{Name: "preference", Type: field.TypeString, Nullable: true, Size: 16},
+		{Name: "status", Type: field.TypeString, Size: 16, Default: "draft"},
+		{Name: "schema_version", Type: field.TypeString, Size: 64},
+		{Name: "checksum", Type: field.TypeString, Size: 128},
+		{Name: "payload", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "dependencies", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "lineage", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "activated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "retired_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_by", Type: field.TypeInt64, Nullable: true},
+	}
+	// RoutingArtifactVersionsTable holds the schema information for the "routing_artifact_versions" table.
+	RoutingArtifactVersionsTable = &schema.Table{
+		Name:       "routing_artifact_versions",
+		Columns:    RoutingArtifactVersionsColumns,
+		PrimaryKey: []*schema.Column{RoutingArtifactVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "routing_artifact_versions_users_routing_artifact_versions",
+				Columns:    []*schema.Column{RoutingArtifactVersionsColumns[17]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "routingartifactversion_artifact_kind_version",
+				Unique:  true,
+				Columns: []*schema.Column{RoutingArtifactVersionsColumns[1], RoutingArtifactVersionsColumns[2]},
+			},
+			{
+				Name:    "routingartifactversion_platform_model_family_endpoint_kind_artifact_kind_status",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingArtifactVersionsColumns[4], RoutingArtifactVersionsColumns[5], RoutingArtifactVersionsColumns[6], RoutingArtifactVersionsColumns[1], RoutingArtifactVersionsColumns[8]},
+			},
+			{
+				Name:    "routingartifactversion_created_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingArtifactVersionsColumns[16], RoutingArtifactVersionsColumns[0]},
+			},
+		},
+	}
+	// RoutingAttemptsColumns holds the columns for the "routing_attempts" table.
+	RoutingAttemptsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "event_id", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "routing_decision_id", Type: field.TypeString, Size: 64},
+		{Name: "request_id", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "api_key_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "route_version", Type: field.TypeInt64},
+		{Name: "initial_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "attempted_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "effective_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "selected_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "schedule_mode", Type: field.TypeString, Size: 16},
+		{Name: "smart_preference", Type: field.TypeString, Nullable: true, Size: 16},
+		{Name: "smart_balance_bps", Type: field.TypeInt, Nullable: true},
+		{Name: "routing_min_success_rate", Type: field.TypeInt, Default: 50},
+		{Name: "routing_state_version", Type: field.TypeInt64, Nullable: true},
+		{Name: "attempt_index", Type: field.TypeInt, Default: 0},
+		{Name: "platform", Type: field.TypeString, Size: 32},
+		{Name: "model_family", Type: field.TypeString, Size: 96},
+		{Name: "endpoint_kind", Type: field.TypeString, Size: 32},
+		{Name: "strategy_version", Type: field.TypeString, Size: 96},
+		{Name: "score_version", Type: field.TypeString, Size: 96},
+		{Name: "feature_schema_version", Type: field.TypeString, Size: 96},
+		{Name: "model_version", Type: field.TypeString, Nullable: true, Size: 96},
+		{Name: "experiment_id", Type: field.TypeString, Nullable: true, Size: 96},
+		{Name: "experiment_bucket", Type: field.TypeInt, Nullable: true},
+		{Name: "sample_probability", Type: field.TypeFloat64, Default: 1},
+		{Name: "action_propensity", Type: field.TypeFloat64, Nullable: true},
+		{Name: "assignment_reason", Type: field.TypeString, Size: 32, Default: "deterministic"},
+		{Name: "candidates", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "selected_reason", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "outcome_visibility", Type: field.TypeString, Size: 16, Default: "observed"},
+		{Name: "outcome_category", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "retryable", Type: field.TypeBool, Default: false},
+		{Name: "semantic_output", Type: field.TypeBool, Default: false},
+		{Name: "switched_group", Type: field.TypeBool, Default: false},
+		{Name: "sticky_broken", Type: field.TypeBool, Default: false},
+		{Name: "breaker_transition", Type: field.TypeString, Nullable: true, Size: 32},
+		{Name: "queue_ms", Type: field.TypeInt, Nullable: true},
+		{Name: "ttft_ms", Type: field.TypeInt, Nullable: true},
+		{Name: "duration_ms", Type: field.TypeInt, Nullable: true},
+		{Name: "actual_usage", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "billable_usage", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "actual_cost", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "billed_cost", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
+		{Name: "cache_cold_due_to_failover", Type: field.TypeBool, Default: false},
+		{Name: "event_priority", Type: field.TypeString, Size: 16, Default: "diagnostic"},
+		{Name: "occurred_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// RoutingAttemptsTable holds the schema information for the "routing_attempts" table.
+	RoutingAttemptsTable = &schema.Table{
+		Name:       "routing_attempts",
+		Columns:    RoutingAttemptsColumns,
+		PrimaryKey: []*schema.Column{RoutingAttemptsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "routingattempt_routing_decision_id_attempt_index",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingAttemptsColumns[2], RoutingAttemptsColumns[15]},
+			},
+			{
+				Name:    "routingattempt_request_id",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingAttemptsColumns[3]},
+			},
+			{
+				Name:    "routingattempt_api_key_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingAttemptsColumns[4], RoutingAttemptsColumns[47]},
+			},
+			{
+				Name:    "routingattempt_effective_group_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingAttemptsColumns[8], RoutingAttemptsColumns[47]},
+			},
+			{
+				Name:    "routingattempt_experiment_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingAttemptsColumns[23], RoutingAttemptsColumns[47]},
+			},
+		},
+	}
+	// RoutingExperimentsColumns holds the columns for the "routing_experiments" table.
+	RoutingExperimentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "experiment_key", Type: field.TypeString, Unique: true, Size: 96},
+		{Name: "platform", Type: field.TypeString, Size: 32},
+		{Name: "model_family", Type: field.TypeString, Size: 96},
+		{Name: "endpoint_kind", Type: field.TypeString, Size: 32},
+		{Name: "preference", Type: field.TypeString, Size: 16},
+		{Name: "baseline_strategy_version", Type: field.TypeString, Size: 96},
+		{Name: "candidate_strategy_version", Type: field.TypeString, Size: 96},
+		{Name: "status", Type: field.TypeString, Size: 16, Default: "draft"},
+		{Name: "allocation_bps", Type: field.TypeInt, Default: 0},
+		{Name: "bucket_salt_checksum", Type: field.TypeString, Size: 128},
+		{Name: "guardrails", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "offline_replay", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "last_evaluation", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "last_evaluated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "started_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "stopped_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "stop_reason", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "approved_by", Type: field.TypeInt64, Nullable: true},
+	}
+	// RoutingExperimentsTable holds the schema information for the "routing_experiments" table.
+	RoutingExperimentsTable = &schema.Table{
+		Name:       "routing_experiments",
+		Columns:    RoutingExperimentsColumns,
+		PrimaryKey: []*schema.Column{RoutingExperimentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "routing_experiments_users_routing_experiments",
+				Columns:    []*schema.Column{RoutingExperimentsColumns[20]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "routingexperiment_platform_model_family_endpoint_kind_preference_status",
+				Unique:  false,
+				Columns: []*schema.Column{RoutingExperimentsColumns[2], RoutingExperimentsColumns[3], RoutingExperimentsColumns[4], RoutingExperimentsColumns[5], RoutingExperimentsColumns[8]},
+			},
+		},
+	}
 	// SecuritySecretsColumns holds the columns for the "security_secrets" table.
 	SecuritySecretsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1906,6 +2192,17 @@ var (
 		{Name: "model_mapping_chain", Type: field.TypeString, Nullable: true, Size: 500},
 		{Name: "billing_tier", Type: field.TypeString, Nullable: true, Size: 50},
 		{Name: "billing_mode", Type: field.TypeString, Nullable: true, Size: 20},
+		{Name: "initial_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "route_version", Type: field.TypeInt64, Nullable: true},
+		{Name: "schedule_mode", Type: field.TypeString, Nullable: true, Size: 16},
+		{Name: "smart_preference", Type: field.TypeString, Nullable: true, Size: 16},
+		{Name: "group_switch_count", Type: field.TypeInt, Default: 0},
+		{Name: "routing_decision_id", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "cache_cold_due_to_failover", Type: field.TypeBool, Default: false},
+		{Name: "actual_usage", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "billable_usage", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "cache_compensation_tokens", Type: field.TypeInt, Default: 0},
+		{Name: "cache_compensation_reason", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "input_tokens", Type: field.TypeInt, Default: 0},
 		{Name: "output_tokens", Type: field.TypeInt, Default: 0},
 		{Name: "cache_creation_tokens", Type: field.TypeInt, Default: 0},
@@ -1952,31 +2249,31 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "usage_logs_api_keys_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[45]},
+				Columns:    []*schema.Column{UsageLogsColumns[56]},
 				RefColumns: []*schema.Column{APIKeysColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "usage_logs_accounts_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[46]},
+				Columns:    []*schema.Column{UsageLogsColumns[57]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "usage_logs_groups_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[47]},
+				Columns:    []*schema.Column{UsageLogsColumns[58]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "usage_logs_users_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[48]},
+				Columns:    []*schema.Column{UsageLogsColumns[59]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "usage_logs_user_subscriptions_usage_logs",
-				Columns:    []*schema.Column{UsageLogsColumns[49]},
+				Columns:    []*schema.Column{UsageLogsColumns[60]},
 				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1985,32 +2282,32 @@ var (
 			{
 				Name:    "usagelog_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[48]},
+				Columns: []*schema.Column{UsageLogsColumns[59]},
 			},
 			{
 				Name:    "usagelog_api_key_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[45]},
+				Columns: []*schema.Column{UsageLogsColumns[56]},
 			},
 			{
 				Name:    "usagelog_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[46]},
+				Columns: []*schema.Column{UsageLogsColumns[57]},
 			},
 			{
 				Name:    "usagelog_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[47]},
+				Columns: []*schema.Column{UsageLogsColumns[58]},
 			},
 			{
 				Name:    "usagelog_subscription_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[49]},
+				Columns: []*schema.Column{UsageLogsColumns[60]},
 			},
 			{
 				Name:    "usagelog_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[44]},
+				Columns: []*schema.Column{UsageLogsColumns[55]},
 			},
 			{
 				Name:    "usagelog_model",
@@ -2030,17 +2327,17 @@ var (
 			{
 				Name:    "usagelog_user_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[48], UsageLogsColumns[44]},
+				Columns: []*schema.Column{UsageLogsColumns[59], UsageLogsColumns[55]},
 			},
 			{
 				Name:    "usagelog_api_key_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[45], UsageLogsColumns[44]},
+				Columns: []*schema.Column{UsageLogsColumns[56], UsageLogsColumns[55]},
 			},
 			{
 				Name:    "usagelog_group_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{UsageLogsColumns[47], UsageLogsColumns[44]},
+				Columns: []*schema.Column{UsageLogsColumns[58], UsageLogsColumns[55]},
 			},
 		},
 	}
@@ -2349,6 +2646,8 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
+		APIKeyGroupRoutesTable,
+		APIKeyRouteConfigOutboxTable,
 		AccountsTable,
 		AccountGroupsTable,
 		AccountProxiesTable,
@@ -2377,6 +2676,9 @@ var (
 		PromoCodeUsagesTable,
 		ProxiesTable,
 		RedeemCodesTable,
+		RoutingArtifactVersionsTable,
+		RoutingAttemptsTable,
+		RoutingExperimentsTable,
 		SecuritySecretsTable,
 		SettingsTable,
 		SubscriptionPlansTable,
@@ -2402,6 +2704,15 @@ func init() {
 	APIKeysTable.ForeignKeys[1].RefTable = UsersTable
 	APIKeysTable.Annotation = &entsql.Annotation{
 		Table: "api_keys",
+	}
+	APIKeyGroupRoutesTable.ForeignKeys[0].RefTable = APIKeysTable
+	APIKeyGroupRoutesTable.ForeignKeys[1].RefTable = GroupsTable
+	APIKeyGroupRoutesTable.Annotation = &entsql.Annotation{
+		Table: "api_key_group_routes",
+	}
+	APIKeyRouteConfigOutboxTable.ForeignKeys[0].RefTable = APIKeysTable
+	APIKeyRouteConfigOutboxTable.Annotation = &entsql.Annotation{
+		Table: "api_key_route_config_outbox",
 	}
 	AccountsTable.ForeignKeys[0].RefTable = ProxiesTable
 	AccountsTable.ForeignKeys[1].RefTable = AccountsTable
@@ -2509,6 +2820,17 @@ func init() {
 	RedeemCodesTable.ForeignKeys[1].RefTable = UsersTable
 	RedeemCodesTable.Annotation = &entsql.Annotation{
 		Table: "redeem_codes",
+	}
+	RoutingArtifactVersionsTable.ForeignKeys[0].RefTable = UsersTable
+	RoutingArtifactVersionsTable.Annotation = &entsql.Annotation{
+		Table: "routing_artifact_versions",
+	}
+	RoutingAttemptsTable.Annotation = &entsql.Annotation{
+		Table: "routing_attempts",
+	}
+	RoutingExperimentsTable.ForeignKeys[0].RefTable = UsersTable
+	RoutingExperimentsTable.Annotation = &entsql.Annotation{
+		Table: "routing_experiments",
 	}
 	SecuritySecretsTable.Annotation = &entsql.Annotation{
 		Table: "security_secrets",

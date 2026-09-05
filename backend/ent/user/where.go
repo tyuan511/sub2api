@@ -1400,6 +1400,52 @@ func RpmLimitLTE(v int) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldRpmLimit, v))
 }
 
+// HasRoutingArtifactVersions applies the HasEdge predicate on the "routing_artifact_versions" edge.
+func HasRoutingArtifactVersions() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RoutingArtifactVersionsTable, RoutingArtifactVersionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRoutingArtifactVersionsWith applies the HasEdge predicate on the "routing_artifact_versions" edge with a given conditions (other predicates).
+func HasRoutingArtifactVersionsWith(preds ...predicate.RoutingArtifactVersion) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newRoutingArtifactVersionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRoutingExperiments applies the HasEdge predicate on the "routing_experiments" edge.
+func HasRoutingExperiments() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RoutingExperimentsTable, RoutingExperimentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRoutingExperimentsWith applies the HasEdge predicate on the "routing_experiments" edge with a given conditions (other predicates).
+func HasRoutingExperimentsWith(preds ...predicate.RoutingExperiment) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newRoutingExperimentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.
 func HasAPIKeys() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

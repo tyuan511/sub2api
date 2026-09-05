@@ -208,6 +208,31 @@ security:
 # 网关配置
 # =============================================================================
 gateway:
+  # Enable ordered candidate-group routing for API keys. Keep disabled until
+  # route-state, failover safety, and observability rollout gates are ready.
+  # 启用 API Key 有序候选分组路由。路由状态、重试安全和观测能力就绪前保持关闭。
+  api_key_multi_group_routing_enabled: false
+  # Global kill switch for decision-fact sampling and strategy experiments.
+  # 决策事实采样与策略实验总开关；关闭不影响确定性多分组路由及安全约束。
+  api_key_routing_optimization_enabled: false
+  # Sampling probability for ordinary first-choice successes; failovers and
+  # failures are retained independently of this rate.
+  # 普通首选成功的采样概率；换组和失败不受该比例影响。
+  api_key_routing_fact_sample_rate: 0.01
+  # Local personalization/model artifacts are independently gated and default
+  # off. They also require both switches above. Exploration remains rejected
+  # until propensity and traffic-budget controls are available.
+  # 本地个性化/模型制品独立受控且默认关闭，同时依赖以上两个总开关；
+  # 探索在 propensity 与流量预算能力就绪前仍会被配置校验拒绝。
+  api_key_routing_personalization_enabled: false
+  api_key_routing_model_prediction_enabled: false
+  api_key_routing_exploration_enabled: false
+  api_key_group_sticky_ttl_seconds: 3600
+  api_key_group_cache_compensation_max_tokens: 200000
+  api_key_group_cache_compensation_max_switches: 1
+  api_key_group_breaker_window_seconds: 300
+  api_key_group_breaker_cooldown_seconds: 30
+  api_key_group_breaker_min_samples: 10
   # Timeout for waiting upstream response headers (seconds)
   # 等待上游响应头超时时间（秒）
   response_header_timeout: 600
@@ -849,6 +874,14 @@ database:
   # Connection max idle time (minutes)
   # 空闲连接最大存活时间（分钟）
   conn_max_idle_time_minutes: 5
+  # Dedicated API-key routing background pool. Keep this small so score
+  # aggregation and routing-fact persistence cannot exhaust request capacity.
+  # API Key 路由后台专用连接池，防止评分聚合/事实落库挤占请求连接。
+  routing_background_max_open_conns: 2
+  routing_background_max_idle_conns: 1
+  # Per-query deadline inside the score builder cycle (seconds, 1-45).
+  # 评分 Builder 单条聚合查询超时（秒，1-45）。
+  routing_background_query_timeout_seconds: 15
 
 # =============================================================================
 # Redis Configuration

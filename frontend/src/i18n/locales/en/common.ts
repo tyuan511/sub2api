@@ -181,6 +181,7 @@ export default {
     proxies: 'Proxies',
     redeemCodes: 'Redeem Codes',
     ops: 'Ops',
+    routingOptimization: 'Routing Optimization',
     promoCodes: 'Promo Codes',
     settings: 'Settings',
     myAccount: 'My Account',

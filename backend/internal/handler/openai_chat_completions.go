@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -81,12 +82,8 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
 	}
-	if cappedBody, changed, err := applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, body); err != nil {
-		respondOpenAIReasoningEffortPolicyError(c, err, h.errorResponse)
-		return
-	} else if changed {
-		body = cappedBody
-	}
+	bindRequestedReasoningEffort(c, body, reqModel)
+	routePolicyBody := body
 	reqStream, ok := parseOpenAICompatibleStream(body)
 	if !ok {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", invalidStreamFieldTypeMessage)
@@ -114,8 +111,8 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+	// Group-specific mapping is resolved after the actual initial route.
+	var channelMapping service.ChannelMappingResult
 
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
@@ -135,6 +132,99 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
+	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
+	routeSessionHash := sessionHash
+	promptCacheKey := h.gatewayService.ExtractSessionID(c, body)
+	routeEndpoint := c.Request.URL.Path
+	chatCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if !openAICompatibleTextTargetAllowed(c, candidate, reqModel) {
+			return fmt.Errorf("candidate group %d does not support this endpoint target", candidate.Group.ID)
+		}
+		if _, _, policyErr := applyOpenAIReasoningEffortPolicyForRequest(c, candidate, routePolicyBody); policyErr != nil {
+			return fmt.Errorf("candidate group %d reasoning policy rejected request: %w", candidate.Group.ID, policyErr)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("openai_chat_completions.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, reqModel, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
+	routeStateDegraded := stickyErr != nil
+	if stickyErr != nil {
+		reqLog.Warn("openai_chat_completions.api_key_group_route_state_degraded", zap.Error(stickyErr))
+	}
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, chatCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+			reqLog.Warn("openai_chat_completions.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+			reqLog.Info("openai_chat_completions.api_key_group_sticky_hit", zap.Int64("sticky_group_id", stickyGroupID))
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, routeEndpoint, routeSessionHash, chatCandidateCheck)
+		if smartErr != nil {
+			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+			state, _ := middleware2.GetAPIKeyRouteState(c)
+			reqLog.Info("openai_chat_completions.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
+		}
+	}
+	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, chatCandidateCheck)
+	if err != nil {
+		if isAPIKeyRouteAdvanceBillingError(err) {
+			status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(err))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.handleStreamingAwareError(c, status, code, message, streamStarted)
+			return
+		}
+		var policyErr *service.ReasoningEffortOverLimitError
+		if errors.As(err, &policyErr) {
+			respondOpenAIReasoningEffortPolicyError(c, policyErr, h.errorResponse)
+			return
+		}
+		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
+		return
+	}
+	if initialRouteChanged && stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickyBroken(c)
+	}
+	requestPlatform = openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
+	if cappedBody, changed, policyErr := applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, routePolicyBody); policyErr != nil {
+		respondOpenAIReasoningEffortPolicyError(c, policyErr, h.errorResponse)
+		return
+	} else if changed {
+		body = cappedBody
+	} else {
+		body = routePolicyBody
+	}
+	channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		reqLog.Info("openai_chat_completions.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
@@ -144,9 +234,6 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		h.handleStreamingAwareError(c, status, code, message, streamStarted)
 		return
 	}
-
-	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
-	promptCacheKey := h.gatewayService.ExtractSessionID(c, body)
 
 	maxAccountSwitches := h.maxAccountSwitches
 	switchCount := 0
@@ -159,6 +246,39 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	// 分组利润控制：chat completions 文本入口请求级装门并固定 pricingAt。
 	ccPricingCtx, pricingAt := h.gatewayService.WithOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 	c.Request = c.Request.WithContext(ccPricingCtx)
+	advanceChatRoute := func(routeErr error) (bool, error) {
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
+				reqLog.Warn("openai_chat_completions.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, chatCandidateCheck)
+		if !advanced {
+			return false, advanceErr
+		}
+		apiKey = nextAPIKey
+		subscription = nextSubscription
+		requestPlatform = openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+		body, _, _ = applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, routePolicyBody)
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
+		c.Request = c.Request.WithContext(newPricingCtx)
+		pricingAt = newPricingAt
+		switchCount = 0
+		profitVetoCount = 0
+		failedAccountIDs = make(map[int64]struct{})
+		sameAccountRetryCount = make(map[int64]int)
+		lastFailoverErr = nil
+		oauth429FailoverState = service.OpenAIOAuth429FailoverState{}
+		reqLog.Info("openai_chat_completions.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
+		return true, nil
+	}
 
 	for {
 		if failoverClientGone(c) {
@@ -189,6 +309,16 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if len(failedAccountIDs) == 0 {
+				if advanced, advanceErr := advanceChatRoute(err); advanced {
+					continue
+				} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+					status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(retryAfter))
+					}
+					h.handleStreamingAwareError(c, status, code, message, streamStarted)
+					return
+				}
 				cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel)
 				cls = classifySelectionFailureError(err, cls)
 				if !cls.ModelNotFound {
@@ -197,6 +327,16 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				h.handleStreamingAwareError(c, cls.Status, cls.ErrType, cls.Message, streamStarted)
 				return
 			} else {
+				if advanced, advanceErr := advanceChatRoute(apiKeyRouteFailureCause(lastFailoverErr, err)); advanced {
+					continue
+				} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+					status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(retryAfter))
+					}
+					h.handleStreamingAwareError(c, status, code, message, streamStarted)
+					return
+				}
 				if lastFailoverErr != nil {
 					h.handleFailoverExhausted(c, lastFailoverErr, streamStarted)
 				} else {
@@ -206,6 +346,16 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			}
 		}
 		if selection == nil || selection.Account == nil {
+			if advanced, advanceErr := advanceChatRoute(service.ErrNoAvailableAccounts); advanced {
+				continue
+			} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+				status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+				if retryAfter > 0 {
+					c.Header("Retry-After", strconv.Itoa(retryAfter))
+				}
+				h.handleStreamingAwareError(c, status, code, message, streamStarted)
+				return
+			}
 			cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel)
 			if !cls.ModelNotFound {
 				markOpsRoutingCapacityLimited(c)
@@ -361,6 +511,16 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 					failedAccountIDs[account.ID] = struct{}{}
 					lastFailoverErr = failoverErr
 					if switchCount >= maxAccountSwitches {
+						if advanced, advanceErr := advanceChatRoute(failoverErr); advanced {
+							continue
+						} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+							status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+							if retryAfter > 0 {
+								c.Header("Retry-After", strconv.Itoa(retryAfter))
+							}
+							h.handleStreamingAwareError(c, status, code, message, streamStarted)
+							return
+						}
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
@@ -403,6 +563,12 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 
 		submitChatUsage(result)
+		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, true); observeErr != nil {
+				reqLog.Warn("openai_chat_completions.api_key_group_success_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+			_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash, *apiKey.GroupID)
+		}
 		reqLog.Debug("openai_chat_completions.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),

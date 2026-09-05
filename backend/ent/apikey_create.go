@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -95,6 +97,104 @@ func (_c *APIKeyCreate) SetGroupID(v int64) *APIKeyCreate {
 func (_c *APIKeyCreate) SetNillableGroupID(v *int64) *APIKeyCreate {
 	if v != nil {
 		_c.SetGroupID(*v)
+	}
+	return _c
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (_c *APIKeyCreate) SetScheduleMode(v string) *APIKeyCreate {
+	_c.mutation.SetScheduleMode(v)
+	return _c
+}
+
+// SetNillableScheduleMode sets the "schedule_mode" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableScheduleMode(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetScheduleMode(*v)
+	}
+	return _c
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (_c *APIKeyCreate) SetSmartPreference(v string) *APIKeyCreate {
+	_c.mutation.SetSmartPreference(v)
+	return _c
+}
+
+// SetNillableSmartPreference sets the "smart_preference" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableSmartPreference(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetSmartPreference(*v)
+	}
+	return _c
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (_c *APIKeyCreate) SetSmartBalanceBps(v int) *APIKeyCreate {
+	_c.mutation.SetSmartBalanceBps(v)
+	return _c
+}
+
+// SetNillableSmartBalanceBps sets the "smart_balance_bps" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableSmartBalanceBps(v *int) *APIKeyCreate {
+	if v != nil {
+		_c.SetSmartBalanceBps(*v)
+	}
+	return _c
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (_c *APIKeyCreate) SetRoutingMinSuccessRate(v int) *APIKeyCreate {
+	_c.mutation.SetRoutingMinSuccessRate(v)
+	return _c
+}
+
+// SetNillableRoutingMinSuccessRate sets the "routing_min_success_rate" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableRoutingMinSuccessRate(v *int) *APIKeyCreate {
+	if v != nil {
+		_c.SetRoutingMinSuccessRate(*v)
+	}
+	return _c
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (_c *APIKeyCreate) SetRoutingStateVersion(v int64) *APIKeyCreate {
+	_c.mutation.SetRoutingStateVersion(v)
+	return _c
+}
+
+// SetNillableRoutingStateVersion sets the "routing_state_version" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableRoutingStateVersion(v *int64) *APIKeyCreate {
+	if v != nil {
+		_c.SetRoutingStateVersion(*v)
+	}
+	return _c
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (_c *APIKeyCreate) SetRouteVersion(v int64) *APIKeyCreate {
+	_c.mutation.SetRouteVersion(v)
+	return _c
+}
+
+// SetNillableRouteVersion sets the "route_version" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableRouteVersion(v *int64) *APIKeyCreate {
+	if v != nil {
+		_c.SetRouteVersion(*v)
+	}
+	return _c
+}
+
+// SetRoutingDependencyVersion sets the "routing_dependency_version" field.
+func (_c *APIKeyCreate) SetRoutingDependencyVersion(v int64) *APIKeyCreate {
+	_c.mutation.SetRoutingDependencyVersion(v)
+	return _c
+}
+
+// SetNillableRoutingDependencyVersion sets the "routing_dependency_version" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableRoutingDependencyVersion(v *int64) *APIKeyCreate {
+	if v != nil {
+		_c.SetRoutingDependencyVersion(*v)
 	}
 	return _c
 }
@@ -317,6 +417,36 @@ func (_c *APIKeyCreate) SetGroup(v *Group) *APIKeyCreate {
 	return _c.SetGroupID(v.ID)
 }
 
+// AddGroupRouteIDs adds the "group_routes" edge to the APIKeyGroupRoute entity by IDs.
+func (_c *APIKeyCreate) AddGroupRouteIDs(ids ...int64) *APIKeyCreate {
+	_c.mutation.AddGroupRouteIDs(ids...)
+	return _c
+}
+
+// AddGroupRoutes adds the "group_routes" edges to the APIKeyGroupRoute entity.
+func (_c *APIKeyCreate) AddGroupRoutes(v ...*APIKeyGroupRoute) *APIKeyCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupRouteIDs(ids...)
+}
+
+// AddRouteConfigOutboxEventIDs adds the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity by IDs.
+func (_c *APIKeyCreate) AddRouteConfigOutboxEventIDs(ids ...int64) *APIKeyCreate {
+	_c.mutation.AddRouteConfigOutboxEventIDs(ids...)
+	return _c
+}
+
+// AddRouteConfigOutboxEvents adds the "route_config_outbox_events" edges to the APIKeyRouteConfigOutbox entity.
+func (_c *APIKeyCreate) AddRouteConfigOutboxEvents(v ...*APIKeyRouteConfigOutbox) *APIKeyCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRouteConfigOutboxEventIDs(ids...)
+}
+
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
 func (_c *APIKeyCreate) AddUsageLogIDs(ids ...int64) *APIKeyCreate {
 	_c.mutation.AddUsageLogIDs(ids...)
@@ -383,6 +513,26 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.ScheduleMode(); !ok {
+		v := apikey.DefaultScheduleMode
+		_c.mutation.SetScheduleMode(v)
+	}
+	if _, ok := _c.mutation.RoutingMinSuccessRate(); !ok {
+		v := apikey.DefaultRoutingMinSuccessRate
+		_c.mutation.SetRoutingMinSuccessRate(v)
+	}
+	if _, ok := _c.mutation.RoutingStateVersion(); !ok {
+		v := apikey.DefaultRoutingStateVersion
+		_c.mutation.SetRoutingStateVersion(v)
+	}
+	if _, ok := _c.mutation.RouteVersion(); !ok {
+		v := apikey.DefaultRouteVersion
+		_c.mutation.SetRouteVersion(v)
+	}
+	if _, ok := _c.mutation.RoutingDependencyVersion(); !ok {
+		v := apikey.DefaultRoutingDependencyVersion
+		_c.mutation.SetRoutingDependencyVersion(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -447,6 +597,56 @@ func (_c *APIKeyCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ScheduleMode(); !ok {
+		return &ValidationError{Name: "schedule_mode", err: errors.New(`ent: missing required field "APIKey.schedule_mode"`)}
+	}
+	if v, ok := _c.mutation.ScheduleMode(); ok {
+		if err := apikey.ScheduleModeValidator(v); err != nil {
+			return &ValidationError{Name: "schedule_mode", err: fmt.Errorf(`ent: validator failed for field "APIKey.schedule_mode": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.SmartPreference(); ok {
+		if err := apikey.SmartPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "smart_preference", err: fmt.Errorf(`ent: validator failed for field "APIKey.smart_preference": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.SmartBalanceBps(); ok {
+		if err := apikey.SmartBalanceBpsValidator(v); err != nil {
+			return &ValidationError{Name: "smart_balance_bps", err: fmt.Errorf(`ent: validator failed for field "APIKey.smart_balance_bps": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RoutingMinSuccessRate(); !ok {
+		return &ValidationError{Name: "routing_min_success_rate", err: errors.New(`ent: missing required field "APIKey.routing_min_success_rate"`)}
+	}
+	if v, ok := _c.mutation.RoutingMinSuccessRate(); ok {
+		if err := apikey.RoutingMinSuccessRateValidator(v); err != nil {
+			return &ValidationError{Name: "routing_min_success_rate", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_min_success_rate": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RoutingStateVersion(); !ok {
+		return &ValidationError{Name: "routing_state_version", err: errors.New(`ent: missing required field "APIKey.routing_state_version"`)}
+	}
+	if v, ok := _c.mutation.RoutingStateVersion(); ok {
+		if err := apikey.RoutingStateVersionValidator(v); err != nil {
+			return &ValidationError{Name: "routing_state_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_state_version": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RouteVersion(); !ok {
+		return &ValidationError{Name: "route_version", err: errors.New(`ent: missing required field "APIKey.route_version"`)}
+	}
+	if v, ok := _c.mutation.RouteVersion(); ok {
+		if err := apikey.RouteVersionValidator(v); err != nil {
+			return &ValidationError{Name: "route_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.route_version": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RoutingDependencyVersion(); !ok {
+		return &ValidationError{Name: "routing_dependency_version", err: errors.New(`ent: missing required field "APIKey.routing_dependency_version"`)}
+	}
+	if v, ok := _c.mutation.RoutingDependencyVersion(); ok {
+		if err := apikey.RoutingDependencyVersionValidator(v); err != nil {
+			return &ValidationError{Name: "routing_dependency_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_dependency_version": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
@@ -530,6 +730,34 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.ScheduleMode(); ok {
+		_spec.SetField(apikey.FieldScheduleMode, field.TypeString, value)
+		_node.ScheduleMode = value
+	}
+	if value, ok := _c.mutation.SmartPreference(); ok {
+		_spec.SetField(apikey.FieldSmartPreference, field.TypeString, value)
+		_node.SmartPreference = &value
+	}
+	if value, ok := _c.mutation.SmartBalanceBps(); ok {
+		_spec.SetField(apikey.FieldSmartBalanceBps, field.TypeInt, value)
+		_node.SmartBalanceBps = &value
+	}
+	if value, ok := _c.mutation.RoutingMinSuccessRate(); ok {
+		_spec.SetField(apikey.FieldRoutingMinSuccessRate, field.TypeInt, value)
+		_node.RoutingMinSuccessRate = value
+	}
+	if value, ok := _c.mutation.RoutingStateVersion(); ok {
+		_spec.SetField(apikey.FieldRoutingStateVersion, field.TypeInt64, value)
+		_node.RoutingStateVersion = value
+	}
+	if value, ok := _c.mutation.RouteVersion(); ok {
+		_spec.SetField(apikey.FieldRouteVersion, field.TypeInt64, value)
+		_node.RouteVersion = value
+	}
+	if value, ok := _c.mutation.RoutingDependencyVersion(); ok {
+		_spec.SetField(apikey.FieldRoutingDependencyVersion, field.TypeInt64, value)
+		_node.RoutingDependencyVersion = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -627,6 +855,38 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.GroupID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GroupRoutesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupRoutesTable,
+			Columns: []string{apikey.GroupRoutesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeygrouproute.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RouteConfigOutboxEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.RouteConfigOutboxEventsTable,
+			Columns: []string{apikey.RouteConfigOutboxEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyrouteconfigoutbox.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.UsageLogsIDs(); len(nodes) > 0 {
@@ -778,6 +1038,132 @@ func (u *APIKeyUpsert) UpdateGroupID() *APIKeyUpsert {
 // ClearGroupID clears the value of the "group_id" field.
 func (u *APIKeyUpsert) ClearGroupID() *APIKeyUpsert {
 	u.SetNull(apikey.FieldGroupID)
+	return u
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (u *APIKeyUpsert) SetScheduleMode(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldScheduleMode, v)
+	return u
+}
+
+// UpdateScheduleMode sets the "schedule_mode" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateScheduleMode() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldScheduleMode)
+	return u
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (u *APIKeyUpsert) SetSmartPreference(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldSmartPreference, v)
+	return u
+}
+
+// UpdateSmartPreference sets the "smart_preference" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateSmartPreference() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldSmartPreference)
+	return u
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (u *APIKeyUpsert) ClearSmartPreference() *APIKeyUpsert {
+	u.SetNull(apikey.FieldSmartPreference)
+	return u
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (u *APIKeyUpsert) SetSmartBalanceBps(v int) *APIKeyUpsert {
+	u.Set(apikey.FieldSmartBalanceBps, v)
+	return u
+}
+
+// UpdateSmartBalanceBps sets the "smart_balance_bps" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateSmartBalanceBps() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldSmartBalanceBps)
+	return u
+}
+
+// AddSmartBalanceBps adds v to the "smart_balance_bps" field.
+func (u *APIKeyUpsert) AddSmartBalanceBps(v int) *APIKeyUpsert {
+	u.Add(apikey.FieldSmartBalanceBps, v)
+	return u
+}
+
+// ClearSmartBalanceBps clears the value of the "smart_balance_bps" field.
+func (u *APIKeyUpsert) ClearSmartBalanceBps() *APIKeyUpsert {
+	u.SetNull(apikey.FieldSmartBalanceBps)
+	return u
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (u *APIKeyUpsert) SetRoutingMinSuccessRate(v int) *APIKeyUpsert {
+	u.Set(apikey.FieldRoutingMinSuccessRate, v)
+	return u
+}
+
+// UpdateRoutingMinSuccessRate sets the "routing_min_success_rate" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateRoutingMinSuccessRate() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldRoutingMinSuccessRate)
+	return u
+}
+
+// AddRoutingMinSuccessRate adds v to the "routing_min_success_rate" field.
+func (u *APIKeyUpsert) AddRoutingMinSuccessRate(v int) *APIKeyUpsert {
+	u.Add(apikey.FieldRoutingMinSuccessRate, v)
+	return u
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (u *APIKeyUpsert) SetRoutingStateVersion(v int64) *APIKeyUpsert {
+	u.Set(apikey.FieldRoutingStateVersion, v)
+	return u
+}
+
+// UpdateRoutingStateVersion sets the "routing_state_version" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateRoutingStateVersion() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldRoutingStateVersion)
+	return u
+}
+
+// AddRoutingStateVersion adds v to the "routing_state_version" field.
+func (u *APIKeyUpsert) AddRoutingStateVersion(v int64) *APIKeyUpsert {
+	u.Add(apikey.FieldRoutingStateVersion, v)
+	return u
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (u *APIKeyUpsert) SetRouteVersion(v int64) *APIKeyUpsert {
+	u.Set(apikey.FieldRouteVersion, v)
+	return u
+}
+
+// UpdateRouteVersion sets the "route_version" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateRouteVersion() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldRouteVersion)
+	return u
+}
+
+// AddRouteVersion adds v to the "route_version" field.
+func (u *APIKeyUpsert) AddRouteVersion(v int64) *APIKeyUpsert {
+	u.Add(apikey.FieldRouteVersion, v)
+	return u
+}
+
+// SetRoutingDependencyVersion sets the "routing_dependency_version" field.
+func (u *APIKeyUpsert) SetRoutingDependencyVersion(v int64) *APIKeyUpsert {
+	u.Set(apikey.FieldRoutingDependencyVersion, v)
+	return u
+}
+
+// UpdateRoutingDependencyVersion sets the "routing_dependency_version" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateRoutingDependencyVersion() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldRoutingDependencyVersion)
+	return u
+}
+
+// AddRoutingDependencyVersion adds v to the "routing_dependency_version" field.
+func (u *APIKeyUpsert) AddRoutingDependencyVersion(v int64) *APIKeyUpsert {
+	u.Add(apikey.FieldRoutingDependencyVersion, v)
 	return u
 }
 
@@ -1203,6 +1589,153 @@ func (u *APIKeyUpsertOne) UpdateGroupID() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearGroupID() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (u *APIKeyUpsertOne) SetScheduleMode(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetScheduleMode(v)
+	})
+}
+
+// UpdateScheduleMode sets the "schedule_mode" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateScheduleMode() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateScheduleMode()
+	})
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (u *APIKeyUpsertOne) SetSmartPreference(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetSmartPreference(v)
+	})
+}
+
+// UpdateSmartPreference sets the "smart_preference" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateSmartPreference() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateSmartPreference()
+	})
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (u *APIKeyUpsertOne) ClearSmartPreference() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearSmartPreference()
+	})
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (u *APIKeyUpsertOne) SetSmartBalanceBps(v int) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetSmartBalanceBps(v)
+	})
+}
+
+// AddSmartBalanceBps adds v to the "smart_balance_bps" field.
+func (u *APIKeyUpsertOne) AddSmartBalanceBps(v int) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddSmartBalanceBps(v)
+	})
+}
+
+// UpdateSmartBalanceBps sets the "smart_balance_bps" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateSmartBalanceBps() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateSmartBalanceBps()
+	})
+}
+
+// ClearSmartBalanceBps clears the value of the "smart_balance_bps" field.
+func (u *APIKeyUpsertOne) ClearSmartBalanceBps() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearSmartBalanceBps()
+	})
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (u *APIKeyUpsertOne) SetRoutingMinSuccessRate(v int) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingMinSuccessRate(v)
+	})
+}
+
+// AddRoutingMinSuccessRate adds v to the "routing_min_success_rate" field.
+func (u *APIKeyUpsertOne) AddRoutingMinSuccessRate(v int) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingMinSuccessRate(v)
+	})
+}
+
+// UpdateRoutingMinSuccessRate sets the "routing_min_success_rate" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateRoutingMinSuccessRate() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingMinSuccessRate()
+	})
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (u *APIKeyUpsertOne) SetRoutingStateVersion(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingStateVersion(v)
+	})
+}
+
+// AddRoutingStateVersion adds v to the "routing_state_version" field.
+func (u *APIKeyUpsertOne) AddRoutingStateVersion(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingStateVersion(v)
+	})
+}
+
+// UpdateRoutingStateVersion sets the "routing_state_version" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateRoutingStateVersion() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingStateVersion()
+	})
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (u *APIKeyUpsertOne) SetRouteVersion(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRouteVersion(v)
+	})
+}
+
+// AddRouteVersion adds v to the "route_version" field.
+func (u *APIKeyUpsertOne) AddRouteVersion(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRouteVersion(v)
+	})
+}
+
+// UpdateRouteVersion sets the "route_version" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateRouteVersion() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRouteVersion()
+	})
+}
+
+// SetRoutingDependencyVersion sets the "routing_dependency_version" field.
+func (u *APIKeyUpsertOne) SetRoutingDependencyVersion(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingDependencyVersion(v)
+	})
+}
+
+// AddRoutingDependencyVersion adds v to the "routing_dependency_version" field.
+func (u *APIKeyUpsertOne) AddRoutingDependencyVersion(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingDependencyVersion(v)
+	})
+}
+
+// UpdateRoutingDependencyVersion sets the "routing_dependency_version" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateRoutingDependencyVersion() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingDependencyVersion()
 	})
 }
 
@@ -1841,6 +2374,153 @@ func (u *APIKeyUpsertBulk) UpdateGroupID() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearGroupID() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (u *APIKeyUpsertBulk) SetScheduleMode(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetScheduleMode(v)
+	})
+}
+
+// UpdateScheduleMode sets the "schedule_mode" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateScheduleMode() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateScheduleMode()
+	})
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (u *APIKeyUpsertBulk) SetSmartPreference(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetSmartPreference(v)
+	})
+}
+
+// UpdateSmartPreference sets the "smart_preference" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateSmartPreference() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateSmartPreference()
+	})
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (u *APIKeyUpsertBulk) ClearSmartPreference() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearSmartPreference()
+	})
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (u *APIKeyUpsertBulk) SetSmartBalanceBps(v int) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetSmartBalanceBps(v)
+	})
+}
+
+// AddSmartBalanceBps adds v to the "smart_balance_bps" field.
+func (u *APIKeyUpsertBulk) AddSmartBalanceBps(v int) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddSmartBalanceBps(v)
+	})
+}
+
+// UpdateSmartBalanceBps sets the "smart_balance_bps" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateSmartBalanceBps() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateSmartBalanceBps()
+	})
+}
+
+// ClearSmartBalanceBps clears the value of the "smart_balance_bps" field.
+func (u *APIKeyUpsertBulk) ClearSmartBalanceBps() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearSmartBalanceBps()
+	})
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (u *APIKeyUpsertBulk) SetRoutingMinSuccessRate(v int) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingMinSuccessRate(v)
+	})
+}
+
+// AddRoutingMinSuccessRate adds v to the "routing_min_success_rate" field.
+func (u *APIKeyUpsertBulk) AddRoutingMinSuccessRate(v int) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingMinSuccessRate(v)
+	})
+}
+
+// UpdateRoutingMinSuccessRate sets the "routing_min_success_rate" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateRoutingMinSuccessRate() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingMinSuccessRate()
+	})
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (u *APIKeyUpsertBulk) SetRoutingStateVersion(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingStateVersion(v)
+	})
+}
+
+// AddRoutingStateVersion adds v to the "routing_state_version" field.
+func (u *APIKeyUpsertBulk) AddRoutingStateVersion(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingStateVersion(v)
+	})
+}
+
+// UpdateRoutingStateVersion sets the "routing_state_version" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateRoutingStateVersion() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingStateVersion()
+	})
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (u *APIKeyUpsertBulk) SetRouteVersion(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRouteVersion(v)
+	})
+}
+
+// AddRouteVersion adds v to the "route_version" field.
+func (u *APIKeyUpsertBulk) AddRouteVersion(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRouteVersion(v)
+	})
+}
+
+// UpdateRouteVersion sets the "route_version" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateRouteVersion() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRouteVersion()
+	})
+}
+
+// SetRoutingDependencyVersion sets the "routing_dependency_version" field.
+func (u *APIKeyUpsertBulk) SetRoutingDependencyVersion(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetRoutingDependencyVersion(v)
+	})
+}
+
+// AddRoutingDependencyVersion adds v to the "routing_dependency_version" field.
+func (u *APIKeyUpsertBulk) AddRoutingDependencyVersion(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddRoutingDependencyVersion(v)
+	})
+}
+
+// UpdateRoutingDependencyVersion sets the "routing_dependency_version" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateRoutingDependencyVersion() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateRoutingDependencyVersion()
 	})
 }
 

@@ -28,6 +28,20 @@ func WithGatewayTokenRequestPricing(ctx context.Context) (context.Context, time.
 	return ctx, pricingAt
 }
 
+// WithGatewayTokenRequestBillingGroup rebinds the billing projection after an
+// API-key candidate-group switch while preserving the request's frozen pricing
+// instant. Legacy fallback paths that do not call this helper retain their
+// historical parent-group billing behavior.
+func WithGatewayTokenRequestBillingGroup(ctx context.Context, group *Group) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if !IsGroupContextValid(group) {
+		return ctx
+	}
+	return context.WithValue(ctx, gatewayTokenRequestBillingGroupCtxKey{}, group)
+}
+
 func gatewayTokenRequestPricingAtFromContext(ctx context.Context) (time.Time, bool) {
 	if ctx == nil {
 		return time.Time{}, false

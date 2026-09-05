@@ -83,6 +83,7 @@ func providePluginHostInfo(buildInfo handler.BuildInfo) service.PluginHostInfo {
 
 func provideCleanup(
 	entClient *ent.Client,
+	routingBackgroundDB *repository.RoutingBackgroundDB,
 	rdb *redis.Client,
 	opsMetricsCollector *service.OpsMetricsCollector,
 	opsAggregation *service.OpsAggregationService,
@@ -94,6 +95,7 @@ func provideCleanup(
 	opsIngressReject *service.OpsIngressRejectAggregator,
 	apiKeyService *service.APIKeyService,
 	authCacheInvalidationWorker *service.AuthCacheInvalidationWorker,
+	apiKeyRouteConfigOutboxWorker *service.APIKeyRouteConfigOutboxWorker,
 	schedulerSnapshot *service.SchedulerSnapshotService,
 	tokenRefresh *service.TokenRefreshService,
 	accountExpiry *service.AccountExpiryService,
@@ -121,6 +123,10 @@ func provideCleanup(
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	channelMonitorV2Aggregator *service.ChannelMonitorV2Aggregator,
+	routingScoreBuilder *service.RoutingScoreBuilder,
+	routingStrategyRuntime *service.RoutingStrategyRuntime,
+	routingCanaryMonitor *service.RoutingCanaryMonitor,
+	routingFactRecorder *service.RoutingFactRecorder,
 	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
@@ -140,6 +146,31 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"RoutingCanaryMonitor", func() error {
+				if routingCanaryMonitor != nil {
+					routingCanaryMonitor.Stop()
+				}
+				return nil
+			}},
+			{"RoutingStrategyRuntime", func() error {
+				if routingStrategyRuntime != nil {
+					routingStrategyRuntime.Stop()
+					service.SetDefaultRoutingStrategyRuntime(nil)
+				}
+				return nil
+			}},
+			{"RoutingFactRecorder", func() error {
+				if routingFactRecorder != nil {
+					routingFactRecorder.Stop()
+				}
+				return nil
+			}},
+			{"RoutingScoreBuilder", func() error {
+				if routingScoreBuilder != nil {
+					routingScoreBuilder.Stop()
+				}
+				return nil
+			}},
 			{"PluginManager", func() error {
 				if pluginManager != nil {
 					pluginManager.Stop()
@@ -161,6 +192,12 @@ func provideCleanup(
 			{"AuthCacheInvalidationWorker", func() error {
 				if authCacheInvalidationWorker != nil {
 					authCacheInvalidationWorker.Stop()
+				}
+				return nil
+			}},
+			{"APIKeyRouteConfigOutboxWorker", func() error {
+				if apiKeyRouteConfigOutboxWorker != nil {
+					apiKeyRouteConfigOutboxWorker.Stop()
 				}
 				return nil
 			}},
@@ -383,6 +420,12 @@ func provideCleanup(
 		}
 
 		infraSteps := []cleanupStep{
+			{"RoutingBackgroundDB", func() error {
+				if routingBackgroundDB == nil {
+					return nil
+				}
+				return routingBackgroundDB.Close()
+			}},
 			{"Redis", func() error {
 				if rdb == nil {
 					return nil

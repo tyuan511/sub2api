@@ -39,6 +39,7 @@ var (
 	ErrWeeklyLimitExceeded         = infraerrors.TooManyRequests("WEEKLY_LIMIT_EXCEEDED", "weekly usage limit exceeded")
 	ErrMonthlyLimitExceeded        = infraerrors.TooManyRequests("MONTHLY_LIMIT_EXCEEDED", "monthly usage limit exceeded")
 	ErrSubscriptionNilInput        = infraerrors.BadRequest("SUBSCRIPTION_NIL_INPUT", "subscription input cannot be nil")
+	ErrSubscriptionMaintenance     = infraerrors.InternalServer("SUBSCRIPTION_MAINTENANCE_FAILED", "failed to maintain subscription usage windows")
 	ErrAdjustWouldExpire           = infraerrors.BadRequest("ADJUST_WOULD_EXPIRE", "adjustment would result in expired subscription (remaining days must be > 0)")
 )
 
@@ -760,6 +761,34 @@ func (s *SubscriptionService) GetActiveSubscription(ctx context.Context, userID,
 	}
 	cp := *sub
 	return &cp, nil
+}
+
+// GetEligibleSubscription resolves and validates the subscription that belongs
+// to one concrete routing group. It performs required window maintenance
+// synchronously so callers never activate a candidate using stale window data.
+func (s *SubscriptionService) GetEligibleSubscription(ctx context.Context, userID int64, group *Group) (*UserSubscription, error) {
+	if s == nil || group == nil || !group.IsSubscriptionType() {
+		return nil, ErrSubscriptionNotFound
+	}
+	subscription, err := s.GetActiveSubscription(ctx, userID, group.ID)
+	if err != nil {
+		return nil, err
+	}
+	needsMaintenance, err := s.ValidateAndCheckLimits(subscription, group)
+	if err != nil {
+		return nil, err
+	}
+	if !needsMaintenance {
+		return subscription, nil
+	}
+	refreshed, err := s.EnsureWindowMaintenance(ctx, subscription)
+	if err != nil {
+		return nil, ErrSubscriptionMaintenance.WithCause(err)
+	}
+	if _, err := s.ValidateAndCheckLimits(refreshed, group); err != nil {
+		return nil, err
+	}
+	return refreshed, nil
 }
 
 // ListUserSubscriptions 获取用户的所有订阅

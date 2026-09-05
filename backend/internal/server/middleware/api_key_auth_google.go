@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
@@ -23,6 +24,7 @@ func APIKeyAuthGoogle(apiKeyService *service.APIKeyService, cfg *config.Config) 
 //
 // It is intended for Gemini native endpoints (/v1beta) to match Gemini SDK expectations.
 func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
+	routeCoordinator := apiKeyRouteCoordinatorFromConfig(cfg)
 	return func(c *gin.Context) {
 		if rejectInvalidAuthAbuse(c, apiKeyService) {
 			abortWithGoogleError(c, 429, "Too many invalid authentication attempts; retry later")
@@ -58,7 +60,9 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			return
 		}
 
+		authLookupStarted := time.Now()
 		apiKey, err := apiKeyService.GetByKey(c.Request.Context(), apiKeyString)
+		service.DefaultRoutingRuntimeMetrics().RecordPhaseLatency(service.RoutingLatencyPhaseAuthLookup, time.Since(authLookupStarted))
 		if err != nil {
 			if errors.Is(err, service.ErrAPIKeyNotFound) {
 				recordInvalidAuthFailure(c, apiKeyService)
@@ -113,6 +117,15 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
 		}
+		apiKey = apiKeyService.ProjectAPIKeyRoutingForUser(c.Request.Context(), apiKey)
+		apiKey, routeState, routeErr := prepareInitialAPIKeyRoute(apiKey, routeCoordinator, apiKeyRouteCompensationLimitsFromConfig(cfg)...)
+		if routeErr != nil {
+			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
+			abortWithGoogleError(c, 503, "No eligible candidate group is currently available")
+			return
+		}
+		SetAPIKeyRouteState(c, routeState)
+		SetOpsFallbackAPIKey(c, apiKey)
 		if code, message, ok := validateAPIKeyGroupAvailable(apiKey); !ok {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
 			if code == "GROUP_DELETED" {
@@ -165,44 +178,74 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			return
 		}
 
-		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
-		if isSubscriptionType && subscriptionService != nil {
-			subscription, err := subscriptionService.GetActiveSubscription(
-				c.Request.Context(),
-				apiKey.User.ID,
-				apiKey.Group.ID,
+		if routeState != nil && routeState.Plan.RoutingEnabled {
+			var subscription *service.UserSubscription
+			var subscriptionErr error
+			apiKey, subscription, subscriptionErr = selectInitialBillableAPIKeyRoute(
+				c.Request.Context(), apiKey, subscriptionService, false,
+				func() (*service.APIKey, bool) { return AdvanceAPIKeyRoute(c) },
 			)
-			if err != nil {
-				abortWithGoogleError(c, 403, "No active subscription found for this group")
-				return
-			}
-
-			needsMaintenance, err := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-			if needsMaintenance {
-				refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
-				if maintenanceErr != nil {
-					abortWithGoogleError(c, 500, "Failed to maintain subscription usage windows")
-					return
-				}
-				subscription = refreshed
-				_, err = subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-			}
-			if err != nil {
+			if subscriptionErr != nil {
 				status := 403
-				if errors.Is(err, service.ErrDailyLimitExceeded) ||
-					errors.Is(err, service.ErrWeeklyLimitExceeded) ||
-					errors.Is(err, service.ErrMonthlyLimitExceeded) {
+				if errors.Is(subscriptionErr, service.ErrSubscriptionMaintenance) {
+					status = 500
+				} else if errors.Is(subscriptionErr, service.ErrDailyLimitExceeded) ||
+					errors.Is(subscriptionErr, service.ErrWeeklyLimitExceeded) ||
+					errors.Is(subscriptionErr, service.ErrMonthlyLimitExceeded) {
 					status = 429
 				}
-				abortWithGoogleError(c, status, err.Error())
+				abortWithGoogleError(c, status, subscriptionErr.Error())
 				return
 			}
-
-			c.Set(string(ContextKeySubscription), subscription)
+			SetOpsFallbackAPIKey(c, apiKey)
+			if subscription != nil {
+				SetSubscriptionInContext(c, subscription)
+			} else {
+				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+					abortWithGoogleError(c, 403, "Insufficient account balance")
+					return
+				}
+			}
 		} else {
-			if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
-				abortWithGoogleError(c, 403, "Insufficient account balance")
-				return
+			isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
+			if isSubscriptionType && subscriptionService != nil {
+				subscription, err := subscriptionService.GetActiveSubscription(
+					c.Request.Context(),
+					apiKey.User.ID,
+					apiKey.Group.ID,
+				)
+				if err != nil {
+					abortWithGoogleError(c, 403, "No active subscription found for this group")
+					return
+				}
+
+				needsMaintenance, err := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+				if needsMaintenance {
+					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
+					if maintenanceErr != nil {
+						abortWithGoogleError(c, 500, "Failed to maintain subscription usage windows")
+						return
+					}
+					subscription = refreshed
+					_, err = subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+				}
+				if err != nil {
+					status := 403
+					if errors.Is(err, service.ErrDailyLimitExceeded) ||
+						errors.Is(err, service.ErrWeeklyLimitExceeded) ||
+						errors.Is(err, service.ErrMonthlyLimitExceeded) {
+						status = 429
+					}
+					abortWithGoogleError(c, status, err.Error())
+					return
+				}
+
+				c.Set(string(ContextKeySubscription), subscription)
+			} else {
+				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+					abortWithGoogleError(c, 403, "Insufficient account balance")
+					return
+				}
 			}
 		}
 

@@ -108,6 +108,7 @@ func RegisterAdminRoutes(
 
 		// API Key 管理
 		registerAdminAPIKeyRoutes(admin, h)
+		registerRoutingOptimizationRoutes(admin, h)
 
 		// 定时测试计划
 		registerScheduledTestRoutes(admin, h)
@@ -132,6 +133,25 @@ func RegisterAdminRoutes(
 		registerAuditLogRoutes(admin, h, stepUpAuth)
 
 		registerSupportRoutes(admin, h)
+	}
+}
+
+func registerRoutingOptimizationRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	routing := admin.Group("/routing-optimization")
+	{
+		routing.GET("/runtime-metrics", h.Admin.RoutingOptimization.GetRuntimeMetrics)
+		routing.GET("/api-keys/:api_key_id/explain", h.Admin.RoutingOptimization.ExplainAPIKeyRoute)
+		routing.POST("/route-state/clear", h.Admin.RoutingOptimization.ClearAPIKeyRouteState)
+		routing.GET("/artifacts", h.Admin.RoutingOptimization.ListArtifacts)
+		routing.POST("/artifacts", h.Admin.RoutingOptimization.CreateArtifact)
+		routing.POST("/artifacts/:kind/:version/promote", h.Admin.RoutingOptimization.PromoteArtifact)
+		routing.GET("/pointers", h.Admin.RoutingOptimization.GetPointers)
+		routing.POST("/rollback", h.Admin.RoutingOptimization.Rollback)
+		routing.GET("/experiments", h.Admin.RoutingOptimization.ListExperiments)
+		routing.POST("/experiments", h.Admin.RoutingOptimization.CreateExperiment)
+		routing.POST("/experiments/:experiment_key/offline-replay", h.Admin.RoutingOptimization.RunOfflineReplay)
+		routing.POST("/experiments/:experiment_key/pause", h.Admin.RoutingOptimization.PauseExperiment)
+		routing.POST("/experiments/:experiment_key/resume", h.Admin.RoutingOptimization.ResumeExperiment)
 	}
 }
 
@@ -603,6 +623,8 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.PUT("/openai-images-oauth-unavailable-cooldown", h.Admin.Setting.UpdateOpenAIImagesOAuthUnavailableCooldownSettings)
 		// 面板 API 限流配置
 		adminSettings.GET("/panel-rate-limit", h.Admin.Setting.GetPanelRateLimitSettings)
+		adminSettings.GET("/api-key-routing-rollout", h.Admin.Setting.GetAPIKeyRoutingRollout)
+		adminSettings.PUT("/api-key-routing-rollout", h.Admin.Setting.UpdateAPIKeyRoutingRollout)
 		adminSettings.PUT("/panel-rate-limit", h.Admin.Setting.UpdatePanelRateLimitSettings)
 		// 流超时处理配置
 		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)

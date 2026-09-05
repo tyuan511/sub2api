@@ -741,24 +741,8 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 		return ErrBillingServiceUnavailable
 	}
 
-	// 判断计费模式
-	isSubscriptionMode := group != nil && group.IsSubscriptionType() && subscription != nil
-
-	if isSubscriptionMode {
-		if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
-			return err
-		}
-	} else {
-		if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
-			return err
-		}
-	}
-
-	// user × platform quota 仅在 standard（余额）模式生效；订阅模式豁免
-	if !isSubscriptionMode {
-		if err := s.checkUserPlatformQuotaEligibility(ctx, user.ID, platform); err != nil {
-			return err
-		}
+	if err := s.checkRouteBillingEligibility(ctx, user, group, subscription, platform); err != nil {
+		return err
 	}
 
 	// Check API Key rate limits (applies to both billing modes)
@@ -769,10 +753,58 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	}
 
 	// RPM 限流：级联回落（Override → Group → User），放在最后以避免为注定失败的请求增加计数。
-	if err := s.checkRPM(ctx, user, group); err != nil {
+	if err := s.checkGroupRPM(ctx, user, group, true); err != nil {
+		return err
+	}
+	if err := s.checkUserRPM(ctx, user); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+// CheckRouteSwitchBillingEligibility checks only the billing and group-scoped
+// limits that change when a request moves to another API-key candidate group.
+// API-key rate limits and the user's global RPM are deliberately excluded: the
+// normal preflight has already counted them once for this client request.
+//
+// The auth snapshot's UserGroupRPMOverride belongs to the initially selected
+// group. A switched group therefore always resolves its override by group ID
+// instead of accidentally reusing that cached value.
+func (s *BillingCacheService) CheckRouteSwitchBillingEligibility(ctx context.Context, user *User, group *Group, subscription *UserSubscription, platform string) error {
+	if s.cfg.RunMode == config.RunModeSimple {
+		return nil
+	}
+	if s.circuitBreaker != nil && !s.circuitBreaker.Allow() {
+		return ErrBillingServiceUnavailable
+	}
+	if err := s.checkRouteBillingEligibility(ctx, user, group, subscription, platform); err != nil {
+		return err
+	}
+	return s.checkGroupRPM(ctx, user, group, false)
+}
+
+func (s *BillingCacheService) checkRouteBillingEligibility(ctx context.Context, user *User, group *Group, subscription *UserSubscription, platform string) error {
+	if user == nil {
+		return ErrBillingServiceUnavailable
+	}
+	isSubscriptionMode := group != nil && group.IsSubscriptionType() && subscription != nil
+	if isSubscriptionMode {
+		if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
+			return err
+		}
+	} else if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
+		return err
+	}
+
+	// user x platform quota applies only to balance billing. Candidate groups
+	// are constrained to one platform, but keeping this check here makes the
+	// actual-group contract explicit and safe for future platform variants.
+	if !isSubscriptionMode {
+		if err := s.checkUserPlatformQuotaEligibility(ctx, user.ID, platform); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -785,16 +817,15 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 //
 // 与旧版"级联互斥"设计不同，新版确保 user.rpm_limit 作为全局天花板不会被 group 或 override 覆盖。
 // Redis 故障一律 fail-open（打 warning，不阻塞业务）。
-func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *Group) error {
+func (s *BillingCacheService) checkGroupRPM(ctx context.Context, user *User, group *Group, useSnapshotOverride bool) error {
 	if s == nil || s.userRPMCache == nil || user == nil {
 		return nil
 	}
 
-	// ── 第一层：分组级检查（override 或 group.rpm_limit） ──
 	if group != nil {
 		// 解析 override：优先从 auth cache snapshot，nil 时回退 DB。
 		var override *int
-		if user.UserGroupRPMOverride != nil {
+		if useSnapshotOverride && user.UserGroupRPMOverride != nil {
 			override = user.UserGroupRPMOverride
 		} else if s.userGroupRateRepo != nil {
 			dbOverride, err := s.userGroupRateRepo.GetRPMOverrideByUserAndGroup(ctx, user.ID, group.ID)
@@ -840,8 +871,13 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 			}
 		}
 	}
+	return nil
+}
 
-	// ── 第二层：用户级全局硬上限（始终生效） ──
+func (s *BillingCacheService) checkUserRPM(ctx context.Context, user *User) error {
+	if s == nil || s.userRPMCache == nil || user == nil {
+		return nil
+	}
 	if user.RPMLimit > 0 {
 		count, err := s.userRPMCache.IncrementUserRPM(ctx, user.ID)
 		if err != nil {
@@ -858,6 +894,17 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 	}
 
 	return nil
+}
+
+// checkRPM preserves the original combined limiter contract for callers and
+// tests that exercise the full request-level RPM check directly. Route
+// switches use the split group-only path above so a single client request does
+// not consume the user's global RPM counter more than once.
+func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *Group) error {
+	if err := s.checkGroupRPM(ctx, user, group, true); err != nil {
+		return err
+	}
+	return s.checkUserRPM(ctx, user)
 }
 
 func (s *BillingCacheService) minimumBalanceReserve() float64 {

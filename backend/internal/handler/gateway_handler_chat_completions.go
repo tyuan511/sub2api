@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -91,27 +92,17 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "This model is not supported on the Chat Completions endpoint")
 		return
 	}
-	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
-
-	setOpsRequestContext(c, reqModel, reqStream)
-	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
-	pricingCtx, pricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
-	c.Request = c.Request.WithContext(pricingCtx)
-
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
-
-	// Claude Code only restriction
-	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly {
+	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly && !apiKeyMultiGroupRoutingActive(c) {
 		h.chatCompletionsErrorResponse(c, http.StatusForbidden, "permission_error",
 			"This group is restricted to Claude Code clients (/v1/messages only)")
 		return
 	}
+	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
-	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIChat, reqModel, body); decision != nil && !decision.AllowNextStage {
-		h.openAISecurityAuditError(c, decision)
-		return
-	}
+	setOpsRequestContext(c, reqModel, reqStream)
+	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
+	var channelMapping service.ChannelMappingResult
+	var pricingAt time.Time
 
 	// Error passthrough binding
 	if h.errorPassthroughService != nil {
@@ -119,6 +110,102 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	}
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
+
+	// Parse before route selection so group-level sticky/smart ordering uses the
+	// same stable session identity as the eventual in-group account scheduler.
+	bodyRef := service.NewRequestBodyRef(body)
+	parsedReq, _ := service.ParseGatewayRequest(bodyRef, "chat_completions")
+	if parsedReq == nil {
+		parsedReq = &service.ParsedRequest{Model: reqModel, Stream: reqStream, Body: bodyRef}
+	}
+	parsedReq.SessionContext = &service.SessionContext{
+		ClientIP:  ip.GetClientIP(c),
+		UserAgent: c.GetHeader("User-Agent"),
+		APIKeyID:  apiKey.ID,
+	}
+	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
+	routeEndpoint := c.Request.URL.Path
+	gatewayCCCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if candidate.Group.ClaudeCodeOnly {
+			return fmt.Errorf("candidate group %d is restricted to Claude Code", candidate.Group.ID)
+		}
+		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
+			return fmt.Errorf("candidate group %d does not support this model target", candidate.Group.ID)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("gateway.cc.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, reqModel, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash)
+	routeStateDegraded := stickyErr != nil
+	if stickyErr != nil {
+		reqLog.Warn("gateway.cc.api_key_group_route_state_degraded", zap.String("reason", "sticky_read_failed"), zap.Error(stickyErr))
+	}
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, gatewayCCCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+			reqLog.Warn("gateway.cc.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+			reqLog.Info("gateway.cc.api_key_group_sticky_hit", zap.Int64("sticky_group_id", stickyGroupID))
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, routeEndpoint, sessionHash, gatewayCCCandidateCheck)
+		if smartErr != nil {
+			h.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+			state, _ := middleware2.GetAPIKeyRouteState(c)
+			reqLog.Info("gateway.cc.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
+		}
+	}
+	apiKey, subscription, initialRouteChanged, initialRouteErr := h.apiKeyRouteRuntime().ensureInitial(c, gatewayCCCandidateCheck)
+	if initialRouteErr != nil {
+		if isAPIKeyRouteAdvanceBillingError(initialRouteErr) {
+			status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(initialRouteErr))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.chatCompletionsErrorResponse(c, status, code, message)
+		} else {
+			h.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+		}
+		return
+	}
+	if initialRouteChanged && stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickyBroken(c)
+	}
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
+	channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIChat, reqModel, body); decision != nil && !decision.AllowNextStage {
+		h.openAISecurityAuditError(c, decision)
+		return
+	}
+	pricingCtx, frozenPricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
+	pricingAt = frozenPricingAt
+	c.Request = c.Request.WithContext(pricingCtx)
 
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 
@@ -144,18 +231,6 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
-	// Parse request for session hash
-	bodyRef := service.NewRequestBodyRef(body)
-	parsedReq, _ := service.ParseGatewayRequest(bodyRef, "chat_completions")
-	if parsedReq == nil {
-		parsedReq = &service.ParsedRequest{Model: reqModel, Stream: reqStream, Body: bodyRef}
-	}
-	parsedReq.SessionContext = &service.SessionContext{
-		ClientIP:  ip.GetClientIP(c),
-		UserAgent: c.GetHeader("User-Agent"),
-		APIKeyID:  apiKey.ID,
-	}
-	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
 	groupPlatform := effectiveAPIKeyPlatform(c, apiKey)
 	selectionSessionHash := sessionHash
 	if groupPlatform == service.PlatformGemini && selectionSessionHash != "" {
@@ -166,6 +241,40 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	if groupPlatform == service.PlatformGemini {
 		fs = NewFailoverState(h.maxAccountSwitchesGemini, false)
 	}
+	advanceGatewayCCRoute := func(routeErr error) (bool, error) {
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
+				reqLog.Warn("gateway.cc.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, gatewayCCCandidateCheck)
+		if !advanced {
+			return false, advanceErr
+		}
+		apiKey = nextAPIKey
+		subscription = nextSubscription
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+		newPricingCtx, newPricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
+		c.Request = c.Request.WithContext(newPricingCtx)
+		pricingAt = newPricingAt
+		groupPlatform = effectiveAPIKeyPlatform(c, apiKey)
+		selectionSessionHash = sessionHash
+		if groupPlatform == service.PlatformGemini && selectionSessionHash != "" {
+			selectionSessionHash = "gemini:" + selectionSessionHash
+		}
+		fs = NewFailoverState(h.maxAccountSwitches, false)
+		if groupPlatform == service.PlatformGemini {
+			fs = NewFailoverState(h.maxAccountSwitchesGemini, false)
+		}
+		reqLog.Info("gateway.cc.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
+		return true, nil
+	}
 
 	for {
 		if c.Request.Context().Err() != nil {
@@ -173,6 +282,11 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, selectionSessionHash, reqModel, fs.FailedAccountIDs, "", int64(0))
 		if err != nil {
+			if advanced, advanceErr := advanceGatewayCCRoute(err); advanced {
+				continue
+			} else if advanceErr != nil {
+				reqLog.Warn("gateway.cc.api_key_group_route_advance_failed", zap.Error(advanceErr))
+			}
 			if len(fs.FailedAccountIDs) == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, groupPlatform)
 				cls = classifySelectionFailureError(err, cls)
@@ -320,6 +434,13 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				case FailoverContinue:
 					continue
 				case FailoverExhausted:
+					if c.Writer.Size() == writerSizeBeforeForward {
+						if advanced, advanceErr := advanceGatewayCCRoute(fs.LastFailoverErr); advanced {
+							continue
+						} else if advanceErr != nil {
+							reqLog.Warn("gateway.cc.api_key_group_route_advance_failed", zap.Error(advanceErr))
+						}
+					}
 					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
 					return
 				case FailoverCanceled:
@@ -351,6 +472,12 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
 		stampForwardRequestedReasoningEffort(result, service.RequestedReasoningEffortFromContext(c.Request.Context()))
+		if apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, true); observeErr != nil {
+				reqLog.Warn("gateway.cc.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+			_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash, *apiKey.GroupID)
+		}
 		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 				Result:             result,

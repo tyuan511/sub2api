@@ -39,16 +39,91 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 		batchImageError(c, infraerrors.New(http.StatusUnauthorized, "API_KEY_REQUIRED", "API key is required"))
 		return
 	}
-	if !h.checkSecurityAuditBeforeSubmit(c, &req) {
-		return
-	}
 	if sessionID := service.ExtractClientSessionID(c); sessionID != "" {
 		req.SessionID = &sessionID
+	}
+	apiKey, _ := middleware.GetAPIKeyFromContext(c)
+	routeEndpoint := c.Request.URL.Path
+	routeSessionSeed := service.HashBatchImageSubmitRequest(req)
+	if idempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key")); idempotencyKey != "" {
+		routeSessionSeed = idempotencyKey
+	}
+	routeSessionHash := ""
+	stickyModelFamily, stickyEndpointKind := "", ""
+	if h.openAI != nil && h.openAI.gatewayService != nil && apiKey != nil {
+		routeSessionHash = h.openAI.gatewayService.GenerateExplicitSessionHash(c, []byte(routeSessionSeed))
+		stickyModelFamily, stickyEndpointKind = apiKeyRouteStickyScope(apiKey, req.Model, routeEndpoint)
+	}
+	if apiKeyMultiGroupRoutingActive(c) && h.openAI != nil && h.openAI.gatewayService != nil && apiKey != nil {
+		batchCandidateCheck := func(candidate *service.APIKey) error {
+			if candidate == nil || candidate.Group == nil {
+				return service.ErrNoEligibleAPIKeyRoute
+			}
+			gid := candidate.Group.ID
+			candidateOwner := service.BatchImageOwner{UserID: candidate.UserID, APIKeyID: candidate.ID, GroupID: &gid}
+			if err := h.service.CheckRouteCandidate(c.Request.Context(), candidateOwner, req); err != nil {
+				return err
+			}
+			allowed, _, healthErr := h.openAI.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, req.Model, routeEndpoint)
+			if healthErr != nil {
+				return nil
+			}
+			if !allowed {
+				return service.ErrNoEligibleAPIKeyRoute
+			}
+			return nil
+		}
+		stickyGroupID, stickyErr := h.openAI.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
+		stickySelected := stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+		if stickyErr == nil && stickyGroupID > 0 && !stickySelected {
+			stickyAPIKey, _, activated, activateErr := h.openAI.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, batchCandidateCheck)
+			if activateErr != nil {
+				middleware.MarkAPIKeyRouteStickySelected(c)
+				middleware.MarkAPIKeyRouteStickyBroken(c)
+			} else if activated {
+				stickySelected = true
+				apiKey = stickyAPIKey
+			}
+		}
+		if stickySelected {
+			middleware.MarkAPIKeyRouteStickySelected(c)
+		}
+		if shouldActivateSmartRoute(c, stickySelected, stickyErr != nil) {
+			smartAPIKey, _, ranked, _, smartErr := h.openAI.apiKeyRouteRuntime().activateSmart(c, apiKey, req.Model, routeEndpoint, routeSessionHash, batchCandidateCheck)
+			if smartErr != nil {
+				batchImageError(c, service.ErrBatchImageNoAccountAvailable)
+				return
+			}
+			if len(ranked) > 0 {
+				apiKey = smartAPIKey
+			}
+		}
+		actualAPIKey, _, changed, routeErr := h.openAI.apiKeyRouteRuntime().ensureInitial(c, batchCandidateCheck)
+		if routeErr != nil {
+			batchImageError(c, service.ErrBatchImageNoAccountAvailable)
+			return
+		}
+		apiKey = actualAPIKey
+		if changed && stickySelected {
+			middleware.MarkAPIKeyRouteStickyBroken(c)
+		}
+		owner, ok = batchImageOwnerFromContext(c)
+		if !ok {
+			batchImageError(c, infraerrors.New(http.StatusUnauthorized, "API_KEY_REQUIRED", "API key is required"))
+			return
+		}
+	}
+	if !h.checkSecurityAuditBeforeSubmit(c, &req) {
+		return
 	}
 	got, err := h.service.Submit(c.Request.Context(), owner, req, c.GetHeader("Idempotency-Key"))
 	if err != nil {
 		batchImageError(c, err)
 		return
+	}
+	if !got.IdempotentReplay && h.openAI != nil && h.openAI.gatewayService != nil && apiKey != nil && got.ActualGroupID != nil {
+		_, _ = h.openAI.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *got.ActualGroupID, req.Model, routeEndpoint, true)
+		_ = h.openAI.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash, *got.ActualGroupID)
 	}
 	c.JSON(http.StatusOK, got)
 }

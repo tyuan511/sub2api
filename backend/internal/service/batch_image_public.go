@@ -125,6 +125,10 @@ type BatchImagePublicBatch struct {
 	SettledAt       *int64   `json:"settled_at"`
 	DownloadedAt    *int64   `json:"downloaded_at,omitempty"`
 	OutputDeletedAt *int64   `json:"output_deleted_at,omitempty"`
+	// ActualGroupID and IdempotentReplay are internal routing metadata. They are
+	// intentionally excluded from the public response contract.
+	ActualGroupID    *int64 `json:"-"`
+	IdempotentReplay bool   `json:"-"`
 }
 
 type BatchImagePublicItem struct {
@@ -224,7 +228,9 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 					return nil, ErrBatchImageQueueFailed
 				}
 			}
-			return BatchImageJobToPublic(existing), nil
+			public := BatchImageJobToPublic(existing)
+			public.IdempotentReplay = true
+			return public, nil
 		}
 		if !errors.Is(err, ErrBatchImageJobNotFound) {
 			return nil, err
@@ -261,6 +267,7 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		BatchID:                 batchID,
 		UserID:                  owner.UserID,
 		APIKeyID:                &apiKeyID,
+		GroupID:                 owner.GroupID,
 		AccountID:               &accountID,
 		Provider:                provider.Name(),
 		Model:                   normalized.Model,
@@ -399,6 +406,28 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		return nil, err
 	}
 	return BatchImageJobToPublic(created), nil
+}
+
+// CheckRouteCandidate performs the read-only capability, account and pricing
+// checks needed to choose a physical group before a batch job, balance hold or
+// upstream submission is created. Submit repeats every check to close races.
+func (s *BatchImagePublicService) CheckRouteCandidate(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest) error {
+	if !s.enabled() {
+		return ErrBatchImageDisabled
+	}
+	normalized, err := s.validateSubmitRequest(req)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureGroupAllowsBatchImage(ctx, owner.GroupID); err != nil {
+		return err
+	}
+	provider, account, err := s.selectProviderAndAccount(ctx, owner, normalized.Provider, normalized.Model)
+	if err != nil {
+		return err
+	}
+	_, err = s.resolvePricingSnapshot(ctx, owner, normalized, provider.Name(), account)
+	return err
 }
 
 func (s *BatchImagePublicService) releaseFailedSubmitHold(ctx context.Context, job *BatchImageJob, requestHash string) error {
@@ -1180,6 +1209,7 @@ func BatchImageJobToPublic(job *BatchImageJob) *BatchImagePublicBatch {
 		SettledAt:       batchImageUnixPtr(job.SettledAt),
 		DownloadedAt:    batchImageUnixPtr(job.DownloadedAt),
 		OutputDeletedAt: batchImageUnixPtr(job.OutputDeletedAt),
+		ActualGroupID:   job.GroupID,
 	}
 }
 

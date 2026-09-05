@@ -52,6 +52,17 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // upstream_model_mismatch
 			sqlmock.AnyArg(), // group_id
 			sqlmock.AnyArg(), // subscription_id
+			sqlmock.AnyArg(), // initial_group_id
+			sqlmock.AnyArg(), // route_version
+			sqlmock.AnyArg(), // schedule_mode
+			sqlmock.AnyArg(), // smart_preference
+			log.GroupSwitchCount,
+			sqlmock.AnyArg(), // routing_decision_id
+			log.CacheColdDueToFailover,
+			sqlmock.AnyArg(), // actual_usage
+			sqlmock.AnyArg(), // billable_usage
+			log.CacheCompensationTokens,
+			sqlmock.AnyArg(), // cache_compensation_reason
 			log.InputTokens,
 			log.OutputTokens,
 			log.CacheCreationTokens,
@@ -206,6 +217,17 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // upstream_model_mismatch
 			sqlmock.AnyArg(), // group_id
 			sqlmock.AnyArg(), // subscription_id
+			sqlmock.AnyArg(), // initial_group_id
+			sqlmock.AnyArg(), // route_version
+			sqlmock.AnyArg(), // schedule_mode
+			sqlmock.AnyArg(), // smart_preference
+			log.GroupSwitchCount,
+			sqlmock.AnyArg(), // routing_decision_id
+			log.CacheColdDueToFailover,
+			sqlmock.AnyArg(), // actual_usage
+			sqlmock.AnyArg(), // billable_usage
+			log.CacheCompensationTokens,
+			sqlmock.AnyArg(), // cache_compensation_reason
 			log.InputTokens,
 			log.OutputTokens,
 			log.CacheCreationTokens,
@@ -338,7 +360,7 @@ func TestPrepareUsageLogInsert_PersistsNativeCompactionV2WithoutChangingRequestT
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
 	require.Equal(t, "boolean", usageLogInsertArgTypes[len(usageLogInsertArgTypes)-2])
 	require.Equal(t, true, prepared.args[len(prepared.args)-2])
-	require.Equal(t, int16(service.RequestTypeStream), prepared.args[30])
+	require.Equal(t, int16(service.RequestTypeStream), prepared.args[41])
 	require.Equal(t, service.RequestTypeStream, log.RequestType)
 	require.True(t, log.Stream)
 	require.False(t, log.OpenAIWSMode)
@@ -365,11 +387,11 @@ func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
 		CreatedAt:          time.Date(2025, 1, 6, 12, 0, 0, 0, time.UTC),
 	})
 
-	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[38])
-	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[39])
-	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[40])
-	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[41])
-	breakdownJSON, ok := prepared.args[42].(string)
+	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[49])
+	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[50])
+	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[51])
+	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[52])
+	breakdownJSON, ok := prepared.args[53].(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"1K":1,"4K":1}`, breakdownJSON)
 }
@@ -990,6 +1012,17 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},
 			sql.NullInt64{},
 			sql.NullInt64{},
+			sql.NullInt64{},  // initial_group_id
+			sql.NullInt64{},  // route_version
+			sql.NullString{}, // schedule_mode
+			sql.NullString{}, // smart_preference
+			0,                // group_switch_count
+			sql.NullString{}, // routing_decision_id
+			false,            // cache_cold_due_to_failover
+			[]byte(nil),      // actual_usage
+			[]byte(nil),      // billable_usage
+			0,                // cache_compensation_tokens
+			sql.NullString{}, // cache_compensation_reason
 			0, 0, 0, 0, 0, 0,
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
@@ -1057,6 +1090,17 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},    // upstream_model_mismatch
 			sql.NullInt64{},   // group_id
 			sql.NullInt64{},   // subscription_id
+			sql.NullInt64{},   // initial_group_id
+			sql.NullInt64{},   // route_version
+			sql.NullString{},  // schedule_mode
+			sql.NullString{},  // smart_preference
+			0,                 // group_switch_count
+			sql.NullString{},  // routing_decision_id
+			false,             // cache_cold_due_to_failover
+			[]byte(nil),       // actual_usage
+			[]byte(nil),       // billable_usage
+			0,                 // cache_compensation_tokens
+			sql.NullString{},  // cache_compensation_reason
 			1,                 // input_tokens
 			2,                 // output_tokens
 			3,                 // cache_creation_tokens
@@ -1131,6 +1175,17 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},
 			sql.NullInt64{},
 			sql.NullInt64{},
+			sql.NullInt64{},  // initial_group_id
+			sql.NullInt64{},  // route_version
+			sql.NullString{}, // schedule_mode
+			sql.NullString{}, // smart_preference
+			0,                // group_switch_count
+			sql.NullString{}, // routing_decision_id
+			false,            // cache_cold_due_to_failover
+			[]byte(nil),      // actual_usage
+			[]byte(nil),      // billable_usage
+			0,                // cache_compensation_tokens
+			sql.NullString{}, // cache_compensation_reason
 			1, 2, 3, 4, 5, 6,
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
@@ -1194,6 +1249,17 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullBool{},
 			sql.NullInt64{},
 			sql.NullInt64{},
+			sql.NullInt64{},  // initial_group_id
+			sql.NullInt64{},  // route_version
+			sql.NullString{}, // schedule_mode
+			sql.NullString{}, // smart_preference
+			0,                // group_switch_count
+			sql.NullString{}, // routing_decision_id
+			false,            // cache_cold_due_to_failover
+			[]byte(nil),      // actual_usage
+			[]byte(nil),      // billable_usage
+			0,                // cache_compensation_tokens
+			sql.NullString{}, // cache_compensation_reason
 			1, 2, 3, 4, 5, 6,
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost

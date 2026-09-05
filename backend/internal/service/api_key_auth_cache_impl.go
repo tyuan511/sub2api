@@ -14,7 +14,10 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 22 // v22: group free_openai_fast field
+const (
+	apiKeyAuthSnapshotVersion     = 26 // v26: per-key routing controls and runtime state version
+	authRouteVersionCheckInterval = time.Second
+)
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -200,7 +203,10 @@ func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) 
 	if s.authCacheL1 != nil {
 		if val, ok := s.authCacheL1.Get(cacheKey); ok {
 			if entry, ok := val.(*APIKeyAuthCacheEntry); ok {
-				return entry, true
+				if s.authCacheRouteVersionCurrent(ctx, cacheKey, entry) {
+					return entry, true
+				}
+				return nil, false
 			}
 		}
 	}
@@ -218,8 +224,57 @@ func (s *APIKeyService) getAuthCacheEntry(ctx context.Context, cacheKey string) 
 	if err != nil {
 		return nil, false
 	}
+	if !s.authCacheRouteVersionCurrent(ctx, cacheKey, entry) {
+		return nil, false
+	}
 	s.setAuthCacheL1(cacheKey, entry)
 	return entry, true
+}
+
+func (s *APIKeyService) authCacheRouteVersionCurrent(ctx context.Context, cacheKey string, entry *APIKeyAuthCacheEntry) bool {
+	if entry == nil || entry.NotFound || entry.Snapshot == nil || entry.Snapshot.APIKeyID <= 0 || entry.Snapshot.RouteVersion <= 0 || entry.Snapshot.RoutingDependencyVersion <= 0 {
+		return true
+	}
+	// Single-group auth must retain its existing L1/L2 path, without a
+	// routing settings lookup or an additional Redis round trip. A withdrawn
+	// multi-group key also uses its legacy primary until the normal auth cache
+	// invalidation/TTL refreshes it; rollout admission is never cached here.
+	enabledRoutes := 0
+	for _, route := range entry.Snapshot.GroupRoutes {
+		if route.Enabled {
+			enabledRoutes++
+		}
+	}
+	if enabledRoutes <= 1 || !s.IsRoutingEnabledForUser(ctx, entry.Snapshot.UserID) {
+		return true
+	}
+	reader, ok := s.cache.(APIKeyRouteVersionReader)
+	if !ok {
+		return true
+	}
+	now := time.Now()
+	lastChecked := entry.routeVersionCheckedAt.Load()
+	if lastChecked > 0 && now.Sub(time.Unix(0, lastChecked)) < authRouteVersionCheckInterval {
+		return true
+	}
+	value, err, _ := s.authGroup.Do("route-version-guard:"+cacheKey, func() (any, error) {
+		return reader.GetAPIKeyRoutingGuards(ctx, entry.Snapshot.APIKeyID)
+	})
+	if err != nil {
+		// Redis loss is explicitly fail-open for an already-valid auth snapshot;
+		// the durable outbox retries and normal L1/L2 TTLs still converge.
+		return true
+	}
+	guards, _ := value.(APIKeyRoutingGuards)
+	if guards.RouteVersion > entry.Snapshot.RouteVersion || guards.DependencyVersion > entry.Snapshot.RoutingDependencyVersion {
+		s.invalidateLocalAuthCache(cacheKey)
+		if s.cache != nil {
+			_ = s.cache.DeleteAuthCache(ctx, cacheKey)
+		}
+		return false
+	}
+	entry.routeVersionCheckedAt.Store(now.UnixNano())
+	return true
 }
 
 func (s *APIKeyService) setAuthCacheL1(cacheKey string, entry *APIKeyAuthCacheEntry) {
@@ -336,20 +391,27 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		return nil
 	}
 	snapshot := &APIKeyAuthSnapshot{
-		Version:     apiKeyAuthSnapshotVersion,
-		APIKeyID:    apiKey.ID,
-		UserID:      apiKey.UserID,
-		GroupID:     apiKey.GroupID,
-		Name:        apiKey.Name,
-		Status:      apiKey.Status,
-		IPWhitelist: apiKey.IPWhitelist,
-		IPBlacklist: apiKey.IPBlacklist,
-		Quota:       apiKey.Quota,
-		QuotaUsed:   apiKey.QuotaUsed,
-		ExpiresAt:   apiKey.ExpiresAt,
-		RateLimit5h: apiKey.RateLimit5h,
-		RateLimit1d: apiKey.RateLimit1d,
-		RateLimit7d: apiKey.RateLimit7d,
+		Version:                  apiKeyAuthSnapshotVersion,
+		APIKeyID:                 apiKey.ID,
+		UserID:                   apiKey.UserID,
+		GroupID:                  apiKey.GroupID,
+		ScheduleMode:             apiKey.ScheduleMode,
+		SmartPreference:          apiKey.SmartPreference,
+		SmartBalanceBPS:          cloneIntPtr(apiKey.SmartBalanceBPS),
+		RoutingMinSuccessRate:    apiKey.RoutingMinSuccessRate,
+		RoutingStateVersion:      apiKey.RoutingStateVersion,
+		RouteVersion:             apiKey.RouteVersion,
+		RoutingDependencyVersion: apiKey.RoutingDependencyVersion,
+		Name:                     apiKey.Name,
+		Status:                   apiKey.Status,
+		IPWhitelist:              apiKey.IPWhitelist,
+		IPBlacklist:              apiKey.IPBlacklist,
+		Quota:                    apiKey.Quota,
+		QuotaUsed:                apiKey.QuotaUsed,
+		ExpiresAt:                apiKey.ExpiresAt,
+		RateLimit5h:              apiKey.RateLimit5h,
+		RateLimit1d:              apiKey.RateLimit1d,
+		RateLimit7d:              apiKey.RateLimit7d,
 		User: APIKeyAuthUserSnapshot{
 			ID:                         apiKey.User.ID,
 			Status:                     apiKey.User.Status,
@@ -367,6 +429,18 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			TotalRecharged:             apiKey.User.TotalRecharged,
 			RPMLimit:                   apiKey.User.RPMLimit,
 		},
+	}
+	if snapshot.ScheduleMode == "" {
+		snapshot.ScheduleMode = APIKeyScheduleModeSequential
+	}
+	if snapshot.RouteVersion <= 0 {
+		snapshot.RouteVersion = 1
+	}
+	if snapshot.RoutingDependencyVersion <= 0 {
+		snapshot.RoutingDependencyVersion = 1
+	}
+	if apiKey.HasMultipleEnabledGroupRoutes() {
+		snapshot.User.GroupRates = s.loadAPIKeyCandidateGroupRates(ctx, apiKey)
 	}
 
 	// 填充 (user, group) RPM override —— snapshot 构建时查一次 DB，后续请求零 DB 往返。
@@ -436,6 +510,17 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			ProfitSafetyBuffer:              apiKey.Group.ProfitSafetyBuffer,
 		}
 	}
+	if len(apiKey.GroupRoutes) > 0 {
+		snapshot.GroupRoutes = make([]APIKeyAuthGroupRouteSnapshot, 0, len(apiKey.GroupRoutes))
+		for _, route := range apiKey.GroupRoutes {
+			snapshot.GroupRoutes = append(snapshot.GroupRoutes, APIKeyAuthGroupRouteSnapshot{
+				GroupID:  route.GroupID,
+				Priority: route.Priority,
+				Enabled:  route.Enabled,
+				Group:    apiKeyAuthGroupSnapshotFromGroup(route.Group),
+			})
+		}
+	}
 	return snapshot
 }
 
@@ -444,20 +529,27 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		return nil
 	}
 	apiKey := &APIKey{
-		ID:          snapshot.APIKeyID,
-		UserID:      snapshot.UserID,
-		GroupID:     snapshot.GroupID,
-		Key:         key,
-		Name:        snapshot.Name,
-		Status:      snapshot.Status,
-		IPWhitelist: snapshot.IPWhitelist,
-		IPBlacklist: snapshot.IPBlacklist,
-		Quota:       snapshot.Quota,
-		QuotaUsed:   snapshot.QuotaUsed,
-		ExpiresAt:   snapshot.ExpiresAt,
-		RateLimit5h: snapshot.RateLimit5h,
-		RateLimit1d: snapshot.RateLimit1d,
-		RateLimit7d: snapshot.RateLimit7d,
+		ID:                       snapshot.APIKeyID,
+		UserID:                   snapshot.UserID,
+		GroupID:                  snapshot.GroupID,
+		ScheduleMode:             snapshot.ScheduleMode,
+		SmartPreference:          snapshot.SmartPreference,
+		SmartBalanceBPS:          cloneIntPtr(snapshot.SmartBalanceBPS),
+		RoutingMinSuccessRate:    snapshot.RoutingMinSuccessRate,
+		RoutingStateVersion:      snapshot.RoutingStateVersion,
+		RouteVersion:             snapshot.RouteVersion,
+		RoutingDependencyVersion: snapshot.RoutingDependencyVersion,
+		Key:                      key,
+		Name:                     snapshot.Name,
+		Status:                   snapshot.Status,
+		IPWhitelist:              snapshot.IPWhitelist,
+		IPBlacklist:              snapshot.IPBlacklist,
+		Quota:                    snapshot.Quota,
+		QuotaUsed:                snapshot.QuotaUsed,
+		ExpiresAt:                snapshot.ExpiresAt,
+		RateLimit5h:              snapshot.RateLimit5h,
+		RateLimit1d:              snapshot.RateLimit1d,
+		RateLimit7d:              snapshot.RateLimit7d,
 		User: &User{
 			ID:                         snapshot.User.ID,
 			Status:                     snapshot.User.Status,
@@ -465,6 +557,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			Balance:                    snapshot.User.Balance,
 			Concurrency:                snapshot.User.Concurrency,
 			AllowedGroups:              snapshot.User.AllowedGroups,
+			GroupRates:                 cloneGroupRates(snapshot.User.GroupRates),
 			Email:                      snapshot.User.Email,
 			Username:                   snapshot.User.Username,
 			BalanceNotifyEnabled:       snapshot.User.BalanceNotifyEnabled,
@@ -476,6 +569,15 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			RPMLimit:                   snapshot.User.RPMLimit,
 			UserGroupRPMOverride:       snapshot.User.UserGroupRPMOverride,
 		},
+	}
+	if apiKey.ScheduleMode == "" {
+		apiKey.ScheduleMode = APIKeyScheduleModeSequential
+	}
+	if apiKey.RouteVersion <= 0 {
+		apiKey.RouteVersion = 1
+	}
+	if apiKey.RoutingDependencyVersion <= 0 {
+		apiKey.RoutingDependencyVersion = 1
 	}
 	if snapshot.Group != nil {
 		apiKey.Group = &Group{
@@ -537,6 +639,210 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			ProfitSafetyBuffer:              snapshot.Group.ProfitSafetyBuffer,
 		}
 	}
+	if len(snapshot.GroupRoutes) > 0 {
+		apiKey.GroupRoutes = make([]APIKeyGroupRoute, 0, len(snapshot.GroupRoutes))
+		for _, route := range snapshot.GroupRoutes {
+			apiKey.GroupRoutes = append(apiKey.GroupRoutes, APIKeyGroupRoute{
+				APIKeyID: apiKey.ID,
+				GroupID:  route.GroupID,
+				Priority: route.Priority,
+				Enabled:  route.Enabled,
+				Group:    apiKeyAuthGroupFromSnapshot(route.Group),
+			})
+		}
+	}
 	s.compileAPIKeyIPRules(apiKey)
 	return apiKey
+}
+
+type apiKeyCandidateGroupRateLoader interface {
+	GetByUserAndGroupIDs(ctx context.Context, userID int64, groupIDs []int64) (map[int64]float64, error)
+}
+
+func (s *APIKeyService) loadAPIKeyCandidateGroupRates(ctx context.Context, apiKey *APIKey) map[int64]float64 {
+	if s == nil || s.userGroupRateRepo == nil || apiKey == nil || apiKey.UserID <= 0 {
+		return nil
+	}
+	groupIDs := make([]int64, 0, len(apiKey.GroupRoutes)+1)
+	seen := make(map[int64]struct{}, len(apiKey.GroupRoutes)+1)
+	add := func(groupID int64) {
+		if groupID <= 0 || len(groupIDs) >= DefaultMaxAPIKeyGroupRoutes {
+			return
+		}
+		if _, exists := seen[groupID]; exists {
+			return
+		}
+		seen[groupID] = struct{}{}
+		groupIDs = append(groupIDs, groupID)
+	}
+	for _, route := range apiKey.GroupRoutes {
+		add(route.GroupID)
+	}
+	if apiKey.GroupID != nil {
+		add(*apiKey.GroupID)
+	}
+	if len(groupIDs) == 0 {
+		return nil
+	}
+	// Only the concrete bounded loader is safe here. Alternate/lightweight
+	// repository implementations may embed the broad interface with nil
+	// promoted methods; calling GetByUserID would both scan all overrides and can
+	// panic on those valid test/adapter shapes. Missing this optional projection
+	// simply falls back to each candidate's group rate.
+	loader, ok := s.userGroupRateRepo.(apiKeyCandidateGroupRateLoader)
+	if !ok {
+		return nil
+	}
+	rates, err := loader.GetByUserAndGroupIDs(ctx, apiKey.UserID, groupIDs)
+	if err != nil || len(rates) == 0 {
+		return nil
+	}
+	result := make(map[int64]float64, len(groupIDs))
+	for _, groupID := range groupIDs {
+		if rate, exists := rates[groupID]; exists {
+			result[groupID] = rate
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func cloneGroupRates(input map[int64]float64) map[int64]float64 {
+	if len(input) == 0 {
+		return nil
+	}
+	result := make(map[int64]float64, len(input))
+	for groupID, rate := range input {
+		result[groupID] = rate
+	}
+	return result
+}
+
+func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
+	if group == nil {
+		return nil
+	}
+	return &APIKeyAuthGroupSnapshot{
+		ID:                              group.ID,
+		Name:                            group.Name,
+		Platform:                        group.Platform,
+		IsExclusive:                     group.IsExclusive,
+		Status:                          group.Status,
+		SubscriptionType:                group.SubscriptionType,
+		RateMultiplier:                  group.RateMultiplier,
+		DailyLimitUSD:                   group.DailyLimitUSD,
+		WeeklyLimitUSD:                  group.WeeklyLimitUSD,
+		MonthlyLimitUSD:                 group.MonthlyLimitUSD,
+		AllowImageGeneration:            group.AllowImageGeneration,
+		AllowBatchImageGeneration:       group.AllowBatchImageGeneration,
+		ImageRateIndependent:            group.ImageRateIndependent,
+		ImageRateMultiplier:             group.ImageRateMultiplier,
+		ImagePrice1K:                    group.ImagePrice1K,
+		ImagePrice2K:                    group.ImagePrice2K,
+		ImagePrice4K:                    group.ImagePrice4K,
+		VideoRateIndependent:            group.VideoRateIndependent,
+		VideoRateMultiplier:             group.VideoRateMultiplier,
+		VideoPrice480P:                  group.VideoPrice480P,
+		VideoPrice720P:                  group.VideoPrice720P,
+		VideoPrice1080P:                 group.VideoPrice1080P,
+		VideoModelPrices:                NormalizeVideoModelPrices(group.VideoModelPrices),
+		WebSearchPricePerCall:           group.WebSearchPricePerCall,
+		SearchPricePer1k:                group.SearchPricePer1k,
+		AudioRealtimePricePerMin:        group.AudioRealtimePricePerMin,
+		AudioTTSPricePerMillionChars:    group.AudioTTSPricePerMillionChars,
+		AudioSTTPricePerHour:            group.AudioSTTPricePerHour,
+		LongContextPricingEnabled:       group.LongContextPricingEnabled,
+		ModelPricing:                    group.ModelPricing,
+		ClaudeCodeOnly:                  group.ClaudeCodeOnly,
+		FallbackGroupID:                 group.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest: group.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                    group.ModelRouting,
+		ModelRoutingEnabled:             group.ModelRoutingEnabled,
+		MCPXMLInject:                    group.MCPXMLInject,
+		SupportedModelScopes:            group.SupportedModelScopes,
+		AllowMessagesDispatch:           group.AllowMessagesDispatch,
+		AllowLive:                       group.AllowLive,
+		ForceOpenAIFast:                 group.ForceOpenAIFast,
+		FreeOpenAIFast:                  group.FreeOpenAIFast,
+		DefaultMappedModel:              group.DefaultMappedModel,
+		MessagesDispatchModelConfig:     group.MessagesDispatchModelConfig,
+		ModelsListConfig:                group.ModelsListConfig,
+		RPMLimit:                        group.RPMLimit,
+		MaxReasoningEffort:              group.MaxReasoningEffort,
+		MaxReasoningEffortOverLimit:     group.MaxReasoningEffortOverLimit,
+		ReasoningEffortMappings:         group.ReasoningEffortMappings,
+		PeakRateEnabled:                 group.PeakRateEnabled,
+		PeakStart:                       group.PeakStart,
+		PeakEnd:                         group.PeakEnd,
+		PeakRateMultiplier:              group.PeakRateMultiplier,
+		ProfitControlEnabled:            group.ProfitControlEnabled,
+		ProfitMinMargin:                 group.ProfitMinMargin,
+		ProfitSafetyBuffer:              group.ProfitSafetyBuffer,
+	}
+}
+
+func apiKeyAuthGroupFromSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
+	if snapshot == nil {
+		return nil
+	}
+	return &Group{
+		ID:                              snapshot.ID,
+		Name:                            snapshot.Name,
+		Platform:                        snapshot.Platform,
+		IsExclusive:                     snapshot.IsExclusive,
+		Status:                          snapshot.Status,
+		Hydrated:                        true,
+		SubscriptionType:                snapshot.SubscriptionType,
+		RateMultiplier:                  snapshot.RateMultiplier,
+		DailyLimitUSD:                   snapshot.DailyLimitUSD,
+		WeeklyLimitUSD:                  snapshot.WeeklyLimitUSD,
+		MonthlyLimitUSD:                 snapshot.MonthlyLimitUSD,
+		AllowImageGeneration:            snapshot.AllowImageGeneration,
+		AllowBatchImageGeneration:       snapshot.AllowBatchImageGeneration,
+		ImageRateIndependent:            snapshot.ImageRateIndependent,
+		ImageRateMultiplier:             snapshot.ImageRateMultiplier,
+		ImagePrice1K:                    snapshot.ImagePrice1K,
+		ImagePrice2K:                    snapshot.ImagePrice2K,
+		ImagePrice4K:                    snapshot.ImagePrice4K,
+		VideoRateIndependent:            snapshot.VideoRateIndependent,
+		VideoRateMultiplier:             snapshot.VideoRateMultiplier,
+		VideoPrice480P:                  snapshot.VideoPrice480P,
+		VideoPrice720P:                  snapshot.VideoPrice720P,
+		VideoPrice1080P:                 snapshot.VideoPrice1080P,
+		VideoModelPrices:                NormalizeVideoModelPrices(snapshot.VideoModelPrices),
+		WebSearchPricePerCall:           snapshot.WebSearchPricePerCall,
+		SearchPricePer1k:                snapshot.SearchPricePer1k,
+		AudioRealtimePricePerMin:        snapshot.AudioRealtimePricePerMin,
+		AudioTTSPricePerMillionChars:    snapshot.AudioTTSPricePerMillionChars,
+		AudioSTTPricePerHour:            snapshot.AudioSTTPricePerHour,
+		LongContextPricingEnabled:       snapshot.LongContextPricingEnabled,
+		ModelPricing:                    snapshot.ModelPricing,
+		ClaudeCodeOnly:                  snapshot.ClaudeCodeOnly,
+		FallbackGroupID:                 snapshot.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest: snapshot.FallbackGroupIDOnInvalidRequest,
+		ModelRouting:                    snapshot.ModelRouting,
+		ModelRoutingEnabled:             snapshot.ModelRoutingEnabled,
+		MCPXMLInject:                    snapshot.MCPXMLInject,
+		SupportedModelScopes:            snapshot.SupportedModelScopes,
+		AllowMessagesDispatch:           snapshot.AllowMessagesDispatch,
+		AllowLive:                       snapshot.AllowLive,
+		ForceOpenAIFast:                 snapshot.ForceOpenAIFast,
+		FreeOpenAIFast:                  snapshot.FreeOpenAIFast,
+		DefaultMappedModel:              snapshot.DefaultMappedModel,
+		MessagesDispatchModelConfig:     snapshot.MessagesDispatchModelConfig,
+		ModelsListConfig:                snapshot.ModelsListConfig,
+		RPMLimit:                        snapshot.RPMLimit,
+		MaxReasoningEffort:              snapshot.MaxReasoningEffort,
+		MaxReasoningEffortOverLimit:     snapshot.MaxReasoningEffortOverLimit,
+		ReasoningEffortMappings:         snapshot.ReasoningEffortMappings,
+		PeakRateEnabled:                 snapshot.PeakRateEnabled,
+		PeakStart:                       snapshot.PeakStart,
+		PeakEnd:                         snapshot.PeakEnd,
+		PeakRateMultiplier:              snapshot.PeakRateMultiplier,
+		ProfitControlEnabled:            snapshot.ProfitControlEnabled,
+		ProfitMinMargin:                 snapshot.ProfitMinMargin,
+		ProfitSafetyBuffer:              snapshot.ProfitSafetyBuffer,
+	}
 }

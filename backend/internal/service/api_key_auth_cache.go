@@ -1,19 +1,30 @@
 package service
 
-import "time"
+import (
+	"sync/atomic"
+	"time"
+)
 
 // APIKeyAuthSnapshot API Key 认证缓存快照（仅包含认证所需字段）
 type APIKeyAuthSnapshot struct {
-	Version     int                      `json:"version"`
-	APIKeyID    int64                    `json:"api_key_id"`
-	UserID      int64                    `json:"user_id"`
-	GroupID     *int64                   `json:"group_id,omitempty"`
-	Name        string                   `json:"name"`
-	Status      string                   `json:"status"`
-	IPWhitelist []string                 `json:"ip_whitelist,omitempty"`
-	IPBlacklist []string                 `json:"ip_blacklist,omitempty"`
-	User        APIKeyAuthUserSnapshot   `json:"user"`
-	Group       *APIKeyAuthGroupSnapshot `json:"group,omitempty"`
+	Version                  int                            `json:"version"`
+	APIKeyID                 int64                          `json:"api_key_id"`
+	UserID                   int64                          `json:"user_id"`
+	GroupID                  *int64                         `json:"group_id,omitempty"`
+	ScheduleMode             string                         `json:"schedule_mode"`
+	SmartPreference          *string                        `json:"smart_preference,omitempty"`
+	SmartBalanceBPS          *int                           `json:"smart_balance_bps"`
+	RoutingMinSuccessRate    int                            `json:"routing_min_success_rate"`
+	RoutingStateVersion      int64                          `json:"routing_state_version"`
+	RouteVersion             int64                          `json:"route_version"`
+	RoutingDependencyVersion int64                          `json:"routing_dependency_version"`
+	GroupRoutes              []APIKeyAuthGroupRouteSnapshot `json:"group_routes,omitempty"`
+	Name                     string                         `json:"name"`
+	Status                   string                         `json:"status"`
+	IPWhitelist              []string                       `json:"ip_whitelist,omitempty"`
+	IPBlacklist              []string                       `json:"ip_blacklist,omitempty"`
+	User                     APIKeyAuthUserSnapshot         `json:"user"`
+	Group                    *APIKeyAuthGroupSnapshot       `json:"group,omitempty"`
 
 	// Quota fields for API Key independent quota feature
 	Quota     float64 `json:"quota"`      // Quota limit in USD (0 = unlimited)
@@ -28,6 +39,13 @@ type APIKeyAuthSnapshot struct {
 	RateLimit7d float64 `json:"rate_limit_7d"`
 }
 
+type APIKeyAuthGroupRouteSnapshot struct {
+	GroupID  int64                    `json:"group_id"`
+	Priority int                      `json:"priority"`
+	Enabled  bool                     `json:"enabled"`
+	Group    *APIKeyAuthGroupSnapshot `json:"group,omitempty"`
+}
+
 // APIKeyAuthUserSnapshot 用户快照
 type APIKeyAuthUserSnapshot struct {
 	ID            int64   `json:"id"`
@@ -36,6 +54,10 @@ type APIKeyAuthUserSnapshot struct {
 	Balance       float64 `json:"balance"`
 	Concurrency   int     `json:"concurrency"`
 	AllowedGroups []int64 `json:"allowed_groups,omitempty"`
+	// GroupRates contains only this key's bounded candidate-set overrides. It
+	// lets smart ranking use the same effective multiplier as billing without a
+	// database lookup on the request hot path.
+	GroupRates map[int64]float64 `json:"group_rates,omitempty"`
 
 	// Balance notification fields (required for CheckBalanceAfterDeduction)
 	Email                      string             `json:"email"`
@@ -143,4 +165,9 @@ type APIKeyAuthGroupSnapshot struct {
 type APIKeyAuthCacheEntry struct {
 	NotFound bool                `json:"not_found"`
 	Snapshot *APIKeyAuthSnapshot `json:"snapshot,omitempty"`
+
+	// routeVersionCheckedAt is process-local and intentionally excluded from
+	// the serialized L2 snapshot. It bounds version-guard reads to once per
+	// active key per interval instead of once per request.
+	routeVersionCheckedAt atomic.Int64
 }

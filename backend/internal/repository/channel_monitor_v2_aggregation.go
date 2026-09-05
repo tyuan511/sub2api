@@ -187,6 +187,169 @@ WHERE ul.is_monitor = FALSE
   AND ul.created_at >= $1 AND ul.created_at < $2
 GROUP BY 1, 2, 3, 4`
 
+const channelMonitorV2EndpointKindSQL = `CASE
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%counttokens%'
+    OR lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%count_tokens%' THEN 'count_tokens'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%streamgeneratecontent%'
+    OR lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%generatecontent%' THEN 'generate_content'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%chat/completions%' THEN 'chat_completions'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%responses%' THEN 'responses'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%embeddings%' THEN 'embeddings'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%images%' THEN 'images'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%video%' THEN 'video'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%audio%' THEN 'audio'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%live%'
+    OR lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%realtime%' THEN 'live'
+  WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%messages%' THEN 'messages'
+  ELSE 'other'
+END`
+
+// apiKeyRoutingHealthUsageMetricsSQL retains endpoint-level reliability,
+// latency, and supplier-reported tokens. Unlike price sampling it includes a
+// successfully compensated failover request because that request still proves
+// the destination group was healthy; actual_usage prevents the compensation
+// rewrite from masquerading as a provider cache hit.
+const apiKeyRoutingHealthUsageMetricsSQL = `
+INSERT INTO api_key_routing_health_metrics_1m (
+  bucket_start, platform, group_id, model, endpoint_kind, success_requests,
+  input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
+  ttft_sum_ms, ttft_count, duration_sum_ms, duration_count, computed_at
+)
+SELECT date_trunc('minute', ul.created_at), %s, ul.group_id, %s, %s,
+       COUNT(DISTINCT COALESCE(NULLIF(ul.request_id, ''), 'usage:' || ul.id::text)),
+       SUM(GREATEST(COALESCE((ul.actual_usage->>'input_tokens')::bigint, ul.input_tokens, 0), 0)),
+       SUM(GREATEST(COALESCE((ul.actual_usage->>'output_tokens')::bigint, ul.output_tokens, 0), 0)),
+       SUM(GREATEST(COALESCE((ul.actual_usage->>'cache_creation_tokens')::bigint, ul.cache_creation_tokens, 0), 0)),
+       SUM(GREATEST(COALESCE((ul.actual_usage->>'cache_read_tokens')::bigint, ul.cache_read_tokens, 0), 0)),
+       COALESCE(SUM(GREATEST(ul.first_token_ms, 0)) FILTER (WHERE ul.first_token_ms IS NOT NULL), 0),
+       COUNT(ul.first_token_ms),
+       COALESCE(SUM(GREATEST(ul.duration_ms, 0)) FILTER (WHERE ul.duration_ms IS NOT NULL), 0),
+       COUNT(ul.duration_ms), NOW()
+FROM usage_logs ul
+LEFT JOIN groups g ON g.id = ul.group_id
+LEFT JOIN accounts a ON a.id = ul.account_id
+WHERE ul.is_monitor = FALSE
+  AND ul.created_at >= $1 AND ul.created_at < $2
+  AND ul.group_id IS NOT NULL AND ul.group_id > 0
+  AND COALESCE(ul.request_type, 0) NOT IN (4, 6)
+  AND ` + usageLogSuccessFilterUL + `
+GROUP BY 1, 2, 3, 4, 5
+ON CONFLICT (bucket_start, platform, group_id, model, endpoint_kind) DO UPDATE SET
+  success_requests = EXCLUDED.success_requests,
+  input_tokens = EXCLUDED.input_tokens, output_tokens = EXCLUDED.output_tokens,
+  cache_creation_tokens = EXCLUDED.cache_creation_tokens, cache_read_tokens = EXCLUDED.cache_read_tokens,
+  ttft_sum_ms = EXCLUDED.ttft_sum_ms, ttft_count = EXCLUDED.ttft_count,
+  duration_sum_ms = EXCLUDED.duration_sum_ms, duration_count = EXCLUDED.duration_count,
+  computed_at = NOW()`
+
+// Failure input comes from the typed routing fact contract, not free-form
+// error text. Capacity overflow is separated from health failure so overload
+// can affect the capacity dimension without falsely tripping the <50% breaker.
+const apiKeyRoutingHealthFailureMetricsSQL = `
+WITH categorized AS (
+  SELECT date_trunc('minute', occurred_at) AS bucket_start,
+         platform, attempted_group_id AS group_id, model_family AS model,
+         endpoint_kind, outcome_category, COUNT(*) AS requests
+  FROM routing_attempts
+  WHERE occurred_at >= $1 AND occurred_at < $2
+    AND attempted_group_id IS NOT NULL AND attempted_group_id > 0
+    AND outcome_category IN ('route_attempt_failed', 'capacity_overflow')
+  GROUP BY 1, 2, 3, 4, 5, 6
+), scoped AS (
+  SELECT bucket_start, platform, group_id, model, endpoint_kind,
+         SUM(requests) FILTER (WHERE outcome_category = 'route_attempt_failed') AS failed_requests,
+         SUM(requests) FILTER (WHERE outcome_category = 'capacity_overflow') AS capacity_overflow_requests,
+         jsonb_object_agg(outcome_category, requests) AS failure_categories
+  FROM categorized
+  GROUP BY 1, 2, 3, 4, 5
+)
+INSERT INTO api_key_routing_health_metrics_1m (
+  bucket_start, platform, group_id, model, endpoint_kind,
+  failed_requests, capacity_overflow_requests, failure_categories, computed_at
+)
+SELECT bucket_start, platform, group_id, model, endpoint_kind,
+       COALESCE(failed_requests, 0), COALESCE(capacity_overflow_requests, 0),
+       failure_categories, NOW()
+FROM scoped
+ON CONFLICT (bucket_start, platform, group_id, model, endpoint_kind) DO UPDATE SET
+  failed_requests = EXCLUDED.failed_requests,
+  capacity_overflow_requests = EXCLUDED.capacity_overflow_requests,
+  failure_categories = EXCLUDED.failure_categories,
+  computed_at = NOW()`
+
+// apiKeyRoutingPriceMetricsSQL keeps only actual supplier usage from successful,
+// steady-state requests. Billable cache compensation is deliberately excluded:
+// cold-cache failover cost is tracked as a stability signal and must not become
+// a permanent price penalty. Endpoint/tier/context are bounded dimensions so
+// the builder can replay each workload slice against the current price card.
+const apiKeyRoutingPriceMetricsSQL = `
+INSERT INTO api_key_routing_price_metrics_1m (
+  bucket_start, platform, group_id, model, endpoint_kind, service_tier, context_bucket,
+  success_requests, input_tokens, image_input_tokens, output_tokens,
+  cache_creation_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens,
+  cache_read_tokens, image_output_tokens, computed_at
+)
+SELECT date_trunc('minute', ul.created_at), %s, ul.group_id, %s,
+       CASE
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%counttokens%%'
+           OR lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%count_tokens%%' THEN 'count_tokens'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%streamgeneratecontent%%'
+           OR lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%generatecontent%%' THEN 'generate_content'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%chat/completions%%' THEN 'chat_completions'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%responses%%' THEN 'responses'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%embeddings%%' THEN 'embeddings'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%images%%' THEN 'images'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%video%%' THEN 'video'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%audio%%' THEN 'audio'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%live%%'
+           OR lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%realtime%%' THEN 'live'
+         WHEN lower(COALESCE(ul.inbound_endpoint, '')) LIKE '%%messages%%' THEN 'messages'
+         ELSE 'other'
+       END,
+       CASE lower(COALESCE(NULLIF(TRIM(ul.service_tier), ''), 'default'))
+         WHEN 'priority' THEN 'priority' WHEN 'flex' THEN 'flex' WHEN 'fast' THEN 'fast'
+         WHEN 'default' THEN 'default' ELSE 'other'
+       END,
+       CASE
+         WHEN routing_usage.logical_input <= 4096 THEN 0
+         WHEN routing_usage.logical_input <= 16384 THEN 1
+         WHEN routing_usage.logical_input <= 65536 THEN 2
+         WHEN routing_usage.logical_input <= 128000 THEN 3
+         WHEN routing_usage.logical_input <= 200000 THEN 4
+         WHEN routing_usage.logical_input <= 272000 THEN 5
+         WHEN routing_usage.logical_input <= 1000000 THEN 6
+         ELSE 7
+       END,
+       COUNT(DISTINCT COALESCE(NULLIF(ul.request_id, ''), 'usage:' || ul.id::text)),
+       SUM(routing_usage.input_tokens), SUM(routing_usage.image_input_tokens),
+       SUM(routing_usage.output_tokens), SUM(routing_usage.cache_creation_tokens),
+       SUM(routing_usage.cache_creation_5m_tokens), SUM(routing_usage.cache_creation_1h_tokens),
+       SUM(routing_usage.cache_read_tokens), SUM(routing_usage.image_output_tokens), NOW()
+FROM usage_logs ul
+LEFT JOIN groups g ON g.id = ul.group_id
+LEFT JOIN accounts a ON a.id = ul.account_id
+CROSS JOIN LATERAL (
+  SELECT
+    GREATEST(COALESCE((ul.actual_usage->>'input_tokens')::bigint, ul.input_tokens, 0), 0) AS input_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'image_input_tokens')::bigint, ul.image_input_tokens, 0), 0) AS image_input_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'output_tokens')::bigint, ul.output_tokens, 0), 0) AS output_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'cache_creation_tokens')::bigint, ul.cache_creation_tokens, 0), 0) AS cache_creation_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'cache_creation_5m_tokens')::bigint, ul.cache_creation_5m_tokens, 0), 0) AS cache_creation_5m_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'cache_creation_1h_tokens')::bigint, ul.cache_creation_1h_tokens, 0), 0) AS cache_creation_1h_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'cache_read_tokens')::bigint, ul.cache_read_tokens, 0), 0) AS cache_read_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'image_output_tokens')::bigint, ul.image_output_tokens, 0), 0) AS image_output_tokens,
+    GREATEST(COALESCE((ul.actual_usage->>'input_tokens')::bigint, ul.input_tokens, 0), 0)
+      + GREATEST(COALESCE((ul.actual_usage->>'cache_creation_tokens')::bigint, ul.cache_creation_tokens, 0), 0)
+      + GREATEST(COALESCE((ul.actual_usage->>'cache_read_tokens')::bigint, ul.cache_read_tokens, 0), 0) AS logical_input
+) routing_usage
+WHERE ul.is_monitor = FALSE
+  AND ul.created_at >= $1 AND ul.created_at < $2
+  AND ul.group_id IS NOT NULL AND ul.group_id > 0
+  AND COALESCE(ul.request_type, 0) NOT IN (4, 6)
+  AND ` + usageLogSuccessFilterUL + `
+  AND COALESCE(ul.cache_cold_due_to_failover, FALSE) = FALSE
+GROUP BY 1, 2, 3, 4, 5, 6, 7`
+
 const channelMonitorV2UserMetricsSQL = `
 INSERT INTO channel_monitor_v2_user_metrics_1m (
   bucket_start, platform, group_id, model, user_id, success_requests,

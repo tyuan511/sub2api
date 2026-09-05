@@ -1,0 +1,137 @@
+[
+  {
+    "seq": 1,
+    "time": "2026-09-05T07:10:44.468338+00:00",
+    "key_id": 72,
+    "group_id": 37,
+    "mode": "smart",
+    "route_version": 1,
+    "endpoint": "responses",
+    "stream": true,
+    "model": "gpt-5.5",
+    "max_output_tokens": 32,
+    "reserve_usd": 0.25,
+    "status": 502,
+    "latency_ms": 3216.9,
+    "first_event_ms": null,
+    "bytes": 103,
+    "headers": {},
+    "events": [],
+    "usages": [],
+    "text": "",
+    "errors": [],
+    "done": false
+  },
+  {
+    "seq": 2,
+    "time": "2026-09-05T07:12:28.194356+00:00",
+    "key_id": 72,
+    "group_id": 37,
+    "mode": "smart",
+    "route_version": 1,
+    "endpoint": "chat/completions",
+    "stream": true,
+    "model": "gpt-5.5",
+    "max_output_tokens": 32,
+    "reserve_usd": 0.25,
+    "status": 502,
+    "latency_ms": 1608.0,
+    "first_event_ms": null,
+    "bytes": 103,
+    "headers": {},
+    "events": [],
+    "usages": [],
+    "text": "",
+    "errors": [
+      {
+        "message": "Upstream access forbidden, please contact administrator",
+        "type": "upstream_error"
+      }
+    ],
+    "done": false
+  },
+  {
+    "seq": 3,
+    "time": "2026-09-05T07:13:15.905743+00:00",
+    "key_id": 72,
+    "group_id": 38,
+    "mode": "sequential",
+    "route_version": 2,
+    "endpoint": "responses",
+    "stream": true,
+    "model": "gpt-5.5",
+    "max_output_tokens": 32,
+    "reserve_usd": 0.25,
+    "status": 502,
+    "latency_ms": 1587.2,
+    "first_event_ms": null,
+    "bytes": 103,
+    "headers": {},
+    "events": [],
+    "usages": [],
+    "text": "",
+    "errors": [
+      {
+        "message": "Upstream access forbidden, please contact administrator",
+        "type": "upstream_error"
+      }
+    ],
+    "done": false
+  },
+  {
+    "seq": 4,
+    "time": "2026-09-05T07:14:12.104170+00:00",
+    "key_id": 72,
+    "group_id": 39,
+    "mode": "sequential",
+    "route_version": 3,
+    "endpoint": "responses",
+    "stream": true,
+    "model": "gpt-5.5",
+    "max_output_tokens": 32,
+    "reserve_usd": 0.25,
+    "status": 502,
+    "latency_ms": 1579.7,
+    "first_event_ms": null,
+    "bytes": 103,
+    "headers": {},
+    "events": [],
+    "usages": [],
+    "text": "",
+    "errors": [
+      {
+        "message": "Upstream access forbidden, please contact administrator",
+        "type": "upstream_error"
+      }
+    ],
+    "done": false
+  },
+  {
+    "seq": 5,
+    "time": "2026-09-05T07:14:54.407275+00:00",
+    "key_id": 72,
+    "group_id": 40,
+    "mode": "sequential",
+    "route_version": 4,
+    "endpoint": "responses",
+    "stream": true,
+    "model": "gpt-5.5",
+    "max_output_tokens": 32,
+    "reserve_usd": 0.25,
+    "status": 502,
+    "latency_ms": 1574.5,
+    "first_event_ms": null,
+    "bytes": 103,
+    "headers": {},
+    "events": [],
+    "usages": [],
+    "text": "",
+    "errors": [
+      {
+        "message": "Upstream access forbidden, please contact administrator",
+        "type": "upstream_error"
+      }
+    ],
+    "done": false
+  }
+]

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -84,7 +85,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		return
 	}
 
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+	var channelMapping service.ChannelMappingResult
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
@@ -96,6 +97,53 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 	if userReleaseFunc != nil {
 		defer userReleaseFunc()
 	}
+
+	routeEndpoint := c.Request.URL.Path
+	embeddingsCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if !compositeTargetPlatformAllowed(c, candidate, reqModel, service.PlatformOpenAI) {
+			return fmt.Errorf("candidate group %d does not support embeddings target", candidate.Group.ID)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("openai_embeddings.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	if shouldActivateSmartRoute(c, false, false) {
+		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, routeEndpoint, "", embeddingsCandidateCheck)
+		if smartErr != nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+			state, _ := middleware2.GetAPIKeyRouteState(c)
+			reqLog.Info("openai_embeddings.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
+		}
+	}
+	apiKey, subscription, _, err = h.apiKeyRouteRuntime().ensureInitial(c, embeddingsCandidateCheck)
+	if err != nil {
+		if isAPIKeyRouteAdvanceBillingError(err) {
+			status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(err))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+		h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+		return
+	}
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
+	channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		reqLog.Info("openai_embeddings.billing_check_failed", zap.Error(err))
@@ -120,6 +168,32 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 	// 分组利润控制：embeddings 文本入口请求级装门并固定 pricingAt。
 	embPricingCtx, pricingAt := h.gatewayService.WithOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 	c.Request = c.Request.WithContext(embPricingCtx)
+	advanceEmbeddingsRoute := func(routeErr error) (bool, error) {
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
+				reqLog.Warn("openai_embeddings.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, embeddingsCandidateCheck)
+		if !advanced {
+			return false, advanceErr
+		}
+		apiKey = nextAPIKey
+		subscription = nextSubscription
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
+		c.Request = c.Request.WithContext(newPricingCtx)
+		pricingAt = newPricingAt
+		profitVetoCount = 0
+		failedAccountIDs = make(map[int64]struct{})
+		lastFailoverErr = nil
+		switchCount = 0
+		reqLog.Info("openai_embeddings.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
+		return true, nil
+	}
 
 	for {
 		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
@@ -145,11 +219,31 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if len(failedAccountIDs) == 0 {
+				if advanced, advanceErr := advanceEmbeddingsRoute(err); advanced {
+					continue
+				} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+					status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(retryAfter))
+					}
+					h.errorResponse(c, status, code, message)
+					return
+				}
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
 				h.errorResponse(c, cls.Status, cls.ErrType, cls.Message)
+				return
+			}
+			if advanced, advanceErr := advanceEmbeddingsRoute(apiKeyRouteFailureCause(lastFailoverErr, err)); advanced {
+				continue
+			} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+				status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+				if retryAfter > 0 {
+					c.Header("Retry-After", strconv.Itoa(retryAfter))
+				}
+				h.errorResponse(c, status, code, message)
 				return
 			}
 			if lastFailoverErr != nil {
@@ -160,6 +254,16 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 			return
 		}
 		if selection == nil || selection.Account == nil {
+			if advanced, advanceErr := advanceEmbeddingsRoute(service.ErrNoAvailableAccounts); advanced {
+				continue
+			} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+				status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+				if retryAfter > 0 {
+					c.Header("Retry-After", strconv.Itoa(retryAfter))
+				}
+				h.errorResponse(c, status, code, message)
+				return
+			}
 			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
 			if !cls.ModelNotFound {
 				markOpsRoutingCapacityLimited(c)
@@ -227,6 +331,16 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 				failedAccountIDs[account.ID] = struct{}{}
 				lastFailoverErr = failoverErr
 				if switchCount >= maxAccountSwitches {
+					if advanced, advanceErr := advanceEmbeddingsRoute(failoverErr); advanced {
+						continue
+					} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+						status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+						if retryAfter > 0 {
+							c.Header("Retry-After", strconv.Itoa(retryAfter))
+						}
+						h.errorResponse(c, status, code, message)
+						return
+					}
 					h.handleFailoverExhausted(c, failoverErr, false)
 					return
 				}
@@ -285,6 +399,11 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 				).Error("openai_embeddings.record_usage_failed", zap.Error(err))
 			}
 		})
+		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, true); observeErr != nil {
+				reqLog.Warn("openai_embeddings.api_key_group_success_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
 		reqLog.Debug("openai_embeddings.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
@@ -32,6 +33,7 @@ func NewAPIKeyAuthMiddleware(apiKeyService *service.APIKeyService, subscriptionS
 // usage 允许过期/配额耗尽的 Key 查询自身用量，billing 用于读取当前 Key 的倍率配置，
 // 异步生图查询允许已耗尽额度的 Key 拉取自身任务结果。
 func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
+	routeCoordinator := apiKeyRouteCoordinatorFromConfig(cfg)
 	return func(c *gin.Context) {
 		// ── 1. 提取 API Key ──────────────────────────────────────────
 		if rejectInvalidAuthAbuse(c, apiKeyService) {
@@ -97,7 +99,9 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 
 		// ── 2. 验证 Key 存在 ─────────────────────────────────────────
 
+		authLookupStarted := time.Now()
 		apiKey, err := apiKeyService.GetByKey(c.Request.Context(), apiKeyString)
+		service.DefaultRoutingRuntimeMetrics().RecordPhaseLatency(service.RoutingLatencyPhaseAuthLookup, time.Since(authLookupStarted))
 		if err != nil {
 			if errors.Is(err, service.ErrAPIKeyNotFound) {
 				recordInvalidAuthFailure(c, apiKeyService)
@@ -157,6 +161,15 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
+		apiKey = apiKeyService.ProjectAPIKeyRoutingForUser(c.Request.Context(), apiKey)
+		apiKey, routeState, routeErr := prepareInitialAPIKeyRoute(apiKey, routeCoordinator, apiKeyRouteCompensationLimitsFromConfig(cfg)...)
+		if routeErr != nil {
+			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
+			AbortWithError(c, http.StatusServiceUnavailable, "NO_ELIGIBLE_API_KEY_ROUTE", "No eligible candidate group is currently available")
+			return
+		}
+		SetAPIKeyRouteState(c, routeState)
+		SetOpsFallbackAPIKey(c, apiKey)
 		if abortIfAPIKeyGroupUnavailable(c, apiKey) {
 			return
 		}
@@ -190,24 +203,50 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 
 		// ── 5. 按端点需要加载订阅 ───────────────────────────────────
 
+		routingEnabled := routeState != nil && routeState.Plan.RoutingEnabled
 		var subscription *service.UserSubscription
-		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
-
-		// 倍率自省不需要订阅数据；/v1/usage 仍保留原有订阅读取行为。
-		if isSubscriptionType && subscriptionService != nil && !billingInfoRequest {
-			sub, subErr := subscriptionService.GetActiveSubscription(
-				c.Request.Context(),
-				apiKey.User.ID,
-				apiKey.Group.ID,
-			)
-			if subErr != nil {
-				if !skipBilling {
-					AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
-					return
+		if routingEnabled {
+			var subscriptionErr error
+			if !billingInfoRequest {
+				apiKey, subscription, subscriptionErr = selectInitialBillableAPIKeyRoute(
+					c.Request.Context(), apiKey, subscriptionService, skipBilling,
+					func() (*service.APIKey, bool) { return AdvanceAPIKeyRoute(c) },
+				)
+			}
+			if subscriptionErr != nil {
+				status, code := 403, "SUBSCRIPTION_INVALID"
+				if errors.Is(subscriptionErr, service.ErrSubscriptionMaintenance) {
+					status, code = 500, "SUBSCRIPTION_MAINTENANCE_FAILED"
+				} else if errors.Is(subscriptionErr, service.ErrSubscriptionNotFound) {
+					code = "SUBSCRIPTION_NOT_FOUND"
+				} else if errors.Is(subscriptionErr, service.ErrDailyLimitExceeded) ||
+					errors.Is(subscriptionErr, service.ErrWeeklyLimitExceeded) ||
+					errors.Is(subscriptionErr, service.ErrMonthlyLimitExceeded) {
+					status, code = 429, "USAGE_LIMIT_EXCEEDED"
 				}
-				// skipBilling: 订阅不存在也放行，handler 会返回可用的数据
-			} else {
-				subscription = sub
+				AbortWithError(c, status, code, subscriptionErr.Error())
+				return
+			}
+			SetOpsFallbackAPIKey(c, apiKey)
+		} else {
+			isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
+
+			// 倍率自省不需要订阅数据；/v1/usage 仍保留原有订阅读取行为。
+			if isSubscriptionType && subscriptionService != nil && !billingInfoRequest {
+				sub, subErr := subscriptionService.GetActiveSubscription(
+					c.Request.Context(),
+					apiKey.User.ID,
+					apiKey.Group.ID,
+				)
+				if subErr != nil {
+					if !skipBilling {
+						AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
+						return
+					}
+					// skipBilling: 订阅不存在也放行，handler 会返回可用的数据
+				} else {
+					subscription = sub
+				}
 			}
 		}
 
@@ -235,7 +274,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			}
 
 			// 订阅模式：验证订阅限额
-			if subscription != nil {
+			if subscription != nil && !routingEnabled {
 				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
 				if needsMaintenance {
 					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
@@ -258,7 +297,8 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 					AbortWithError(c, status, code, validateErr.Error())
 					return
 				}
-			} else {
+			}
+			if subscription == nil {
 				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
 				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
 					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")

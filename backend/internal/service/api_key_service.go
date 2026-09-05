@@ -32,6 +32,11 @@ var (
 	ErrAPIKeyRateLimited    = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
 	ErrAPIKeyAuthOverloaded = infraerrors.ServiceUnavailable("API_KEY_AUTH_OVERLOADED", "api key authentication is temporarily overloaded")
 	ErrInvalidIPPattern     = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	ErrAPIKeyRoutesInvalid  = infraerrors.BadRequest("API_KEY_ROUTES_INVALID", "api key group routes are invalid")
+	ErrAPIKeyRouteMismatch  = infraerrors.BadRequest("API_KEY_ROUTE_MISMATCH", "group_id must match the first group route")
+	ErrAPIKeyRoutePlatform  = infraerrors.BadRequest("API_KEY_ROUTE_PLATFORM_MISMATCH", "all API key group routes must use the same platform")
+	ErrAPIKeyRouteBilling   = infraerrors.BadRequest("API_KEY_ROUTE_BILLING_MISMATCH", "all API key group routes must use the same subscription type")
+	ErrAPIKeyRouteConflict  = infraerrors.Conflict("API_KEY_ROUTE_VERSION_CONFLICT", "api key route configuration was modified")
 	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
 	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
 	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
@@ -75,11 +80,22 @@ type APIKeyUpdateFields struct {
 	RateLimitUsage bool
 	// IPRules 覆盖 ip_whitelist 与 ip_blacklist。
 	IPRules bool
+	// Routing atomically replaces the route set, policy and compatibility group_id.
+	Routing *APIKeyRoutingMutation
 }
 
 // IsEmpty 报告该次 Update 是否不写任何列。
 func (f APIKeyUpdateFields) IsEmpty() bool {
-	return f == APIKeyUpdateFields{}
+	return !f.Name && !f.Status && !f.Quota && !f.GroupID && !f.ExpiresAt &&
+		!f.QuotaUsed && !f.RateLimits && !f.RateLimitUsage && !f.IPRules && f.Routing == nil
+}
+
+// APIKeyRoutingMutation carries the optimistic-lock and replacement-set inputs
+// required by the repository to commit one routing edit atomically.
+type APIKeyRoutingMutation struct {
+	ExpectedRouteVersion *int64
+	Routes               []APIKeyGroupRoute
+	PreserveRuntimeState bool
 }
 
 type APIKeyRepository interface {
@@ -123,6 +139,10 @@ type APIKeyRepository interface {
 
 type apiKeyAllByUserIDLister interface {
 	ListAllByUserID(ctx context.Context, userID int64, filters APIKeyListFilters) ([]APIKey, error)
+}
+
+type apiKeyRoutingSelectionLoader interface {
+	LoadRecentAPIKeyRoutingSelectionObservations(ctx context.Context, apiKeyIDs []int64, since time.Time) ([]APIKeyRoutingSelectionObservation, error)
 }
 
 // APIKeyRateLimitData holds rate limit usage and window state for an API key.
@@ -186,6 +206,30 @@ type APIKeyCache interface {
 	SubscribeAuthCacheInvalidation(ctx context.Context, handler func(cacheKey string)) error
 }
 
+// APIKeyRouteVersionReader is an optional extension implemented by the Redis
+// API-key cache. Keeping it separate avoids widening every APIKeyCache test
+// double while allowing cached auth snapshots to reject an older route_version
+// after a node misses Pub/Sub.
+type APIKeyRouteVersionReader interface {
+	GetAPIKeyRoutingGuards(ctx context.Context, apiKeyID int64) (APIKeyRoutingGuards, error)
+}
+
+type APIKeyRoutingGuards struct {
+	RouteVersion      int64
+	DependencyVersion int64
+}
+
+// APIKeyRouteConfigCache contains the idempotent Redis side effects performed
+// by the route-config outbox worker. The route-version write is monotonic so a
+// late delivery of v2 can never roll a guard back from v3.
+type APIKeyRouteConfigCache interface {
+	APIKeyRouteVersionReader
+	SetAPIKeyRoutingGuards(ctx context.Context, apiKeyID, routeVersion, dependencyVersion int64, ttl time.Duration) error
+	DeleteAuthCache(ctx context.Context, cacheKey string) error
+	PublishAuthCacheInvalidation(ctx context.Context, cacheKey string) error
+	PublishAPIKeyRouteConfigInvalidation(ctx context.Context, message APIKeyRouteConfigInvalidationMessage) error
+}
+
 type authCacheSubscriptionReadyKey struct{}
 
 func withAuthCacheSubscriptionReady(ctx context.Context, ready func()) context.Context {
@@ -209,11 +253,16 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	Name                  string                   `json:"name"`
+	GroupID               *int64                   `json:"group_id"`
+	GroupRoutes           *[]APIKeyGroupRouteInput `json:"group_routes"`
+	ScheduleMode          *string                  `json:"schedule_mode"`
+	SmartPreference       *string                  `json:"smart_preference"`
+	SmartBalanceBPS       *int                     `json:"smart_balance_bps"`
+	RoutingMinSuccessRate *int                     `json:"routing_min_success_rate"`
+	CustomKey             *string                  `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist           []string                 `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist           []string                 `json:"ip_blacklist"` // IP 黑名单
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -227,11 +276,17 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name        *string   `json:"name"`
-	GroupID     *int64    `json:"group_id"`
-	Status      *string   `json:"status"`
-	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
-	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
+	Name                  *string                  `json:"name"`
+	GroupID               *int64                   `json:"group_id"`
+	GroupRoutes           *[]APIKeyGroupRouteInput `json:"group_routes"`
+	ScheduleMode          *string                  `json:"schedule_mode"`
+	SmartPreference       *string                  `json:"smart_preference"`
+	SmartBalanceBPS       *int                     `json:"smart_balance_bps"`
+	RoutingMinSuccessRate *int                     `json:"routing_min_success_rate"`
+	ExpectedRouteVersion  *int64                   `json:"expected_route_version"`
+	Status                *string                  `json:"status"`
+	IPWhitelist           *[]string                `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
+	IPBlacklist           *[]string                `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
 
 	// Quota fields
 	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -291,6 +346,7 @@ type APIKeyService struct {
 	cache                     APIKeyCache
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	concurrencyService        *ConcurrencyService
+	routingRolloutSettings    *SettingService
 	cfg                       *config.Config
 	authCacheL1               *ristretto.Cache
 	authNegativeCacheL1       *ristretto.Cache
@@ -462,10 +518,23 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	if err := validateCreateAPIKeyRequest(req); err != nil {
 		return nil, err
 	}
+	if requestsAdvancedAPIKeyRouting(req.GroupRoutes, req.ScheduleMode, req.SmartPreference, req.SmartBalanceBPS, req.RoutingMinSuccessRate) && !s.IsRoutingEnabledForUser(ctx, userID) {
+		return nil, ErrAPIKeyRoutingNotEnabled
+	}
 	// 验证用户存在
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
+	}
+	routing, err := normalizeCreateAPIKeyRouting(req)
+	if err != nil {
+		return nil, err
+	}
+	if !routing.LegacyUnscoped {
+		routing.Routes, err = s.validateAPIKeyRouteGroups(ctx, user, routing.Routes)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// 验证 IP 白名单格式
@@ -479,19 +548,6 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	if len(req.IPBlacklist) > 0 {
 		if invalid := ip.ValidateIPPatterns(req.IPBlacklist); len(invalid) > 0 {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
-		}
-	}
-
-	// 验证分组权限（如果指定了分组）
-	if req.GroupID != nil {
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
-		}
-
-		// 检查用户是否可以绑定该分组
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
 		}
 	}
 
@@ -532,19 +588,32 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 创建API Key记录
 	apiKey := &APIKey{
-		UserID:      userID,
-		Key:         key,
-		Name:        html.EscapeString(req.Name),
-		GroupID:     req.GroupID,
-		Status:      StatusActive,
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
-		Quota:       req.Quota,
-		QuotaUsed:   0,
-		RateLimit5h: req.RateLimit5h,
-		RateLimit1d: req.RateLimit1d,
-		RateLimit7d: req.RateLimit7d,
+		UserID:                userID,
+		Key:                   key,
+		Name:                  html.EscapeString(req.Name),
+		ScheduleMode:          routing.ScheduleMode,
+		SmartPreference:       routing.SmartPreference,
+		SmartBalanceBPS:       routing.SmartBalanceBPS,
+		RoutingMinSuccessRate: routing.MinSuccessRate,
+		RoutingStateVersion:   1,
+		RouteVersion:          1,
+		GroupRoutes:           routing.Routes,
+		Status:                StatusActive,
+		IPWhitelist:           req.IPWhitelist,
+		IPBlacklist:           req.IPBlacklist,
+		Quota:                 req.Quota,
+		QuotaUsed:             0,
+		RateLimit5h:           req.RateLimit5h,
+		RateLimit1d:           req.RateLimit1d,
+		RateLimit7d:           req.RateLimit7d,
 	}
+	if len(routing.Routes) > 0 {
+		primaryGroupID := routing.Routes[0].GroupID
+		apiKey.GroupID = &primaryGroupID
+		apiKey.Group = routing.Routes[0].Group
+	}
+	apiKey.User = user
+	s.hydrateAPIKeyUserGroupRates(ctx, apiKey)
 
 	// Set expiration time if specified
 	if req.ExpiresInDays != nil && *req.ExpiresInDays > 0 {
@@ -573,6 +642,8 @@ func (s *APIKeyService) List(ctx context.Context, userID int64, params paginatio
 		return nil, nil, fmt.Errorf("list api keys: %w", err)
 	}
 	s.fillCurrentConcurrency(ctx, keys)
+	s.hydrateAPIKeyUserGroupRatesForList(ctx, keys)
+	s.hydrateAPIKeyRoutingSelectionObservations(ctx, keys)
 	return keys, pagination, nil
 }
 
@@ -587,6 +658,8 @@ func (s *APIKeyService) listByCurrentConcurrency(ctx context.Context, userID int
 		return nil, nil, fmt.Errorf("list api keys: %w", err)
 	}
 	s.fillCurrentConcurrency(ctx, keys)
+	s.hydrateAPIKeyUserGroupRatesForList(ctx, keys)
+	s.hydrateAPIKeyRoutingSelectionObservations(ctx, keys)
 	sortAPIKeysByCurrentConcurrency(keys, params.NormalizedSortOrder(pagination.SortOrderDesc))
 	return paginateAPIKeys(keys, params), apiKeyPaginationResult(int64(len(keys)), params), nil
 }
@@ -675,6 +748,34 @@ func (s *APIKeyService) currentConcurrencyForAPIKey(ctx context.Context, apiKeyI
 	return counts[apiKeyID]
 }
 
+func (s *APIKeyService) hydrateAPIKeyRoutingSelectionObservations(ctx context.Context, keys []APIKey) {
+	loader, ok := s.apiKeyRepo.(apiKeyRoutingSelectionLoader)
+	if !ok || len(keys) == 0 {
+		return
+	}
+	ids := make([]int64, 0, len(keys))
+	byID := make(map[int64]*APIKey, len(keys))
+	for index := range keys {
+		if keys[index].ID <= 0 || len(ids) >= 500 {
+			continue
+		}
+		ids = append(ids, keys[index].ID)
+		byID[keys[index].ID] = &keys[index]
+	}
+	if len(ids) == 0 {
+		return
+	}
+	observations, err := loader.LoadRecentAPIKeyRoutingSelectionObservations(ctx, ids, time.Now().UTC().Add(-24*time.Hour))
+	if err != nil {
+		return
+	}
+	for _, observation := range observations {
+		if key := byID[observation.APIKeyID]; key != nil && observation.RouteVersion == key.RouteVersion {
+			key.RoutingSelectionObservations = append(key.RoutingSelectionObservations, observation)
+		}
+	}
+}
+
 func (s *APIKeyService) VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error) {
 	if len(apiKeyIDs) == 0 {
 		return []int64{}, nil
@@ -696,6 +797,10 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	s.compileAPIKeyIPRules(apiKey)
 	if apiKey != nil {
 		apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
+		s.hydrateAPIKeyUserGroupRates(ctx, apiKey)
+		keys := []APIKey{*apiKey}
+		s.hydrateAPIKeyRoutingSelectionObservations(ctx, keys)
+		apiKey.RoutingSelectionObservations = keys[0].RoutingSelectionObservations
 	}
 	return apiKey, nil
 }
@@ -769,6 +874,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
+	if requestsAdvancedAPIKeyRouting(req.GroupRoutes, req.ScheduleMode, req.SmartPreference, req.SmartBalanceBPS, req.RoutingMinSuccessRate) && !s.IsRoutingEnabledForUser(ctx, userID) {
+		return nil, ErrAPIKeyRoutingNotEnabled
+	}
 
 	// 验证 IP 白名单格式
 	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
@@ -797,24 +905,37 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		fields.Name = true
 	}
 
-	if req.GroupID != nil {
-		// 验证分组权限
+	routing, routingChanged, err := normalizeUpdateAPIKeyRouting(apiKey, req)
+	if err != nil {
+		return nil, err
+	}
+	if routingChanged {
+		if req.ExpectedRouteVersion != nil && *req.ExpectedRouteVersion <= 0 {
+			return nil, fmt.Errorf("%w: expected_route_version must be positive", ErrAPIKeyRoutesInvalid)
+		}
 		user, err := s.userRepo.GetByID(ctx, userID)
 		if err != nil {
 			return nil, fmt.Errorf("get user: %w", err)
 		}
-
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
+		routing.Routes, err = s.validateAPIKeyRouteGroups(ctx, user, routing.Routes)
 		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
+			return nil, err
 		}
-
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
-		}
-
-		apiKey.GroupID = req.GroupID
+		primaryGroupID := routing.Routes[0].GroupID
+		apiKey.GroupID = &primaryGroupID
+		apiKey.Group = routing.Routes[0].Group
+		preserveState := sameAPIKeyRouteSet(apiKey.GroupRoutes, routing.Routes)
+		apiKey.GroupRoutes = routing.Routes
+		apiKey.ScheduleMode = routing.ScheduleMode
+		apiKey.SmartPreference = routing.SmartPreference
+		apiKey.SmartBalanceBPS = routing.SmartBalanceBPS
+		apiKey.RoutingMinSuccessRate = routing.MinSuccessRate
 		fields.GroupID = true
+		fields.Routing = &APIKeyRoutingMutation{
+			ExpectedRouteVersion: req.ExpectedRouteVersion,
+			Routes:               routing.Routes,
+			PreserveRuntimeState: preserveState,
+		}
 	}
 
 	if req.Status != nil {
@@ -904,6 +1025,7 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 	s.compileAPIKeyIPRules(apiKey)
+	s.hydrateAPIKeyUserGroupRates(ctx, apiKey)
 
 	// Invalidate Redis rate limit cache so reset takes effect immediately
 	if resetRateLimit && s.rateLimitCacheInvalid != nil {
@@ -1099,6 +1221,36 @@ func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (ma
 		return nil, fmt.Errorf("get user group rates: %w", err)
 	}
 	return rates, nil
+}
+
+func (s *APIKeyService) hydrateAPIKeyUserGroupRatesForList(ctx context.Context, keys []APIKey) {
+	if len(keys) == 0 || s == nil || s.userGroupRateRepo == nil {
+		return
+	}
+	rates, err := s.userGroupRateRepo.GetByUserID(ctx, keys[0].UserID)
+	if err != nil {
+		return
+	}
+	for i := range keys {
+		if keys[i].User == nil {
+			keys[i].User = &User{ID: keys[i].UserID}
+		}
+		keys[i].User.GroupRates = cloneGroupRates(rates)
+	}
+}
+
+func (s *APIKeyService) hydrateAPIKeyUserGroupRates(ctx context.Context, key *APIKey) {
+	if key == nil || s == nil || s.userGroupRateRepo == nil {
+		return
+	}
+	rates, err := s.userGroupRateRepo.GetByUserID(ctx, key.UserID)
+	if err != nil {
+		return
+	}
+	if key.User == nil {
+		key.User = &User{ID: key.UserID}
+	}
+	key.User.GroupRates = cloneGroupRates(rates)
 }
 
 // CheckAPIKeyQuotaAndExpiry checks if the API key is valid for use (not expired, quota not exhausted)

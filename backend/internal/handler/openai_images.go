@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -95,7 +96,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		zap.String("img_size", parsed.Size),
 	)
 
-	if !service.GroupAllowsImageGeneration(apiKey.Group) {
+	if !service.GroupAllowsImageGeneration(apiKey.Group) && !apiKeyMultiGroupRoutingActive(c) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
 		return
 	}
@@ -114,7 +115,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	setOpsRequestContext(c, clientRequestModel, parsed.Stream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(parsed.Stream, false)))
 
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, routingModel)
+	var channelMapping service.ChannelMappingResult
 
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
@@ -133,6 +134,84 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
+	sessionHash := h.gatewayService.GenerateExplicitSessionHash(c, body)
+	routeSessionHash := sessionHash
+	routeEndpoint := c.Request.URL.Path
+	imagesCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if !compositeTargetPlatformAllowed(c, candidate, requestModel, service.PlatformOpenAI) {
+			return fmt.Errorf("candidate group %d does not support image target", candidate.Group.ID)
+		}
+		if !service.GroupAllowsImageGeneration(candidate.Group) {
+			return fmt.Errorf("candidate group %d does not allow image generation", candidate.Group.ID)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, requestModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("openai.images.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, requestModel, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
+	routeStateDegraded := stickyErr != nil
+	if stickyErr != nil {
+		reqLog.Warn("openai.images.api_key_group_route_state_degraded", zap.Error(stickyErr))
+	}
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, imagesCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+			reqLog.Warn("openai.images.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+			reqLog.Info("openai.images.api_key_group_sticky_hit", zap.Int64("sticky_group_id", stickyGroupID))
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, requestModel, routeEndpoint, routeSessionHash, imagesCandidateCheck)
+		if smartErr != nil {
+			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+			state, _ := middleware2.GetAPIKeyRouteState(c)
+			reqLog.Info("openai.images.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
+		}
+	}
+	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, imagesCandidateCheck)
+	if err != nil {
+		if isAPIKeyRouteAdvanceBillingError(err) {
+			status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(err))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.handleStreamingAwareError(c, status, code, message, streamStarted)
+			return
+		}
+		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
+		return
+	}
+	if initialRouteChanged && stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickyBroken(c)
+	}
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
+	channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, routingModel)
+
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		reqLog.Info("openai.images.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
@@ -143,7 +222,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		return
 	}
 
-	sessionHash := h.gatewayService.GenerateExplicitSessionHash(c, body)
 	requestCtx := service.WithOpenAIImagesEndpoint(service.WithOpenAIImageGenerationIntent(c.Request.Context()))
 
 	maxAccountSwitches := h.maxAccountSwitches
@@ -156,6 +234,38 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	jsonKeepaliveStarted := false
 	defer func() { stopJSONKeepalive() }()
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
+	advanceImagesRoute := func(routeErr error) (bool, error) {
+		// Image generation/edit may already have been accepted upstream even
+		// when no response bytes arrived. Cross-group replay is therefore only
+		// allowed for pre-upstream capacity/selection failures.
+		if routeErr != nil && !errors.Is(routeErr, service.ErrNoAvailableAccounts) {
+			return false, nil
+		}
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, requestModel, routeEndpoint, routeErr); observeErr != nil {
+				reqLog.Warn("openai.images.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, requestModel, routeEndpoint, imagesCandidateCheck)
+		if !advanced {
+			return false, advanceErr
+		}
+		apiKey = nextAPIKey
+		subscription = nextSubscription
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, routingModel)
+		requestCtx = service.WithOpenAIImagesEndpoint(service.WithOpenAIImageGenerationIntent(c.Request.Context()))
+		profitVetoCount = 0
+		failedAccountIDs = make(map[int64]struct{})
+		sameAccountRetryCount = make(map[int64]int)
+		lastFailoverErr = nil
+		switchCount = 0
+		oauth429FailoverState = service.OpenAIOAuth429FailoverState{}
+		reqLog.Info("openai.images.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
+		return true, nil
+	}
 
 	for {
 		reqLog.Debug("openai.images.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
@@ -177,6 +287,16 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if len(failedAccountIDs) == 0 {
+				if advanced, advanceErr := advanceImagesRoute(err); advanced {
+					continue
+				} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+					status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(retryAfter))
+					}
+					h.handleStreamingAwareError(c, status, code, message, streamStarted)
+					return
+				}
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, clientRequestModel, routingModel, service.PlatformOpenAI)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -196,6 +316,16 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			return
 		}
 		if selection == nil || selection.Account == nil {
+			if advanced, advanceErr := advanceImagesRoute(service.ErrNoAvailableAccounts); advanced {
+				continue
+			} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+				status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+				if retryAfter > 0 {
+					c.Header("Retry-After", strconv.Itoa(retryAfter))
+				}
+				h.handleStreamingAwareError(c, status, code, message, streamStarted)
+				return
+			}
 			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, clientRequestModel, routingModel, service.PlatformOpenAI)
 			if !cls.ModelNotFound {
 				markOpsRoutingCapacityLimited(c)
@@ -419,6 +549,12 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				).Error("openai.images.record_usage_failed", zap.Error(err))
 			}
 		})
+		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, requestModel, routeEndpoint, true); observeErr != nil {
+				reqLog.Warn("openai.images.api_key_group_success_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+			_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash, *apiKey.GroupID)
+		}
 
 		reqLog.Debug("openai.images.request_completed",
 			zap.Int64("account_id", account.ID),

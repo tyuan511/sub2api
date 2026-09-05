@@ -946,6 +946,33 @@ const (
 
 // GatewayConfig API网关相关配置
 type GatewayConfig struct {
+	// APIKeyMultiGroupRoutingEnabled enables API-key candidate-group routing.
+	// The zero value keeps every request on the legacy mirrored group_id path.
+	APIKeyMultiGroupRoutingEnabled bool `mapstructure:"api_key_multi_group_routing_enabled"`
+	// APIKeyRoutingOptimizationEnabled is the global kill switch for sampled
+	// decision facts, shadow/canary evaluation, and later learning components.
+	// It never disables deterministic candidate routing or its safety guards.
+	APIKeyRoutingOptimizationEnabled bool    `mapstructure:"api_key_routing_optimization_enabled"`
+	APIKeyRoutingFactSampleRate      float64 `mapstructure:"api_key_routing_fact_sample_rate"`
+	// Learning extensions have independent kill switches and default to off.
+	// When enabled they only consume validated local artifacts and retain the
+	// deterministic score path as their request-local fallback.
+	APIKeyRoutingPersonalizationEnabled bool `mapstructure:"api_key_routing_personalization_enabled"`
+	APIKeyRoutingModelPredictionEnabled bool `mapstructure:"api_key_routing_model_prediction_enabled"`
+	APIKeyRoutingExplorationEnabled     bool `mapstructure:"api_key_routing_exploration_enabled"`
+	// APIKeyGroupStickyTTLSeconds keeps a logical session on the actual fallback
+	// group long enough to preserve upstream prompt-cache locality.
+	APIKeyGroupStickyTTLSeconds int `mapstructure:"api_key_group_sticky_ttl_seconds"`
+	// Cache compensation is only available when a previously healthy group
+	// sticky binding is broken by system failover. Both limits are request-local
+	// hard bounds; the sticky TTL is the compensation window.
+	APIKeyGroupCacheCompensationMaxTokens   int `mapstructure:"api_key_group_cache_compensation_max_tokens"`
+	APIKeyGroupCacheCompensationMaxSwitches int `mapstructure:"api_key_group_cache_compensation_max_switches"`
+	// API-key group breaker uses a bounded observation window and opens only
+	// after the minimum sample count has been reached.
+	APIKeyGroupBreakerWindowSeconds   int `mapstructure:"api_key_group_breaker_window_seconds"`
+	APIKeyGroupBreakerCooldownSeconds int `mapstructure:"api_key_group_breaker_cooldown_seconds"`
+	APIKeyGroupBreakerMinSamples      int `mapstructure:"api_key_group_breaker_min_samples"`
 	// 等待上游响应头的超时时间（秒），0表示无超时
 	// 注意：这不影响流式数据传输，只控制等待响应头的时间
 	ResponseHeaderTimeout int `mapstructure:"response_header_timeout"`
@@ -1521,6 +1548,16 @@ type DatabaseConfig struct {
 	ConnMaxLifetimeMinutes int `mapstructure:"conn_max_lifetime_minutes"`
 	// ConnMaxIdleTimeMinutes: 空闲连接最大存活时间，及时释放不活跃连接
 	ConnMaxIdleTimeMinutes int `mapstructure:"conn_max_idle_time_minutes"`
+	// RoutingBackgroundMaxOpenConns isolates routing score/fact background jobs
+	// from the request-serving pool. Keep this deliberately small: these jobs
+	// are bounded batch work and must never consume request capacity.
+	RoutingBackgroundMaxOpenConns int `mapstructure:"routing_background_max_open_conns"`
+	// RoutingBackgroundMaxIdleConns keeps at most a small warm reserve for the
+	// minute score builder and routing-fact consumer.
+	RoutingBackgroundMaxIdleConns int `mapstructure:"routing_background_max_idle_conns"`
+	// RoutingBackgroundQueryTimeoutSeconds is the per-query deadline used by the
+	// score observation source, inside the builder's wider cycle deadline.
+	RoutingBackgroundQueryTimeoutSeconds int `mapstructure:"routing_background_query_timeout_seconds"`
 	// UserPlatformQuotaFlusherEnabled: 是否启用 user×platform 配额写聚合 flusher
 	UserPlatformQuotaFlusherEnabled bool `mapstructure:"user_platform_quota_flusher_enabled"`
 	// UserPlatformQuotaFlushIntervalMs: flusher 刷写间隔（毫秒）
@@ -2162,6 +2199,9 @@ func setDefaults() {
 	viper.SetDefault("database.max_idle_conns", 128)
 	viper.SetDefault("database.conn_max_lifetime_minutes", 30)
 	viper.SetDefault("database.conn_max_idle_time_minutes", 5)
+	viper.SetDefault("database.routing_background_max_open_conns", 2)
+	viper.SetDefault("database.routing_background_max_idle_conns", 1)
+	viper.SetDefault("database.routing_background_query_timeout_seconds", 15)
 	viper.SetDefault("database.user_platform_quota_flusher_enabled", false)
 	viper.SetDefault("database.user_platform_quota_flush_interval_ms", 2000)
 	viper.SetDefault("database.user_platform_quota_flush_batch_size", 1000)
@@ -2358,6 +2398,18 @@ func setDefaults() {
 
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
+	viper.SetDefault("gateway.api_key_multi_group_routing_enabled", false)
+	viper.SetDefault("gateway.api_key_routing_optimization_enabled", false)
+	viper.SetDefault("gateway.api_key_routing_fact_sample_rate", 0.01)
+	viper.SetDefault("gateway.api_key_routing_personalization_enabled", false)
+	viper.SetDefault("gateway.api_key_routing_model_prediction_enabled", false)
+	viper.SetDefault("gateway.api_key_routing_exploration_enabled", false)
+	viper.SetDefault("gateway.api_key_group_sticky_ttl_seconds", 3600)
+	viper.SetDefault("gateway.api_key_group_cache_compensation_max_tokens", 200000)
+	viper.SetDefault("gateway.api_key_group_cache_compensation_max_switches", 1)
+	viper.SetDefault("gateway.api_key_group_breaker_window_seconds", 300)
+	viper.SetDefault("gateway.api_key_group_breaker_cooldown_seconds", 30)
+	viper.SetDefault("gateway.api_key_group_breaker_min_samples", 10)
 	viper.SetDefault("gateway.openai_response_header_timeout", 0)
 	viper.SetDefault("gateway.grok_response_header_timeout", 120)
 	viper.SetDefault("gateway.openai_first_output_timeout_seconds", 0)
@@ -2644,6 +2696,22 @@ func setEnvReachableDefaults() {
 }
 
 func (c *Config) Validate() error {
+	if c.Gateway.APIKeyRoutingFactSampleRate < 0 || c.Gateway.APIKeyRoutingFactSampleRate > 1 {
+		return fmt.Errorf("gateway.api_key_routing_fact_sample_rate must be between 0 and 1")
+	}
+	if c.Gateway.APIKeyGroupCacheCompensationMaxTokens < 0 || c.Gateway.APIKeyGroupCacheCompensationMaxTokens > 10_000_000 {
+		return fmt.Errorf("gateway.api_key_group_cache_compensation_max_tokens must be between 0 and 10000000")
+	}
+	if c.Gateway.APIKeyGroupCacheCompensationMaxSwitches < 0 || c.Gateway.APIKeyGroupCacheCompensationMaxSwitches > 7 {
+		return fmt.Errorf("gateway.api_key_group_cache_compensation_max_switches must be between 0 and 7")
+	}
+	if (c.Gateway.APIKeyRoutingPersonalizationEnabled || c.Gateway.APIKeyRoutingModelPredictionEnabled) &&
+		(!c.Gateway.APIKeyMultiGroupRoutingEnabled || !c.Gateway.APIKeyRoutingOptimizationEnabled) {
+		return fmt.Errorf("API key routing personalization/model prediction require multi-group routing and optimization")
+	}
+	if c.Gateway.APIKeyRoutingExplorationEnabled {
+		return fmt.Errorf("API key routing exploration remains unavailable until propensity and traffic-budget controls are enabled")
+	}
 	forwardedClientIPHeaders, err := NormalizeForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders)
 	if err != nil {
 		return fmt.Errorf("security.forwarded_client_ip_headers: %w", err)
@@ -3058,6 +3126,15 @@ func (c *Config) Validate() error {
 	}
 	if c.Database.ConnMaxIdleTimeMinutes < 0 {
 		return fmt.Errorf("database.conn_max_idle_time_minutes must be non-negative")
+	}
+	if c.Database.RoutingBackgroundMaxOpenConns <= 0 || c.Database.RoutingBackgroundMaxOpenConns > 16 {
+		return fmt.Errorf("database.routing_background_max_open_conns must be between 1 and 16")
+	}
+	if c.Database.RoutingBackgroundMaxIdleConns < 0 || c.Database.RoutingBackgroundMaxIdleConns > c.Database.RoutingBackgroundMaxOpenConns {
+		return fmt.Errorf("database.routing_background_max_idle_conns must be between 0 and routing_background_max_open_conns")
+	}
+	if c.Database.RoutingBackgroundQueryTimeoutSeconds <= 0 || c.Database.RoutingBackgroundQueryTimeoutSeconds > 45 {
+		return fmt.Errorf("database.routing_background_query_timeout_seconds must be between 1 and 45")
 	}
 	if c.Redis.DialTimeoutSeconds <= 0 {
 		return fmt.Errorf("redis.dial_timeout_seconds must be positive")

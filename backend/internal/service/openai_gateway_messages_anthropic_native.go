@@ -228,7 +228,7 @@ func (s *OpenAIGatewayService) handleNativeAnthropicBufferedResponse(
 
 	usage := parseClaudeUsageFromResponseBody(body)
 	if IsForceCacheBilling(ctx) && usage.InputTokens > 0 {
-		body, err = classifyAnthropicResponseInputAsCacheRead(body, usage)
+		body, err = classifyAnthropicResponseInputAsCacheRead(body, usage, ForceCacheBillingInputTokens(ctx, usage.InputTokens))
 		if err != nil {
 			return nil, err
 		}

@@ -66,7 +66,7 @@ func (h *AsyncImageHandler) Submit(c *gin.Context) {
 		imageTaskJSONError(c, http.StatusNotFound, "not_found_error", "Images API is not supported for this platform")
 		return
 	}
-	if !service.GroupAllowsImageGeneration(apiKey.Group) {
+	if !service.GroupAllowsImageGeneration(apiKey.Group) && !apiKeyMultiGroupRoutingActive(c) {
 		imageTaskJSONError(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
 		return
 	}
@@ -95,6 +95,66 @@ func (h *AsyncImageHandler) Submit(c *gin.Context) {
 	if err := h.validateRequest(c, platform, body); err != nil {
 		imageTaskJSONError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
+	}
+	if apiKeyMultiGroupRoutingActive(c) && h.openAI != nil && h.openAI.gatewayService != nil {
+		model := ""
+		if platform == service.PlatformGrok {
+			model = service.ParseGrokMediaRequest(c.GetHeader("Content-Type"), body).Model
+		} else if parsed, parseErr := h.openAI.gatewayService.ParseOpenAIImagesRequest(c, body); parseErr == nil && parsed != nil {
+			model = parsed.Model
+		}
+		routeEndpoint := c.Request.URL.Path
+		routeSessionHash := h.openAI.gatewayService.GenerateExplicitSessionHash(c, body)
+		asyncCandidateCheck := func(candidate *service.APIKey) error {
+			if candidate == nil || candidate.Group == nil || candidate.Group.Platform != platform || !service.GroupAllowsImageGeneration(candidate.Group) {
+				return service.ErrNoEligibleAPIKeyRoute
+			}
+			allowed, _, healthErr := h.openAI.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, model, routeEndpoint)
+			if healthErr != nil {
+				return nil
+			}
+			if !allowed {
+				return service.ErrNoEligibleAPIKeyRoute
+			}
+			return nil
+		}
+		stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, model, routeEndpoint)
+		stickyGroupID, stickyErr := h.openAI.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
+		stickySelected := stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+		if stickyErr == nil && stickyGroupID > 0 && !stickySelected {
+			stickyAPIKey, _, activated, activateErr := h.openAI.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, asyncCandidateCheck)
+			if activateErr != nil {
+				middleware2.MarkAPIKeyRouteStickySelected(c)
+				middleware2.MarkAPIKeyRouteStickyBroken(c)
+			} else if activated {
+				stickySelected = true
+				apiKey = stickyAPIKey
+			}
+		}
+		if stickySelected {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+		}
+		if shouldActivateSmartRoute(c, stickySelected, stickyErr != nil) {
+			smartAPIKey, _, ranked, _, smartErr := h.openAI.apiKeyRouteRuntime().activateSmart(c, apiKey, model, routeEndpoint, routeSessionHash, asyncCandidateCheck)
+			if smartErr != nil {
+				imageTaskJSONError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+				return
+			}
+			if len(ranked) > 0 {
+				apiKey = smartAPIKey
+			}
+		}
+		actualAPIKey, _, changed, routeErr := h.openAI.apiKeyRouteRuntime().ensureInitial(c, asyncCandidateCheck)
+		if routeErr != nil {
+			imageTaskJSONError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		apiKey = actualAPIKey
+		if changed && stickySelected {
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		}
+		platform = apiKey.Group.Platform
+		middleware2.LockAPIKeyRoute(c)
 	}
 	if !h.checkSecurityAuditBeforeSubmit(c, apiKey, platform, body) {
 		return

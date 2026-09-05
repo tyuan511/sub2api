@@ -1,0 +1,33 @@
+{
+  "scenario": "fixed-eight-smart-v2",
+  "requests": 1000,
+  "successes": 1000,
+  "failures": 0,
+  "success_rate": 1,
+  "wall_time_ms": 5849.856712,
+  "completed_rps": 170.9443579957553,
+  "successful_rps": 170.9443579957553,
+  "latency_ms": {
+    "samples": 1000,
+    "p50_ms": 174.797639,
+    "p95_ms": 284.178408,
+    "p99_ms": 403.106989,
+    "max_ms": 528.050608
+  },
+  "ttft_ms": {
+    "samples": 1000,
+    "p50_ms": 169.107509,
+    "p95_ms": 279.582733,
+    "p99_ms": 387.200083,
+    "max_ms": 524.067362
+  },
+  "tokens": {
+    "usage_samples": 1000,
+    "input_tokens": 1024000,
+    "output_tokens": 8000,
+    "total_tokens": 1032000,
+    "input_tokens_per_second": 175047.02258765342,
+    "output_tokens_per_second": 1367.5548639660424,
+    "total_tokens_per_second": 176414.57745161947
+  }
+}

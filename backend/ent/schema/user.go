@@ -125,6 +125,8 @@ func (User) Fields() []ent.Field {
 
 func (User) Edges() []ent.Edge {
 	return []ent.Edge{
+		edge.To("routing_artifact_versions", RoutingArtifactVersion.Type),
+		edge.To("routing_experiments", RoutingExperiment.Type),
 		edge.To("api_keys", APIKey.Type),
 		edge.To("redeem_codes", RedeemCode.Type),
 		edge.To("subscriptions", UserSubscription.Type),

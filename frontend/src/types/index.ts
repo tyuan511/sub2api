@@ -711,12 +711,84 @@ export interface CompositeRouteDecision {
   reason?: string
 }
 
+export type ApiKeyScheduleMode = 'sequential' | 'smart'
+
+export type ApiKeySmartPreference = 'price' | 'speed' | 'balanced'
+
+export interface ApiKeyGroupRoute {
+  group_id: number
+  priority: number
+  enabled: boolean
+  current_rank?: number
+  current_rate?: number
+  normalized_effective_rate?: number
+  cache_hit_rate?: number
+  price_window?: string
+  price_confidence?: 'low' | 'medium' | 'high'
+  logical_input_tokens?: number
+  output_tokens?: number
+  health?: string
+  success_rate?: number
+  ttft_ms?: number
+  duration_ms?: number
+  capacity_score?: number
+  predicted_share?: number
+  score?: number
+  score_breakdown?: {
+    success: number
+    price: number
+    speed: number
+    capacity: number
+  }
+  group?: Group
+}
+
+export interface ApiKeyRoutingPolicy {
+  strategy_version: string
+  score_version: string
+  feature_version: string
+  updated_at: string
+}
+
+export interface ApiKeyEstimatedRate {
+  value: number
+  low: number
+  high: number
+  reference: 'full_cache_1x'
+  window: string
+  confidence: 'low' | 'medium' | 'high'
+  updated_at: string
+  model_family?: string
+  cache_hit_rate?: number
+  logical_input_tokens?: number
+  output_tokens?: number
+  selection_source: 'modeled' | 'blended'
+  selection_window: string
+  selection_samples: number
+  selection_effective_n: number
+  guaranteed: boolean
+  settlement: 'actual_routed_group'
+}
+
+export interface ApiKeyGroupRouteRequest {
+  group_id: number
+  priority: number
+}
+
 export interface ApiKey {
   id: number
   user_id: number
   key: string
   name: string
   group_id: number | null
+  group_routes: ApiKeyGroupRoute[]
+  schedule_mode: ApiKeyScheduleMode
+  smart_preference: ApiKeySmartPreference | null
+  smart_balance_bps?: number | null
+  routing_min_success_rate?: number
+  route_version: number
+  routing_policy?: ApiKeyRoutingPolicy
+  estimated_rate?: ApiKeyEstimatedRate
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -746,6 +818,11 @@ export interface ApiKey {
 export interface CreateApiKeyRequest {
   name: string
   group_id?: number | null
+  group_routes?: ApiKeyGroupRouteRequest[]
+  schedule_mode?: ApiKeyScheduleMode
+  smart_preference?: ApiKeySmartPreference | null
+  smart_balance_bps?: number | null
+  routing_min_success_rate?: number
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -759,6 +836,12 @@ export interface CreateApiKeyRequest {
 export interface UpdateApiKeyRequest {
   name?: string
   group_id?: number | null
+  group_routes?: ApiKeyGroupRouteRequest[]
+  schedule_mode?: ApiKeyScheduleMode
+  smart_preference?: ApiKeySmartPreference | null
+  smart_balance_bps?: number | null
+  routing_min_success_rate?: number
+  expected_route_version?: number
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]

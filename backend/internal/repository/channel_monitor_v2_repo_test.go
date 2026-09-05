@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -296,6 +297,41 @@ func TestChannelMonitorV2UsageSuccessExcludesCyberBillingRows(t *testing.T) {
 	require.Contains(t, channelMonitorV2PlatformSQL, "g.platform = 'composite'")
 	require.Contains(t, channelMonitorV2PlatformSQL, "a.platform")
 	require.Contains(t, channelMonitorV2HistogramSQL, "ul.actual_cost > 0")
+}
+
+func TestAPIKeyRoutingPriceMetricsUseActualUsageAndExcludeFailoverCompensation(t *testing.T) {
+	query := strings.ToLower(apiKeyRoutingPriceMetricsSQL)
+	require.Contains(t, query, "actual_usage->>'input_tokens'")
+	require.Contains(t, query, "actual_usage->>'cache_creation_5m_tokens'")
+	require.Contains(t, query, "actual_usage->>'cache_creation_1h_tokens'")
+	require.NotContains(t, query, "billable_usage->")
+	require.Contains(t, query, "cache_cold_due_to_failover")
+	require.Contains(t, query, "coalesce(ul.cache_cold_due_to_failover, false) = false")
+	require.Contains(t, query, "context_bucket")
+	require.Contains(t, query, "service_tier")
+	require.Contains(t, query, "endpoint_kind")
+}
+
+func TestAPIKeyRoutingHealthMetricsAreEndpointScopedAndKeepCapacitySeparate(t *testing.T) {
+	usageQuery := strings.ToLower(fmt.Sprintf(
+		apiKeyRoutingHealthUsageMetricsSQL,
+		channelMonitorV2PlatformSQL,
+		channelMonitorV2ModelSQL,
+		channelMonitorV2EndpointKindSQL,
+	))
+	require.Contains(t, usageQuery, "api_key_routing_health_metrics_1m")
+	require.Contains(t, usageQuery, "actual_usage->>'input_tokens'")
+	require.Contains(t, usageQuery, "actual_usage->>'cache_read_tokens'")
+	require.NotContains(t, usageQuery, "billable_usage->")
+	require.Contains(t, usageQuery, "endpoint_kind")
+	require.Contains(t, usageQuery, "first_token_ms")
+	require.Contains(t, usageQuery, "duration_ms")
+
+	failureQuery := strings.ToLower(apiKeyRoutingHealthFailureMetricsSQL)
+	require.Contains(t, failureQuery, "from routing_attempts")
+	require.Contains(t, failureQuery, "'route_attempt_failed'")
+	require.Contains(t, failureQuery, "'capacity_overflow'")
+	require.Contains(t, failureQuery, "failure_categories")
 }
 
 func TestChannelMonitorV2RatesUseCoveredWindow(t *testing.T) {

@@ -192,6 +192,12 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		CacheReadTokens:     result.Usage.CacheReadInputTokens,
 		ImageOutputTokens:   result.Usage.ImageOutputTokens,
 	}
+	actualTokens := tokens
+	cacheCompensationTokens := ForceCacheBillingInputTokens(ctx, actualInputTokens)
+	if cacheCompensationTokens > 0 {
+		tokens.InputTokens -= cacheCompensationTokens
+		tokens.CacheReadTokens += cacheCompensationTokens
+	}
 
 	// Get rate multiplier
 	multiplier := 1.0
@@ -318,6 +324,35 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 		if cost != nil && standardCost != nil {
 			cost.ActualCost = standardCost.ActualCost
+		}
+	}
+
+	// Calculate the exact user discount against the same final model/tier
+	// policy, while keeping supplier/account accounting on actual token buckets.
+	uncompensatedCost := cost
+	cacheCompensationAmountUSD := 0.0
+	if cacheCompensationTokens > 0 {
+		uncompensatedCost, err = s.calculateOpenAIRecordUsageCost(
+			ctx, result, apiKey, billingModels, multiplier, imageMultiplier,
+			videoMultiplier, baseMultiplier, actualTokens, serviceTier, longContextBillingGate, pricingAt,
+		)
+		if err != nil {
+			return err
+		}
+		if groupBillsOpenAIFastAtStandard(apiKey, billingAccount, serviceTier) {
+			uncompensatedStandardCost, standardErr := s.calculateOpenAIRecordUsageCost(
+				ctx, result, apiKey, billingModels, multiplier, imageMultiplier,
+				videoMultiplier, baseMultiplier, actualTokens, "", longContextBillingGate, pricingAt,
+			)
+			if standardErr != nil {
+				return standardErr
+			}
+			if uncompensatedCost != nil && uncompensatedStandardCost != nil {
+				uncompensatedCost.ActualCost = uncompensatedStandardCost.ActualCost
+			}
+		}
+		if uncompensatedCost != nil && cost != nil && uncompensatedCost.ActualCost > cost.ActualCost {
+			cacheCompensationAmountUSD = uncompensatedCost.ActualCost - cost.ActualCost
 		}
 	}
 
@@ -466,17 +501,37 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if subscription != nil {
 		usageLog.SubscriptionID = &subscription.ID
 	}
+	ApplyAPIKeyRoutingUsage(ctx, usageLog, RoutingTokenUsage{
+		InputTokens:         actualInputTokens,
+		OutputTokens:        result.Usage.OutputTokens,
+		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:     result.Usage.CacheReadInputTokens,
+		ImageInputTokens:    result.Usage.ImageInputTokens,
+		ImageOutputTokens:   result.Usage.ImageOutputTokens,
+	}, RoutingTokenUsage{
+		InputTokens:         tokens.InputTokens,
+		OutputTokens:        result.Usage.OutputTokens,
+		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:     tokens.CacheReadTokens,
+		ImageInputTokens:    result.Usage.ImageInputTokens,
+		ImageOutputTokens:   result.Usage.ImageOutputTokens,
+	}, cacheCompensationTokens, cacheCompensationAmountUSD)
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
-			tokens, cost.TotalCost,
+			actualTokens, uncompensatedCost.TotalCost,
 		)
+		if cacheCompensationTokens > 0 && usageLog.AccountStatsCost == nil {
+			actualAccountCost := uncompensatedCost.TotalCost * accountRateMultiplier
+			usageLog.AccountStatsCost = &actualAccountCost
+		}
 	}
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+		EmitAPIKeyRoutingUsageFact(ctx, usageLog, false)
 		logger.LegacyPrintf("service.openai_gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)
 		return nil
@@ -508,9 +563,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if billingErr != nil {
 		usageLog.ActualCost = 0
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+		EmitAPIKeyRoutingUsageFact(ctx, usageLog, true)
 		return billingErr
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+	EmitAPIKeyRoutingUsageFact(ctx, usageLog, false)
 
 	return nil
 }

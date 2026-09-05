@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -34,7 +35,68 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	if !h.ensureResponsesDependencies(c, nil) {
 		return
 	}
+	reqLog := requestLogger(c, "handler.openai_gateway.grok_realtime")
+	model := c.Query("model")
+	if strings.TrimSpace(model) == "" {
+		model = "grok-voice-latest"
+	}
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
+	routeEndpoint := c.Request.URL.Path
+	routeSessionHash := h.gatewayService.GenerateExplicitSessionHash(c, []byte(model))
+	grokRealtimeCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil || candidate.Group.Platform != service.PlatformGrok {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, model, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("grok_realtime.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, model, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, grokRealtimeCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, stickyErr != nil) {
+		smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, model, routeEndpoint, routeSessionHash, grokRealtimeCandidateCheck)
+		if smartErr != nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+		}
+	}
+	if apiKeyMultiGroupRoutingActive(c) {
+		actualAPIKey, actualSubscription, changed, routeErr := h.apiKeyRouteRuntime().ensureInitial(c, grokRealtimeCandidateCheck)
+		if routeErr != nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		apiKey, subscription = actualAPIKey, actualSubscription
+		if changed && stickyRouteSelected {
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		}
+	}
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -42,12 +104,6 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 		}
 		h.errorResponse(c, status, code, message)
 		return
-	}
-
-	reqLog := requestLogger(c, "handler.openai_gateway.grok_realtime")
-	model := c.Query("model")
-	if strings.TrimSpace(model) == "" {
-		model = "grok-voice-latest"
 	}
 	// Keep the HTTP response uncommitted while selecting and probing an account.
 	// Realtime is not an HTTP streaming response; using reqStream=true here would
@@ -58,59 +114,78 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	var token string
 	var upstream *service.GrokRealtimeUpstream
 	var candidateSeen bool
-	for attempts := 0; attempts < 4; attempts++ {
-		// Realtime's voice model is not a text-model capability. Passing a
-		// concrete text model here would reject accounts mapped only to an
-		// older/default text model before the upstream handshake can decide.
-		// An empty requested model keeps account selection capability-based;
-		// the actual voice model remains in the upstream WS query below.
-		candidate, _, selectErr := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			c.Request.Context(), apiKey.GroupID, "", "", "", failed,
-			service.OpenAIUpstreamTransportHTTPSSE,
-			service.OpenAIEndpointCapabilityChatCompletions,
-			false, false, false, service.PlatformGrok,
-		)
-		if selectErr != nil || candidate == nil || candidate.Account == nil {
+	for selection == nil {
+		for attempts := 0; attempts < 4; attempts++ {
+			// Realtime's voice model is not a text-model capability. Passing a
+			// concrete text model here would reject accounts mapped only to an
+			// older/default text model before the upstream handshake can decide.
+			// An empty requested model keeps account selection capability-based;
+			// the actual voice model remains in the upstream WS query below.
+			candidate, _, selectErr := h.gatewayService.SelectAccountWithSchedulerForCapability(
+				c.Request.Context(), apiKey.GroupID, "", "", "", failed,
+				service.OpenAIUpstreamTransportHTTPSSE,
+				service.OpenAIEndpointCapabilityChatCompletions,
+				false, false, false, service.PlatformGrok,
+			)
+			if selectErr != nil || candidate == nil || candidate.Account == nil {
+				break
+			}
+			candidateSeen = true
+			account := candidate.Account
+			var streamStarted bool
+			var slotStatus openAISlotAcquireResult
+			release, slotStatus = h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", candidate, false, &streamStarted, reqLog)
+			if slotStatus != openAISlotAcquireOK {
+				if slotStatus == openAISlotAcquireFailed {
+					return
+				}
+				failed[account.ID] = struct{}{}
+				continue
+			}
+			var credErr error
+			token, _, credErr = h.gatewayService.GetRequestCredential(c.Request.Context(), c, account)
+			if credErr != nil {
+				release()
+				release = nil
+				failed[account.ID] = struct{}{}
+				continue
+			}
+			probeCtx, cancelProbe := context.WithTimeout(c.Request.Context(), service.DefaultGrokRealtimeDialTimeout)
+			candidateUpstream, openErr := h.gatewayService.OpenGrokRealtime(probeCtx, account, token, model)
+			cancelProbe()
+			if openErr != nil {
+				reqLog.Warn("grok_realtime.pre_accept_failed", zap.Int64("account_id", account.ID), zap.Error(openErr))
+				statusCode := http.StatusBadGateway
+				var dialErr *service.GrokRealtimeDialError
+				if errors.As(openErr, &dialErr) && dialErr.StatusCode > 0 {
+					statusCode = dialErr.StatusCode
+				}
+				h.gatewayService.HandleGrokRealtimeUpstreamError(c.Request.Context(), account, statusCode, []byte(openErr.Error()))
+				release()
+				release = nil
+				failed[account.ID] = struct{}{}
+				continue
+			}
+			selection, upstream = candidate, candidateUpstream
 			break
 		}
-		candidateSeen = true
-		account := candidate.Account
-		var streamStarted bool
-		var slotStatus openAISlotAcquireResult
-		release, slotStatus = h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", candidate, false, &streamStarted, reqLog)
-		if slotStatus != openAISlotAcquireOK {
-			if slotStatus == openAISlotAcquireFailed {
-				return
+		if selection != nil {
+			break
+		}
+		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+			_, _ = h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, routeEndpoint, service.ErrNoAvailableAccounts)
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, model, routeEndpoint, grokRealtimeCandidateCheck)
+		if !advanced {
+			if advanceErr != nil {
+				reqLog.Warn("grok_realtime.api_key_group_route_advance_failed", zap.Error(advanceErr))
 			}
-			failed[account.ID] = struct{}{}
-			continue
+			break
 		}
-		var credErr error
-		token, _, credErr = h.gatewayService.GetRequestCredential(c.Request.Context(), c, account)
-		if credErr != nil {
-			release()
-			release = nil
-			failed[account.ID] = struct{}{}
-			continue
-		}
-		probeCtx, cancelProbe := context.WithTimeout(c.Request.Context(), service.DefaultGrokRealtimeDialTimeout)
-		candidateUpstream, openErr := h.gatewayService.OpenGrokRealtime(probeCtx, account, token, model)
-		cancelProbe()
-		if openErr != nil {
-			reqLog.Warn("grok_realtime.pre_accept_failed", zap.Int64("account_id", account.ID), zap.Error(openErr))
-			statusCode := http.StatusBadGateway
-			var dialErr *service.GrokRealtimeDialError
-			if errors.As(openErr, &dialErr) && dialErr.StatusCode > 0 {
-				statusCode = dialErr.StatusCode
-			}
-			h.gatewayService.HandleGrokRealtimeUpstreamError(c.Request.Context(), account, statusCode, []byte(openErr.Error()))
-			release()
-			release = nil
-			failed[account.ID] = struct{}{}
-			continue
-		}
-		selection, upstream = candidate, candidateUpstream
-		break
+		apiKey, subscription = nextAPIKey, nextSubscription
+		failed = map[int64]struct{}{}
+		candidateSeen = false
+		reqLog.Info("grok_realtime.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
 	}
 	if selection == nil || selection.Account == nil || release == nil || upstream == nil {
 		if !candidateSeen {
@@ -141,6 +216,10 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	}
 	if result := grokRealtimeBillingResult(model, elapsed, audioObserved); result != nil {
 		h.recordGrokVoiceUsage(c, apiKey, selection.Account, subscription, "realtime", nil, result)
+	}
+	if apiKey.GroupID != nil {
+		_, _ = h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, routeEndpoint, true)
+		_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash, *apiKey.GroupID)
 	}
 }
 
@@ -180,23 +259,72 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 		return
 	}
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.errorResponse(c, status, code, message)
-		return
-	}
 
 	body, err := readGrokVoiceGatewayBody(c)
 	if err != nil {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}
+	reqLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
+	selectionModel := "grok-4.5"
+	routeEndpoint := c.Request.URL.Path
+	routeSessionHash := h.gatewayService.GenerateExplicitSessionHash(c, append([]byte(endpoint+":"), body...))
+	grokVoiceCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil || candidate.Group.Platform != service.PlatformGrok {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, selectionModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("grok_voice.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, selectionModel, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, grokVoiceCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, stickyErr != nil) {
+		smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, selectionModel, routeEndpoint, routeSessionHash, grokVoiceCandidateCheck)
+		if smartErr != nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+		}
+	}
+	if apiKeyMultiGroupRoutingActive(c) {
+		actualAPIKey, actualSubscription, changed, routeErr := h.apiKeyRouteRuntime().ensureInitial(c, grokVoiceCandidateCheck)
+		if routeErr != nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		apiKey, subscription = actualAPIKey, actualSubscription
+		if changed && stickyRouteSelected {
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		}
+	}
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
 	if endpoint == "tts" {
 		subject, _ := middleware2.GetAuthSubjectFromContext(c)
-		reqLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
 		// TTS bodies use {"input":"..."} (and variants). Normalize to chat messages so
 		// content moderation extractors see the spoken text.
 		auditBody := body
@@ -212,6 +340,14 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 			return
 		}
 	}
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.errorResponse(c, status, code, message)
+		return
+	}
 	contentType := c.GetHeader("Content-Type")
 	if strings.TrimSpace(contentType) == "" {
 		contentType = "application/json"
@@ -219,67 +355,85 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 
 	failed := map[int64]struct{}{}
 	var last *service.UpstreamFailoverError
-	reqLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
-	selectionModel := "grok-4.5"
-
-	for attempts := 0; attempts < 4; attempts++ {
-		selection, _, selectErr := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			c.Request.Context(),
-			apiKey.GroupID,
-			"",
-			"",
-			selectionModel,
-			failed,
-			service.OpenAIUpstreamTransportHTTPSSE,
-			service.OpenAIEndpointCapabilityChatCompletions,
-			false,
-			false,
-			false,
-			service.PlatformGrok,
-		)
-		if selectErr != nil || selection == nil || selection.Account == nil {
-			if last != nil {
-				h.handleFailoverExhausted(c, last, false)
-			} else {
-				h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No available Grok accounts")
+	for groupAttempts := 0; ; groupAttempts++ {
+		for attempts := 0; attempts < 4; attempts++ {
+			selection, _, selectErr := h.gatewayService.SelectAccountWithSchedulerForCapability(
+				c.Request.Context(),
+				apiKey.GroupID,
+				"",
+				"",
+				selectionModel,
+				failed,
+				service.OpenAIUpstreamTransportHTTPSSE,
+				service.OpenAIEndpointCapabilityChatCompletions,
+				false,
+				false,
+				false,
+				service.PlatformGrok,
+			)
+			if selectErr != nil || selection == nil || selection.Account == nil {
+				break
 			}
-			return
-		}
-		account := selection.Account
-		var started bool
-		release, status := h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", selection, false, &started, reqLog)
-		if status == openAISlotAcquireProfitVetoed {
-			failed[account.ID] = struct{}{}
-			continue
-		}
-		if status != openAISlotAcquireOK {
-			// Failed already wrote error response (or transient reject).
-			if status == openAISlotAcquireFailed && len(failed) == 0 {
-				// Slot path wrote the response; stop.
+			account := selection.Account
+			var started bool
+			release, status := h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", selection, false, &started, reqLog)
+			if status == openAISlotAcquireProfitVetoed {
+				failed[account.ID] = struct{}{}
+				continue
+			}
+			if status != openAISlotAcquireOK {
+				// Failed already wrote error response (or transient reject).
+				if status == openAISlotAcquireFailed && len(failed) == 0 {
+					// Slot path wrote the response; stop.
+					return
+				}
+				failed[account.ID] = struct{}{}
+				continue
+			}
+			result, forwardErr := func() (*service.OpenAIForwardResult, error) {
+				defer release()
+				return h.gatewayService.ForwardGrokVoice(c.Request.Context(), c, account, endpoint, body, contentType)
+			}()
+			if forwardErr == nil {
+				h.recordGrokVoiceUsage(c, apiKey, account, subscription, endpoint, body, result)
+				if apiKey.GroupID != nil {
+					_, _ = h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, selectionModel, routeEndpoint, true)
+					_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash, *apiKey.GroupID)
+				}
 				return
 			}
-			failed[account.ID] = struct{}{}
-			continue
-		}
-		result, forwardErr := func() (*service.OpenAIForwardResult, error) {
-			defer release()
-			return h.gatewayService.ForwardGrokVoice(c.Request.Context(), c, account, endpoint, body, contentType)
-		}()
-		if forwardErr == nil {
-			h.recordGrokVoiceUsage(c, apiKey, account, subscription, endpoint, body, result)
+			var failoverErr *service.UpstreamFailoverError
+			if errors.As(forwardErr, &failoverErr) && failoverErr.ShouldRetryNextAccount() {
+				failed[account.ID] = struct{}{}
+				last = failoverErr
+				continue
+			}
+			// Non-failover errors: handleGrokMediaErrorResponse / transport already wrote response.
 			return
 		}
-		var failoverErr *service.UpstreamFailoverError
-		if errors.As(forwardErr, &failoverErr) && failoverErr.ShouldRetryNextAccount() {
-			failed[account.ID] = struct{}{}
-			last = failoverErr
-			continue
+		if last != nil {
+			// A voice request may already have incurred upstream work even without
+			// response bytes; never replay it in another physical group.
+			break
 		}
-		// Non-failover errors: handleGrokMediaErrorResponse / transport already wrote response.
-		return
+		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+			_, _ = h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, selectionModel, routeEndpoint, service.ErrNoAvailableAccounts)
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, selectionModel, routeEndpoint, grokVoiceCandidateCheck)
+		if !advanced {
+			if advanceErr != nil {
+				reqLog.Warn("grok_voice.api_key_group_route_advance_failed", zap.Error(advanceErr))
+			}
+			break
+		}
+		apiKey, subscription = nextAPIKey, nextSubscription
+		failed = map[int64]struct{}{}
+		reqLog.Info("grok_voice.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID), zap.Int("group_attempt", groupAttempts+1))
 	}
 	if last != nil {
 		h.handleFailoverExhausted(c, last, false)
+	} else {
+		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No available Grok accounts")
 	}
 }
 

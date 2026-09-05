@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -91,19 +92,8 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 
 	setOpsRequestContext(c, reqModel, reqStream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
-	requestCtx := c.Request.Context()
-	// 定价上下文无条件装配：/v1/responses 是 token 计费端点，声明生图工具的
-	// 混合请求同样按 token 计费（外加图片部分），其 token 利润保护不因请求体
-	// 里的任何工具声明（含 Codex 被动 image_gen namespace）而关闭。生图意图
-	// 仅用于能力路由与图片计费；独立图片/视频端点才在利润门范围之外。
-	requestCtx, pricingAt := service.WithGatewayTokenRequestPricing(requestCtx)
-	if service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(c.Request.Context(), apiKey)) {
-		requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
-	}
-	c.Request = c.Request.WithContext(requestCtx)
-
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(requestCtx, apiKey.GroupID, reqModel)
+	imageIntent := service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(c.Request.Context(), apiKey))
+	var channelMapping service.ChannelMappingResult
 
 	// Claude Code only restriction:
 	// /v1/responses is never a Claude Code endpoint.
@@ -111,7 +101,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	// The existing service-layer checkClaudeCodeRestriction handles degradation
 	// to fallback groups when the Forward path calls SelectAccountForModelWithExclusions.
 	// Here we just reject at handler level since /v1/responses clients can't be Claude Code.
-	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly {
+	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly && !apiKeyMultiGroupRoutingActive(c) {
 		h.responsesErrorResponse(c, http.StatusForbidden, "permission_error",
 			"This group is restricted to Claude Code clients (/v1/messages only)")
 		return
@@ -142,17 +132,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
-	// 2. Re-check billing
-	if err := h.billingCacheService.CheckBillingEligibility(requestCtx, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(requestCtx, apiKey)); err != nil {
-		reqLog.Info("gateway.responses.billing_check_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.responsesErrorResponse(c, status, code, message)
-		return
-	}
-
 	// Parse request for session hash
 	bodyRef := service.NewRequestBodyRef(body)
 	parsedReq, _ := service.ParseGatewayRequest(bodyRef, "responses")
@@ -165,9 +144,136 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		APIKeyID:  apiKey.ID,
 	}
 	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
+	routeEndpoint := c.Request.URL.Path
+	responsesCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
+			return fmt.Errorf("candidate group %d does not support model %s", candidate.Group.ID, reqModel)
+		}
+		if candidate.Group.ClaudeCodeOnly {
+			return fmt.Errorf("candidate group %d is restricted to Claude Code", candidate.Group.ID)
+		}
+		if imageIntent && !service.GroupAllowsImageGeneration(candidate.Group) {
+			return fmt.Errorf("candidate group %d does not allow image generation", candidate.Group.ID)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("gateway.responses.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, reqModel, routeEndpoint)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash)
+	routeStateDegraded := stickyErr != nil
+	if stickyErr != nil {
+		reqLog.Warn("gateway.responses.api_key_group_route_state_degraded", zap.Error(stickyErr))
+	}
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, responsesCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+			reqLog.Warn("gateway.responses.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+			parsedReq.GroupID = apiKey.GroupID
+			reqLog.Info("gateway.responses.api_key_group_sticky_hit", zap.Int64("sticky_group_id", stickyGroupID))
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, routeEndpoint, sessionHash, responsesCandidateCheck)
+		if smartErr != nil {
+			h.responsesErrorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+			parsedReq.GroupID = apiKey.GroupID
+			state, _ := middleware2.GetAPIKeyRouteState(c)
+			reqLog.Info("gateway.responses.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
+		}
+	}
+	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, responsesCandidateCheck)
+	if err != nil {
+		if isAPIKeyRouteAdvanceBillingError(err) {
+			status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(err))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.responsesErrorResponse(c, status, code, message)
+			return
+		}
+		h.responsesErrorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+		return
+	}
+	if initialRouteChanged && stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickyBroken(c)
+	}
+	parsedReq.GroupID = apiKey.GroupID
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
+	channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+
+	// Bind token pricing only after actual-group selection. Later route switches
+	// inherit the frozen pricing instant while replacing only the billing group.
+	requestCtx, pricingAt := service.WithGatewayTokenRequestPricing(c.Request.Context())
+	if imageIntent {
+		requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
+	}
+	c.Request = c.Request.WithContext(requestCtx)
+	if err := h.billingCacheService.CheckBillingEligibility(requestCtx, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(requestCtx, apiKey)); err != nil {
+		reqLog.Info("gateway.responses.billing_check_failed", zap.Error(err))
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.responsesErrorResponse(c, status, code, message)
+		return
+	}
 
 	// 3. Account selection + failover loop
 	fs := NewFailoverState(h.maxAccountSwitches, false)
+	advanceResponsesRoute := func(routeErr error) (bool, error) {
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+		}
+		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
+				reqLog.Warn("gateway.responses.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+		}
+		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, responsesCandidateCheck)
+		if !advanced {
+			return false, advanceErr
+		}
+		apiKey = nextAPIKey
+		subscription = nextSubscription
+		parsedReq.GroupID = apiKey.GroupID
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+		requestCtx = c.Request.Context()
+		if imageIntent {
+			requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
+			c.Request = c.Request.WithContext(requestCtx)
+		}
+		fs = NewFailoverState(h.maxAccountSwitches, false)
+		reqLog.Info("gateway.responses.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
+		return true, nil
+	}
 
 	for {
 		if requestCtx.Err() != nil {
@@ -176,6 +282,16 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(requestCtx, apiKey.GroupID, sessionHash, reqModel, fs.FailedAccountIDs, "", int64(0))
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
+				if advanced, advanceErr := advanceResponsesRoute(err); advanced {
+					continue
+				} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+					status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(retryAfter))
+					}
+					h.responsesErrorResponse(c, status, code, message)
+					return
+				}
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, effectiveAPIKeyPlatform(c, apiKey))
 				cls = classifySelectionFailureError(err, cls)
 				if !cls.ModelNotFound {
@@ -196,6 +312,16 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				failoverClientGone(c)
 				return
 			default:
+				if advanced, advanceErr := advanceResponsesRoute(apiKeyRouteFailureCause(fs.LastFailoverErr, err)); advanced {
+					continue
+				} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+					status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(retryAfter))
+					}
+					h.responsesErrorResponse(c, status, code, message)
+					return
+				}
 				if fs.LastFailoverErr != nil {
 					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
 				} else {
@@ -308,6 +434,16 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				case FailoverContinue:
 					continue
 				case FailoverExhausted:
+					if advanced, advanceErr := advanceResponsesRoute(fs.LastFailoverErr); advanced {
+						continue
+					} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+						status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+						if retryAfter > 0 {
+							c.Header("Retry-After", strconv.Itoa(retryAfter))
+						}
+						h.responsesErrorResponse(c, status, code, message)
+						return
+					}
 					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
 					return
 				case FailoverCanceled:
@@ -363,6 +499,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				)
 			}
 		})
+		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+			if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, true); observeErr != nil {
+				reqLog.Warn("gateway.responses.api_key_group_success_record_failed", zap.String("state", state), zap.Error(observeErr))
+			}
+			_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash, *apiKey.GroupID)
+		}
 		return
 	}
 }

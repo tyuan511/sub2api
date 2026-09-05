@@ -1426,6 +1426,17 @@ func (s *OpenAIGatewayService) ValidateOpenAIHTTPResponseOwner(
 	return ownerUserID == userID || (ownerUserID <= 0 && ownerAPIKeyID == apiKeyID), nil
 }
 
+// HasOpenAIResponseBinding reports whether a provider response belongs to the
+// supplied physical group. It exposes no account identity and is used only to
+// pin a multi-group continuation before any billing or account selection.
+func (s *OpenAIGatewayService) HasOpenAIResponseBinding(ctx context.Context, groupID int64, responseID string) (bool, error) {
+	if s == nil || groupID <= 0 || strings.TrimSpace(responseID) == "" {
+		return false, nil
+	}
+	accountID, err := s.getOpenAIWSStateStore().GetResponseAccount(ctx, groupID, responseID)
+	return accountID > 0, err
+}
+
 // BindOpenAIHTTPResponseOwner records an HTTP continuation owner independently
 // from the upstream account selected for that response.
 func (s *OpenAIGatewayService) BindOpenAIHTTPResponseOwner(

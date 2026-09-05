@@ -12,6 +12,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -34,6 +36,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingattempt"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/schema"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
@@ -114,44 +119,202 @@ func init() {
 			return nil
 		}
 	}()
+	// apikeyDescScheduleMode is the schema descriptor for schedule_mode field.
+	apikeyDescScheduleMode := apikeyFields[4].Descriptor()
+	// apikey.DefaultScheduleMode holds the default value on creation for the schedule_mode field.
+	apikey.DefaultScheduleMode = apikeyDescScheduleMode.Default.(string)
+	// apikey.ScheduleModeValidator is a validator for the "schedule_mode" field. It is called by the builders before save.
+	apikey.ScheduleModeValidator = func() func(string) error {
+		validators := apikeyDescScheduleMode.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(schedule_mode string) error {
+			for _, fn := range fns {
+				if err := fn(schedule_mode); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// apikeyDescSmartPreference is the schema descriptor for smart_preference field.
+	apikeyDescSmartPreference := apikeyFields[5].Descriptor()
+	// apikey.SmartPreferenceValidator is a validator for the "smart_preference" field. It is called by the builders before save.
+	apikey.SmartPreferenceValidator = func() func(string) error {
+		validators := apikeyDescSmartPreference.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(smart_preference string) error {
+			for _, fn := range fns {
+				if err := fn(smart_preference); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// apikeyDescSmartBalanceBps is the schema descriptor for smart_balance_bps field.
+	apikeyDescSmartBalanceBps := apikeyFields[6].Descriptor()
+	// apikey.SmartBalanceBpsValidator is a validator for the "smart_balance_bps" field. It is called by the builders before save.
+	apikey.SmartBalanceBpsValidator = func() func(int) error {
+		validators := apikeyDescSmartBalanceBps.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(smart_balance_bps int) error {
+			for _, fn := range fns {
+				if err := fn(smart_balance_bps); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// apikeyDescRoutingMinSuccessRate is the schema descriptor for routing_min_success_rate field.
+	apikeyDescRoutingMinSuccessRate := apikeyFields[7].Descriptor()
+	// apikey.DefaultRoutingMinSuccessRate holds the default value on creation for the routing_min_success_rate field.
+	apikey.DefaultRoutingMinSuccessRate = apikeyDescRoutingMinSuccessRate.Default.(int)
+	// apikey.RoutingMinSuccessRateValidator is a validator for the "routing_min_success_rate" field. It is called by the builders before save.
+	apikey.RoutingMinSuccessRateValidator = apikeyDescRoutingMinSuccessRate.Validators[0].(func(int) error)
+	// apikeyDescRoutingStateVersion is the schema descriptor for routing_state_version field.
+	apikeyDescRoutingStateVersion := apikeyFields[8].Descriptor()
+	// apikey.DefaultRoutingStateVersion holds the default value on creation for the routing_state_version field.
+	apikey.DefaultRoutingStateVersion = apikeyDescRoutingStateVersion.Default.(int64)
+	// apikey.RoutingStateVersionValidator is a validator for the "routing_state_version" field. It is called by the builders before save.
+	apikey.RoutingStateVersionValidator = apikeyDescRoutingStateVersion.Validators[0].(func(int64) error)
+	// apikeyDescRouteVersion is the schema descriptor for route_version field.
+	apikeyDescRouteVersion := apikeyFields[9].Descriptor()
+	// apikey.DefaultRouteVersion holds the default value on creation for the route_version field.
+	apikey.DefaultRouteVersion = apikeyDescRouteVersion.Default.(int64)
+	// apikey.RouteVersionValidator is a validator for the "route_version" field. It is called by the builders before save.
+	apikey.RouteVersionValidator = apikeyDescRouteVersion.Validators[0].(func(int64) error)
+	// apikeyDescRoutingDependencyVersion is the schema descriptor for routing_dependency_version field.
+	apikeyDescRoutingDependencyVersion := apikeyFields[10].Descriptor()
+	// apikey.DefaultRoutingDependencyVersion holds the default value on creation for the routing_dependency_version field.
+	apikey.DefaultRoutingDependencyVersion = apikeyDescRoutingDependencyVersion.Default.(int64)
+	// apikey.RoutingDependencyVersionValidator is a validator for the "routing_dependency_version" field. It is called by the builders before save.
+	apikey.RoutingDependencyVersionValidator = apikeyDescRoutingDependencyVersion.Validators[0].(func(int64) error)
 	// apikeyDescStatus is the schema descriptor for status field.
-	apikeyDescStatus := apikeyFields[4].Descriptor()
+	apikeyDescStatus := apikeyFields[11].Descriptor()
 	// apikey.DefaultStatus holds the default value on creation for the status field.
 	apikey.DefaultStatus = apikeyDescStatus.Default.(string)
 	// apikey.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	apikey.StatusValidator = apikeyDescStatus.Validators[0].(func(string) error)
 	// apikeyDescQuota is the schema descriptor for quota field.
-	apikeyDescQuota := apikeyFields[8].Descriptor()
+	apikeyDescQuota := apikeyFields[15].Descriptor()
 	// apikey.DefaultQuota holds the default value on creation for the quota field.
 	apikey.DefaultQuota = apikeyDescQuota.Default.(float64)
 	// apikeyDescQuotaUsed is the schema descriptor for quota_used field.
-	apikeyDescQuotaUsed := apikeyFields[9].Descriptor()
+	apikeyDescQuotaUsed := apikeyFields[16].Descriptor()
 	// apikey.DefaultQuotaUsed holds the default value on creation for the quota_used field.
 	apikey.DefaultQuotaUsed = apikeyDescQuotaUsed.Default.(float64)
 	// apikeyDescRateLimit5h is the schema descriptor for rate_limit_5h field.
-	apikeyDescRateLimit5h := apikeyFields[11].Descriptor()
+	apikeyDescRateLimit5h := apikeyFields[18].Descriptor()
 	// apikey.DefaultRateLimit5h holds the default value on creation for the rate_limit_5h field.
 	apikey.DefaultRateLimit5h = apikeyDescRateLimit5h.Default.(float64)
 	// apikeyDescRateLimit1d is the schema descriptor for rate_limit_1d field.
-	apikeyDescRateLimit1d := apikeyFields[12].Descriptor()
+	apikeyDescRateLimit1d := apikeyFields[19].Descriptor()
 	// apikey.DefaultRateLimit1d holds the default value on creation for the rate_limit_1d field.
 	apikey.DefaultRateLimit1d = apikeyDescRateLimit1d.Default.(float64)
 	// apikeyDescRateLimit7d is the schema descriptor for rate_limit_7d field.
-	apikeyDescRateLimit7d := apikeyFields[13].Descriptor()
+	apikeyDescRateLimit7d := apikeyFields[20].Descriptor()
 	// apikey.DefaultRateLimit7d holds the default value on creation for the rate_limit_7d field.
 	apikey.DefaultRateLimit7d = apikeyDescRateLimit7d.Default.(float64)
 	// apikeyDescUsage5h is the schema descriptor for usage_5h field.
-	apikeyDescUsage5h := apikeyFields[14].Descriptor()
+	apikeyDescUsage5h := apikeyFields[21].Descriptor()
 	// apikey.DefaultUsage5h holds the default value on creation for the usage_5h field.
 	apikey.DefaultUsage5h = apikeyDescUsage5h.Default.(float64)
 	// apikeyDescUsage1d is the schema descriptor for usage_1d field.
-	apikeyDescUsage1d := apikeyFields[15].Descriptor()
+	apikeyDescUsage1d := apikeyFields[22].Descriptor()
 	// apikey.DefaultUsage1d holds the default value on creation for the usage_1d field.
 	apikey.DefaultUsage1d = apikeyDescUsage1d.Default.(float64)
 	// apikeyDescUsage7d is the schema descriptor for usage_7d field.
-	apikeyDescUsage7d := apikeyFields[16].Descriptor()
+	apikeyDescUsage7d := apikeyFields[23].Descriptor()
 	// apikey.DefaultUsage7d holds the default value on creation for the usage_7d field.
 	apikey.DefaultUsage7d = apikeyDescUsage7d.Default.(float64)
+	apikeygrouprouteFields := schema.APIKeyGroupRoute{}.Fields()
+	_ = apikeygrouprouteFields
+	// apikeygrouprouteDescPriority is the schema descriptor for priority field.
+	apikeygrouprouteDescPriority := apikeygrouprouteFields[2].Descriptor()
+	// apikeygrouproute.PriorityValidator is a validator for the "priority" field. It is called by the builders before save.
+	apikeygrouproute.PriorityValidator = apikeygrouprouteDescPriority.Validators[0].(func(int) error)
+	// apikeygrouprouteDescEnabled is the schema descriptor for enabled field.
+	apikeygrouprouteDescEnabled := apikeygrouprouteFields[3].Descriptor()
+	// apikeygrouproute.DefaultEnabled holds the default value on creation for the enabled field.
+	apikeygrouproute.DefaultEnabled = apikeygrouprouteDescEnabled.Default.(bool)
+	// apikeygrouprouteDescCreatedAt is the schema descriptor for created_at field.
+	apikeygrouprouteDescCreatedAt := apikeygrouprouteFields[4].Descriptor()
+	// apikeygrouproute.DefaultCreatedAt holds the default value on creation for the created_at field.
+	apikeygrouproute.DefaultCreatedAt = apikeygrouprouteDescCreatedAt.Default.(func() time.Time)
+	// apikeygrouprouteDescUpdatedAt is the schema descriptor for updated_at field.
+	apikeygrouprouteDescUpdatedAt := apikeygrouprouteFields[5].Descriptor()
+	// apikeygrouproute.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	apikeygrouproute.DefaultUpdatedAt = apikeygrouprouteDescUpdatedAt.Default.(func() time.Time)
+	// apikeygrouproute.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	apikeygrouproute.UpdateDefaultUpdatedAt = apikeygrouprouteDescUpdatedAt.UpdateDefault.(func() time.Time)
+	apikeyrouteconfigoutboxFields := schema.APIKeyRouteConfigOutbox{}.Fields()
+	_ = apikeyrouteconfigoutboxFields
+	// apikeyrouteconfigoutboxDescEventKey is the schema descriptor for event_key field.
+	apikeyrouteconfigoutboxDescEventKey := apikeyrouteconfigoutboxFields[0].Descriptor()
+	// apikeyrouteconfigoutbox.EventKeyValidator is a validator for the "event_key" field. It is called by the builders before save.
+	apikeyrouteconfigoutbox.EventKeyValidator = func() func(string) error {
+		validators := apikeyrouteconfigoutboxDescEventKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(event_key string) error {
+			for _, fn := range fns {
+				if err := fn(event_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// apikeyrouteconfigoutboxDescRouteVersion is the schema descriptor for route_version field.
+	apikeyrouteconfigoutboxDescRouteVersion := apikeyrouteconfigoutboxFields[2].Descriptor()
+	// apikeyrouteconfigoutbox.RouteVersionValidator is a validator for the "route_version" field. It is called by the builders before save.
+	apikeyrouteconfigoutbox.RouteVersionValidator = apikeyrouteconfigoutboxDescRouteVersion.Validators[0].(func(int64) error)
+	// apikeyrouteconfigoutboxDescEventType is the schema descriptor for event_type field.
+	apikeyrouteconfigoutboxDescEventType := apikeyrouteconfigoutboxFields[3].Descriptor()
+	// apikeyrouteconfigoutbox.DefaultEventType holds the default value on creation for the event_type field.
+	apikeyrouteconfigoutbox.DefaultEventType = apikeyrouteconfigoutboxDescEventType.Default.(string)
+	// apikeyrouteconfigoutbox.EventTypeValidator is a validator for the "event_type" field. It is called by the builders before save.
+	apikeyrouteconfigoutbox.EventTypeValidator = apikeyrouteconfigoutboxDescEventType.Validators[0].(func(string) error)
+	// apikeyrouteconfigoutboxDescAttempts is the schema descriptor for attempts field.
+	apikeyrouteconfigoutboxDescAttempts := apikeyrouteconfigoutboxFields[5].Descriptor()
+	// apikeyrouteconfigoutbox.DefaultAttempts holds the default value on creation for the attempts field.
+	apikeyrouteconfigoutbox.DefaultAttempts = apikeyrouteconfigoutboxDescAttempts.Default.(int)
+	// apikeyrouteconfigoutbox.AttemptsValidator is a validator for the "attempts" field. It is called by the builders before save.
+	apikeyrouteconfigoutbox.AttemptsValidator = apikeyrouteconfigoutboxDescAttempts.Validators[0].(func(int) error)
+	// apikeyrouteconfigoutboxDescAvailableAt is the schema descriptor for available_at field.
+	apikeyrouteconfigoutboxDescAvailableAt := apikeyrouteconfigoutboxFields[6].Descriptor()
+	// apikeyrouteconfigoutbox.DefaultAvailableAt holds the default value on creation for the available_at field.
+	apikeyrouteconfigoutbox.DefaultAvailableAt = apikeyrouteconfigoutboxDescAvailableAt.Default.(func() time.Time)
+	// apikeyrouteconfigoutboxDescClaimedBy is the schema descriptor for claimed_by field.
+	apikeyrouteconfigoutboxDescClaimedBy := apikeyrouteconfigoutboxFields[8].Descriptor()
+	// apikeyrouteconfigoutbox.ClaimedByValidator is a validator for the "claimed_by" field. It is called by the builders before save.
+	apikeyrouteconfigoutbox.ClaimedByValidator = apikeyrouteconfigoutboxDescClaimedBy.Validators[0].(func(string) error)
+	// apikeyrouteconfigoutboxDescLastError is the schema descriptor for last_error field.
+	apikeyrouteconfigoutboxDescLastError := apikeyrouteconfigoutboxFields[10].Descriptor()
+	// apikeyrouteconfigoutbox.LastErrorValidator is a validator for the "last_error" field. It is called by the builders before save.
+	apikeyrouteconfigoutbox.LastErrorValidator = apikeyrouteconfigoutboxDescLastError.Validators[0].(func(string) error)
+	// apikeyrouteconfigoutboxDescCreatedAt is the schema descriptor for created_at field.
+	apikeyrouteconfigoutboxDescCreatedAt := apikeyrouteconfigoutboxFields[11].Descriptor()
+	// apikeyrouteconfigoutbox.DefaultCreatedAt holds the default value on creation for the created_at field.
+	apikeyrouteconfigoutbox.DefaultCreatedAt = apikeyrouteconfigoutboxDescCreatedAt.Default.(func() time.Time)
+	// apikeyrouteconfigoutboxDescUpdatedAt is the schema descriptor for updated_at field.
+	apikeyrouteconfigoutboxDescUpdatedAt := apikeyrouteconfigoutboxFields[12].Descriptor()
+	// apikeyrouteconfigoutbox.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	apikeyrouteconfigoutbox.DefaultUpdatedAt = apikeyrouteconfigoutboxDescUpdatedAt.Default.(func() time.Time)
+	// apikeyrouteconfigoutbox.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	apikeyrouteconfigoutbox.UpdateDefaultUpdatedAt = apikeyrouteconfigoutboxDescUpdatedAt.UpdateDefault.(func() time.Time)
 	accountMixin := schema.Account{}.Mixin()
 	accountMixinHooks1 := accountMixin[1].Hooks()
 	account.Hooks[0] = accountMixinHooks1[0]
@@ -1820,6 +1983,672 @@ func init() {
 	redeemcodeDescValidityDays := redeemcodeFields[10].Descriptor()
 	// redeemcode.DefaultValidityDays holds the default value on creation for the validity_days field.
 	redeemcode.DefaultValidityDays = redeemcodeDescValidityDays.Default.(int)
+	routingartifactversionFields := schema.RoutingArtifactVersion{}.Fields()
+	_ = routingartifactversionFields
+	// routingartifactversionDescArtifactKind is the schema descriptor for artifact_kind field.
+	routingartifactversionDescArtifactKind := routingartifactversionFields[0].Descriptor()
+	// routingartifactversion.ArtifactKindValidator is a validator for the "artifact_kind" field. It is called by the builders before save.
+	routingartifactversion.ArtifactKindValidator = func() func(string) error {
+		validators := routingartifactversionDescArtifactKind.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(artifact_kind string) error {
+			for _, fn := range fns {
+				if err := fn(artifact_kind); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingartifactversionDescVersion is the schema descriptor for version field.
+	routingartifactversionDescVersion := routingartifactversionFields[1].Descriptor()
+	// routingartifactversion.VersionValidator is a validator for the "version" field. It is called by the builders before save.
+	routingartifactversion.VersionValidator = func() func(string) error {
+		validators := routingartifactversionDescVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(version string) error {
+			for _, fn := range fns {
+				if err := fn(version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingartifactversionDescParentVersion is the schema descriptor for parent_version field.
+	routingartifactversionDescParentVersion := routingartifactversionFields[2].Descriptor()
+	// routingartifactversion.ParentVersionValidator is a validator for the "parent_version" field. It is called by the builders before save.
+	routingartifactversion.ParentVersionValidator = routingartifactversionDescParentVersion.Validators[0].(func(string) error)
+	// routingartifactversionDescPlatform is the schema descriptor for platform field.
+	routingartifactversionDescPlatform := routingartifactversionFields[3].Descriptor()
+	// routingartifactversion.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
+	routingartifactversion.PlatformValidator = func() func(string) error {
+		validators := routingartifactversionDescPlatform.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(platform string) error {
+			for _, fn := range fns {
+				if err := fn(platform); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingartifactversionDescModelFamily is the schema descriptor for model_family field.
+	routingartifactversionDescModelFamily := routingartifactversionFields[4].Descriptor()
+	// routingartifactversion.ModelFamilyValidator is a validator for the "model_family" field. It is called by the builders before save.
+	routingartifactversion.ModelFamilyValidator = func() func(string) error {
+		validators := routingartifactversionDescModelFamily.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(model_family string) error {
+			for _, fn := range fns {
+				if err := fn(model_family); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingartifactversionDescEndpointKind is the schema descriptor for endpoint_kind field.
+	routingartifactversionDescEndpointKind := routingartifactversionFields[5].Descriptor()
+	// routingartifactversion.EndpointKindValidator is a validator for the "endpoint_kind" field. It is called by the builders before save.
+	routingartifactversion.EndpointKindValidator = func() func(string) error {
+		validators := routingartifactversionDescEndpointKind.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(endpoint_kind string) error {
+			for _, fn := range fns {
+				if err := fn(endpoint_kind); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingartifactversionDescPreference is the schema descriptor for preference field.
+	routingartifactversionDescPreference := routingartifactversionFields[6].Descriptor()
+	// routingartifactversion.PreferenceValidator is a validator for the "preference" field. It is called by the builders before save.
+	routingartifactversion.PreferenceValidator = routingartifactversionDescPreference.Validators[0].(func(string) error)
+	// routingartifactversionDescStatus is the schema descriptor for status field.
+	routingartifactversionDescStatus := routingartifactversionFields[7].Descriptor()
+	// routingartifactversion.DefaultStatus holds the default value on creation for the status field.
+	routingartifactversion.DefaultStatus = routingartifactversionDescStatus.Default.(string)
+	// routingartifactversion.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	routingartifactversion.StatusValidator = routingartifactversionDescStatus.Validators[0].(func(string) error)
+	// routingartifactversionDescSchemaVersion is the schema descriptor for schema_version field.
+	routingartifactversionDescSchemaVersion := routingartifactversionFields[8].Descriptor()
+	// routingartifactversion.SchemaVersionValidator is a validator for the "schema_version" field. It is called by the builders before save.
+	routingartifactversion.SchemaVersionValidator = func() func(string) error {
+		validators := routingartifactversionDescSchemaVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(schema_version string) error {
+			for _, fn := range fns {
+				if err := fn(schema_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingartifactversionDescChecksum is the schema descriptor for checksum field.
+	routingartifactversionDescChecksum := routingartifactversionFields[9].Descriptor()
+	// routingartifactversion.ChecksumValidator is a validator for the "checksum" field. It is called by the builders before save.
+	routingartifactversion.ChecksumValidator = func() func(string) error {
+		validators := routingartifactversionDescChecksum.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(checksum string) error {
+			for _, fn := range fns {
+				if err := fn(checksum); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingartifactversionDescCreatedAt is the schema descriptor for created_at field.
+	routingartifactversionDescCreatedAt := routingartifactversionFields[16].Descriptor()
+	// routingartifactversion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	routingartifactversion.DefaultCreatedAt = routingartifactversionDescCreatedAt.Default.(func() time.Time)
+	routingattemptFields := schema.RoutingAttempt{}.Fields()
+	_ = routingattemptFields
+	// routingattemptDescEventID is the schema descriptor for event_id field.
+	routingattemptDescEventID := routingattemptFields[0].Descriptor()
+	// routingattempt.EventIDValidator is a validator for the "event_id" field. It is called by the builders before save.
+	routingattempt.EventIDValidator = func() func(string) error {
+		validators := routingattemptDescEventID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(event_id string) error {
+			for _, fn := range fns {
+				if err := fn(event_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescRoutingDecisionID is the schema descriptor for routing_decision_id field.
+	routingattemptDescRoutingDecisionID := routingattemptFields[1].Descriptor()
+	// routingattempt.RoutingDecisionIDValidator is a validator for the "routing_decision_id" field. It is called by the builders before save.
+	routingattempt.RoutingDecisionIDValidator = func() func(string) error {
+		validators := routingattemptDescRoutingDecisionID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(routing_decision_id string) error {
+			for _, fn := range fns {
+				if err := fn(routing_decision_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescRequestID is the schema descriptor for request_id field.
+	routingattemptDescRequestID := routingattemptFields[2].Descriptor()
+	// routingattempt.RequestIDValidator is a validator for the "request_id" field. It is called by the builders before save.
+	routingattempt.RequestIDValidator = routingattemptDescRequestID.Validators[0].(func(string) error)
+	// routingattemptDescRouteVersion is the schema descriptor for route_version field.
+	routingattemptDescRouteVersion := routingattemptFields[4].Descriptor()
+	// routingattempt.RouteVersionValidator is a validator for the "route_version" field. It is called by the builders before save.
+	routingattempt.RouteVersionValidator = routingattemptDescRouteVersion.Validators[0].(func(int64) error)
+	// routingattemptDescScheduleMode is the schema descriptor for schedule_mode field.
+	routingattemptDescScheduleMode := routingattemptFields[9].Descriptor()
+	// routingattempt.ScheduleModeValidator is a validator for the "schedule_mode" field. It is called by the builders before save.
+	routingattempt.ScheduleModeValidator = func() func(string) error {
+		validators := routingattemptDescScheduleMode.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(schedule_mode string) error {
+			for _, fn := range fns {
+				if err := fn(schedule_mode); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescSmartPreference is the schema descriptor for smart_preference field.
+	routingattemptDescSmartPreference := routingattemptFields[10].Descriptor()
+	// routingattempt.SmartPreferenceValidator is a validator for the "smart_preference" field. It is called by the builders before save.
+	routingattempt.SmartPreferenceValidator = routingattemptDescSmartPreference.Validators[0].(func(string) error)
+	// routingattemptDescSmartBalanceBps is the schema descriptor for smart_balance_bps field.
+	routingattemptDescSmartBalanceBps := routingattemptFields[11].Descriptor()
+	// routingattempt.SmartBalanceBpsValidator is a validator for the "smart_balance_bps" field. It is called by the builders before save.
+	routingattempt.SmartBalanceBpsValidator = func() func(int) error {
+		validators := routingattemptDescSmartBalanceBps.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(smart_balance_bps int) error {
+			for _, fn := range fns {
+				if err := fn(smart_balance_bps); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescRoutingMinSuccessRate is the schema descriptor for routing_min_success_rate field.
+	routingattemptDescRoutingMinSuccessRate := routingattemptFields[12].Descriptor()
+	// routingattempt.DefaultRoutingMinSuccessRate holds the default value on creation for the routing_min_success_rate field.
+	routingattempt.DefaultRoutingMinSuccessRate = routingattemptDescRoutingMinSuccessRate.Default.(int)
+	// routingattempt.RoutingMinSuccessRateValidator is a validator for the "routing_min_success_rate" field. It is called by the builders before save.
+	routingattempt.RoutingMinSuccessRateValidator = func() func(int) error {
+		validators := routingattemptDescRoutingMinSuccessRate.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(routing_min_success_rate int) error {
+			for _, fn := range fns {
+				if err := fn(routing_min_success_rate); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescRoutingStateVersion is the schema descriptor for routing_state_version field.
+	routingattemptDescRoutingStateVersion := routingattemptFields[13].Descriptor()
+	// routingattempt.RoutingStateVersionValidator is a validator for the "routing_state_version" field. It is called by the builders before save.
+	routingattempt.RoutingStateVersionValidator = routingattemptDescRoutingStateVersion.Validators[0].(func(int64) error)
+	// routingattemptDescAttemptIndex is the schema descriptor for attempt_index field.
+	routingattemptDescAttemptIndex := routingattemptFields[14].Descriptor()
+	// routingattempt.DefaultAttemptIndex holds the default value on creation for the attempt_index field.
+	routingattempt.DefaultAttemptIndex = routingattemptDescAttemptIndex.Default.(int)
+	// routingattempt.AttemptIndexValidator is a validator for the "attempt_index" field. It is called by the builders before save.
+	routingattempt.AttemptIndexValidator = func() func(int) error {
+		validators := routingattemptDescAttemptIndex.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(attempt_index int) error {
+			for _, fn := range fns {
+				if err := fn(attempt_index); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescPlatform is the schema descriptor for platform field.
+	routingattemptDescPlatform := routingattemptFields[15].Descriptor()
+	// routingattempt.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
+	routingattempt.PlatformValidator = func() func(string) error {
+		validators := routingattemptDescPlatform.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(platform string) error {
+			for _, fn := range fns {
+				if err := fn(platform); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescModelFamily is the schema descriptor for model_family field.
+	routingattemptDescModelFamily := routingattemptFields[16].Descriptor()
+	// routingattempt.ModelFamilyValidator is a validator for the "model_family" field. It is called by the builders before save.
+	routingattempt.ModelFamilyValidator = func() func(string) error {
+		validators := routingattemptDescModelFamily.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(model_family string) error {
+			for _, fn := range fns {
+				if err := fn(model_family); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescEndpointKind is the schema descriptor for endpoint_kind field.
+	routingattemptDescEndpointKind := routingattemptFields[17].Descriptor()
+	// routingattempt.EndpointKindValidator is a validator for the "endpoint_kind" field. It is called by the builders before save.
+	routingattempt.EndpointKindValidator = func() func(string) error {
+		validators := routingattemptDescEndpointKind.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(endpoint_kind string) error {
+			for _, fn := range fns {
+				if err := fn(endpoint_kind); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescStrategyVersion is the schema descriptor for strategy_version field.
+	routingattemptDescStrategyVersion := routingattemptFields[18].Descriptor()
+	// routingattempt.StrategyVersionValidator is a validator for the "strategy_version" field. It is called by the builders before save.
+	routingattempt.StrategyVersionValidator = func() func(string) error {
+		validators := routingattemptDescStrategyVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(strategy_version string) error {
+			for _, fn := range fns {
+				if err := fn(strategy_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescScoreVersion is the schema descriptor for score_version field.
+	routingattemptDescScoreVersion := routingattemptFields[19].Descriptor()
+	// routingattempt.ScoreVersionValidator is a validator for the "score_version" field. It is called by the builders before save.
+	routingattempt.ScoreVersionValidator = func() func(string) error {
+		validators := routingattemptDescScoreVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(score_version string) error {
+			for _, fn := range fns {
+				if err := fn(score_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescFeatureSchemaVersion is the schema descriptor for feature_schema_version field.
+	routingattemptDescFeatureSchemaVersion := routingattemptFields[20].Descriptor()
+	// routingattempt.FeatureSchemaVersionValidator is a validator for the "feature_schema_version" field. It is called by the builders before save.
+	routingattempt.FeatureSchemaVersionValidator = func() func(string) error {
+		validators := routingattemptDescFeatureSchemaVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(feature_schema_version string) error {
+			for _, fn := range fns {
+				if err := fn(feature_schema_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescModelVersion is the schema descriptor for model_version field.
+	routingattemptDescModelVersion := routingattemptFields[21].Descriptor()
+	// routingattempt.ModelVersionValidator is a validator for the "model_version" field. It is called by the builders before save.
+	routingattempt.ModelVersionValidator = routingattemptDescModelVersion.Validators[0].(func(string) error)
+	// routingattemptDescExperimentID is the schema descriptor for experiment_id field.
+	routingattemptDescExperimentID := routingattemptFields[22].Descriptor()
+	// routingattempt.ExperimentIDValidator is a validator for the "experiment_id" field. It is called by the builders before save.
+	routingattempt.ExperimentIDValidator = routingattemptDescExperimentID.Validators[0].(func(string) error)
+	// routingattemptDescExperimentBucket is the schema descriptor for experiment_bucket field.
+	routingattemptDescExperimentBucket := routingattemptFields[23].Descriptor()
+	// routingattempt.ExperimentBucketValidator is a validator for the "experiment_bucket" field. It is called by the builders before save.
+	routingattempt.ExperimentBucketValidator = func() func(int) error {
+		validators := routingattemptDescExperimentBucket.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(experiment_bucket int) error {
+			for _, fn := range fns {
+				if err := fn(experiment_bucket); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingattemptDescSampleProbability is the schema descriptor for sample_probability field.
+	routingattemptDescSampleProbability := routingattemptFields[24].Descriptor()
+	// routingattempt.DefaultSampleProbability holds the default value on creation for the sample_probability field.
+	routingattempt.DefaultSampleProbability = routingattemptDescSampleProbability.Default.(float64)
+	// routingattemptDescAssignmentReason is the schema descriptor for assignment_reason field.
+	routingattemptDescAssignmentReason := routingattemptFields[26].Descriptor()
+	// routingattempt.DefaultAssignmentReason holds the default value on creation for the assignment_reason field.
+	routingattempt.DefaultAssignmentReason = routingattemptDescAssignmentReason.Default.(string)
+	// routingattempt.AssignmentReasonValidator is a validator for the "assignment_reason" field. It is called by the builders before save.
+	routingattempt.AssignmentReasonValidator = routingattemptDescAssignmentReason.Validators[0].(func(string) error)
+	// routingattemptDescSelectedReason is the schema descriptor for selected_reason field.
+	routingattemptDescSelectedReason := routingattemptFields[28].Descriptor()
+	// routingattempt.SelectedReasonValidator is a validator for the "selected_reason" field. It is called by the builders before save.
+	routingattempt.SelectedReasonValidator = routingattemptDescSelectedReason.Validators[0].(func(string) error)
+	// routingattemptDescOutcomeVisibility is the schema descriptor for outcome_visibility field.
+	routingattemptDescOutcomeVisibility := routingattemptFields[29].Descriptor()
+	// routingattempt.DefaultOutcomeVisibility holds the default value on creation for the outcome_visibility field.
+	routingattempt.DefaultOutcomeVisibility = routingattemptDescOutcomeVisibility.Default.(string)
+	// routingattempt.OutcomeVisibilityValidator is a validator for the "outcome_visibility" field. It is called by the builders before save.
+	routingattempt.OutcomeVisibilityValidator = routingattemptDescOutcomeVisibility.Validators[0].(func(string) error)
+	// routingattemptDescOutcomeCategory is the schema descriptor for outcome_category field.
+	routingattemptDescOutcomeCategory := routingattemptFields[30].Descriptor()
+	// routingattempt.OutcomeCategoryValidator is a validator for the "outcome_category" field. It is called by the builders before save.
+	routingattempt.OutcomeCategoryValidator = routingattemptDescOutcomeCategory.Validators[0].(func(string) error)
+	// routingattemptDescRetryable is the schema descriptor for retryable field.
+	routingattemptDescRetryable := routingattemptFields[31].Descriptor()
+	// routingattempt.DefaultRetryable holds the default value on creation for the retryable field.
+	routingattempt.DefaultRetryable = routingattemptDescRetryable.Default.(bool)
+	// routingattemptDescSemanticOutput is the schema descriptor for semantic_output field.
+	routingattemptDescSemanticOutput := routingattemptFields[32].Descriptor()
+	// routingattempt.DefaultSemanticOutput holds the default value on creation for the semantic_output field.
+	routingattempt.DefaultSemanticOutput = routingattemptDescSemanticOutput.Default.(bool)
+	// routingattemptDescSwitchedGroup is the schema descriptor for switched_group field.
+	routingattemptDescSwitchedGroup := routingattemptFields[33].Descriptor()
+	// routingattempt.DefaultSwitchedGroup holds the default value on creation for the switched_group field.
+	routingattempt.DefaultSwitchedGroup = routingattemptDescSwitchedGroup.Default.(bool)
+	// routingattemptDescStickyBroken is the schema descriptor for sticky_broken field.
+	routingattemptDescStickyBroken := routingattemptFields[34].Descriptor()
+	// routingattempt.DefaultStickyBroken holds the default value on creation for the sticky_broken field.
+	routingattempt.DefaultStickyBroken = routingattemptDescStickyBroken.Default.(bool)
+	// routingattemptDescBreakerTransition is the schema descriptor for breaker_transition field.
+	routingattemptDescBreakerTransition := routingattemptFields[35].Descriptor()
+	// routingattempt.BreakerTransitionValidator is a validator for the "breaker_transition" field. It is called by the builders before save.
+	routingattempt.BreakerTransitionValidator = routingattemptDescBreakerTransition.Validators[0].(func(string) error)
+	// routingattemptDescQueueMs is the schema descriptor for queue_ms field.
+	routingattemptDescQueueMs := routingattemptFields[36].Descriptor()
+	// routingattempt.QueueMsValidator is a validator for the "queue_ms" field. It is called by the builders before save.
+	routingattempt.QueueMsValidator = routingattemptDescQueueMs.Validators[0].(func(int) error)
+	// routingattemptDescTtftMs is the schema descriptor for ttft_ms field.
+	routingattemptDescTtftMs := routingattemptFields[37].Descriptor()
+	// routingattempt.TtftMsValidator is a validator for the "ttft_ms" field. It is called by the builders before save.
+	routingattempt.TtftMsValidator = routingattemptDescTtftMs.Validators[0].(func(int) error)
+	// routingattemptDescDurationMs is the schema descriptor for duration_ms field.
+	routingattemptDescDurationMs := routingattemptFields[38].Descriptor()
+	// routingattempt.DurationMsValidator is a validator for the "duration_ms" field. It is called by the builders before save.
+	routingattempt.DurationMsValidator = routingattemptDescDurationMs.Validators[0].(func(int) error)
+	// routingattemptDescCacheColdDueToFailover is the schema descriptor for cache_cold_due_to_failover field.
+	routingattemptDescCacheColdDueToFailover := routingattemptFields[43].Descriptor()
+	// routingattempt.DefaultCacheColdDueToFailover holds the default value on creation for the cache_cold_due_to_failover field.
+	routingattempt.DefaultCacheColdDueToFailover = routingattemptDescCacheColdDueToFailover.Default.(bool)
+	// routingattemptDescEventPriority is the schema descriptor for event_priority field.
+	routingattemptDescEventPriority := routingattemptFields[44].Descriptor()
+	// routingattempt.DefaultEventPriority holds the default value on creation for the event_priority field.
+	routingattempt.DefaultEventPriority = routingattemptDescEventPriority.Default.(string)
+	// routingattempt.EventPriorityValidator is a validator for the "event_priority" field. It is called by the builders before save.
+	routingattempt.EventPriorityValidator = routingattemptDescEventPriority.Validators[0].(func(string) error)
+	// routingattemptDescCreatedAt is the schema descriptor for created_at field.
+	routingattemptDescCreatedAt := routingattemptFields[46].Descriptor()
+	// routingattempt.DefaultCreatedAt holds the default value on creation for the created_at field.
+	routingattempt.DefaultCreatedAt = routingattemptDescCreatedAt.Default.(func() time.Time)
+	routingexperimentFields := schema.RoutingExperiment{}.Fields()
+	_ = routingexperimentFields
+	// routingexperimentDescExperimentKey is the schema descriptor for experiment_key field.
+	routingexperimentDescExperimentKey := routingexperimentFields[0].Descriptor()
+	// routingexperiment.ExperimentKeyValidator is a validator for the "experiment_key" field. It is called by the builders before save.
+	routingexperiment.ExperimentKeyValidator = func() func(string) error {
+		validators := routingexperimentDescExperimentKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(experiment_key string) error {
+			for _, fn := range fns {
+				if err := fn(experiment_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescPlatform is the schema descriptor for platform field.
+	routingexperimentDescPlatform := routingexperimentFields[1].Descriptor()
+	// routingexperiment.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
+	routingexperiment.PlatformValidator = func() func(string) error {
+		validators := routingexperimentDescPlatform.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(platform string) error {
+			for _, fn := range fns {
+				if err := fn(platform); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescModelFamily is the schema descriptor for model_family field.
+	routingexperimentDescModelFamily := routingexperimentFields[2].Descriptor()
+	// routingexperiment.ModelFamilyValidator is a validator for the "model_family" field. It is called by the builders before save.
+	routingexperiment.ModelFamilyValidator = func() func(string) error {
+		validators := routingexperimentDescModelFamily.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(model_family string) error {
+			for _, fn := range fns {
+				if err := fn(model_family); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescEndpointKind is the schema descriptor for endpoint_kind field.
+	routingexperimentDescEndpointKind := routingexperimentFields[3].Descriptor()
+	// routingexperiment.EndpointKindValidator is a validator for the "endpoint_kind" field. It is called by the builders before save.
+	routingexperiment.EndpointKindValidator = func() func(string) error {
+		validators := routingexperimentDescEndpointKind.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(endpoint_kind string) error {
+			for _, fn := range fns {
+				if err := fn(endpoint_kind); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescPreference is the schema descriptor for preference field.
+	routingexperimentDescPreference := routingexperimentFields[4].Descriptor()
+	// routingexperiment.PreferenceValidator is a validator for the "preference" field. It is called by the builders before save.
+	routingexperiment.PreferenceValidator = func() func(string) error {
+		validators := routingexperimentDescPreference.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(preference string) error {
+			for _, fn := range fns {
+				if err := fn(preference); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescBaselineStrategyVersion is the schema descriptor for baseline_strategy_version field.
+	routingexperimentDescBaselineStrategyVersion := routingexperimentFields[5].Descriptor()
+	// routingexperiment.BaselineStrategyVersionValidator is a validator for the "baseline_strategy_version" field. It is called by the builders before save.
+	routingexperiment.BaselineStrategyVersionValidator = func() func(string) error {
+		validators := routingexperimentDescBaselineStrategyVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(baseline_strategy_version string) error {
+			for _, fn := range fns {
+				if err := fn(baseline_strategy_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescCandidateStrategyVersion is the schema descriptor for candidate_strategy_version field.
+	routingexperimentDescCandidateStrategyVersion := routingexperimentFields[6].Descriptor()
+	// routingexperiment.CandidateStrategyVersionValidator is a validator for the "candidate_strategy_version" field. It is called by the builders before save.
+	routingexperiment.CandidateStrategyVersionValidator = func() func(string) error {
+		validators := routingexperimentDescCandidateStrategyVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(candidate_strategy_version string) error {
+			for _, fn := range fns {
+				if err := fn(candidate_strategy_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescStatus is the schema descriptor for status field.
+	routingexperimentDescStatus := routingexperimentFields[7].Descriptor()
+	// routingexperiment.DefaultStatus holds the default value on creation for the status field.
+	routingexperiment.DefaultStatus = routingexperimentDescStatus.Default.(string)
+	// routingexperiment.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	routingexperiment.StatusValidator = routingexperimentDescStatus.Validators[0].(func(string) error)
+	// routingexperimentDescAllocationBps is the schema descriptor for allocation_bps field.
+	routingexperimentDescAllocationBps := routingexperimentFields[8].Descriptor()
+	// routingexperiment.DefaultAllocationBps holds the default value on creation for the allocation_bps field.
+	routingexperiment.DefaultAllocationBps = routingexperimentDescAllocationBps.Default.(int)
+	// routingexperiment.AllocationBpsValidator is a validator for the "allocation_bps" field. It is called by the builders before save.
+	routingexperiment.AllocationBpsValidator = func() func(int) error {
+		validators := routingexperimentDescAllocationBps.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(allocation_bps int) error {
+			for _, fn := range fns {
+				if err := fn(allocation_bps); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescBucketSaltChecksum is the schema descriptor for bucket_salt_checksum field.
+	routingexperimentDescBucketSaltChecksum := routingexperimentFields[9].Descriptor()
+	// routingexperiment.BucketSaltChecksumValidator is a validator for the "bucket_salt_checksum" field. It is called by the builders before save.
+	routingexperiment.BucketSaltChecksumValidator = func() func(string) error {
+		validators := routingexperimentDescBucketSaltChecksum.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(bucket_salt_checksum string) error {
+			for _, fn := range fns {
+				if err := fn(bucket_salt_checksum); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// routingexperimentDescStopReason is the schema descriptor for stop_reason field.
+	routingexperimentDescStopReason := routingexperimentFields[16].Descriptor()
+	// routingexperiment.StopReasonValidator is a validator for the "stop_reason" field. It is called by the builders before save.
+	routingexperiment.StopReasonValidator = routingexperimentDescStopReason.Validators[0].(func(string) error)
+	// routingexperimentDescCreatedAt is the schema descriptor for created_at field.
+	routingexperimentDescCreatedAt := routingexperimentFields[18].Descriptor()
+	// routingexperiment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	routingexperiment.DefaultCreatedAt = routingexperimentDescCreatedAt.Default.(func() time.Time)
+	// routingexperimentDescUpdatedAt is the schema descriptor for updated_at field.
+	routingexperimentDescUpdatedAt := routingexperimentFields[19].Descriptor()
+	// routingexperiment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	routingexperiment.DefaultUpdatedAt = routingexperimentDescUpdatedAt.Default.(func() time.Time)
+	// routingexperiment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	routingexperiment.UpdateDefaultUpdatedAt = routingexperimentDescUpdatedAt.UpdateDefault.(func() time.Time)
 	securitysecretMixin := schema.SecuritySecret{}.Mixin()
 	securitysecretMixinFields0 := securitysecretMixin[0].Fields()
 	_ = securitysecretMixinFields0
@@ -2259,112 +3088,144 @@ func init() {
 	usagelogDescBillingMode := usagelogFields[14].Descriptor()
 	// usagelog.BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
 	usagelog.BillingModeValidator = usagelogDescBillingMode.Validators[0].(func(string) error)
+	// usagelogDescScheduleMode is the schema descriptor for schedule_mode field.
+	usagelogDescScheduleMode := usagelogFields[19].Descriptor()
+	// usagelog.ScheduleModeValidator is a validator for the "schedule_mode" field. It is called by the builders before save.
+	usagelog.ScheduleModeValidator = usagelogDescScheduleMode.Validators[0].(func(string) error)
+	// usagelogDescSmartPreference is the schema descriptor for smart_preference field.
+	usagelogDescSmartPreference := usagelogFields[20].Descriptor()
+	// usagelog.SmartPreferenceValidator is a validator for the "smart_preference" field. It is called by the builders before save.
+	usagelog.SmartPreferenceValidator = usagelogDescSmartPreference.Validators[0].(func(string) error)
+	// usagelogDescGroupSwitchCount is the schema descriptor for group_switch_count field.
+	usagelogDescGroupSwitchCount := usagelogFields[21].Descriptor()
+	// usagelog.DefaultGroupSwitchCount holds the default value on creation for the group_switch_count field.
+	usagelog.DefaultGroupSwitchCount = usagelogDescGroupSwitchCount.Default.(int)
+	// usagelog.GroupSwitchCountValidator is a validator for the "group_switch_count" field. It is called by the builders before save.
+	usagelog.GroupSwitchCountValidator = usagelogDescGroupSwitchCount.Validators[0].(func(int) error)
+	// usagelogDescRoutingDecisionID is the schema descriptor for routing_decision_id field.
+	usagelogDescRoutingDecisionID := usagelogFields[22].Descriptor()
+	// usagelog.RoutingDecisionIDValidator is a validator for the "routing_decision_id" field. It is called by the builders before save.
+	usagelog.RoutingDecisionIDValidator = usagelogDescRoutingDecisionID.Validators[0].(func(string) error)
+	// usagelogDescCacheColdDueToFailover is the schema descriptor for cache_cold_due_to_failover field.
+	usagelogDescCacheColdDueToFailover := usagelogFields[23].Descriptor()
+	// usagelog.DefaultCacheColdDueToFailover holds the default value on creation for the cache_cold_due_to_failover field.
+	usagelog.DefaultCacheColdDueToFailover = usagelogDescCacheColdDueToFailover.Default.(bool)
+	// usagelogDescCacheCompensationTokens is the schema descriptor for cache_compensation_tokens field.
+	usagelogDescCacheCompensationTokens := usagelogFields[26].Descriptor()
+	// usagelog.DefaultCacheCompensationTokens holds the default value on creation for the cache_compensation_tokens field.
+	usagelog.DefaultCacheCompensationTokens = usagelogDescCacheCompensationTokens.Default.(int)
+	// usagelog.CacheCompensationTokensValidator is a validator for the "cache_compensation_tokens" field. It is called by the builders before save.
+	usagelog.CacheCompensationTokensValidator = usagelogDescCacheCompensationTokens.Validators[0].(func(int) error)
+	// usagelogDescCacheCompensationReason is the schema descriptor for cache_compensation_reason field.
+	usagelogDescCacheCompensationReason := usagelogFields[27].Descriptor()
+	// usagelog.CacheCompensationReasonValidator is a validator for the "cache_compensation_reason" field. It is called by the builders before save.
+	usagelog.CacheCompensationReasonValidator = usagelogDescCacheCompensationReason.Validators[0].(func(string) error)
 	// usagelogDescInputTokens is the schema descriptor for input_tokens field.
-	usagelogDescInputTokens := usagelogFields[17].Descriptor()
+	usagelogDescInputTokens := usagelogFields[28].Descriptor()
 	// usagelog.DefaultInputTokens holds the default value on creation for the input_tokens field.
 	usagelog.DefaultInputTokens = usagelogDescInputTokens.Default.(int)
 	// usagelogDescOutputTokens is the schema descriptor for output_tokens field.
-	usagelogDescOutputTokens := usagelogFields[18].Descriptor()
+	usagelogDescOutputTokens := usagelogFields[29].Descriptor()
 	// usagelog.DefaultOutputTokens holds the default value on creation for the output_tokens field.
 	usagelog.DefaultOutputTokens = usagelogDescOutputTokens.Default.(int)
 	// usagelogDescCacheCreationTokens is the schema descriptor for cache_creation_tokens field.
-	usagelogDescCacheCreationTokens := usagelogFields[19].Descriptor()
+	usagelogDescCacheCreationTokens := usagelogFields[30].Descriptor()
 	// usagelog.DefaultCacheCreationTokens holds the default value on creation for the cache_creation_tokens field.
 	usagelog.DefaultCacheCreationTokens = usagelogDescCacheCreationTokens.Default.(int)
 	// usagelogDescCacheReadTokens is the schema descriptor for cache_read_tokens field.
-	usagelogDescCacheReadTokens := usagelogFields[20].Descriptor()
+	usagelogDescCacheReadTokens := usagelogFields[31].Descriptor()
 	// usagelog.DefaultCacheReadTokens holds the default value on creation for the cache_read_tokens field.
 	usagelog.DefaultCacheReadTokens = usagelogDescCacheReadTokens.Default.(int)
 	// usagelogDescCacheCreation5mTokens is the schema descriptor for cache_creation_5m_tokens field.
-	usagelogDescCacheCreation5mTokens := usagelogFields[21].Descriptor()
+	usagelogDescCacheCreation5mTokens := usagelogFields[32].Descriptor()
 	// usagelog.DefaultCacheCreation5mTokens holds the default value on creation for the cache_creation_5m_tokens field.
 	usagelog.DefaultCacheCreation5mTokens = usagelogDescCacheCreation5mTokens.Default.(int)
 	// usagelogDescCacheCreation1hTokens is the schema descriptor for cache_creation_1h_tokens field.
-	usagelogDescCacheCreation1hTokens := usagelogFields[22].Descriptor()
+	usagelogDescCacheCreation1hTokens := usagelogFields[33].Descriptor()
 	// usagelog.DefaultCacheCreation1hTokens holds the default value on creation for the cache_creation_1h_tokens field.
 	usagelog.DefaultCacheCreation1hTokens = usagelogDescCacheCreation1hTokens.Default.(int)
 	// usagelogDescInputCost is the schema descriptor for input_cost field.
-	usagelogDescInputCost := usagelogFields[23].Descriptor()
+	usagelogDescInputCost := usagelogFields[34].Descriptor()
 	// usagelog.DefaultInputCost holds the default value on creation for the input_cost field.
 	usagelog.DefaultInputCost = usagelogDescInputCost.Default.(float64)
 	// usagelogDescOutputCost is the schema descriptor for output_cost field.
-	usagelogDescOutputCost := usagelogFields[24].Descriptor()
+	usagelogDescOutputCost := usagelogFields[35].Descriptor()
 	// usagelog.DefaultOutputCost holds the default value on creation for the output_cost field.
 	usagelog.DefaultOutputCost = usagelogDescOutputCost.Default.(float64)
 	// usagelogDescCacheCreationCost is the schema descriptor for cache_creation_cost field.
-	usagelogDescCacheCreationCost := usagelogFields[25].Descriptor()
+	usagelogDescCacheCreationCost := usagelogFields[36].Descriptor()
 	// usagelog.DefaultCacheCreationCost holds the default value on creation for the cache_creation_cost field.
 	usagelog.DefaultCacheCreationCost = usagelogDescCacheCreationCost.Default.(float64)
 	// usagelogDescCacheReadCost is the schema descriptor for cache_read_cost field.
-	usagelogDescCacheReadCost := usagelogFields[26].Descriptor()
+	usagelogDescCacheReadCost := usagelogFields[37].Descriptor()
 	// usagelog.DefaultCacheReadCost holds the default value on creation for the cache_read_cost field.
 	usagelog.DefaultCacheReadCost = usagelogDescCacheReadCost.Default.(float64)
 	// usagelogDescTotalCost is the schema descriptor for total_cost field.
-	usagelogDescTotalCost := usagelogFields[27].Descriptor()
+	usagelogDescTotalCost := usagelogFields[38].Descriptor()
 	// usagelog.DefaultTotalCost holds the default value on creation for the total_cost field.
 	usagelog.DefaultTotalCost = usagelogDescTotalCost.Default.(float64)
 	// usagelogDescActualCost is the schema descriptor for actual_cost field.
-	usagelogDescActualCost := usagelogFields[28].Descriptor()
+	usagelogDescActualCost := usagelogFields[39].Descriptor()
 	// usagelog.DefaultActualCost holds the default value on creation for the actual_cost field.
 	usagelog.DefaultActualCost = usagelogDescActualCost.Default.(float64)
 	// usagelogDescRateMultiplier is the schema descriptor for rate_multiplier field.
-	usagelogDescRateMultiplier := usagelogFields[29].Descriptor()
+	usagelogDescRateMultiplier := usagelogFields[40].Descriptor()
 	// usagelog.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
 	usagelog.DefaultRateMultiplier = usagelogDescRateMultiplier.Default.(float64)
 	// usagelogDescLongContextBillingApplied is the schema descriptor for long_context_billing_applied field.
-	usagelogDescLongContextBillingApplied := usagelogFields[30].Descriptor()
+	usagelogDescLongContextBillingApplied := usagelogFields[41].Descriptor()
 	// usagelog.DefaultLongContextBillingApplied holds the default value on creation for the long_context_billing_applied field.
 	usagelog.DefaultLongContextBillingApplied = usagelogDescLongContextBillingApplied.Default.(bool)
 	// usagelogDescBillingType is the schema descriptor for billing_type field.
-	usagelogDescBillingType := usagelogFields[32].Descriptor()
+	usagelogDescBillingType := usagelogFields[43].Descriptor()
 	// usagelog.DefaultBillingType holds the default value on creation for the billing_type field.
 	usagelog.DefaultBillingType = usagelogDescBillingType.Default.(int8)
 	// usagelogDescStream is the schema descriptor for stream field.
-	usagelogDescStream := usagelogFields[33].Descriptor()
+	usagelogDescStream := usagelogFields[44].Descriptor()
 	// usagelog.DefaultStream holds the default value on creation for the stream field.
 	usagelog.DefaultStream = usagelogDescStream.Default.(bool)
 	// usagelogDescUserAgent is the schema descriptor for user_agent field.
-	usagelogDescUserAgent := usagelogFields[36].Descriptor()
+	usagelogDescUserAgent := usagelogFields[47].Descriptor()
 	// usagelog.UserAgentValidator is a validator for the "user_agent" field. It is called by the builders before save.
 	usagelog.UserAgentValidator = usagelogDescUserAgent.Validators[0].(func(string) error)
 	// usagelogDescIPAddress is the schema descriptor for ip_address field.
-	usagelogDescIPAddress := usagelogFields[37].Descriptor()
+	usagelogDescIPAddress := usagelogFields[48].Descriptor()
 	// usagelog.IPAddressValidator is a validator for the "ip_address" field. It is called by the builders before save.
 	usagelog.IPAddressValidator = usagelogDescIPAddress.Validators[0].(func(string) error)
 	// usagelogDescImageCount is the schema descriptor for image_count field.
-	usagelogDescImageCount := usagelogFields[38].Descriptor()
+	usagelogDescImageCount := usagelogFields[49].Descriptor()
 	// usagelog.DefaultImageCount holds the default value on creation for the image_count field.
 	usagelog.DefaultImageCount = usagelogDescImageCount.Default.(int)
 	// usagelogDescImageSize is the schema descriptor for image_size field.
-	usagelogDescImageSize := usagelogFields[39].Descriptor()
+	usagelogDescImageSize := usagelogFields[50].Descriptor()
 	// usagelog.ImageSizeValidator is a validator for the "image_size" field. It is called by the builders before save.
 	usagelog.ImageSizeValidator = usagelogDescImageSize.Validators[0].(func(string) error)
 	// usagelogDescImageInputSize is the schema descriptor for image_input_size field.
-	usagelogDescImageInputSize := usagelogFields[40].Descriptor()
+	usagelogDescImageInputSize := usagelogFields[51].Descriptor()
 	// usagelog.ImageInputSizeValidator is a validator for the "image_input_size" field. It is called by the builders before save.
 	usagelog.ImageInputSizeValidator = usagelogDescImageInputSize.Validators[0].(func(string) error)
 	// usagelogDescImageOutputSize is the schema descriptor for image_output_size field.
-	usagelogDescImageOutputSize := usagelogFields[41].Descriptor()
+	usagelogDescImageOutputSize := usagelogFields[52].Descriptor()
 	// usagelog.ImageOutputSizeValidator is a validator for the "image_output_size" field. It is called by the builders before save.
 	usagelog.ImageOutputSizeValidator = usagelogDescImageOutputSize.Validators[0].(func(string) error)
 	// usagelogDescImageSizeSource is the schema descriptor for image_size_source field.
-	usagelogDescImageSizeSource := usagelogFields[42].Descriptor()
+	usagelogDescImageSizeSource := usagelogFields[53].Descriptor()
 	// usagelog.ImageSizeSourceValidator is a validator for the "image_size_source" field. It is called by the builders before save.
 	usagelog.ImageSizeSourceValidator = usagelogDescImageSizeSource.Validators[0].(func(string) error)
 	// usagelogDescVideoCount is the schema descriptor for video_count field.
-	usagelogDescVideoCount := usagelogFields[44].Descriptor()
+	usagelogDescVideoCount := usagelogFields[55].Descriptor()
 	// usagelog.DefaultVideoCount holds the default value on creation for the video_count field.
 	usagelog.DefaultVideoCount = usagelogDescVideoCount.Default.(int)
 	// usagelogDescVideoResolution is the schema descriptor for video_resolution field.
-	usagelogDescVideoResolution := usagelogFields[45].Descriptor()
+	usagelogDescVideoResolution := usagelogFields[56].Descriptor()
 	// usagelog.VideoResolutionValidator is a validator for the "video_resolution" field. It is called by the builders before save.
 	usagelog.VideoResolutionValidator = usagelogDescVideoResolution.Validators[0].(func(string) error)
 	// usagelogDescCacheTTLOverridden is the schema descriptor for cache_ttl_overridden field.
-	usagelogDescCacheTTLOverridden := usagelogFields[47].Descriptor()
+	usagelogDescCacheTTLOverridden := usagelogFields[58].Descriptor()
 	// usagelog.DefaultCacheTTLOverridden holds the default value on creation for the cache_ttl_overridden field.
 	usagelog.DefaultCacheTTLOverridden = usagelogDescCacheTTLOverridden.Default.(bool)
 	// usagelogDescCreatedAt is the schema descriptor for created_at field.
-	usagelogDescCreatedAt := usagelogFields[48].Descriptor()
+	usagelogDescCreatedAt := usagelogFields[59].Descriptor()
 	// usagelog.DefaultCreatedAt holds the default value on creation for the created_at field.
 	usagelog.DefaultCreatedAt = usagelogDescCreatedAt.Default.(func() time.Time)
 	userMixin := schema.User{}.Mixin()

@@ -20,6 +20,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -446,6 +448,36 @@ func (_u *UserUpdate) AddRpmLimit(v int) *UserUpdate {
 	return _u
 }
 
+// AddRoutingArtifactVersionIDs adds the "routing_artifact_versions" edge to the RoutingArtifactVersion entity by IDs.
+func (_u *UserUpdate) AddRoutingArtifactVersionIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddRoutingArtifactVersionIDs(ids...)
+	return _u
+}
+
+// AddRoutingArtifactVersions adds the "routing_artifact_versions" edges to the RoutingArtifactVersion entity.
+func (_u *UserUpdate) AddRoutingArtifactVersions(v ...*RoutingArtifactVersion) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRoutingArtifactVersionIDs(ids...)
+}
+
+// AddRoutingExperimentIDs adds the "routing_experiments" edge to the RoutingExperiment entity by IDs.
+func (_u *UserUpdate) AddRoutingExperimentIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddRoutingExperimentIDs(ids...)
+	return _u
+}
+
+// AddRoutingExperiments adds the "routing_experiments" edges to the RoutingExperiment entity.
+func (_u *UserUpdate) AddRoutingExperiments(v ...*RoutingExperiment) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRoutingExperimentIDs(ids...)
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdate) AddAPIKeyIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -644,6 +676,48 @@ func (_u *UserUpdate) AddPlatformQuotas(v ...*UserPlatformQuota) *UserUpdate {
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
+}
+
+// ClearRoutingArtifactVersions clears all "routing_artifact_versions" edges to the RoutingArtifactVersion entity.
+func (_u *UserUpdate) ClearRoutingArtifactVersions() *UserUpdate {
+	_u.mutation.ClearRoutingArtifactVersions()
+	return _u
+}
+
+// RemoveRoutingArtifactVersionIDs removes the "routing_artifact_versions" edge to RoutingArtifactVersion entities by IDs.
+func (_u *UserUpdate) RemoveRoutingArtifactVersionIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveRoutingArtifactVersionIDs(ids...)
+	return _u
+}
+
+// RemoveRoutingArtifactVersions removes "routing_artifact_versions" edges to RoutingArtifactVersion entities.
+func (_u *UserUpdate) RemoveRoutingArtifactVersions(v ...*RoutingArtifactVersion) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRoutingArtifactVersionIDs(ids...)
+}
+
+// ClearRoutingExperiments clears all "routing_experiments" edges to the RoutingExperiment entity.
+func (_u *UserUpdate) ClearRoutingExperiments() *UserUpdate {
+	_u.mutation.ClearRoutingExperiments()
+	return _u
+}
+
+// RemoveRoutingExperimentIDs removes the "routing_experiments" edge to RoutingExperiment entities by IDs.
+func (_u *UserUpdate) RemoveRoutingExperimentIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveRoutingExperimentIDs(ids...)
+	return _u
+}
+
+// RemoveRoutingExperiments removes "routing_experiments" edges to RoutingExperiment entities.
+func (_u *UserUpdate) RemoveRoutingExperiments(v ...*RoutingExperiment) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRoutingExperimentIDs(ids...)
 }
 
 // ClearAPIKeys clears all "api_keys" edges to the APIKey entity.
@@ -1115,6 +1189,96 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if _u.mutation.RoutingArtifactVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingArtifactVersionsTable,
+			Columns: []string{user.RoutingArtifactVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingartifactversion.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRoutingArtifactVersionsIDs(); len(nodes) > 0 && !_u.mutation.RoutingArtifactVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingArtifactVersionsTable,
+			Columns: []string{user.RoutingArtifactVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingartifactversion.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RoutingArtifactVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingArtifactVersionsTable,
+			Columns: []string{user.RoutingArtifactVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingartifactversion.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RoutingExperimentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingExperimentsTable,
+			Columns: []string{user.RoutingExperimentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingexperiment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRoutingExperimentsIDs(); len(nodes) > 0 && !_u.mutation.RoutingExperimentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingExperimentsTable,
+			Columns: []string{user.RoutingExperimentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingexperiment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RoutingExperimentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingExperimentsTable,
+			Columns: []string{user.RoutingExperimentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingexperiment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2139,6 +2303,36 @@ func (_u *UserUpdateOne) AddRpmLimit(v int) *UserUpdateOne {
 	return _u
 }
 
+// AddRoutingArtifactVersionIDs adds the "routing_artifact_versions" edge to the RoutingArtifactVersion entity by IDs.
+func (_u *UserUpdateOne) AddRoutingArtifactVersionIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddRoutingArtifactVersionIDs(ids...)
+	return _u
+}
+
+// AddRoutingArtifactVersions adds the "routing_artifact_versions" edges to the RoutingArtifactVersion entity.
+func (_u *UserUpdateOne) AddRoutingArtifactVersions(v ...*RoutingArtifactVersion) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRoutingArtifactVersionIDs(ids...)
+}
+
+// AddRoutingExperimentIDs adds the "routing_experiments" edge to the RoutingExperiment entity by IDs.
+func (_u *UserUpdateOne) AddRoutingExperimentIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddRoutingExperimentIDs(ids...)
+	return _u
+}
+
+// AddRoutingExperiments adds the "routing_experiments" edges to the RoutingExperiment entity.
+func (_u *UserUpdateOne) AddRoutingExperiments(v ...*RoutingExperiment) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRoutingExperimentIDs(ids...)
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdateOne) AddAPIKeyIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -2337,6 +2531,48 @@ func (_u *UserUpdateOne) AddPlatformQuotas(v ...*UserPlatformQuota) *UserUpdateO
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
+}
+
+// ClearRoutingArtifactVersions clears all "routing_artifact_versions" edges to the RoutingArtifactVersion entity.
+func (_u *UserUpdateOne) ClearRoutingArtifactVersions() *UserUpdateOne {
+	_u.mutation.ClearRoutingArtifactVersions()
+	return _u
+}
+
+// RemoveRoutingArtifactVersionIDs removes the "routing_artifact_versions" edge to RoutingArtifactVersion entities by IDs.
+func (_u *UserUpdateOne) RemoveRoutingArtifactVersionIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveRoutingArtifactVersionIDs(ids...)
+	return _u
+}
+
+// RemoveRoutingArtifactVersions removes "routing_artifact_versions" edges to RoutingArtifactVersion entities.
+func (_u *UserUpdateOne) RemoveRoutingArtifactVersions(v ...*RoutingArtifactVersion) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRoutingArtifactVersionIDs(ids...)
+}
+
+// ClearRoutingExperiments clears all "routing_experiments" edges to the RoutingExperiment entity.
+func (_u *UserUpdateOne) ClearRoutingExperiments() *UserUpdateOne {
+	_u.mutation.ClearRoutingExperiments()
+	return _u
+}
+
+// RemoveRoutingExperimentIDs removes the "routing_experiments" edge to RoutingExperiment entities by IDs.
+func (_u *UserUpdateOne) RemoveRoutingExperimentIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveRoutingExperimentIDs(ids...)
+	return _u
+}
+
+// RemoveRoutingExperiments removes "routing_experiments" edges to RoutingExperiment entities.
+func (_u *UserUpdateOne) RemoveRoutingExperiments(v ...*RoutingExperiment) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRoutingExperimentIDs(ids...)
 }
 
 // ClearAPIKeys clears all "api_keys" edges to the APIKey entity.
@@ -2838,6 +3074,96 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if _u.mutation.RoutingArtifactVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingArtifactVersionsTable,
+			Columns: []string{user.RoutingArtifactVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingartifactversion.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRoutingArtifactVersionsIDs(); len(nodes) > 0 && !_u.mutation.RoutingArtifactVersionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingArtifactVersionsTable,
+			Columns: []string{user.RoutingArtifactVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingartifactversion.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RoutingArtifactVersionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingArtifactVersionsTable,
+			Columns: []string{user.RoutingArtifactVersionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingartifactversion.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RoutingExperimentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingExperimentsTable,
+			Columns: []string{user.RoutingExperimentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingexperiment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRoutingExperimentsIDs(); len(nodes) > 0 && !_u.mutation.RoutingExperimentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingExperimentsTable,
+			Columns: []string{user.RoutingExperimentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingexperiment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RoutingExperimentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.RoutingExperimentsTable,
+			Columns: []string{user.RoutingExperimentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(routingexperiment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

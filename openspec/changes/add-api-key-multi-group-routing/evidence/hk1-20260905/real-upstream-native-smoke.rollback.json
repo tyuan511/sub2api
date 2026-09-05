@@ -1,0 +1,10 @@
+{
+  "status": 502,
+  "bytes": 103,
+  "completed": false,
+  "incomplete": false,
+  "failed": false,
+  "latency_ms": 5409.994747489691,
+  "error_type": "upstream_error",
+  "error_code": null
+}

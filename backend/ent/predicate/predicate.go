@@ -9,6 +9,12 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
+// APIKeyGroupRoute is the predicate function for apikeygrouproute builders.
+type APIKeyGroupRoute func(*sql.Selector)
+
+// APIKeyRouteConfigOutbox is the predicate function for apikeyrouteconfigoutbox builders.
+type APIKeyRouteConfigOutbox func(*sql.Selector)
+
 // Account is the predicate function for account builders.
 type Account func(*sql.Selector)
 
@@ -92,6 +98,15 @@ type Proxy func(*sql.Selector)
 
 // RedeemCode is the predicate function for redeemcode builders.
 type RedeemCode func(*sql.Selector)
+
+// RoutingArtifactVersion is the predicate function for routingartifactversion builders.
+type RoutingArtifactVersion func(*sql.Selector)
+
+// RoutingAttempt is the predicate function for routingattempt builders.
+type RoutingAttempt func(*sql.Selector)
+
+// RoutingExperiment is the predicate function for routingexperiment builders.
+type RoutingExperiment func(*sql.Selector)
 
 // SecuritySecret is the predicate function for securitysecret builders.
 type SecuritySecret func(*sql.Selector)

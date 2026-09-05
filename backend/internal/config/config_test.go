@@ -30,6 +30,82 @@ func TestLoadDefaultModelsListReadMaxBytes(t *testing.T) {
 	require.Equal(t, DefaultModelsListReadMaxBytes, cfg.Gateway.ModelsListReadMaxBytes)
 }
 
+func TestLoadAPIKeyRoutingLearningExtensionsDisabledByDefault(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.False(t, cfg.Gateway.APIKeyRoutingPersonalizationEnabled)
+	require.False(t, cfg.Gateway.APIKeyRoutingModelPredictionEnabled)
+	require.False(t, cfg.Gateway.APIKeyRoutingExplorationEnabled)
+	require.Equal(t, .01, cfg.Gateway.APIKeyRoutingFactSampleRate)
+	require.Equal(t, 3600, cfg.Gateway.APIKeyGroupStickyTTLSeconds)
+	require.Equal(t, 200_000, cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens)
+	require.Equal(t, 1, cfg.Gateway.APIKeyGroupCacheCompensationMaxSwitches)
+}
+
+func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("GATEWAY_API_KEY_MULTI_GROUP_ROUTING_ENABLED", "true")
+	t.Setenv("GATEWAY_API_KEY_ROUTING_OPTIMIZATION_ENABLED", "true")
+	t.Setenv("GATEWAY_API_KEY_ROUTING_FACT_SAMPLE_RATE", "0.25")
+	t.Setenv("GATEWAY_API_KEY_ROUTING_PERSONALIZATION_ENABLED", "true")
+	t.Setenv("GATEWAY_API_KEY_ROUTING_MODEL_PREDICTION_ENABLED", "true")
+	t.Setenv("GATEWAY_API_KEY_ROUTING_EXPLORATION_ENABLED", "false")
+	t.Setenv("GATEWAY_API_KEY_GROUP_STICKY_TTL_SECONDS", "1800")
+	t.Setenv("GATEWAY_API_KEY_GROUP_CACHE_COMPENSATION_MAX_TOKENS", "123456")
+	t.Setenv("GATEWAY_API_KEY_GROUP_CACHE_COMPENSATION_MAX_SWITCHES", "2")
+	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_WINDOW_SECONDS", "240")
+	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_COOLDOWN_SECONDS", "45")
+	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_MIN_SAMPLES", "12")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Gateway.APIKeyMultiGroupRoutingEnabled)
+	require.True(t, cfg.Gateway.APIKeyRoutingOptimizationEnabled)
+	require.Equal(t, 0.25, cfg.Gateway.APIKeyRoutingFactSampleRate)
+	require.True(t, cfg.Gateway.APIKeyRoutingPersonalizationEnabled)
+	require.True(t, cfg.Gateway.APIKeyRoutingModelPredictionEnabled)
+	require.False(t, cfg.Gateway.APIKeyRoutingExplorationEnabled)
+	require.Equal(t, 1800, cfg.Gateway.APIKeyGroupStickyTTLSeconds)
+	require.Equal(t, 123456, cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens)
+	require.Equal(t, 2, cfg.Gateway.APIKeyGroupCacheCompensationMaxSwitches)
+	require.Equal(t, 240, cfg.Gateway.APIKeyGroupBreakerWindowSeconds)
+	require.Equal(t, 45, cfg.Gateway.APIKeyGroupBreakerCooldownSeconds)
+	require.Equal(t, 12, cfg.Gateway.APIKeyGroupBreakerMinSamples)
+}
+
+func TestValidateRejectsUngatedAPIKeyRoutingLearningExtension(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	cfg.Gateway.APIKeyRoutingExplorationEnabled = true
+	require.ErrorContains(t, cfg.Validate(), "exploration remains unavailable")
+}
+
+func TestValidateAllowsGatedLocalRoutingLearningButRejectsMissingParentSwitches(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	cfg.Gateway.APIKeyRoutingPersonalizationEnabled = true
+	require.ErrorContains(t, cfg.Validate(), "require multi-group routing and optimization")
+	cfg.Gateway.APIKeyMultiGroupRoutingEnabled = true
+	cfg.Gateway.APIKeyRoutingOptimizationEnabled = true
+	cfg.Gateway.APIKeyRoutingModelPredictionEnabled = true
+	require.NoError(t, cfg.Validate())
+}
+
+func TestValidateRejectsUnboundedAPIKeyGroupCacheCompensation(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens = 10_000_001
+	require.ErrorContains(t, cfg.Validate(), "cache_compensation_max_tokens")
+
+	cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens = 200_000
+	cfg.Gateway.APIKeyGroupCacheCompensationMaxSwitches = 8
+	require.ErrorContains(t, cfg.Validate(), "cache_compensation_max_switches")
+}
+
 func TestLoadTimezonePrecedence(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1703,6 +1779,23 @@ func TestValidateConfigErrors(t *testing.T) {
 			name:    "database idle exceeds open",
 			mutate:  func(c *Config) { c.Database.MaxIdleConns = c.Database.MaxOpenConns + 1 },
 			wantErr: "database.max_idle_conns cannot exceed",
+		},
+		{
+			name:    "routing background max open conns",
+			mutate:  func(c *Config) { c.Database.RoutingBackgroundMaxOpenConns = 17 },
+			wantErr: "database.routing_background_max_open_conns",
+		},
+		{
+			name: "routing background idle exceeds open",
+			mutate: func(c *Config) {
+				c.Database.RoutingBackgroundMaxIdleConns = c.Database.RoutingBackgroundMaxOpenConns + 1
+			},
+			wantErr: "database.routing_background_max_idle_conns",
+		},
+		{
+			name:    "routing background query timeout",
+			mutate:  func(c *Config) { c.Database.RoutingBackgroundQueryTimeoutSeconds = 46 },
+			wantErr: "database.routing_background_query_timeout_seconds",
 		},
 		{
 			name:    "redis dial timeout",

@@ -42,6 +42,39 @@ func (r *userGroupRateRepository) GetByUserID(ctx context.Context, userID int64)
 	return result, nil
 }
 
+// GetByUserAndGroupIDs loads only the rate overrides needed by one API key
+// auth snapshot. Multi-group keys are capped at eight candidates, so this
+// keeps both the SQL result and the cached projection bounded.
+func (r *userGroupRateRepository) GetByUserAndGroupIDs(ctx context.Context, userID int64, groupIDs []int64) (map[int64]float64, error) {
+	result := make(map[int64]float64)
+	if userID <= 0 || len(groupIDs) == 0 {
+		return result, nil
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT group_id, rate_multiplier
+		FROM user_group_rate_multipliers
+		WHERE user_id = $1
+		  AND group_id = ANY($2)
+		  AND rate_multiplier IS NOT NULL
+	`, userID, pq.Array(groupIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var groupID int64
+		var rate float64
+		if err := rows.Scan(&groupID, &rate); err != nil {
+			return nil, err
+		}
+		result[groupID] = rate
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // GetByUserIDs 批量获取多个用户的专属分组 rate_multiplier（仅返回非 NULL 的条目）
 func (r *userGroupRateRepository) GetByUserIDs(ctx context.Context, userIDs []int64) (map[int64]map[int64]float64, error) {
 	result := make(map[int64]map[int64]float64, len(userIDs))

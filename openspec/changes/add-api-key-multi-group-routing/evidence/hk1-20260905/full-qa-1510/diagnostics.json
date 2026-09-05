@@ -1,0 +1,247 @@
+{
+  "accounts": [
+    {
+      "id": 246,
+      "name": "mdkj-008",
+      "status": "active",
+      "schedulable": true,
+      "error_message": "",
+      "temp_unschedulable_until": null,
+      "temp_unschedulable_reason": "",
+      "proxy_id": null,
+      "rate_limit_reset_at": null,
+      "upstream_host": "mdkj.lol",
+      "extra_flags": {
+        "openai_apikey_responses_websockets_v2_enabled": false,
+        "openai_long_context_billing_enabled": false,
+        "openai_responses_supported": true,
+        "upstream_billing_probe_enabled": false,
+        "upstream_billing_rate_sync_enabled": false
+      }
+    },
+    {
+      "id": 245,
+      "name": "mdkj-max",
+      "status": "active",
+      "schedulable": true,
+      "error_message": "",
+      "temp_unschedulable_until": null,
+      "temp_unschedulable_reason": "",
+      "proxy_id": null,
+      "rate_limit_reset_at": null,
+      "upstream_host": "mdkj.lol",
+      "extra_flags": {
+        "openai_apikey_responses_websockets_v2_enabled": false,
+        "openai_long_context_billing_enabled": false,
+        "openai_responses_supported": true,
+        "upstream_billing_probe_enabled": false,
+        "upstream_billing_rate_sync_enabled": false
+      }
+    },
+    {
+      "id": 243,
+      "name": "mdkj-plus",
+      "status": "active",
+      "schedulable": true,
+      "error_message": "",
+      "temp_unschedulable_until": null,
+      "temp_unschedulable_reason": "",
+      "proxy_id": null,
+      "rate_limit_reset_at": null,
+      "upstream_host": "mdkj.lol",
+      "extra_flags": {
+        "openai_apikey_responses_websockets_v2_enabled": false,
+        "openai_long_context_billing_enabled": false,
+        "openai_responses_supported": true,
+        "upstream_billing_probe_enabled": true,
+        "upstream_billing_rate_sync_enabled": false
+      }
+    },
+    {
+      "id": 244,
+      "name": "mdkj-pro",
+      "status": "active",
+      "schedulable": true,
+      "error_message": "",
+      "temp_unschedulable_until": null,
+      "temp_unschedulable_reason": "",
+      "proxy_id": null,
+      "rate_limit_reset_at": null,
+      "upstream_host": "mdkj.lol",
+      "extra_flags": {
+        "openai_apikey_responses_websockets_v2_enabled": false,
+        "openai_long_context_billing_enabled": false,
+        "openai_responses_supported": true,
+        "upstream_billing_probe_enabled": false,
+        "upstream_billing_rate_sync_enabled": false
+      }
+    }
+  ],
+  "runtime": [
+    200,
+    {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "plans": 7,
+        "candidate_count_buckets": {
+          "0": 0,
+          "1": 3,
+          "2": 4,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0,
+          "7": 0,
+          "8": 0
+        },
+        "excluded_candidates": 0,
+        "group_switches": 1,
+        "sticky_breaks": 1,
+        "sticky_cache_hits": 0,
+        "sticky_cache_misses": 2,
+        "sticky_cache_errors": 0,
+        "sticky_binds": 0,
+        "breaker_closed": 3,
+        "breaker_open": 0,
+        "breaker_half_open": 0,
+        "breaker_recovering": 0,
+        "half_open_probes": 0,
+        "redis_degraded": 0,
+        "score_snapshot_hits": 0,
+        "score_snapshot_misses": 2,
+        "score_age_samples": 0,
+        "score_age_average_ms": 0,
+        "score_age_max_ms": 0,
+        "phase_latency": {
+          "auth_lookup": {
+            "samples": 5,
+            "p50_ms": 10,
+            "p95_ms": 10,
+            "p99_ms": 10,
+            "max_ms": 5.885624
+          },
+          "plan_build": {
+            "samples": 7,
+            "p50_ms": 0.005,
+            "p95_ms": 0.005,
+            "p99_ms": 0.005,
+            "max_ms": 0.004649
+          },
+          "smart_ranking": {
+            "samples": 0,
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "state_read": {
+            "samples": 2,
+            "p50_ms": 0.25,
+            "p95_ms": 0.25,
+            "p99_ms": 0.25,
+            "max_ms": 0.130695
+          },
+          "state_write": {
+            "samples": 0,
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          }
+        },
+        "background_queries": {
+          "queries": 120,
+          "failures": 0,
+          "scanned_rows": 996,
+          "average_duration_ms": 5.819218841666666,
+          "max_duration_ms": 189.216139
+        },
+        "personalization": {
+          "attempts": 0,
+          "applications": 0,
+          "fallbacks": {
+            "calibration": 0,
+            "data_quality": 0,
+            "drift": 0,
+            "low_samples": 0,
+            "missing": 0,
+            "missing_features": 0,
+            "non_finite": 0,
+            "out_of_range": 0,
+            "schema": 0,
+            "stale": 0,
+            "timeout": 0
+          },
+          "last_calibration_error": 0,
+          "inference_latency": {
+            "samples": 0,
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          }
+        },
+        "model_prediction": {
+          "attempts": 0,
+          "applications": 0,
+          "fallbacks": {
+            "calibration": 0,
+            "data_quality": 0,
+            "drift": 0,
+            "low_samples": 0,
+            "missing": 0,
+            "missing_features": 0,
+            "non_finite": 0,
+            "out_of_range": 0,
+            "schema": 0,
+            "stale": 0,
+            "timeout": 0
+          },
+          "last_calibration_error": 0,
+          "inference_latency": {
+            "samples": 0,
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          }
+        },
+        "fact_recorder": {
+          "Queued": 6,
+          "Persisted": 6,
+          "StreamFallbacks": 0,
+          "DroppedSamples": 0,
+          "DroppedCritical": 0,
+          "Invalid": 0
+        }
+      }
+    }
+  ],
+  "rollout": [
+    200,
+    {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "user_ids": [
+          1
+        ]
+      }
+    }
+  ],
+  "unauth_capability": [
+    401,
+    {
+      "code": "UNAUTHORIZED",
+      "message": "Authorization header is required"
+    }
+  ],
+  "unauth_rollout": [
+    401,
+    {
+      "code": "UNAUTHORIZED",
+      "message": "Authorization required"
+    }
+  ]
+}
