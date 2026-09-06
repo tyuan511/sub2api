@@ -240,10 +240,17 @@ const triggerLabel = computed(() => {
   return t('keys.routeGroupsSelected', { count: props.modelValue.length, max: props.maxGroups })
 })
 
+function compareGroupsByPlatformAndName(left: Group, right: Group): number {
+  const platformOrder = left.platform.localeCompare(right.platform, undefined, { sensitivity: 'base' })
+  if (platformOrder !== 0) return platformOrder
+  return left.name.localeCompare(right.name, undefined, { sensitivity: 'base', numeric: true })
+}
+
 const filteredGroups = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  if (!query) return props.groups
-  return props.groups.filter((group) =>
+  const groups = [...props.groups].sort(compareGroupsByPlatformAndName)
+  if (!query) return groups
+  return groups.filter((group) =>
     group.name.toLowerCase().includes(query) ||
     group.platform.toLowerCase().includes(query) ||
     (group.description || '').toLowerCase().includes(query)

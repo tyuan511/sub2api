@@ -106,6 +106,23 @@ func TestRoutingScoreObservationSourceEnforcesPerQueryTimeout(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestRoutingScoreObservationSourceDetectsActiveMultiGroupRoutes(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	source := &routingScoreObservationSource{db: db, queryTimeout: time.Second}
+	mock.ExpectQuery(`(?s)SELECT EXISTS.*api_key_group_routes.*JOIN api_keys k.*k\.deleted_at IS NULL.*k\.status = 'active'`).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	active, err := source.HasActiveMultiGroupRoutes(context.Background())
+	require.NoError(t, err)
+	require.True(t, active)
+	// The second call is served from the short activation cache.
+	active, err = source.HasActiveMultiGroupRoutes(context.Background())
+	require.NoError(t, err)
+	require.True(t, active)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestRoutingScoreObservationSourceLoadsEndpointHealthAndMatchingActualPriceSlice(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

@@ -101,13 +101,25 @@ func NormalizeAPIKeyRoutingEndpointKind(path string) string {
 }
 
 type APIKeyRoutingGroupObservation struct {
-	GroupID         int64   `json:"group_id"`
-	SuccessRequests int64   `json:"success_requests"`
-	FailedRequests  int64   `json:"failed_requests"`
-	TTFTP50Ms       float64 `json:"ttft_p50_ms"`
-	DurationP50Ms   float64 `json:"duration_p50_ms"`
-	CapacityScore   float64 `json:"capacity_score"`
-	NormalizedRate  float64 `json:"normalized_rate"`
+	GroupID         int64 `json:"group_id"`
+	SuccessRequests int64 `json:"success_requests"`
+	FailedRequests  int64 `json:"failed_requests"`
+	// Recent* is kept beside the selected health window so a low-volume route
+	// can prove recovery without discarding the long-term failure history.
+	RecentSuccessRequests int64   `json:"recent_success_requests,omitempty"`
+	RecentFailedRequests  int64   `json:"recent_failed_requests,omitempty"`
+	RecentSuccessRate     float64 `json:"recent_success_rate,omitempty"`
+	RecoveryEligible      bool    `json:"recovery_eligible,omitempty"`
+	RecoveryTrafficBPS    int     `json:"recovery_traffic_bps,omitempty"`
+	// The routing aggregation source stores sum/count, so these values are
+	// averages. The old P50 fields remain decode-only fallbacks for snapshots
+	// written before the metric name was corrected.
+	TTFTAvgMs      float64 `json:"ttft_avg_ms"`
+	DurationAvgMs  float64 `json:"duration_avg_ms"`
+	TTFTP50Ms      float64 `json:"ttft_p50_ms,omitempty"`
+	DurationP50Ms  float64 `json:"duration_p50_ms,omitempty"`
+	CapacityScore  float64 `json:"capacity_score"`
+	NormalizedRate float64 `json:"normalized_rate"`
 	// PriceNormalizationFactor is the observed workload cost divided by the
 	// full-cache reference cost before applying any group/user multiplier.
 	// Keeping it separate allows one shared snapshot to be projected with each
@@ -142,6 +154,8 @@ type APIKeyRoutingCandidateScore struct {
 	GroupID               int64                     `json:"group_id"`
 	Priority              int                       `json:"priority"`
 	Eligible              bool                      `json:"eligible"`
+	Recovery              bool                      `json:"recovery,omitempty"`
+	RecoveryTrafficBPS    int                       `json:"recovery_traffic_bps,omitempty"`
 	Exclusion             string                    `json:"exclusion,omitempty"`
 	Score                 float64                   `json:"score"`
 	SuccessRate           float64                   `json:"success_rate"`
@@ -220,7 +234,13 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 			}
 		}
 		total := observations[i].SuccessRequests + observations[i].FailedRequests
-		eligible[i] = total < minimumSamples || float64(observations[i].SuccessRequests)/float64(total) >= policy.SuccessRateHardGate
+		longHealthy := total < minimumSamples || float64(observations[i].SuccessRequests)/float64(total) >= policy.SuccessRateHardGate
+		recoverySignal := observations[i].RecoveryEligible && observations[i].RecoveryTrafficBPS > 0 &&
+			observations[i].RecentSuccessRate >= policy.SuccessRateHardGate
+		// A recent, high-confidence recovery signal may temporarily reopen a
+		// stale long-window exclusion. Traffic is still capped by the recovery
+		// budget carried in the observation and enforced by the request handler.
+		eligible[i] = longHealthy || recoverySignal
 	}
 	dependencyCounts := make(map[string]int)
 	for index, observation := range observations {
@@ -233,10 +253,10 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 	}
 	priceScores := inverseMinMaxEligible(observations, eligible, func(o APIKeyRoutingGroupObservation) float64 { return nonNegativeFiniteOr(o.NormalizedRate, 1) })
 	speedScores := inverseMinMaxEligible(observations, eligible, func(o APIKeyRoutingGroupObservation) float64 {
-		if o.TTFTP50Ms > 0 {
-			return o.TTFTP50Ms
+		if value := observationRoutingTTFTMs(o); value > 0 {
+			return value
 		}
-		return positiveOr(o.DurationP50Ms, 1)
+		return positiveOr(observationRoutingDurationMs(o), 1)
 	})
 	for i, candidate := range candidates {
 		observation := observations[i]
@@ -249,15 +269,18 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 		if candidate.Group != nil {
 			fallbackRate = nonNegativeFiniteOr(candidate.Group.RateMultiplier, 1)
 		}
+		recoverySignal := observation.RecoveryEligible && observation.RecoveryTrafficBPS > 0 &&
+			observation.RecentSuccessRate >= policy.SuccessRateHardGate
 		score := APIKeyRoutingCandidateScore{
 			GroupID: candidate.GroupID, Priority: candidate.Priority, Eligible: true,
+			Recovery: recoverySignal, RecoveryTrafficBPS: observation.RecoveryTrafficBPS,
 			SuccessRate: successRate, SmoothedSuccessRate: routeClamp01(observation.SmoothedSuccessRate), NormalizedRate: nonNegativeFiniteOr(observation.NormalizedRate, fallbackRate),
-			Confidence: routeClamp01(observation.Confidence), PriceConfidence: routeClamp01(observation.PriceConfidence), TTFTMS: observation.TTFTP50Ms,
-			DurationMS: observation.DurationP50Ms, CapacityScore: correlationAdjustedCapacity(observation, dependencyCounts),
+			Confidence: routeClamp01(observation.Confidence), PriceConfidence: routeClamp01(observation.PriceConfidence), TTFTMS: observationRoutingTTFTMs(observation),
+			DurationMS: observationRoutingDurationMs(observation), CapacityScore: correlationAdjustedCapacity(observation, dependencyCounts),
 			CacheHitRate: routeClamp01(observation.CacheHitRate), ObservationWindow: observation.ObservationWindow,
 			DependencyDomains: append([]string(nil), observation.DependencyDomains...),
 		}
-		if total >= minimumSamples && successRate < policy.SuccessRateHardGate {
+		if total >= minimumSamples && successRate < policy.SuccessRateHardGate && !recoverySignal {
 			score.Eligible = false
 			score.Exclusion = fmt.Sprintf("success_rate_below_%d_percent", int(math.Round(policy.SuccessRateHardGate*100)))
 			result = append(result, score)
@@ -267,6 +290,13 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 		if total > 0 && confidence == 0 {
 			confidence = math.Min(1, float64(total)/float64(minimumSamples*4))
 		}
+		if recoverySignal {
+			recentTotal := observation.RecentSuccessRequests + observation.RecentFailedRequests
+			recentConfidence := math.Min(1, float64(recentTotal)/20)
+			if confidence == 0 || recentConfidence < confidence {
+				confidence = recentConfidence
+			}
+		}
 		score.Confidence = confidence
 		priceConfidence := score.PriceConfidence
 		if priceConfidence == 0 && !observation.PriceFallback {
@@ -275,6 +305,9 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 		}
 		score.PriceConfidence = priceConfidence
 		scoringSuccessRate := score.SmoothedSuccessRate
+		if recoverySignal && observation.RecentSuccessRate > 0 {
+			scoringSuccessRate = observation.RecentSuccessRate
+		}
 		if scoringSuccessRate == 0 && successRate > 0 {
 			scoringSuccessRate = successRate
 		}
@@ -303,6 +336,20 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 		return result[i].GroupID < result[j].GroupID
 	})
 	return result
+}
+
+func observationRoutingTTFTMs(observation APIKeyRoutingGroupObservation) float64 {
+	if observation.TTFTAvgMs > 0 {
+		return observation.TTFTAvgMs
+	}
+	return observation.TTFTP50Ms
+}
+
+func observationRoutingDurationMs(observation APIKeyRoutingGroupObservation) float64 {
+	if observation.DurationAvgMs > 0 {
+		return observation.DurationAvgMs
+	}
+	return observation.DurationP50Ms
 }
 
 func correlationAdjustedCapacity(observation APIKeyRoutingGroupObservation, counts map[string]int) float64 {

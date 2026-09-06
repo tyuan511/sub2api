@@ -346,7 +346,6 @@ type APIKeyService struct {
 	cache                     APIKeyCache
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	concurrencyService        *ConcurrencyService
-	routingRolloutSettings    *SettingService
 	cfg                       *config.Config
 	authCacheL1               *ristretto.Cache
 	authNegativeCacheL1       *ristretto.Cache
@@ -517,9 +516,6 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
 	if err := validateCreateAPIKeyRequest(req); err != nil {
 		return nil, err
-	}
-	if requestsAdvancedAPIKeyRouting(req.GroupRoutes, req.ScheduleMode, req.SmartPreference, req.SmartBalanceBPS, req.RoutingMinSuccessRate) && !s.IsRoutingEnabledForUser(ctx, userID) {
-		return nil, ErrAPIKeyRoutingNotEnabled
 	}
 	// 验证用户存在
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -756,7 +752,7 @@ func (s *APIKeyService) hydrateAPIKeyRoutingSelectionObservations(ctx context.Co
 	ids := make([]int64, 0, len(keys))
 	byID := make(map[int64]*APIKey, len(keys))
 	for index := range keys {
-		if keys[index].ID <= 0 || len(ids) >= 500 {
+		if keys[index].ID <= 0 || len(ids) >= 500 || !keys[index].HasMultipleEnabledGroupRoutes() {
 			continue
 		}
 		ids = append(ids, keys[index].ID)
@@ -874,10 +870,6 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
-	if requestsAdvancedAPIKeyRouting(req.GroupRoutes, req.ScheduleMode, req.SmartPreference, req.SmartBalanceBPS, req.RoutingMinSuccessRate) && !s.IsRoutingEnabledForUser(ctx, userID) {
-		return nil, ErrAPIKeyRoutingNotEnabled
-	}
-
 	// 验证 IP 白名单格式
 	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
 		if invalid := ip.ValidateIPPatterns(*req.IPWhitelist); len(invalid) > 0 {
@@ -1227,6 +1219,16 @@ func (s *APIKeyService) hydrateAPIKeyUserGroupRatesForList(ctx context.Context, 
 	if len(keys) == 0 || s == nil || s.userGroupRateRepo == nil {
 		return
 	}
+	hasMultiGroupKey := false
+	for i := range keys {
+		if keys[i].HasMultipleEnabledGroupRoutes() {
+			hasMultiGroupKey = true
+			break
+		}
+	}
+	if !hasMultiGroupKey {
+		return
+	}
 	rates, err := s.userGroupRateRepo.GetByUserID(ctx, keys[0].UserID)
 	if err != nil {
 		return
@@ -1240,7 +1242,7 @@ func (s *APIKeyService) hydrateAPIKeyUserGroupRatesForList(ctx context.Context, 
 }
 
 func (s *APIKeyService) hydrateAPIKeyUserGroupRates(ctx context.Context, key *APIKey) {
-	if key == nil || s == nil || s.userGroupRateRepo == nil {
+	if key == nil || s == nil || s.userGroupRateRepo == nil || !key.HasMultipleEnabledGroupRoutes() {
 		return
 	}
 	rates, err := s.userGroupRateRepo.GetByUserID(ctx, key.UserID)

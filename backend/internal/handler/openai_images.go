@@ -261,7 +261,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)
 		lastFailoverErr = nil
-		switchCount = 0
 		oauth429FailoverState = service.OpenAIOAuth429FailoverState{}
 		reqLog.Info("openai.images.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
 		return true, nil

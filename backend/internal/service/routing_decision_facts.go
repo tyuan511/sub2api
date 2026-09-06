@@ -177,6 +177,7 @@ func ValidateRoutingAttemptFact(fact *RoutingAttemptFact) error {
 	}
 	for _, candidate := range fact.Candidates {
 		if candidate.GroupID <= 0 || candidate.ConfiguredPriority < 0 || candidate.ConfiguredPriority >= DefaultMaxAPIKeyGroupRoutes ||
+			candidate.RecoveryTrafficBPS < 0 || candidate.RecoveryTrafficBPS > 10000 ||
 			!oneOf(candidate.OutcomeVisibility, RoutingOutcomeObserved, RoutingOutcomeUnobserved) {
 			return fmt.Errorf("%w: invalid candidate", ErrRoutingFactInvalid)
 		}
@@ -366,6 +367,7 @@ func RecordAPIKeyRoutingShadowDecision(ctx context.Context, shadowPolicy APIKeyR
 		success, smoothedSuccess, confidence, total, breakdown := score.SuccessRate, score.SmoothedSuccessRate, score.Confidence, score.Score, score.Breakdown
 		candidate := APIKeyRoutingDecisionCandidate{
 			GroupID: score.GroupID, ConfiguredPriority: score.Priority, Admitted: score.Eligible, Rank: &rankCopy,
+			Recovery: score.Recovery, RecoveryTrafficBPS: score.RecoveryTrafficBPS,
 			SuccessRate: &success, SmoothedSuccessRate: &smoothedSuccess, Confidence: &confidence, Score: &total, ScoreBreakdown: &breakdown,
 			ExclusionReason: score.Exclusion, OutcomeVisibility: RoutingOutcomeUnobserved,
 		}

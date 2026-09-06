@@ -13,7 +13,7 @@ BEGIN
     ) THEN
         ALTER TABLE api_keys
             ADD CONSTRAINT api_keys_schedule_mode_check
-            CHECK (schedule_mode IN ('sequential', 'smart'));
+            CHECK (schedule_mode IN ('sequential', 'smart')) NOT VALID;
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'api_keys_smart_preference_check'
@@ -24,13 +24,13 @@ BEGIN
                 (schedule_mode = 'sequential' AND smart_preference IS NULL)
                 OR
                 (schedule_mode = 'smart' AND smart_preference IN ('price', 'speed', 'balanced'))
-            );
+            ) NOT VALID;
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'api_keys_route_version_check'
     ) THEN
         ALTER TABLE api_keys
-            ADD CONSTRAINT api_keys_route_version_check CHECK (route_version >= 1);
+            ADD CONSTRAINT api_keys_route_version_check CHECK (route_version >= 1) NOT VALID;
     END IF;
 END $$;
 
@@ -87,4 +87,3 @@ CREATE INDEX IF NOT EXISTS idx_api_key_route_config_outbox_pending
 
 CREATE INDEX IF NOT EXISTS idx_api_key_route_config_outbox_api_key_created
     ON api_key_route_config_outbox (api_key_id, created_at DESC);
-

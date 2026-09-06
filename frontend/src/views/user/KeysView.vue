@@ -1234,7 +1234,7 @@
 </template>
 
 <script setup lang="ts">
-	import { ref, reactive, computed, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+	import { ref, reactive, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
@@ -1433,7 +1433,7 @@ const selectedKeyForGroup = computed(() => {
 })
 
 const enabledRouteCount = (key: ApiKey) =>
-  routingEnabled.value ? (key.group_routes ?? []).filter((route) => route.enabled).length : 0
+  (key.group_routes ?? []).filter((route) => route.enabled).length
 
 const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance | null) => {
   if (el instanceof HTMLElement) {
@@ -1444,21 +1444,8 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
 }
 
 const DEFAULT_ROUTING_MIN_SUCCESS_RATE = 80
-const routingEnabled = ref(false)
-const hasMultipleRouteGroups = computed(() => routingEnabled.value && formData.value.group_routes.length > 1)
-let capabilityRequest = 0
-const loadRoutingCapabilities = async () => {
-  const request = ++capabilityRequest
-  try {
-    const capabilities = await keysAPI.getRoutingCapabilities()
-    if (request === capabilityRequest) routingEnabled.value = capabilities.multi_group_routing_enabled === true
-  } catch {
-    if (request === capabilityRequest) routingEnabled.value = false
-  }
-}
-watch(showCreateModal, (create) => {
-  if (create) void loadRoutingCapabilities()
-})
+const routingEnabled = true
+const hasMultipleRouteGroups = computed(() => formData.value.group_routes.length > 1)
 const legacyGroupId = computed({
   get: () => formData.value.group_routes[0] ?? null,
   set: (value: string | number | boolean | null) => {
@@ -1581,6 +1568,11 @@ const onStatusFilterChange = (value: string | number | boolean | null) => {
 }
 
 // Convert groups to Select options format with rate multiplier and subscription type
+const compareGroupOptions = (left: { label: string; platform: string }, right: { label: string; platform: string }) => {
+  const platformOrder = left.platform.localeCompare(right.platform, undefined, { sensitivity: 'base' })
+  return platformOrder !== 0 ? platformOrder : left.label.localeCompare(right.label, undefined, { sensitivity: 'base', numeric: true })
+}
+
 const groupOptions = computed(() =>
   groups.value.map((group) => ({
     value: group.id,
@@ -1594,7 +1586,7 @@ const groupOptions = computed(() =>
     peakRateMultiplier: group.peak_rate_multiplier,
     subscriptionType: group.subscription_type,
     platform: group.platform
-  }))
+  })).sort(compareGroupOptions)
 )
 type GroupOption = (typeof groupOptions.value)[number]
 
@@ -1607,7 +1599,10 @@ const routeSelectableGroups = computed(() => {
   for (const route of selectedKey.value?.group_routes ?? []) {
     if (route.group && !result.has(route.group_id)) result.set(route.group_id, route.group)
   }
-  return [...result.values()]
+  return [...result.values()].sort((left, right) => {
+    const platformOrder = left.platform.localeCompare(right.platform, undefined, { sensitivity: 'base' })
+    return platformOrder !== 0 ? platformOrder : left.name.localeCompare(right.name, undefined, { sensitivity: 'base', numeric: true })
+  })
 })
 
 // Group dropdown search
@@ -1744,7 +1739,6 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 }
 
 const editKey = async (key: ApiKey) => {
-  await loadRoutingCapabilities()
   selectedKey.value = key
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
@@ -1756,7 +1750,7 @@ const editKey = async (key: ApiKey) => {
   if (!routeGroupIds.length && key.group_id) routeGroupIds.push(key.group_id)
   formData.value = {
     name: key.name,
-    group_routes: routingEnabled.value ? routeGroupIds : (key.group_id ? [key.group_id] : []),
+    group_routes: routeGroupIds,
     schedule_mode: key.schedule_mode || 'sequential',
     smart_balance_bps: key.smart_balance_bps ?? (key.smart_preference === 'price' ? 1250 : key.smart_preference === 'speed' ? 8750 : 5000),
     routing_min_success_rate: key.routing_min_success_rate ?? 50,
@@ -1795,7 +1789,7 @@ const toggleKeyStatus = async (key: ApiKey) => {
 const openGroupSelector = (key: ApiKey) => {
   // The legacy quick switch represents a single group_id replacement. Opening
   // it for a route set would silently discard fallbacks and policy metadata.
-  if (routingEnabled.value && ((key.group_routes?.length ?? 0) > 1 || key.schedule_mode === 'smart')) {
+  if (routingEnabled && ((key.group_routes?.length ?? 0) > 1 || key.schedule_mode === 'smart')) {
     editKey(key)
     return
   }
@@ -1864,10 +1858,6 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
-  if (routingEnabled.value && formData.value.group_routes.length === 0) {
-    appStore.showError(t('keys.groupRequired'))
-    return
-  }
   if (formData.value.group_routes.length > 8) {
     appStore.showError(t('keys.routeGroupLimitReached', { max: 8 }))
     return
@@ -1935,10 +1925,10 @@ const handleSubmit = async () => {
     if (showEditModal.value && selectedKey.value) {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
-        group_id: !routingEnabled.value && primaryGroupId === selectedKey.value.group_id ? undefined : primaryGroupId,
-        group_routes: routingEnabled.value ? groupRoutes : undefined,
-        schedule_mode: routingEnabled.value ? scheduleMode : undefined,
-        smart_preference: routingEnabled.value ? smartPreference : undefined,
+        group_id: primaryGroupId,
+        group_routes: groupRoutes.length > 0 ? groupRoutes : undefined,
+        schedule_mode: groupRoutes.length > 1 ? scheduleMode : undefined,
+        smart_preference: groupRoutes.length > 1 ? smartPreference : undefined,
         smart_balance_bps: scheduleMode === 'smart' ? formData.value.smart_balance_bps : undefined,
         routing_min_success_rate: hasMultipleRouteGroups.value ? formData.value.routing_min_success_rate : undefined,
         expected_route_version: selectedKey.value.route_version,
@@ -1960,9 +1950,9 @@ const handleSubmit = async () => {
       const payload: CreateApiKeyRequest = {
         name: formData.value.name,
         group_id: primaryGroupId,
-        group_routes: routingEnabled.value ? groupRoutes : undefined,
-        schedule_mode: routingEnabled.value ? scheduleMode : undefined,
-        smart_preference: routingEnabled.value ? smartPreference : undefined,
+        group_routes: groupRoutes.length > 0 ? groupRoutes : undefined,
+        schedule_mode: groupRoutes.length > 1 ? scheduleMode : undefined,
+        smart_preference: groupRoutes.length > 1 ? smartPreference : undefined,
         smart_balance_bps: scheduleMode === 'smart' ? formData.value.smart_balance_bps : undefined,
         routing_min_success_rate: hasMultipleRouteGroups.value ? formData.value.routing_min_success_rate : undefined,
         ip_whitelist: ipWhitelist,
@@ -1982,7 +1972,6 @@ const handleSubmit = async () => {
     closeModals()
     loadApiKeys()
   } catch (error: any) {
-    if (error.response?.status === 403) await loadRoutingCapabilities()
     if (error.response?.status === 409) {
       appStore.showError(t('keys.routeConfigConflict'))
       closeModals()
@@ -2191,7 +2180,6 @@ function formatResetTime(resetAt: string | null): string {
 }
 
 onMounted(() => {
-  loadRoutingCapabilities()
   loadSavedColumns()
   loadApiKeys()
   loadGroups()

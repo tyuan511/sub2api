@@ -7,7 +7,6 @@ import KeysView from '../KeysView.vue'
 
 const {
   listKeys,
-  getRoutingCapabilities,
   createKeyWithRequest,
   updateKey,
   getPublicSettings,
@@ -21,7 +20,6 @@ const {
   nextStep,
 } = vi.hoisted(() => ({
   listKeys: vi.fn(),
-  getRoutingCapabilities: vi.fn(),
   createKeyWithRequest: vi.fn(),
   updateKey: vi.fn(),
   getPublicSettings: vi.fn(),
@@ -64,7 +62,6 @@ const messages: Record<string, string> = {
 vi.mock('@/api', () => ({
   keysAPI: {
     list: listKeys,
-    getRoutingCapabilities,
     create: vi.fn(),
     createWithRequest: createKeyWithRequest,
     update: updateKey,
@@ -294,7 +291,6 @@ describe('user KeysView column settings', () => {
     localStorage.clear()
 
     listKeys.mockReset()
-    getRoutingCapabilities.mockReset().mockResolvedValue({ multi_group_routing_enabled: true })
     createKeyWithRequest.mockReset()
     updateKey.mockReset()
     getPublicSettings.mockReset()
@@ -477,25 +473,27 @@ describe('user KeysView column settings', () => {
     )
   })
 
-  it('keeps non-beta users on the legacy single-group form and request contract', async () => {
-    getRoutingCapabilities.mockResolvedValue({ multi_group_routing_enabled: false })
+  it('keeps single-group keys free of routing controls while allowing the common selector', async () => {
     getAvailableGroups.mockResolvedValue([createGroup(10), createGroup(20)])
     const wrapper = await mountView(true)
     await getButtonByText(wrapper, 'Create API Key').trigger('click')
-    expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="routing-success-slider"]').exists()).toBe(false)
-    wrapper.getComponent('[data-test="legacy-group-select"]').vm.$emit('update:modelValue', 10)
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
     await nextTick()
     await wrapper.get('[data-tour="key-form-name"]').setValue('legacy')
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
     const payload = createKeyWithRequest.mock.calls.at(-1)?.[0]
     expect(payload.group_id).toBe(10)
-    for (const field of ['group_routes', 'schedule_mode', 'smart_preference', 'smart_balance_bps', 'routing_min_success_rate']) expect(payload[field]).toBeUndefined()
+    expect(payload.group_routes).toEqual([{ group_id: 10, priority: 0 }])
+    expect(payload.schedule_mode).toBeUndefined()
+    expect(payload.smart_preference).toBeUndefined()
+    expect(payload.routing_min_success_rate).toBeUndefined()
   })
 
-  it('preserves dormant routing configuration when a removed user edits only the key name', async () => {
-    getRoutingCapabilities.mockResolvedValue({ multi_group_routing_enabled: false })
+  it('keeps multi-group controls available for every user', async () => {
     const group = createGroup(10), second = createGroup(20)
     getAvailableGroups.mockResolvedValue([group, second])
     listKeys.mockResolvedValue({ items: [{ ...createApiKey(), group_id: 10, group,
@@ -503,24 +501,17 @@ describe('user KeysView column settings', () => {
       schedule_mode: 'smart', smart_preference: 'price', smart_balance_bps: 3000, routing_min_success_rate: 95 }],
       total: 1, page: 1, page_size: 20, pages: 1 })
     const wrapper = await mountView(true)
-    expect(wrapper.get('[data-test="api-key-groups-1"]').text()).not.toContain('keys.scheduleSmart')
+    expect(wrapper.get('[data-test="api-key-groups-1"]').text()).toContain('keys.scheduleSmart')
     await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
     await flushPromises()
-    expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(true)
     await wrapper.get('[data-tour="key-form-name"]').setValue('renamed')
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
     const payload = updateKey.mock.calls.at(-1)?.[1]
     expect(payload.name).toBe('renamed')
-    for (const field of ['group_id', 'group_routes', 'schedule_mode', 'smart_preference', 'smart_balance_bps', 'routing_min_success_rate']) expect(payload[field]).toBeUndefined()
-  })
-
-  it('fails closed to the legacy form when capability lookup fails', async () => {
-    getRoutingCapabilities.mockRejectedValue(new Error('offline'))
-    const wrapper = await mountView(true)
-    await getButtonByText(wrapper, 'Create API Key').trigger('click')
-    expect(wrapper.find('[data-test="legacy-group-select"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(false)
+    expect(payload.group_routes).toEqual([{ group_id: 10, priority: 0 }, { group_id: 20, priority: 1 }])
+    expect(payload.schedule_mode).toBe('smart')
   })
 
   it('creates an ordered smart route set with an explicit preference', async () => {
@@ -605,7 +596,9 @@ describe('user KeysView column settings', () => {
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
     const payload = createKeyWithRequest.mock.calls.at(-1)?.[0]
-    expect(payload).toMatchObject({ group_routes: [{ group_id: 10, priority: 0 }], schedule_mode: 'sequential', smart_preference: null })
+    expect(payload).toMatchObject({ group_routes: [{ group_id: 10, priority: 0 }] })
+    expect(payload.schedule_mode).toBeUndefined()
+    expect(payload.smart_preference).toBeUndefined()
     expect(payload.smart_balance_bps).toBeUndefined()
     expect(payload.routing_min_success_rate).toBeUndefined()
   })
@@ -637,7 +630,8 @@ describe('user KeysView column settings', () => {
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
     const payload = updateKey.mock.calls.at(-1)?.[1]
-    expect(payload).toMatchObject({ schedule_mode: 'sequential', smart_preference: null })
+    expect(payload.schedule_mode).toBeUndefined()
+    expect(payload.smart_preference).toBeUndefined()
     expect(payload.routing_min_success_rate).toBeUndefined()
   })
 
@@ -696,8 +690,6 @@ describe('user KeysView column settings', () => {
     expect(updateKey).toHaveBeenCalledWith(1, expect.objectContaining({
       group_id: 10,
       group_routes: [{ group_id: 10, priority: 0 }],
-      schedule_mode: 'sequential',
-      smart_preference: null,
       expected_route_version: 7,
     }))
     expect(showError).toHaveBeenCalledWith('keys.routeConfigConflict')

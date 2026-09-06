@@ -187,29 +187,30 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_logs_initial_group_fk') THEN
         ALTER TABLE usage_logs ADD CONSTRAINT usage_logs_initial_group_fk
-            FOREIGN KEY (initial_group_id) REFERENCES groups(id) ON DELETE SET NULL;
+            FOREIGN KEY (initial_group_id) REFERENCES groups(id) ON DELETE SET NULL NOT VALID;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_logs_route_version_check') THEN
         ALTER TABLE usage_logs ADD CONSTRAINT usage_logs_route_version_check
-            CHECK (route_version IS NULL OR route_version >= 1);
+            CHECK (route_version IS NULL OR route_version >= 1) NOT VALID;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_logs_schedule_mode_check') THEN
         ALTER TABLE usage_logs ADD CONSTRAINT usage_logs_schedule_mode_check
-            CHECK (schedule_mode IS NULL OR schedule_mode IN ('sequential', 'smart'));
+            CHECK (schedule_mode IS NULL OR schedule_mode IN ('sequential', 'smart')) NOT VALID;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_logs_smart_preference_check') THEN
         ALTER TABLE usage_logs ADD CONSTRAINT usage_logs_smart_preference_check
-            CHECK (smart_preference IS NULL OR smart_preference IN ('price', 'speed', 'balanced'));
+            CHECK (smart_preference IS NULL OR smart_preference IN ('price', 'speed', 'balanced')) NOT VALID;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_logs_group_switch_count_check') THEN
         ALTER TABLE usage_logs ADD CONSTRAINT usage_logs_group_switch_count_check
-            CHECK (group_switch_count >= 0);
+            CHECK (group_switch_count >= 0) NOT VALID;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_logs_cache_compensation_tokens_check') THEN
         ALTER TABLE usage_logs ADD CONSTRAINT usage_logs_cache_compensation_tokens_check
-            CHECK (cache_compensation_tokens >= 0);
+            CHECK (cache_compensation_tokens >= 0) NOT VALID;
     END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_usage_logs_routing_decision
-    ON usage_logs (routing_decision_id) WHERE routing_decision_id IS NOT NULL;
+-- The populated usage_logs index is created by the following *_notx migration
+-- with CREATE INDEX CONCURRENTLY, so this foundation never queues behind or
+-- blocks the request/usage write path while it scans historical rows.

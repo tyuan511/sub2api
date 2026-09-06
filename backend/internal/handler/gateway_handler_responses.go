@@ -244,7 +244,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	}
 
 	// 3. Account selection + failover loop
-	fs := NewFailoverState(h.maxAccountSwitches, false)
+	fs := NewFailoverStateForRequest(c, h.maxAccountSwitches, false)
 	advanceResponsesRoute := func(routeErr error) (bool, error) {
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
@@ -270,7 +270,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
 			c.Request = c.Request.WithContext(requestCtx)
 		}
-		fs = NewFailoverState(h.maxAccountSwitches, false)
+		fs = NewFailoverStateForRequest(c, h.maxAccountSwitches, false)
 		reqLog.Info("gateway.responses.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
 		return true, nil
 	}

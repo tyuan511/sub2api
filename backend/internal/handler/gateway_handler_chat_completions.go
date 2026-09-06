@@ -237,9 +237,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		selectionSessionHash = "gemini:" + selectionSessionHash
 	}
 	// 3. Account selection + failover loop
-	fs := NewFailoverState(h.maxAccountSwitches, false)
+	fs := NewFailoverStateForRequest(c, h.maxAccountSwitches, false)
 	if groupPlatform == service.PlatformGemini {
-		fs = NewFailoverState(h.maxAccountSwitchesGemini, false)
+		fs = NewFailoverStateForRequest(c, h.maxAccountSwitchesGemini, false)
 	}
 	advanceGatewayCCRoute := func(routeErr error) (bool, error) {
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
@@ -268,9 +268,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		if groupPlatform == service.PlatformGemini && selectionSessionHash != "" {
 			selectionSessionHash = "gemini:" + selectionSessionHash
 		}
-		fs = NewFailoverState(h.maxAccountSwitches, false)
+		fs = NewFailoverStateForRequest(c, h.maxAccountSwitches, false)
 		if groupPlatform == service.PlatformGemini {
-			fs = NewFailoverState(h.maxAccountSwitchesGemini, false)
+			fs = NewFailoverStateForRequest(c, h.maxAccountSwitchesGemini, false)
 		}
 		reqLog.Info("gateway.cc.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
 		return true, nil

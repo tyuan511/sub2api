@@ -191,7 +191,6 @@ func TestAPIKeyAuthCacheRouteVersionGuardRejectsMissedPubSubSnapshot(t *testing.
 	cache.guardVersion = 3
 	cache.dependencyVersion = 2
 	svc := NewAPIKeyService(nil, nil, nil, nil, nil, cache, nil)
-	allowRoutingUsersForTest(t, svc, 77)
 	local, err := ristretto.NewCache(&ristretto.Config{NumCounters: 100, MaxCost: 10, BufferItems: 64})
 	require.NoError(t, err)
 	defer local.Close()
@@ -212,7 +211,6 @@ func TestAPIKeyAuthCacheRouteVersionGuardFailsOpenDuringRedisLoss(t *testing.T) 
 	cache := newAPIKeyRouteConfigCacheStub()
 	cache.guardErr = errors.New("redis unavailable")
 	svc := NewAPIKeyService(nil, nil, nil, nil, nil, cache, nil)
-	allowRoutingUsersForTest(t, svc, 77)
 	entry := &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{APIKeyID: 7, RouteVersion: 2, RoutingDependencyVersion: 1}}
 	entry.Snapshot.UserID = 77
 	entry.Snapshot.GroupRoutes = []APIKeyAuthGroupRouteSnapshot{{GroupID: 11, Enabled: true}, {GroupID: 12, Priority: 1, Enabled: true}}
@@ -225,7 +223,6 @@ func TestAPIKeyAuthCacheDependencyGuardRejectsStaleCandidatePermissions(t *testi
 	cache.guardVersion = 4
 	cache.dependencyVersion = 9
 	svc := NewAPIKeyService(nil, nil, nil, nil, nil, cache, nil)
-	allowRoutingUsersForTest(t, svc, 77)
 	entry := &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{
 		APIKeyID: 7, RouteVersion: 4, RoutingDependencyVersion: 8,
 	}}

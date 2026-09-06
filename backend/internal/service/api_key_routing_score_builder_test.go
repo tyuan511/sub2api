@@ -13,8 +13,16 @@ type routingScoreSourceStub struct {
 	calls      int
 	refreshes  int
 	refreshErr error
+	active     *bool
 	one        []APIKeyRoutingMetricAggregate
 	day        []APIKeyRoutingMetricAggregate
+}
+
+func (s *routingScoreSourceStub) HasActiveMultiGroupRoutes(context.Context) (bool, error) {
+	if s.active == nil {
+		return true, nil
+	}
+	return *s.active, nil
 }
 
 func (s *routingScoreSourceStub) RefreshAPIKeyRoutingMetricBuckets(context.Context, time.Time) error {
@@ -83,6 +91,80 @@ func TestBuildAPIKeyRoutingScoreSnapshotsUsesOneHourThenDayFallback(t *testing.T
 	require.Greater(t, groups[1].PriceConfidence, groups[2].PriceConfidence)
 	require.Greater(t, groups[1].NormalizedRate, 2.0)
 	require.Greater(t, groups[2].NormalizedRate, 1.0)
+}
+
+func TestBuildAPIKeyRoutingScoreSnapshotsCarriesRecentRecoverySignal(t *testing.T) {
+	now := time.Now().UTC()
+	recent := []APIKeyRoutingMetricAggregate{
+		{Platform: PlatformOpenAI, GroupID: 1, Model: "gpt-5", EndpointKind: "responses", SuccessRequests: 5, DataThrough: now},
+	}
+	oneHour := []APIKeyRoutingMetricAggregate{
+		{Platform: PlatformOpenAI, GroupID: 1, Model: "gpt-5", EndpointKind: "responses", SuccessRequests: 5, DataThrough: now},
+		{Platform: PlatformOpenAI, GroupID: 2, Model: "gpt-5", EndpointKind: "responses", SuccessRequests: 20, DataThrough: now},
+	}
+	twentyFourHours := []APIKeyRoutingMetricAggregate{
+		{Platform: PlatformOpenAI, GroupID: 1, Model: "gpt-5", EndpointKind: "responses", FailedRequests: 20, DataThrough: now},
+		{Platform: PlatformOpenAI, GroupID: 2, Model: "gpt-5", EndpointKind: "responses", SuccessRequests: 20, DataThrough: now},
+	}
+
+	snapshots := BuildAPIKeyRoutingScoreSnapshotsWithRecentPricing(context.Background(), recent, oneHour, twentyFourHours, now, nil, nil)
+	require.Len(t, snapshots, 1)
+	recovery := snapshots[0].Groups[1]
+	require.EqualValues(t, 5, recovery.RecentSuccessRequests)
+	require.Zero(t, recovery.RecentFailedRequests)
+	require.InDelta(t, 1, recovery.RecentSuccessRate, 1e-12)
+	require.True(t, recovery.RecoveryEligible)
+	require.Equal(t, APIKeyRoutingRecoveryEarlyBPS, recovery.RecoveryTrafficBPS)
+	require.EqualValues(t, 0, recovery.SuccessRequests, "the stale 24h failure history remains visible")
+	require.EqualValues(t, 20, recovery.FailedRequests)
+}
+
+func TestRankAPIKeyRoutingCandidatesAllowsRecentRecoveryButKeepsRampMetadata(t *testing.T) {
+	recentRate := 1.0
+	snapshot := &APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
+		1: {
+			GroupID: 1, SuccessRequests: 0, FailedRequests: 20,
+			RecentSuccessRequests: 5, RecentSuccessRate: recentRate, RecoveryEligible: true,
+			RecoveryTrafficBPS: APIKeyRoutingRecoveryEarlyBPS, SmoothedSuccessRate: recentRate,
+			NormalizedRate: .7, CapacityScore: 1, Confidence: 1,
+		},
+		2: {
+			GroupID: 2, SuccessRequests: 20, NormalizedRate: 1, CapacityScore: 1,
+			SmoothedSuccessRate: 1, Confidence: 1,
+		},
+	}}
+	ranked := RankAPIKeyRoutingCandidates(
+		[]APIKeyRouteCandidate{{GroupID: 1, Priority: 0}, {GroupID: 2, Priority: 1}},
+		snapshot, APIKeySmartPreferencePrice, 10,
+	)
+	require.Len(t, ranked, 2)
+	var recovered APIKeyRoutingCandidateScore
+	for _, score := range ranked {
+		if score.GroupID == 1 {
+			recovered = score
+		}
+	}
+	require.True(t, recovered.Eligible, "recent recovery may bypass the stale long-window gate")
+	require.True(t, recovered.Recovery)
+	require.Equal(t, APIKeyRoutingRecoveryEarlyBPS, recovered.RecoveryTrafficBPS)
+	// Early recovery remains confidence-shrunk; the handler's deterministic
+	// recovery budget gives it a bounded share even when the stable route still
+	// has the higher score.
+	strict := DefaultAPIKeyRoutingStrategyPolicy(APIKeySmartPreferencePrice)
+	strict.SuccessRateHardGate = .95
+	snapshot.Groups[1] = func() APIKeyRoutingGroupObservation {
+		observation := snapshot.Groups[1]
+		observation.RecentSuccessRate = .90
+		return observation
+	}()
+	strictRanked := RankAPIKeyRoutingCandidatesWithPolicy(
+		[]APIKeyRouteCandidate{{GroupID: 1}, {GroupID: 2}}, snapshot, strict,
+	)
+	for _, score := range strictRanked {
+		if score.GroupID == 1 {
+			require.False(t, score.Eligible, "recovery must not bypass a stricter user success-rate floor")
+		}
+	}
 }
 
 func TestRoutingCapacityScoreExcludesHealthFailuresAndUsesOverflow(t *testing.T) {
@@ -270,6 +352,18 @@ func TestRoutingScoreBuilderRefreshFailureDoesNotPublishIncompleteMetrics(t *tes
 	require.EqualValues(t, 1, builder.failures.Load())
 }
 
+func TestRoutingScoreBuilderSkipsAggregationWhenNoMultiGroupRouteIsActive(t *testing.T) {
+	active := false
+	source := &routingScoreSourceStub{active: &active}
+	cache := &routingScoreCacheStub{}
+	builder := NewRoutingScoreBuilder(source, cache, NewAtomicAPIKeyRoutingScoreStore(), nil, nil)
+
+	require.NoError(t, builder.BuildOnce(context.Background()))
+	require.Zero(t, source.refreshes)
+	require.Zero(t, source.calls)
+	require.Empty(t, cache.published)
+}
+
 func TestRoutingScoreBuilderFollowerLoadsSnapshotThenTakesOverAfterLeaderRelease(t *testing.T) {
 	now := time.Now().UTC()
 	current := routingScoreSnapshotForTest(now)
@@ -293,7 +387,7 @@ func TestRoutingScoreBuilderFollowerLoadsSnapshotThenTakesOverAfterLeaderRelease
 
 	peerRelease()
 	require.NoError(t, builder.BuildOnce(context.Background()))
-	require.Equal(t, 2, source.calls, "the follower must take over both 1h and 24h loads after leadership is released")
+	require.Equal(t, 3, source.calls, "the follower must take over recent, 1h, and 24h loads after leadership is released")
 	require.NotEmpty(t, cache.published)
 }
 
@@ -302,13 +396,13 @@ func TestSmoothRoutingScoreSnapshotBoundsTransientChangesButKeepsRawCounts(t *te
 	previous := &APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
 		1: {
 			GroupID: 1, SuccessRequests: 95, FailedRequests: 5, SmoothedSuccessRate: .95,
-			CapacityScore: .9, CacheHitRate: .8, NormalizedRate: 1, TTFTP50Ms: 100, DurationP50Ms: 1000,
+			CapacityScore: .9, CacheHitRate: .8, NormalizedRate: 1, TTFTAvgMs: 100, DurationAvgMs: 1000,
 		},
 	}}
 	current := &APIKeyRoutingScoreSnapshot{GeneratedAt: now, Groups: map[int64]APIKeyRoutingGroupObservation{
 		1: {
 			GroupID: 1, SuccessRequests: 40, FailedRequests: 60, SmoothedSuccessRate: .4,
-			CapacityScore: .2, CacheHitRate: .1, NormalizedRate: 3, TTFTP50Ms: 500, DurationP50Ms: 5000,
+			CapacityScore: .2, CacheHitRate: .1, NormalizedRate: 3, TTFTAvgMs: 500, DurationAvgMs: 5000,
 		},
 	}}
 
@@ -320,8 +414,8 @@ func TestSmoothRoutingScoreSnapshotBoundsTransientChangesButKeepsRawCounts(t *te
 	require.InDelta(t, .75, got.CapacityScore, 1e-9)
 	require.InDelta(t, .65, got.CacheHitRate, 1e-9)
 	require.InDelta(t, 1.25, got.NormalizedRate, 1e-9)
-	require.InDelta(t, 125, got.TTFTP50Ms, 1e-9)
-	require.InDelta(t, 1250, got.DurationP50Ms, 1e-9)
+	require.InDelta(t, 125, got.TTFTAvgMs, 1e-9)
+	require.InDelta(t, 1250, got.DurationAvgMs, 1e-9)
 }
 
 func TestRoutingHardGateUsesRawRateEvenWhenSmoothedRateIsHealthy(t *testing.T) {

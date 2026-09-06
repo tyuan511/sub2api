@@ -820,12 +820,10 @@ func ProvideAPIKeyService(
 	cfg *config.Config,
 	billingCacheService *BillingCacheService,
 	concurrencyService *ConcurrencyService,
-	routingRolloutSettings *SettingService,
 ) *APIKeyService {
 	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, userGroupRateRepo, cache, cfg)
 	svc.SetRateLimitCacheInvalidator(billingCacheService)
 	svc.SetConcurrencyService(concurrencyService)
-	svc.SetRoutingRolloutSettings(routingRolloutSettings)
 	return svc
 }
 
@@ -1078,7 +1076,7 @@ func ProvideRoutingScoreBuilder(source APIKeyRoutingScoreObservationSource, cach
 	}
 	builder := NewRoutingScoreBuilder(source, scoreCache, DefaultAPIKeyRoutingScoreStore(), lockCache, lockDB)
 	builder.SetCurrentPricing(billing, resolver)
-	if cfg != nil && cfg.Gateway.APIKeyMultiGroupRoutingEnabled && scoreCache != nil {
+	if scoreCache != nil {
 		builder.Start()
 	}
 	return builder
@@ -1095,14 +1093,12 @@ func ProvideRoutingFactRecorder(repo RoutingOptimizationRepository, stream Routi
 	recorder := NewRoutingFactRecorder(repo, stream, sampleRate)
 	// Failed attempts feed baseline success rates even with learning/experiments
 	// disabled. Only ordinary decision sampling follows the optimization switch.
-	if cfg != nil && cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
-		recorder.Start()
-	}
+	recorder.Start()
 	return recorder
 }
 
 func ProvideRoutingStrategyRuntime(cache RoutingArtifactCache, cfg *config.Config) *RoutingStrategyRuntime {
-	enabled := cfg != nil && cfg.Gateway.APIKeyMultiGroupRoutingEnabled && cfg.Gateway.APIKeyRoutingOptimizationEnabled
+	enabled := cfg != nil && cfg.Gateway.APIKeyRoutingOptimizationEnabled
 	runtime := NewRoutingStrategyRuntime(cache, enabled)
 	if enabled {
 		runtime.learning = NewRoutingLearningRuntime(
@@ -1121,7 +1117,7 @@ func ProvideRoutingStrategyRuntime(cache RoutingArtifactCache, cfg *config.Confi
 
 func ProvideRoutingCanaryMonitor(repo RoutingOptimizationRepository, manager *RoutingArtifactManager, cfg *config.Config) *RoutingCanaryMonitor {
 	monitor := NewRoutingCanaryMonitor(repo, manager)
-	if cfg != nil && cfg.Gateway.APIKeyMultiGroupRoutingEnabled && cfg.Gateway.APIKeyRoutingOptimizationEnabled {
+	if cfg != nil && cfg.Gateway.APIKeyRoutingOptimizationEnabled {
 		monitor.Start()
 	}
 	return monitor

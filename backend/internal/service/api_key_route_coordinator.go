@@ -52,18 +52,18 @@ type APIKeyRoutePlan struct {
 	apiKey *APIKey
 }
 
-// APIKeyRouteCoordinator builds request-scoped route plans. The feature flag is
-// intentionally captured at construction so the disabled path remains a small,
-// deterministic projection of the legacy group_id.
-type APIKeyRouteCoordinator struct {
-	enabled bool
+// APIKeyRouteCoordinator builds request-scoped route plans. Multi-group routing
+// is available for every user; the request's enabled candidate count decides
+// whether the plan uses the legacy single-group path or group routing.
+type APIKeyRouteCoordinator struct{}
+
+// The optional argument is retained for source compatibility with older test
+// and integration callers. It no longer controls availability.
+func NewAPIKeyRouteCoordinator(_ ...bool) *APIKeyRouteCoordinator {
+	return &APIKeyRouteCoordinator{}
 }
 
-func NewAPIKeyRouteCoordinator(enabled bool) *APIKeyRouteCoordinator {
-	return &APIKeyRouteCoordinator{enabled: enabled}
-}
-
-func (c *APIKeyRouteCoordinator) Enabled() bool { return c != nil && c.enabled }
+func (c *APIKeyRouteCoordinator) Enabled() bool { return c != nil }
 
 // BuildPlan validates and freezes the candidates visible at request start.
 // Smart mode currently uses the deterministic user order as its safe baseline;
@@ -100,9 +100,9 @@ func (c *APIKeyRouteCoordinator) BuildPlan(apiKey *APIKey, eligible APIKeyRouteE
 		plan.SmartBalanceBPS = nil
 	}
 
-	// Disabled and pre-migration paths are deliberately identical to the old
-	// behavior, including the legacy nil group_id meaning "unscoped".
-	if !c.Enabled() || len(apiKey.GroupRoutes) == 0 {
+	// Pre-migration paths deliberately retain the old behavior, including the
+	// legacy nil group_id meaning "unscoped".
+	if len(apiKey.GroupRoutes) == 0 {
 		if apiKey.GroupID == nil {
 			plan.LegacyUnscoped = true
 			return plan, nil

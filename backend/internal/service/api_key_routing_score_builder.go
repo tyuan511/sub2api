@@ -73,6 +73,15 @@ type APIKeyRoutingScoreObservationSource interface {
 	LoadAPIKeyRoutingMetricAggregates(ctx context.Context, start, end time.Time) ([]APIKeyRoutingMetricAggregate, error)
 }
 
+// APIKeyRoutingScoreActivationSource lets the production observation source
+// cheaply determine whether any key has more than one enabled route. It is an
+// optional extension so lightweight callers and test doubles keep the same
+// scoring contract. When no multi-group key exists, the builder must not scan
+// the shared usage history merely to produce an unused score catalog.
+type APIKeyRoutingScoreActivationSource interface {
+	HasActiveMultiGroupRoutes(ctx context.Context) (bool, error)
+}
+
 // RoutingBackgroundDatabase keeps the score builder's advisory-lock fallback
 // on the same bounded pool as its aggregation queries instead of consuming a
 // request-serving connection when Redis coordination is degraded.
@@ -159,6 +168,16 @@ func (b *RoutingScoreBuilder) BuildOnce(ctx context.Context) error {
 	if b == nil || b.source == nil || b.cache == nil {
 		return errors.New("routing score builder dependencies are unavailable")
 	}
+	if activation, ok := b.source.(APIKeyRoutingScoreActivationSource); ok {
+		active, err := activation.HasActiveMultiGroupRoutes(ctx)
+		if err != nil {
+			b.failures.Add(1)
+			return fmt.Errorf("check active multi-group routes: %w", err)
+		}
+		if !active {
+			return nil
+		}
+	}
 	release, acquired := tryAcquireSingletonLeaderLock(ctx, b.lock, b.db, routingScoreBuilderLeaderKey, b.owner, 2*time.Minute)
 	if !acquired {
 		return b.RefreshFromCache(ctx)
@@ -171,6 +190,14 @@ func (b *RoutingScoreBuilder) BuildOnce(ctx context.Context) error {
 		b.failures.Add(1)
 		return fmt.Errorf("refresh routing metric buckets: %w", err)
 	}
+	recent, recentErr := b.source.LoadAPIKeyRoutingMetricAggregates(ctx, now.Add(-15*time.Minute), now)
+	if recentErr != nil {
+		// Recent recovery data is an optimization signal. Keep publishing the
+		// established 1h/24h score when this auxiliary query is unavailable so a
+		// short-lived background failure cannot change the routing availability
+		// contract.
+		recent = nil
+	}
 	oneHour, err := b.source.LoadAPIKeyRoutingMetricAggregates(ctx, now.Add(-time.Hour), now)
 	if err != nil {
 		b.failures.Add(1)
@@ -181,7 +208,7 @@ func (b *RoutingScoreBuilder) BuildOnce(ctx context.Context) error {
 		b.failures.Add(1)
 		return fmt.Errorf("load 24h routing metrics: %w", err)
 	}
-	snapshots := BuildAPIKeyRoutingScoreSnapshotsWithPricing(ctx, oneHour, twentyFourHours, now, b.billing, b.resolver)
+	snapshots := BuildAPIKeyRoutingScoreSnapshotsWithRecentPricing(ctx, recent, oneHour, twentyFourHours, now, b.billing, b.resolver)
 	if len(snapshots) == 0 {
 		return nil
 	}
@@ -250,7 +277,7 @@ type routingPriceEvidence struct {
 }
 
 func BuildAPIKeyRoutingScoreSnapshots(oneHour, twentyFourHours []APIKeyRoutingMetricAggregate, now time.Time) []*APIKeyRoutingScoreSnapshot {
-	return BuildAPIKeyRoutingScoreSnapshotsWithPricing(context.Background(), oneHour, twentyFourHours, now, nil, nil)
+	return BuildAPIKeyRoutingScoreSnapshotsWithRecentPricing(context.Background(), nil, oneHour, twentyFourHours, now, nil, nil)
 }
 
 // BuildAPIKeyRoutingScoreSnapshotsWithPricing converts passive health facts and
@@ -264,6 +291,21 @@ func BuildAPIKeyRoutingScoreSnapshotsWithPricing(
 	billing *BillingService,
 	resolver *ModelPricingResolver,
 ) []*APIKeyRoutingScoreSnapshot {
+	return BuildAPIKeyRoutingScoreSnapshotsWithRecentPricing(ctx, nil, oneHour, twentyFourHours, now, billing, resolver)
+}
+
+// BuildAPIKeyRoutingScoreSnapshotsWithRecentPricing preserves the long-window
+// health decision while carrying a short recovery signal into each observation.
+// A route with poor 24h history can therefore receive a bounded new-session
+// probe after the upstream starts succeeding again.
+func BuildAPIKeyRoutingScoreSnapshotsWithRecentPricing(
+	ctx context.Context,
+	recent, oneHour, twentyFourHours []APIKeyRoutingMetricAggregate,
+	now time.Time,
+	billing *BillingService,
+	resolver *ModelPricingResolver,
+) []*APIKeyRoutingScoreSnapshot {
+	recentByKey := mergeRoutingScoreAggregates(recent)
 	short := mergeRoutingScoreAggregates(oneHour)
 	long := mergeRoutingScoreAggregates(twentyFourHours)
 	priceBaselines := buildRoutingPriceBaselines(long)
@@ -326,15 +368,27 @@ func BuildAPIKeyRoutingScoreSnapshotsWithPricing(
 				PriceConfidence:          priceConfidence,
 				PriceFallback:            !exactPrice,
 			}
+			recentAggregate := recentByKey[key]
+			observation.RecentSuccessRequests = recentAggregate.SuccessRequests
+			observation.RecentFailedRequests = recentAggregate.FailedRequests
+			observation.RecoveryEligible, observation.RecoveryTrafficBPS, observation.RecentSuccessRate = APIKeyRoutingRecoverySignal(
+				recentAggregate.SuccessRequests, recentAggregate.FailedRequests,
+			)
 			observation.DependencyDomains = boundedRoutingDependencyDomains(aggregate.Platform, aggregate.AccountPoolDomain)
 			if total > 0 {
 				observation.SmoothedSuccessRate = float64(aggregate.SuccessRequests) / float64(total)
 			}
 			if aggregate.TTFTCount > 0 {
-				observation.TTFTP50Ms = float64(aggregate.TTFTSumMs) / float64(aggregate.TTFTCount)
+				observation.TTFTAvgMs = float64(aggregate.TTFTSumMs) / float64(aggregate.TTFTCount)
 			}
 			if aggregate.DurationCount > 0 {
-				observation.DurationP50Ms = float64(aggregate.DurationSumMs) / float64(aggregate.DurationCount)
+				observation.DurationAvgMs = float64(aggregate.DurationSumMs) / float64(aggregate.DurationCount)
+			}
+			if observation.RecoveryEligible {
+				// The recent signal is used for recovery ranking; the long window
+				// remains in SuccessRequests/FailedRequests for the hard gate and
+				// explainability.
+				observation.SmoothedSuccessRate = observation.RecentSuccessRate
 			}
 			snapshot.Groups[key.groupID] = observation
 		}
@@ -579,8 +633,19 @@ func SmoothAPIKeyRoutingScoreSnapshot(previous, current *APIKeyRoutingScoreSnaps
 		next.PriceConfidence = boundedEMA(prior.PriceConfidence, next.PriceConfidence, alpha, 0.15, false)
 		next.NormalizedRate = boundedEMA(prior.NormalizedRate, next.NormalizedRate, alpha, 0.25, true)
 		next.PriceNormalizationFactor = boundedEMA(prior.PriceNormalizationFactor, next.PriceNormalizationFactor, alpha, 0.25, true)
-		next.TTFTP50Ms = boundedEMA(prior.TTFTP50Ms, next.TTFTP50Ms, alpha, 0.25, true)
-		next.DurationP50Ms = boundedEMA(prior.DurationP50Ms, next.DurationP50Ms, alpha, 0.25, true)
+		if next.TTFTAvgMs > 0 || prior.TTFTAvgMs > 0 {
+			next.TTFTAvgMs = boundedEMA(observationRoutingTTFTMs(prior), observationRoutingTTFTMs(next), alpha, 0.25, true)
+		}
+		if next.DurationAvgMs > 0 || prior.DurationAvgMs > 0 {
+			next.DurationAvgMs = boundedEMA(observationRoutingDurationMs(prior), observationRoutingDurationMs(next), alpha, 0.25, true)
+		}
+		// Preserve legacy fields when callers smooth an old snapshot directly.
+		if next.TTFTAvgMs == 0 && next.TTFTP50Ms > 0 {
+			next.TTFTP50Ms = boundedEMA(prior.TTFTP50Ms, next.TTFTP50Ms, alpha, 0.25, true)
+		}
+		if next.DurationAvgMs == 0 && next.DurationP50Ms > 0 {
+			next.DurationP50Ms = boundedEMA(prior.DurationP50Ms, next.DurationP50Ms, alpha, 0.25, true)
+		}
 		current.Groups[groupID] = next
 	}
 }

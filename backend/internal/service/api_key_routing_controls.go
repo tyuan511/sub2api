@@ -94,6 +94,46 @@ func sameAPIKeyRouteSet(a, b []APIKeyGroupRoute) bool {
 	return true
 }
 
+// apiKeyRoutingConfigurationEquivalent compares the effective persisted
+// routing configuration with the normalized update. The API accepts both the
+// legacy group_id projection and the explicit route list, so a legacy single
+// group key must compare equal to the equivalent one-item route list emitted
+// by the current UI.
+func apiKeyRoutingConfigurationEquivalent(current *APIKey, next normalizedAPIKeyRouting) bool {
+	if current == nil {
+		return false
+	}
+	currentMode := current.ScheduleMode
+	if currentMode == "" {
+		currentMode = APIKeyScheduleModeSequential
+	}
+	if currentMode != next.ScheduleMode || current.EffectiveRoutingMinSuccessRate() != next.MinSuccessRate {
+		return false
+	}
+	if !sameRouteStringPtr(current.SmartPreference, next.SmartPreference) || !sameRouteIntPtr(current.SmartBalanceBPS, next.SmartBalanceBPS) {
+		return false
+	}
+	currentRoutes := current.GroupRoutes
+	if len(currentRoutes) == 0 && current.GroupID != nil && *current.GroupID > 0 {
+		currentRoutes = []APIKeyGroupRoute{{GroupID: *current.GroupID, Priority: 0, Enabled: true}}
+	}
+	return sameAPIKeyRouteSet(currentRoutes, next.Routes)
+}
+
+func sameRouteStringPtr(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func sameRouteIntPtr(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
 func apiKeyRoutingRuntimeVersion(ctx context.Context, id, version int64) int64 {
 	if state, ok := apiKeyRouteRequestRuntimeStateFromContext(ctx); ok && state.APIKeyID == id && state.RouteVersion == version && state.RoutingStateVersion > 0 {
 		return state.RoutingStateVersion
@@ -133,6 +173,28 @@ func apiKeyRoutingBelowSharedGate(ctx context.Context, groupID int64, model, end
 	if !ok {
 		return false
 	}
+	if apiKeyRoutingRecoveryOverride(observation, minimum) {
+		return false
+	}
 	total := observation.SuccessRequests + observation.FailedRequests
 	return total >= int64(samples) && observation.SuccessRequests*100 < total*int64(minimum)
+}
+
+func apiKeyRoutingRecoveryOverride(observation APIKeyRoutingGroupObservation, minimum int) bool {
+	return observation.RecoveryEligible && observation.RecoveryTrafficBPS > 0 &&
+		observation.RecentSuccessRate >= float64(minimum)/100
+}
+
+func apiKeyRoutingRecoveryOverrideForContext(ctx context.Context, groupID int64, model, endpoint string, minimum int) bool {
+	state, ok := apiKeyRouteRequestRuntimeStateFromContext(ctx)
+	if !ok || groupID <= 0 {
+		return false
+	}
+	scope := APIKeyRoutingScoreScope{Platform: state.Platform, ModelFamily: model, EndpointKind: endpoint}
+	snapshot, ok := DefaultAPIKeyRoutingScoreStore().Lookup(scope, 180*time.Second, time.Now())
+	if !ok {
+		return false
+	}
+	observation, ok := snapshot.Groups[groupID]
+	return ok && apiKeyRoutingRecoveryOverride(observation, minimum)
 }

@@ -18,6 +18,9 @@ type routingScoreObservationSource struct {
 	queryTimeout time.Duration
 	refreshMu    sync.Mutex
 	backfillEnd  time.Time
+	activationMu sync.Mutex
+	activationAt time.Time
+	activeRoutes bool
 }
 
 const (
@@ -25,7 +28,53 @@ const (
 	routingMetricBackfillStep = 30 * time.Minute
 	routingMetricHistory      = 24 * time.Hour
 	routingMetricRetention    = 7 * 24 * time.Hour
+	routingActivationCacheTTL = 30 * time.Second
 )
+
+// HasActiveMultiGroupRoutes is deliberately a small indexed existence query.
+// Its short cache prevents every follower from touching PostgreSQL on every
+// builder tick while still noticing the first multi-group key promptly.
+func (s *routingScoreObservationSource) HasActiveMultiGroupRoutes(ctx context.Context) (bool, error) {
+	if s == nil || s.db == nil {
+		return false, errors.New("routing score observation database unavailable")
+	}
+	now := time.Now()
+	s.activationMu.Lock()
+	if !s.activationAt.IsZero() && now.Sub(s.activationAt) < routingActivationCacheTTL {
+		active := s.activeRoutes
+		s.activationMu.Unlock()
+		return active, nil
+	}
+	s.activationMu.Unlock()
+
+	queryCtx, cancel := s.withQueryTimeout(ctx)
+	defer cancel()
+	var active bool
+	err := s.db.QueryRowContext(queryCtx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM api_key_group_routes first_route
+			JOIN api_keys k ON k.id = first_route.api_key_id
+			WHERE first_route.enabled
+			  AND k.deleted_at IS NULL
+			  AND k.status = 'active'
+			  AND EXISTS (
+				SELECT 1
+				FROM api_key_group_routes next_route
+				WHERE next_route.api_key_id = first_route.api_key_id
+				  AND next_route.enabled
+				  AND next_route.id <> first_route.id
+			  )
+		)`).Scan(&active)
+	if err != nil {
+		return false, err
+	}
+	s.activationMu.Lock()
+	s.activeRoutes = active
+	s.activationAt = now
+	s.activationMu.Unlock()
+	return active, nil
+}
 
 // RefreshAPIKeyRoutingMetricBuckets runs under the score builder's singleton
 // lease, using only its dedicated background pool. Channel Monitor V1/V2/off

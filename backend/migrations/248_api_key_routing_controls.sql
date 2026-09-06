@@ -4,13 +4,17 @@ ALTER TABLE api_keys
     ADD COLUMN routing_min_success_rate integer NOT NULL DEFAULT 50,
     ADD COLUMN routing_state_version bigint NOT NULL DEFAULT 1;
 
-UPDATE api_keys SET routing_state_version = route_version;
+-- Fresh columns default to 1. Only keys whose route version already advanced
+-- need a write, avoiding a full-table rewrite and preserving short row locks.
+UPDATE api_keys
+SET routing_state_version = route_version
+WHERE routing_state_version IS DISTINCT FROM route_version;
 
 ALTER TABLE api_keys
-    ADD CONSTRAINT api_keys_smart_balance_bps_check CHECK (smart_balance_bps BETWEEN 0 AND 10000),
+    ADD CONSTRAINT api_keys_smart_balance_bps_check CHECK (smart_balance_bps BETWEEN 0 AND 10000) NOT VALID,
     ADD CONSTRAINT api_keys_routing_min_success_rate_check CHECK
-        (routing_min_success_rate BETWEEN 50 AND 95 AND routing_min_success_rate % 5 = 0),
-    ADD CONSTRAINT api_keys_routing_state_version_check CHECK (routing_state_version > 0);
+        (routing_min_success_rate BETWEEN 50 AND 95 AND routing_min_success_rate % 5 = 0) NOT VALID,
+    ADD CONSTRAINT api_keys_routing_state_version_check CHECK (routing_state_version > 0) NOT VALID;
 
 -- Config edits still increment route_version and use the existing transactional
 -- auth invalidation/outbox. This trigger also protects direct administrative SQL.

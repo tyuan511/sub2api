@@ -328,8 +328,18 @@ func applyAPIKeyRoutingPredictionModelWithClock(snapshot *APIKeyRoutingScoreSnap
 		}
 		updated := observation
 		updated.SmoothedSuccessRate = routeClamp01(observation.SmoothedSuccessRate + outputs[routingModelOutputSuccess])
-		updated.TTFTP50Ms = nonNegativeFiniteOr(observation.TTFTP50Ms*(1+outputs[routingModelOutputTTFT]), observation.TTFTP50Ms)
-		updated.DurationP50Ms = nonNegativeFiniteOr(observation.DurationP50Ms*(1+outputs[routingModelOutputDuration]), observation.DurationP50Ms)
+		ttft := observationRoutingTTFTMs(observation)
+		duration := observationRoutingDurationMs(observation)
+		if observation.TTFTAvgMs > 0 {
+			updated.TTFTAvgMs = nonNegativeFiniteOr(ttft*(1+outputs[routingModelOutputTTFT]), ttft)
+		} else {
+			updated.TTFTP50Ms = nonNegativeFiniteOr(ttft*(1+outputs[routingModelOutputTTFT]), ttft)
+		}
+		if observation.DurationAvgMs > 0 {
+			updated.DurationAvgMs = nonNegativeFiniteOr(duration*(1+outputs[routingModelOutputDuration]), duration)
+		} else {
+			updated.DurationP50Ms = nonNegativeFiniteOr(duration*(1+outputs[routingModelOutputDuration]), duration)
+		}
 		updated.CapacityScore = routeClamp01(observation.CapacityScore - outputs[routingModelOutputOverflow])
 		updated.CacheHitRate = routeClamp01(observation.CacheHitRate + outputs[routingModelOutputCacheHit])
 		updated.NormalizedRate = nonNegativeFiniteOr(observation.NormalizedRate*(1+outputs[routingModelOutputNormalizedCost]), observation.NormalizedRate)
@@ -350,10 +360,12 @@ func routingPredictionFeatures(observation APIKeyRoutingGroupObservation, requir
 	if success == 0 && total > 0 {
 		success = float64(observation.SuccessRequests) / float64(total)
 	}
+	ttft := observationRoutingTTFTMs(observation)
+	duration := observationRoutingDurationMs(observation)
 	all := map[string]float64{
 		routingModelFeatureSuccess:         success,
-		routingModelFeatureTTFT:            math.Log1p(observation.TTFTP50Ms) / 10,
-		routingModelFeatureDuration:        math.Log1p(observation.DurationP50Ms) / 12,
+		routingModelFeatureTTFT:            math.Log1p(ttft) / 10,
+		routingModelFeatureDuration:        math.Log1p(duration) / 12,
 		routingModelFeatureCapacity:        observation.CapacityScore,
 		routingModelFeatureCacheHit:        observation.CacheHitRate,
 		routingModelFeatureNormalizedCost:  math.Log1p(observation.NormalizedRate) / 4,
@@ -365,8 +377,8 @@ func routingPredictionFeatures(observation APIKeyRoutingGroupObservation, requir
 		value, exists := all[feature]
 		if !exists || math.IsNaN(value) || math.IsInf(value, 0) ||
 			(feature == routingModelFeatureSuccess && total == 0) ||
-			(feature == routingModelFeatureTTFT && observation.TTFTP50Ms <= 0) ||
-			(feature == routingModelFeatureDuration && observation.DurationP50Ms <= 0) ||
+			(feature == routingModelFeatureTTFT && ttft <= 0) ||
+			(feature == routingModelFeatureDuration && duration <= 0) ||
 			(feature == routingModelFeatureNormalizedCost && observation.NormalizedRate <= 0) {
 			return nil, false
 		}

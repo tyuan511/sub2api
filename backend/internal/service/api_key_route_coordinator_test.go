@@ -12,7 +12,7 @@ func routeTestGroup(id int64, platform, billing, status string) *Group {
 	return &Group{ID: id, Name: "group", Platform: platform, SubscriptionType: billing, Status: status}
 }
 
-func TestAPIKeyRouteCoordinator_DisabledPreservesLegacyProjection(t *testing.T) {
+func TestAPIKeyRouteCoordinatorAlwaysUsesConfiguredCandidates(t *testing.T) {
 	group := routeTestGroup(10, PlatformOpenAI, SubscriptionTypeStandard, StatusActive)
 	groupID := group.ID
 	key := &APIKey{
@@ -23,11 +23,12 @@ func TestAPIKeyRouteCoordinator_DisabledPreservesLegacyProjection(t *testing.T) 
 		},
 	}
 
-	plan, err := NewAPIKeyRouteCoordinator(false).BuildPlan(key, nil)
+	plan, err := NewAPIKeyRouteCoordinator().BuildPlan(key, nil)
 	require.NoError(t, err)
-	require.False(t, plan.RoutingEnabled)
-	require.Len(t, plan.Candidates, 1)
+	require.True(t, plan.RoutingEnabled)
+	require.Len(t, plan.Candidates, 2)
 	require.Equal(t, int64(10), plan.Candidates[0].GroupID)
+	require.Equal(t, int64(20), plan.Candidates[1].GroupID)
 }
 
 func TestAPIKeyRouteCoordinator_PreservesLegacyUnscopedKey(t *testing.T) {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -229,6 +230,63 @@ func TestAPIKeyRouteRuntimeSmartOrderIsFrozenForRequest(t *testing.T) {
 	require.Equal(t, 1, state.SwitchCount)
 }
 
+func TestAPIKeyRouteRuntimeUsesRecentRecoveryForCheaperNewSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	primaryID, recoveredID := int64(141), int64(142)
+	pref := service.APIKeySmartPreferencePrice
+	routes := []service.APIKeyGroupRoute{
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: recoveredID, Priority: 1, Enabled: true, Group: &service.Group{ID: recoveredID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+	}
+	apiKey := &service.APIKey{ID: 139, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 137}, RouteVersion: 1,
+		ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	store := service.DefaultAPIKeyRoutingScoreStore()
+	require.NoError(t, store.Replace([]*service.APIKeyRoutingScoreSnapshot{{
+		Version: "recovery-score", StrategyVersion: "recovery-strategy", FeatureVersion: "recovery-feature",
+		Platform: service.PlatformOpenAI, ModelFamily: "gpt-5", EndpointKind: "responses", GeneratedAt: now,
+		Groups: map[int64]service.APIKeyRoutingGroupObservation{
+			primaryID: {
+				GroupID: primaryID, SuccessRequests: 0, FailedRequests: 20, NormalizedRate: 1,
+				Confidence: 1, CapacityScore: 1, SmoothedSuccessRate: 0,
+			},
+			recoveredID: {
+				GroupID: recoveredID, SuccessRequests: 0, FailedRequests: 20, NormalizedRate: .7,
+				RecentSuccessRequests: 5, RecentSuccessRate: 1, RecoveryEligible: true,
+				RecoveryTrafficBPS: service.APIKeyRoutingRecoveryEarlyBPS, Confidence: 1, CapacityScore: 1,
+			},
+		},
+	}}))
+	t.Cleanup(func() { _ = store.Replace(nil) })
+
+	var sessionHash string
+	for index := 0; index < 10000; index++ {
+		candidate := fmt.Sprintf("recovery-session-%d", index)
+		if service.APIKeyRoutingRecoveryTrafficAllowed(apiKey.ID, recoveredID, candidate, service.APIKeyRoutingRecoveryEarlyBPS) {
+			sessionHash = candidate
+			break
+		}
+	}
+	require.NotEmpty(t, sessionHash)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	actual, _, ranked, changed, err := (apiKeyRouteRuntime{}).activateSmart(c, apiKey, "gpt-5", "/v1/responses", sessionHash, nil)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, recoveredID, *actual.GroupID, "a recovered cheaper candidate should serve the admitted new-session subset")
+	for _, score := range ranked {
+		if score.GroupID == recoveredID {
+			require.True(t, score.Recovery)
+			require.True(t, score.Eligible)
+		}
+	}
+}
+
 func TestAPIKeyRouteSmartControlsCannotReviveBelowThresholdWithoutProbe(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	pref, balance := service.APIKeySmartPreferencePrice, 0
@@ -334,6 +392,40 @@ func TestSmartCanarySelectionOnlyAppliesToNewSession(t *testing.T) {
 	require.False(t, shouldActivateSmartRoute(c, true, false), "accepted healthy sticky session must bypass canary strategy selection")
 	require.True(t, shouldActivateSmartRoute(c, false, false), "new session may use the active/canary strategy")
 	require.False(t, shouldActivateSmartRoute(c, false, true), "Redis route-state failure must degrade to frozen sequential order")
+}
+
+func TestRecoveryTrafficBudgetKeepsRecoveredCheapRouteOnNewSessionSubset(t *testing.T) {
+	apiKeyID, recoveryGroupID := int64(91), int64(7)
+	ranked := []service.APIKeyRoutingCandidateScore{
+		{GroupID: recoveryGroupID, Eligible: true, Recovery: true, RecoveryTrafficBPS: service.APIKeyRoutingRecoveryEarlyBPS},
+		{GroupID: 8, Eligible: true},
+	}
+
+	var allowedHash, deniedHash string
+	for index := 0; index < 10000 && (allowedHash == "" || deniedHash == ""); index++ {
+		hash := fmt.Sprintf("new-session-%d", index)
+		if service.APIKeyRoutingRecoveryTrafficAllowed(apiKeyID, recoveryGroupID, hash, service.APIKeyRoutingRecoveryEarlyBPS) {
+			allowedHash = hash
+		} else {
+			deniedHash = hash
+		}
+	}
+	require.NotEmpty(t, allowedHash)
+	require.NotEmpty(t, deniedHash)
+
+	allowed := applyAPIKeyRoutingRecoveryTrafficBudget(apiKeyID, allowedHash, ranked)
+	require.True(t, allowed[0].Eligible)
+	require.True(t, allowed[0].Recovery)
+
+	denied := applyAPIKeyRoutingRecoveryTrafficBudget(apiKeyID, deniedHash, ranked)
+	require.False(t, denied[0].Eligible)
+	require.Equal(t, "recovery_traffic_budget", denied[0].Exclusion)
+	require.True(t, denied[1].Eligible, "a stable candidate remains available when the recovery subset is not selected")
+	prioritized := prioritizeAPIKeyRoutingRecoveryForPrice([]service.APIKeyRoutingCandidateScore{
+		{GroupID: 8, Eligible: true, NormalizedRate: 1},
+		{GroupID: recoveryGroupID, Eligible: true, Recovery: true, NormalizedRate: .7},
+	})
+	require.Equal(t, recoveryGroupID, prioritized[0].GroupID)
 }
 
 func TestActiveFallbackStickyDrainsUntilThatRouteFails(t *testing.T) {

@@ -272,7 +272,6 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 		c.Request = c.Request.WithContext(newPricingCtx)
 		pricingAt = newPricingAt
-		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)

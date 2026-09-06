@@ -156,8 +156,14 @@ func (f *fakeConcurrencyCache) CleanupExpiredAccountSlots(context.Context, int64
 func (f *fakeConcurrencyCache) CleanupExpiredAccountSlotKeys(context.Context) error     { return nil }
 func (f *fakeConcurrencyCache) CleanupStaleProcessSlots(context.Context, string) error  { return nil }
 
-func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*service.Account) (*GatewayHandler, func()) {
+func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*service.Account, caches ...service.GatewayCache) (*GatewayHandler, func()) {
 	t.Helper()
+	var gatewayCache service.GatewayCache
+	var gatewayConcurrency *service.ConcurrencyService
+	if len(caches) > 0 {
+		gatewayCache = caches[0]
+		gatewayConcurrency = service.NewConcurrencyService(&fakeConcurrencyCache{})
+	}
 
 	schedulerCache := &fakeSchedulerCache{accounts: accounts}
 	schedulerSnapshot := service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil)
@@ -170,27 +176,27 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 		nil, // userRepo
 		nil, // userSubRepo
 		nil, // userGroupRateRepo
-		nil, // cache (disable sticky)
+		gatewayCache,
 		nil, // cfg
 		schedulerSnapshot,
-		nil, // concurrencyService (disable load-aware; tryAcquire always acquired)
-		nil, // billingService
-		nil, // rateLimitService
-		nil, // billingCacheService
-		nil, // identityService
-		nil, // httpUpstream
-		nil, // deferredService
-		nil, // claudeTokenProvider
-		nil, // sessionLimitCache
-		nil, // rpmCache
-		nil, // digestStore
-		nil, // settingService
-		nil, // tlsFPProfileService
-		nil, // channelService
-		nil, // resolver
-		nil, // compositeResolver
-		nil, // balanceNotifyService
-		nil, // userPlatformQuotaRepo
+		gatewayConcurrency, // enable the production load-aware path for sticky tests
+		nil,                // billingService
+		nil,                // rateLimitService
+		nil,                // billingCacheService
+		nil,                // identityService
+		nil,                // httpUpstream
+		nil,                // deferredService
+		nil,                // claudeTokenProvider
+		nil,                // sessionLimitCache
+		nil,                // rpmCache
+		nil,                // digestStore
+		nil,                // settingService
+		nil,                // tlsFPProfileService
+		nil,                // channelService
+		nil,                // resolver
+		nil,                // compositeResolver
+		nil,                // balanceNotifyService
+		nil,                // userPlatformQuotaRepo
 	)
 
 	// RunModeSimple：跳过计费检查，避免引入 repo/cache 依赖。

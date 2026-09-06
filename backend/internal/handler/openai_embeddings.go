@@ -193,7 +193,6 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		lastFailoverErr = nil
-		switchCount = 0
 		reqLog.Info("openai_embeddings.api_key_group_route_switched", zap.Int64p("actual_group_id", apiKey.GroupID))
 		return true, nil
 	}

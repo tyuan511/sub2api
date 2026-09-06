@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -154,6 +155,35 @@ func TestNewFailoverState(t *testing.T) {
 		fs := NewFailoverState(0, false)
 		require.Equal(t, 0, fs.MaxSwitches)
 	})
+}
+
+func TestRequestFailoverTransitionBudgetIsSharedAcrossGroupStateResets(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	budget := failoverTransitionBudgetFor(c, 2)
+	first := NewFailoverState(2, false)
+	first.transitionBudget = budget
+	require.True(t, reserveFailoverTransition(c))
+	second := NewFailoverState(2, false)
+	second.transitionBudget = failoverTransitionBudgetFor(c, 2)
+	require.Same(t, first.transitionBudget, second.transitionBudget)
+	require.True(t, reserveFailoverTransition(c))
+	require.False(t, reserveFailoverTransition(c))
+
+	upgradeContext, _ := gin.CreateTestContext(httptest.NewRecorder())
+	upgrade := failoverTransitionBudgetFor(upgradeContext, 2)
+	require.Same(t, upgrade, failoverTransitionBudgetFor(upgradeContext, 5))
+	require.Equal(t, 5, upgrade.max, "a later route state may add its account allowance")
+}
+
+func TestNewFailoverStateForRequestCombinesAccountAndGroupBudgets(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: &service.APIKeyRoutePlan{
+		RoutingEnabled: true,
+		Candidates:     make([]service.APIKeyRouteCandidate, 3),
+	}})
+	state := NewFailoverStateForRequest(c, 3, false)
+	require.NotNil(t, state.transitionBudget)
+	require.Equal(t, 5, state.transitionBudget.max, "three account switches plus two group transitions")
 }
 
 // ---------------------------------------------------------------------------
@@ -685,6 +715,21 @@ func TestHandleFailoverError_ContextCanceled(t *testing.T) {
 // ---------------------------------------------------------------------------
 // HandleFailoverError — FailedAccountIDs 跟踪
 // ---------------------------------------------------------------------------
+
+func TestHandleFailoverErrorReservesDeadlineForNextAccount(t *testing.T) {
+	mock := &mockTempUnscheduler{}
+	fs := NewFailoverState(3, false)
+	err := newTestFailoverErr(400, true, false)
+	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	defer cancel()
+
+	started := time.Now()
+	action := fs.HandleFailoverError(ctx, mock, 100, "openai", maxSameAccountRetries, err)
+	require.Equal(t, FailoverContinue, action)
+	require.Equal(t, 0, fs.SameAccountRetryCount[100], "the retry delay would leave no reserve for the next account")
+	require.Equal(t, 1, fs.SwitchCount)
+	require.Less(t, time.Since(started), 300*time.Millisecond)
+}
 
 func TestHandleFailoverError_FailedAccountIDs(t *testing.T) {
 	t.Run("切换时添加到失败列表", func(t *testing.T) {

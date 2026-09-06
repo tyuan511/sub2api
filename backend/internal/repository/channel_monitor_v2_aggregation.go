@@ -11,6 +11,21 @@ import (
 const channelMonitorV2PlatformSQL = `lower(` + usageLogEffectivePlatformExpr + `)`
 const channelMonitorV2ModelSQL = `COALESCE(NULLIF(TRIM(ul.requested_model), ''), NULLIF(TRIM(ul.model), ''), 'unknown')`
 
+// Routing scores are only useful for keys that can actually choose between
+// groups. Keeping this set in the SQL makes the background rebuild avoid
+// scanning single-group traffic while retaining the existing group-level
+// score shape shared by all eligible keys.
+const apiKeyRoutingActiveMultiGroupKeysSQL = `(
+  SELECT first_route.api_key_id
+  FROM api_key_group_routes first_route
+  JOIN api_keys routing_key ON routing_key.id = first_route.api_key_id
+  WHERE first_route.enabled
+    AND routing_key.deleted_at IS NULL
+    AND routing_key.status = 'active'
+  GROUP BY first_route.api_key_id
+  HAVING COUNT(*) > 1
+) AS routing_keys`
+
 // Tiered retention balances UI windows against storage:
 //
 //	1m facts  → short (late writes + rebuild rollups)
@@ -226,6 +241,7 @@ SELECT date_trunc('minute', ul.created_at), %s, ul.group_id, %s, %s,
        COALESCE(SUM(GREATEST(ul.duration_ms, 0)) FILTER (WHERE ul.duration_ms IS NOT NULL), 0),
        COUNT(ul.duration_ms), NOW()
 FROM usage_logs ul
+JOIN ` + apiKeyRoutingActiveMultiGroupKeysSQL + ` ON routing_keys.api_key_id = ul.api_key_id
 LEFT JOIN groups g ON g.id = ul.group_id
 LEFT JOIN accounts a ON a.id = ul.account_id
 WHERE ul.is_monitor = FALSE
@@ -247,13 +263,14 @@ ON CONFLICT (bucket_start, platform, group_id, model, endpoint_kind) DO UPDATE S
 // can affect the capacity dimension without falsely tripping the <50% breaker.
 const apiKeyRoutingHealthFailureMetricsSQL = `
 WITH categorized AS (
-  SELECT date_trunc('minute', occurred_at) AS bucket_start,
-         platform, attempted_group_id AS group_id, model_family AS model,
-         endpoint_kind, outcome_category, COUNT(*) AS requests
-  FROM routing_attempts
-  WHERE occurred_at >= $1 AND occurred_at < $2
-    AND attempted_group_id IS NOT NULL AND attempted_group_id > 0
-    AND outcome_category IN ('route_attempt_failed', 'capacity_overflow')
+  SELECT date_trunc('minute', attempts.occurred_at) AS bucket_start,
+         attempts.platform, attempts.attempted_group_id AS group_id, attempts.model_family AS model,
+         attempts.endpoint_kind, attempts.outcome_category, COUNT(*) AS requests
+  FROM routing_attempts attempts
+  JOIN ` + apiKeyRoutingActiveMultiGroupKeysSQL + ` ON routing_keys.api_key_id = attempts.api_key_id
+  WHERE attempts.occurred_at >= $1 AND attempts.occurred_at < $2
+    AND attempts.attempted_group_id IS NOT NULL AND attempts.attempted_group_id > 0
+    AND attempts.outcome_category IN ('route_attempt_failed', 'capacity_overflow')
   GROUP BY 1, 2, 3, 4, 5, 6
 ), scoped AS (
   SELECT bucket_start, platform, group_id, model, endpoint_kind,
@@ -326,6 +343,7 @@ SELECT date_trunc('minute', ul.created_at), %s, ul.group_id, %s,
        SUM(routing_usage.cache_creation_5m_tokens), SUM(routing_usage.cache_creation_1h_tokens),
        SUM(routing_usage.cache_read_tokens), SUM(routing_usage.image_output_tokens), NOW()
 FROM usage_logs ul
+JOIN ` + apiKeyRoutingActiveMultiGroupKeysSQL + ` ON routing_keys.api_key_id = ul.api_key_id
 LEFT JOIN groups g ON g.id = ul.group_id
 LEFT JOIN accounts a ON a.id = ul.account_id
 CROSS JOIN LATERAL (

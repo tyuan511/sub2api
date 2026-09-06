@@ -193,7 +193,12 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageOutputTokens:   result.Usage.ImageOutputTokens,
 	}
 	actualTokens := tokens
-	cacheCompensationTokens := ForceCacheBillingInputTokens(ctx, actualInputTokens)
+	// OpenAI historically did not apply the account-level force-cache flag.
+	// Only the explicitly admitted cross-group compensation may change cost.
+	cacheCompensationTokens := 0
+	if IsAPIKeyGroupCacheCompensation(ctx) {
+		cacheCompensationTokens = ForceCacheBillingInputTokens(ctx, actualInputTokens)
+	}
 	if cacheCompensationTokens > 0 {
 		tokens.InputTokens -= cacheCompensationTokens
 		tokens.CacheReadTokens += cacheCompensationTokens

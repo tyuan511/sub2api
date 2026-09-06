@@ -442,7 +442,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	hasBoundSession := sessionKey != "" && sessionBoundAccountID > 0
 	cleanedForUnknownBinding := false
 
-	fs := NewFailoverState(h.maxAccountSwitchesGemini, hasBoundSession)
+	fs := NewFailoverStateForRequest(c, h.maxAccountSwitchesGemini, hasBoundSession)
 
 	// 单账号分组提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
 	// 避免单账号分组收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
@@ -494,7 +494,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				authSubject.UserID, apiKey.ID, ip.GetClientIP(c), c.GetHeader("User-Agent"), apiKey.Group.Platform, modelName,
 			)
 		}
-		fs = NewFailoverState(h.maxAccountSwitchesGemini, hasBoundSession)
+		fs = NewFailoverStateForRequest(c, h.maxAccountSwitchesGemini, hasBoundSession)
 		ctx := service.WithSingleAccountRetry(c.Request.Context(), false, h.metadataBridgeEnabled())
 		if h.gatewayService.IsSingleAntigravityAccountGroup(ctx, apiKey.GroupID) {
 			ctx = service.WithSingleAccountRetry(ctx, true, h.metadataBridgeEnabled())

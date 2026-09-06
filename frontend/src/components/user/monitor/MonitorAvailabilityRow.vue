@@ -2,24 +2,25 @@
   <div class="mt-5 grid grid-cols-1 gap-4 py-4 sm:grid-cols-3 sm:divide-x sm:divide-gray-100 dark:sm:divide-dark-700/70">
     <div class="min-w-0 sm:pr-3">
       <div class="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
-        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500"></span>
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="availabilityBarClass"></span>
         <span class="truncate" :title="windowLabel">{{ windowLabel }}</span>
       </div>
       <div class="mt-2 flex min-w-0 items-baseline gap-1">
         <span
           class="min-w-0 truncate whitespace-nowrap font-mono text-[clamp(1.15rem,1.7vw,1.5rem)] font-semibold tabular-nums leading-none tracking-tight"
-          :style="colorStyle"
+          :class="availabilityTextClass"
         >
           {{ displayValue }}
         </span>
         <span
           class="flex-shrink-0 text-xs font-medium leading-none"
-          :style="colorStyle"
+          :class="availabilityTextClass"
         >%</span>
       </div>
       <div class="mt-3 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
         <span
           class="block h-full rounded-full transition-[width,background-color] duration-500"
+          :class="availabilityBarClass"
           :style="availabilityBarStyle"
         ></span>
       </div>
@@ -27,7 +28,7 @@
 
     <div class="min-w-0 sm:px-3">
       <div class="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
-        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary-500"></span>
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="firstTokenBarClass"></span>
         {{ t('monitorCommon.firstToken') }}
       </div>
       <div class="mt-2 flex min-w-0 items-baseline gap-1">
@@ -37,7 +38,7 @@
         >
           {{ firstTokenDisplayValue }}
         </span>
-        <span class="flex-shrink-0 text-xs font-medium leading-none text-gray-400">ms</span>
+        <span class="flex-shrink-0 text-xs font-medium leading-none" :class="firstTokenColorClass">ms</span>
       </div>
       <div class="mt-3 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
         <span class="block h-full w-full rounded-full" :class="firstTokenBarClass"></span>
@@ -46,24 +47,25 @@
 
     <div class="min-w-0 sm:pl-3">
       <div class="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
-        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-500"></span>
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="cacheBarClass"></span>
         {{ t('monitorCommon.cacheHitRate') }}
       </div>
       <div class="mt-2 flex min-w-0 items-baseline gap-1">
         <span
           class="min-w-0 truncate whitespace-nowrap font-mono text-[clamp(1.15rem,1.7vw,1.5rem)] font-semibold tabular-nums leading-none tracking-tight"
-          :style="cacheColorStyle"
+          :class="cacheTextClass"
         >
           {{ cacheDisplayValue }}
         </span>
         <span
           class="flex-shrink-0 text-xs font-medium leading-none"
-          :style="cacheColorStyle"
+          :class="cacheTextClass"
         >%</span>
       </div>
       <div class="mt-3 h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
         <span
           class="block h-full rounded-full transition-[width,background-color] duration-500"
+          :class="cacheBarClass"
           :style="cacheBarStyle"
         ></span>
       </div>
@@ -80,8 +82,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { hslForPct } from '@/composables/useChannelMonitorFormat'
-import { firstTokenSeverity, LATENCY_BAR_CLASSES, LATENCY_TEXT_CLASSES } from '@/utils/latencyHealth'
+import {
+  firstTokenSeverity,
+  LATENCY_BAR_CLASSES,
+  LATENCY_TEXT_CLASSES,
+  rateSeverity,
+} from '@/utils/latencyHealth'
 
 const props = defineProps<{
   windowLabel: string
@@ -98,29 +104,36 @@ const displayValue = computed(() => {
   return props.value.toFixed(2)
 })
 
-const colorStyle = computed(() => {
-  const colour = hslForPct(props.value)
-  return colour ? { color: colour } : { color: 'rgb(156 163 175)' }
-})
-
 const cacheDisplayValue = computed(() => {
   if (props.cacheHitRate === null || Number.isNaN(props.cacheHitRate)) return t('monitorCommon.metricEmpty')
   return props.cacheHitRate.toFixed(2)
 })
 
-const cacheColorStyle = computed(() => {
-  const colour = hslForPct(props.cacheHitRate)
-  return colour ? { color: colour } : { color: 'rgb(156 163 175)' }
-})
+const availabilitySeverity = computed(() => rateSeverity(props.value))
+const cacheSeverity = computed(() => rateSeverity(props.cacheHitRate))
+
+const availabilityTextClass = computed(() =>
+  availabilitySeverity.value ? LATENCY_TEXT_CLASSES[availabilitySeverity.value] : 'text-gray-400 dark:text-gray-500',
+)
+
+const availabilityBarClass = computed(() =>
+  availabilitySeverity.value ? LATENCY_BAR_CLASSES[availabilitySeverity.value] : 'bg-gray-300 dark:bg-dark-600',
+)
+
+const cacheTextClass = computed(() =>
+  cacheSeverity.value ? LATENCY_TEXT_CLASSES[cacheSeverity.value] : 'text-gray-400 dark:text-gray-500',
+)
+
+const cacheBarClass = computed(() =>
+  cacheSeverity.value ? LATENCY_BAR_CLASSES[cacheSeverity.value] : 'bg-gray-300 dark:bg-dark-600',
+)
 
 const availabilityBarStyle = computed(() => ({
   width: percentageWidth(props.value),
-  backgroundColor: colorStyle.value.color,
 }))
 
 const cacheBarStyle = computed(() => ({
   width: percentageWidth(props.cacheHitRate),
-  backgroundColor: cacheColorStyle.value.color,
 }))
 
 const firstTokenDisplayValue = computed(() => {

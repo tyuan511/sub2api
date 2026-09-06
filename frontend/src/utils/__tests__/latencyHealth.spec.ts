@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { durationSeverity, firstTokenSeverity } from '../latencyHealth'
+import { durationSeverity, firstTokenSeverity, rateSeverity } from '../latencyHealth'
 
 describe('latencyHealth', () => {
   it('classifies first-token latency at 10s/30s/60s boundaries', () => {
@@ -21,5 +21,17 @@ describe('latencyHealth', () => {
     expect(durationSeverity(180_000)).toBe('slow')
     expect(durationSeverity(299_999)).toBe('slow')
     expect(durationSeverity(300_000)).toBe('critical')
+  })
+
+  it('classifies higher-is-better rates with the shared four-level palette', () => {
+    expect(rateSeverity(100)).toBe('good')
+    expect(rateSeverity(80)).toBe('good')
+    expect(rateSeverity(79.99)).toBe('warn')
+    expect(rateSeverity(50)).toBe('warn')
+    expect(rateSeverity(49.99)).toBe('slow')
+    expect(rateSeverity(20)).toBe('slow')
+    expect(rateSeverity(19.99)).toBe('critical')
+    expect(rateSeverity(null)).toBeNull()
+    expect(rateSeverity(Number.NaN)).toBeNull()
   })
 })

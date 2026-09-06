@@ -28,16 +28,6 @@ type APIKeyGroupRouteRequest struct {
 	Priority int   `json:"priority"`
 }
 
-// Capability is scoped to the authenticated user; never expose the allowlist.
-func (h *APIKeyHandler) GetRoutingCapabilities(c *gin.Context) {
-	subject, ok := middleware2.GetAuthSubjectFromContext(c)
-	if !ok {
-		response.Unauthorized(c, "Unauthorized")
-		return
-	}
-	response.Success(c, gin.H{"multi_group_routing_enabled": h.apiKeyService.IsRoutingEnabledForUser(c.Request.Context(), subject.UserID)})
-}
-
 // NewAPIKeyHandler creates a new APIKeyHandler
 func NewAPIKeyHandler(apiKeyService *service.APIKeyService) *APIKeyHandler {
 	return &APIKeyHandler{

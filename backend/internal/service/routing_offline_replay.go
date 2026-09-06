@@ -290,10 +290,10 @@ func ReplayAPIKeyRoutingCandidates(recorded []APIKeyRoutingDecisionCandidate, po
 			observation.SmoothedSuccessRate = routeClamp01(*item.SuccessRate)
 		}
 		if item.TTFTMS != nil {
-			observation.TTFTP50Ms = *item.TTFTMS
+			observation.TTFTAvgMs = *item.TTFTMS
 		}
 		if item.DurationMS != nil {
-			observation.DurationP50Ms = *item.DurationMS
+			observation.DurationAvgMs = *item.DurationMS
 		}
 		snapshot.Groups[item.GroupID] = observation
 		candidates = append(candidates, APIKeyRouteCandidate{GroupID: item.GroupID, Priority: item.ConfiguredPriority})

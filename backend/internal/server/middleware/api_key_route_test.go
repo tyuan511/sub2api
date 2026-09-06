@@ -53,7 +53,7 @@ func TestPrepareInitialAPIKeyRouteAndAdvance(t *testing.T) {
 	require.False(t, ok)
 }
 
-func TestPrepareInitialAPIKeyRouteDisabledKeepsPrimary(t *testing.T) {
+func TestPrepareInitialAPIKeyRouteAlwaysUsesConfiguredCandidates(t *testing.T) {
 	first := middlewareRouteGroup(10, service.StatusActive)
 	second := middlewareRouteGroup(20, service.StatusActive)
 	firstID := first.ID
@@ -65,10 +65,11 @@ func TestPrepareInitialAPIKeyRouteDisabledKeepsPrimary(t *testing.T) {
 		},
 	}
 
-	routed, state, err := prepareInitialAPIKeyRoute(key, service.NewAPIKeyRouteCoordinator(false))
+	routed, state, err := prepareInitialAPIKeyRoute(key, service.NewAPIKeyRouteCoordinator())
 	require.NoError(t, err)
-	require.Same(t, key, routed)
-	require.Nil(t, state)
+	require.Equal(t, int64(10), *routed.GroupID)
+	require.NotNil(t, state)
+	require.True(t, state.Plan.RoutingEnabled)
 }
 
 func TestAPIKeyRouteStickyBreakPropagatesToFinalRoutingContext(t *testing.T) {

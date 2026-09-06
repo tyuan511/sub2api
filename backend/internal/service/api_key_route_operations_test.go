@@ -76,7 +76,6 @@ func TestAPIKeyRouteOperationsExplainIsReadOnlyAndVersionScoped(t *testing.T) {
 		},
 	}
 	apiKeys := &APIKeyService{apiKeyRepo: &routeOperationsAPIKeyRepoStub{key: key}}
-	allowRoutingUsersForTest(t, apiKeys, key.UserID)
 	operations := NewAPIKeyRouteOperationsService(apiKeys, cache)
 
 	explanation, err := operations.Explain(context.Background(), key.ID, "gpt-5", "responses", "session-digest")

@@ -301,6 +301,8 @@ func TestChannelMonitorV2UsageSuccessExcludesCyberBillingRows(t *testing.T) {
 
 func TestAPIKeyRoutingPriceMetricsUseActualUsageAndExcludeFailoverCompensation(t *testing.T) {
 	query := strings.ToLower(apiKeyRoutingPriceMetricsSQL)
+	require.Contains(t, query, "api_key_group_routes")
+	require.Contains(t, query, "having count(*) > 1")
 	require.Contains(t, query, "actual_usage->>'input_tokens'")
 	require.Contains(t, query, "actual_usage->>'cache_creation_5m_tokens'")
 	require.Contains(t, query, "actual_usage->>'cache_creation_1h_tokens'")
@@ -320,6 +322,8 @@ func TestAPIKeyRoutingHealthMetricsAreEndpointScopedAndKeepCapacitySeparate(t *t
 		channelMonitorV2EndpointKindSQL,
 	))
 	require.Contains(t, usageQuery, "api_key_routing_health_metrics_1m")
+	require.Contains(t, usageQuery, "api_key_group_routes")
+	require.Contains(t, usageQuery, "having count(*) > 1")
 	require.Contains(t, usageQuery, "actual_usage->>'input_tokens'")
 	require.Contains(t, usageQuery, "actual_usage->>'cache_read_tokens'")
 	require.NotContains(t, usageQuery, "billable_usage->")
@@ -329,6 +333,8 @@ func TestAPIKeyRoutingHealthMetricsAreEndpointScopedAndKeepCapacitySeparate(t *t
 
 	failureQuery := strings.ToLower(apiKeyRoutingHealthFailureMetricsSQL)
 	require.Contains(t, failureQuery, "from routing_attempts")
+	require.Contains(t, failureQuery, "api_key_group_routes")
+	require.Contains(t, failureQuery, "having count(*) > 1")
 	require.Contains(t, failureQuery, "'route_attempt_failed'")
 	require.Contains(t, failureQuery, "'capacity_overflow'")
 	require.Contains(t, failureQuery, "failure_categories")

@@ -100,6 +100,7 @@ local bucket_ms = tonumber(ARGV[6])
 local bucket_count = tonumber(ARGV[7])
 local threshold = tonumber(ARGV[8] or '50')
 local version = tonumber(ARGV[9] or '0')
+local recovery_override = tonumber(ARGV[10] or '0')
 local stored_version = tonumber(redis.call('HGET', KEYS[1], 'policy_version') or '0')
 if version >= stored_version then
   redis.call('HSET', KEYS[1], 'threshold_percent', threshold, 'policy_version', version)
@@ -163,7 +164,12 @@ redis.call('HSET', KEYS[1], 'successes', successes, 'failures', failures)
 local total = successes + failures
 if state == 'OPEN' then
   redis.call('PEXPIRE', KEYS[1], window_ms)
-  return 'OPEN'
+	return 'OPEN'
+end
+if recovery_override == 1 and success == 1 and total >= min_samples and successes * 100 < total * threshold then
+	redis.call('HSET', KEYS[1], 'state', 'RECOVERING', 'recovery_successes', 1, 'recovery_admissions', 0)
+	redis.call('PEXPIRE', KEYS[1], window_ms)
+	return 'RECOVERING'
 end
 if total >= min_samples and successes * 100 < total * threshold then
   redis.call('HSET', KEYS[1], 'state', 'OPEN', 'opened_ms', now_ms)
@@ -198,6 +204,14 @@ func (c *gatewayCache) RecordAPIKeyRouteResult(ctx context.Context, key string, 
 }
 
 func (c *gatewayCache) RecordAPIKeyRouteResultWithThreshold(ctx context.Context, key string, success bool, now time.Time, window time.Duration, minSamples, recoverySuccesses, minimum int, version int64) (string, error) {
+	return c.recordAPIKeyRouteResultWithThreshold(ctx, key, success, now, window, minSamples, recoverySuccesses, minimum, version, false)
+}
+
+func (c *gatewayCache) RecordAPIKeyRouteRecoveryResult(ctx context.Context, key string, success bool, now time.Time, window time.Duration, minSamples, recoverySuccesses, minimum int, version int64, recoveryOverride bool) (string, error) {
+	return c.recordAPIKeyRouteResultWithThreshold(ctx, key, success, now, window, minSamples, recoverySuccesses, minimum, version, recoveryOverride)
+}
+
+func (c *gatewayCache) recordAPIKeyRouteResultWithThreshold(ctx context.Context, key string, success bool, now time.Time, window time.Duration, minSamples, recoverySuccesses, minimum int, version int64, recoveryOverride bool) (string, error) {
 	value := 0
 	if success {
 		value = 1
@@ -207,7 +221,11 @@ func (c *gatewayCache) RecordAPIKeyRouteResultWithThreshold(ctx context.Context,
 	if bucketWidth < time.Second {
 		bucketWidth = time.Second
 	}
-	state, err := recordAPIKeyRouteResultScript.Run(ctx, c.rdb, []string{key}, value, now.UnixMilli(), window.Milliseconds(), minSamples, recoverySuccesses, bucketWidth.Milliseconds(), bucketCount, minimum, version).Text()
+	override := 0
+	if recoveryOverride {
+		override = 1
+	}
+	state, err := recordAPIKeyRouteResultScript.Run(ctx, c.rdb, []string{key}, value, now.UnixMilli(), window.Milliseconds(), minSamples, recoverySuccesses, bucketWidth.Milliseconds(), bucketCount, minimum, version, override).Text()
 	return state, err
 }
 

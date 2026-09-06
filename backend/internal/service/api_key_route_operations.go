@@ -103,7 +103,6 @@ func (s *APIKeyRouteOperationsService) Explain(ctx context.Context, apiKeyID int
 	if err != nil {
 		return nil, err
 	}
-	apiKey = s.apiKeys.ProjectAPIKeyRoutingForUser(ctx, apiKey)
 	plan, err := NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
 	if err != nil && !errors.Is(err, ErrNoEligibleAPIKeyRoute) {
 		return nil, err

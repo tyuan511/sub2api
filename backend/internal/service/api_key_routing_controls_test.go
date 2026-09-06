@@ -36,13 +36,38 @@ func TestAPIKeyRoutingNewDefaultDoesNotChangeExistingThresholds(t *testing.T) {
 			GroupRoutes: []APIKeyGroupRoute{{GroupID: 1, Enabled: true}}}
 		routing, changed, err := normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{ScheduleMode: &mode})
 		require.NoError(t, err)
-		require.True(t, changed)
+		require.False(t, changed)
 		expected := stored
 		if expected == 0 {
 			expected = 50 // Legacy objects without this field retain the old runtime contract.
 		}
 		require.Equal(t, expected, routing.MinSuccessRate)
 	}
+}
+
+func TestNormalizeUpdateAPIKeyRoutingTreatsEquivalentLegacySingleGroupAsNoOp(t *testing.T) {
+	groupID := int64(42)
+	key := &APIKey{GroupID: &groupID, GroupRoutes: nil, ScheduleMode: APIKeyScheduleModeSequential}
+	routes := routeInputs(APIKeyGroupRouteInput{GroupID: groupID, Priority: 0})
+	routing, changed, err := normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{GroupRoutes: routes})
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Equal(t, []APIKeyGroupRoute{{GroupID: groupID, Priority: 0, Enabled: true}}, routing.Routes)
+}
+
+func TestNormalizeUpdateAPIKeyRoutingDetectsActualConfigurationChanges(t *testing.T) {
+	first, second := int64(42), int64(43)
+	key := &APIKey{
+		GroupID: &first, ScheduleMode: APIKeyScheduleModeSequential,
+		GroupRoutes: []APIKeyGroupRoute{{GroupID: first, Priority: 0, Enabled: true}},
+	}
+	routes := routeInputs(
+		APIKeyGroupRouteInput{GroupID: first, Priority: 0},
+		APIKeyGroupRouteInput{GroupID: second, Priority: 1},
+	)
+	_, changed, err := normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{GroupRoutes: routes})
+	require.NoError(t, err)
+	require.True(t, changed)
 }
 
 func TestAPIKeyRoutingControlsValidationAndLegacyCompatibility(t *testing.T) {

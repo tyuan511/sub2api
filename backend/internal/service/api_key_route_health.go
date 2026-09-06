@@ -32,6 +32,14 @@ type APIKeyRouteThresholdHealthCache interface {
 	RecordAPIKeyRouteResultWithThreshold(context.Context, string, bool, time.Time, time.Duration, int, int, int, int64) (string, error)
 }
 
+// APIKeyRouteRecoveryHealthCache is optional so older cache adapters retain
+// their existing contract. Production Redis implementations use the recovery
+// override to move a stale CLOSED key into the normal RECOVERING state after a
+// recent shared recovery signal, rather than reopening it on the old window.
+type APIKeyRouteRecoveryHealthCache interface {
+	RecordAPIKeyRouteRecoveryResult(context.Context, string, bool, time.Time, time.Duration, int, int, int, int64, bool) (string, error)
+}
+
 type APIKeyRouteHealthPolicy struct {
 	Window            time.Duration
 	Cooldown          time.Duration
@@ -97,7 +105,8 @@ func allowAPIKeyRoute(ctx context.Context, cache GatewayCache, policy APIKeyRout
 func allowAPIKeyRouteOnce(ctx context.Context, cache GatewayCache, policy APIKeyRouteHealthPolicy, apiKeyID, routeVersion, groupID int64, model, endpoint string) (bool, string, error) {
 	model, endpoint = normalizeAPIKeyRouteRuntimeScope(ctx, model, endpoint)
 	minimum := apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion)
-	belowSharedGate := apiKeyRoutingBelowSharedGate(ctx, groupID, model, endpoint, minimum, policy.MinimumSamples)
+	recoveryOverride := apiKeyRoutingRecoveryOverrideForContext(ctx, groupID, model, endpoint, minimum)
+	belowSharedGate := !recoveryOverride && apiKeyRoutingBelowSharedGate(ctx, groupID, model, endpoint, minimum, policy.MinimumSamples)
 	if snapshot, used, err := prefetchedAPIKeyRouteBreaker(ctx, cache, apiKeyID, routeVersion, groupID, model, endpoint); used {
 		if err != nil {
 			DefaultRoutingRuntimeMetrics().RecordBreaker(APIKeyRouteBreakerClosed, false, true)
@@ -110,7 +119,7 @@ func allowAPIKeyRouteOnce(ctx context.Context, cache GatewayCache, policy APIKey
 		// admission counter. CLOSED is the overwhelmingly common path and is safe
 		// to serve directly from the request-frozen batch snapshot.
 		total := snapshot.Successes + snapshot.Failures
-		belowGate := total >= int64(policy.MinimumSamples) && snapshot.Successes*100 < total*int64(minimum)
+		belowGate := !recoveryOverride && total >= int64(policy.MinimumSamples) && snapshot.Successes*100 < total*int64(minimum)
 		if snapshot.State == APIKeyRouteBreakerClosed && !belowGate && !belowSharedGate {
 			DefaultRoutingRuntimeMetrics().RecordBreaker(snapshot.State, false, false)
 			return true, snapshot.State, nil
@@ -178,7 +187,9 @@ func recordAPIKeyRouteResult(ctx context.Context, cache GatewayCache, policy API
 	started := time.Now()
 	key := APIKeyRouteHealthKey(apiKeyID, apiKeyRoutingRuntimeVersion(ctx, apiKeyID, routeVersion), groupID, model, endpoint)
 	var err error
-	if thresholds, supported := cache.(APIKeyRouteThresholdHealthCache); supported {
+	if recoveryCache, supported := cache.(APIKeyRouteRecoveryHealthCache); supported {
+		state, err = recoveryCache.RecordAPIKeyRouteRecoveryResult(ctx, key, success, time.Now(), policy.Window, policy.MinimumSamples, policy.RecoverySuccesses, apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion), routeVersion, apiKeyRoutingRecoveryOverrideForContext(ctx, groupID, model, endpoint, apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion)))
+	} else if thresholds, supported := cache.(APIKeyRouteThresholdHealthCache); supported {
 		state, err = thresholds.RecordAPIKeyRouteResultWithThreshold(ctx, key, success, time.Now(), policy.Window, policy.MinimumSamples, policy.RecoverySuccesses, apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion), routeVersion)
 	} else {
 		state, err = health.RecordAPIKeyRouteResult(ctx, key, success, time.Now(), policy.Window, policy.MinimumSamples, policy.RecoverySuccesses)
@@ -221,42 +232,42 @@ func recordAPIKeyRouteFailure(ctx context.Context, cache GatewayCache, policy AP
 }
 
 func (s *GatewayService) AllowAPIKeyRoute(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string) (bool, string, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return true, APIKeyRouteBreakerClosed, nil
 	}
 	return allowAPIKeyRoute(ctx, s.cache, DefaultAPIKeyRouteHealthPolicy(s.cfg), apiKeyID, routeVersion, groupID, model, endpoint)
 }
 
 func (s *GatewayService) RecordAPIKeyRouteResult(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string, success bool) (string, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return APIKeyRouteBreakerClosed, nil
 	}
 	return recordAPIKeyRouteResult(ctx, s.cache, DefaultAPIKeyRouteHealthPolicy(s.cfg), apiKeyID, routeVersion, groupID, model, endpoint, success)
 }
 
 func (s *GatewayService) RecordAPIKeyRouteFailure(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string, cause error) (string, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return APIKeyRouteBreakerClosed, nil
 	}
 	return recordAPIKeyRouteFailure(ctx, s.cache, DefaultAPIKeyRouteHealthPolicy(s.cfg), apiKeyID, routeVersion, groupID, model, endpoint, cause)
 }
 
 func (s *OpenAIGatewayService) AllowAPIKeyRoute(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string) (bool, string, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return true, APIKeyRouteBreakerClosed, nil
 	}
 	return allowAPIKeyRoute(ctx, s.cache, DefaultAPIKeyRouteHealthPolicy(s.cfg), apiKeyID, routeVersion, groupID, model, endpoint)
 }
 
 func (s *OpenAIGatewayService) RecordAPIKeyRouteResult(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string, success bool) (string, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return APIKeyRouteBreakerClosed, nil
 	}
 	return recordAPIKeyRouteResult(ctx, s.cache, DefaultAPIKeyRouteHealthPolicy(s.cfg), apiKeyID, routeVersion, groupID, model, endpoint, success)
 }
 
 func (s *OpenAIGatewayService) RecordAPIKeyRouteFailure(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string, cause error) (string, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return APIKeyRouteBreakerClosed, nil
 	}
 	return recordAPIKeyRouteFailure(ctx, s.cache, DefaultAPIKeyRouteHealthPolicy(s.cfg), apiKeyID, routeVersion, groupID, model, endpoint, cause)

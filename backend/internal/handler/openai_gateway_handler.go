@@ -792,7 +792,6 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 		c.Request = c.Request.WithContext(newPricingCtx)
 		pricingAt = newPricingAt
-		switchCount = 0
 		firstOutputTimeoutSwitchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
@@ -1583,7 +1582,6 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 		c.Request = c.Request.WithContext(newPricingCtx)
 		pricingAt = newPricingAt
-		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)
@@ -3157,7 +3155,6 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		ctx = service.WithOpenAIGuardianParentAffinity(ctx, c, firstMessage, reqModel)
 		ctx, _ = h.gatewayService.RebindOpenAIRequestPricingContext(ctx, apiKey.GroupID)
 		c.Request = c.Request.WithContext(ctx)
-		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)

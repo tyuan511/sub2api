@@ -127,7 +127,11 @@ func normalizeUpdateAPIKeyRouting(current *APIKey, req UpdateAPIKeyRequest) (nor
 	if len(routes) == 0 {
 		return normalizedAPIKeyRouting{}, false, fmt.Errorf("%w: an explicit route configuration requires at least one group", ErrAPIKeyRoutesInvalid)
 	}
-	return normalizedAPIKeyRouting{Routes: routes, ScheduleMode: mode, SmartPreference: pref, SmartBalanceBPS: balance, MinSuccessRate: minimum}, true, nil
+	normalized := normalizedAPIKeyRouting{Routes: routes, ScheduleMode: mode, SmartPreference: pref, SmartBalanceBPS: balance, MinSuccessRate: minimum}
+	if apiKeyRoutingConfigurationEquivalent(current, normalized) {
+		return normalized, false, nil
+	}
+	return normalized, true, nil
 }
 
 func normalizeAPIKeyRouteInputs(inputs *[]APIKeyGroupRouteInput, legacyGroupID *int64) ([]APIKeyGroupRoute, error) {

@@ -98,8 +98,8 @@ func MarkAPIKeyRouteStickyBroken(c *gin.Context) {
 	bindAPIKeyRoutingUsageContext(c, state)
 }
 
-func apiKeyRouteCoordinatorFromConfig(cfg *config.Config) *service.APIKeyRouteCoordinator {
-	return service.NewAPIKeyRouteCoordinator(cfg != nil && cfg.Gateway.APIKeyMultiGroupRoutingEnabled)
+func apiKeyRouteCoordinatorFromConfig() *service.APIKeyRouteCoordinator {
+	return service.NewAPIKeyRouteCoordinator()
 }
 
 func apiKeyRouteCompensationLimitsFromConfig(cfg *config.Config) []int {
@@ -121,9 +121,8 @@ func prepareInitialAPIKeyRoute(apiKey *service.APIKey, coordinator *service.APIK
 		return apiKey, nil, nil
 	}
 	if !apiKey.HasMultipleEnabledGroupRoutes() {
-		// A withdrawn multi-group key with a missing primary must never turn
-		// into an unscoped key. Valid fixed keys otherwise keep their exact
-		// legacy projection and GROUP_DISABLED/GROUP_DELETED/permission checks.
+			// A single-group key keeps its exact legacy projection and
+			// GROUP_DISABLED/GROUP_DELETED/permission checks.
 		return apiKey, &APIKeyRouteState{Plan: &service.APIKeyRoutePlan{
 			APIKeyID: apiKey.ID, RouteVersion: apiKey.RouteVersion,
 			RoutingStateVersion: apiKey.EffectiveRoutingStateVersion(),
@@ -476,6 +475,7 @@ func apiKeyRoutingDecisionCandidates(state *APIKeyRouteState, effectiveGroupID i
 			item.Rank = &rankCopy
 		}
 		if score, ok := state.ScoreFacts[candidate.GroupID]; ok {
+			item.Recovery, item.RecoveryTrafficBPS = score.Recovery, score.RecoveryTrafficBPS
 			success, smoothedSuccess, confidence, total, breakdown := score.SuccessRate, score.SmoothedSuccessRate, score.Confidence, score.Score, score.Breakdown
 			item.SuccessRate, item.SmoothedSuccessRate, item.Confidence, item.Score, item.ScoreBreakdown = &success, &smoothedSuccess, &confidence, &total, &breakdown
 			normalizedRate, ttft, duration := score.NormalizedRate, score.TTFTMS, score.DurationMS

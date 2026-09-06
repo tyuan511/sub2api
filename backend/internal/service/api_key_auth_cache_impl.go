@@ -235,17 +235,16 @@ func (s *APIKeyService) authCacheRouteVersionCurrent(ctx context.Context, cacheK
 	if entry == nil || entry.NotFound || entry.Snapshot == nil || entry.Snapshot.APIKeyID <= 0 || entry.Snapshot.RouteVersion <= 0 || entry.Snapshot.RoutingDependencyVersion <= 0 {
 		return true
 	}
-	// Single-group auth must retain its existing L1/L2 path, without a
-	// routing settings lookup or an additional Redis round trip. A withdrawn
-	// multi-group key also uses its legacy primary until the normal auth cache
-	// invalidation/TTL refreshes it; rollout admission is never cached here.
+	// Single-group auth must retain its existing L1/L2 path, without a routing
+	// version lookup or an additional Redis round trip. Multi-group snapshots
+	// use the version guard because their candidate permissions can change.
 	enabledRoutes := 0
 	for _, route := range entry.Snapshot.GroupRoutes {
 		if route.Enabled {
 			enabledRoutes++
 		}
 	}
-	if enabledRoutes <= 1 || !s.IsRoutingEnabledForUser(ctx, entry.Snapshot.UserID) {
+	if enabledRoutes <= 1 {
 		return true
 	}
 	reader, ok := s.cache.(APIKeyRouteVersionReader)

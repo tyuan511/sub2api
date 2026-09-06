@@ -24,7 +24,7 @@ func APIKeyAuthGoogle(apiKeyService *service.APIKeyService, cfg *config.Config) 
 //
 // It is intended for Gemini native endpoints (/v1beta) to match Gemini SDK expectations.
 func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
-	routeCoordinator := apiKeyRouteCoordinatorFromConfig(cfg)
+	routeCoordinator := apiKeyRouteCoordinatorFromConfig()
 	return func(c *gin.Context) {
 		if rejectInvalidAuthAbuse(c, apiKeyService) {
 			abortWithGoogleError(c, 429, "Too many invalid authentication attempts; retry later")
@@ -117,7 +117,6 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
 		}
-		apiKey = apiKeyService.ProjectAPIKeyRoutingForUser(c.Request.Context(), apiKey)
 		apiKey, routeState, routeErr := prepareInitialAPIKeyRoute(apiKey, routeCoordinator, apiKeyRouteCompensationLimitsFromConfig(cfg)...)
 		if routeErr != nil {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)

@@ -90,3 +90,22 @@ func TestAPIKeyRouteControlsSharedGateStillAllowsBoundedRecovery(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, allowed, "one probe owner across instances")
 }
+
+func TestAPIKeyRouteControlsRecentRecoveryReopensStaleClosedKey(t *testing.T) {
+	cache := newRouteHealthCacheTest(t)
+	ctx, now := context.Background(), time.Now()
+	key := "health:{12}:recent-recovery"
+	for i := 0; i < 19; i++ {
+		state, err := cache.RecordAPIKeyRouteResultWithThreshold(ctx, key, false, now, 5*time.Minute, 20, 10, 50, 1)
+		require.NoError(t, err)
+		require.Equal(t, "CLOSED", state)
+	}
+	state, err := cache.RecordAPIKeyRouteRecoveryResult(ctx, key, true, now, 5*time.Minute, 20, 10, 50, 1, true)
+	require.NoError(t, err)
+	require.Equal(t, "RECOVERING", state, "recent shared recovery should start the normal bounded recovery ramp")
+
+	allowed, breakerState, err := cache.AllowAPIKeyRouteWithThreshold(ctx, key, now, 30*time.Second, 10*time.Second, 5*time.Minute, 20, 50, 1, false)
+	require.NoError(t, err)
+	require.False(t, allowed)
+	require.Equal(t, "RECOVERING", breakerState)
+}

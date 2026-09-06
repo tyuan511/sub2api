@@ -30,9 +30,26 @@ func TestMigration248AddsBoundedUserControlsAndIndependentRuntimeVersion(t *test
 	sql := strings.Join(strings.Fields(string(content)), " ")
 	require.Contains(t, sql, "smart_balance_bps BETWEEN 0 AND 10000")
 	require.Contains(t, sql, "routing_min_success_rate BETWEEN 50 AND 95 AND routing_min_success_rate % 5 = 0")
-	require.Contains(t, sql, "UPDATE api_keys SET routing_state_version = route_version")
+	require.Contains(t, sql, "UPDATE api_keys SET routing_state_version = route_version WHERE routing_state_version IS DISTINCT FROM route_version")
 	require.Contains(t, sql, "GREATEST(NEW.route_version, OLD.route_version + 1)")
 	require.Contains(t, sql, "ALTER TABLE routing_attempts")
+}
+
+func TestMigration250BuildsUsageDecisionIndexConcurrently(t *testing.T) {
+	content, err := FS.ReadFile("250_api_key_routing_usage_decision_index_notx.sql")
+	require.NoError(t, err)
+	sql := strings.Join(strings.Fields(string(content)), " ")
+	require.Contains(t, sql, "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_routing_decision")
+	require.Contains(t, sql, "ON usage_logs (routing_decision_id)")
+}
+
+func TestMigration251BuildsRoutingActivationIndexConcurrently(t *testing.T) {
+	content, err := FS.ReadFile("251_api_key_routing_activation_index_notx.sql")
+	require.NoError(t, err)
+	sql := strings.Join(strings.Fields(string(content)), " ")
+	require.Contains(t, sql, "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_api_key_group_routes_enabled_api_key")
+	require.Contains(t, sql, "ON api_key_group_routes (api_key_id)")
+	require.Contains(t, sql, "WHERE enabled")
 }
 
 func TestMigration249OnlyChangesNewKeyDefault(t *testing.T) {

@@ -142,20 +142,25 @@ func ValidateAPIKeyRoutingScoreSnapshot(snapshot *APIKeyRoutingScoreSnapshot) er
 		if groupID <= 0 || observation.GroupID != groupID {
 			return fmt.Errorf("routing score snapshot group identity mismatch for %d", groupID)
 		}
-		if observation.SuccessRequests < 0 || observation.FailedRequests < 0 || observation.NormalizedRate < 0 || observation.PriceNormalizationFactor < 0 {
+		if observation.SuccessRequests < 0 || observation.FailedRequests < 0 ||
+			observation.RecentSuccessRequests < 0 || observation.RecentFailedRequests < 0 ||
+			observation.RecentSuccessRate < 0 || observation.RecoveryTrafficBPS < 0 || observation.RecoveryTrafficBPS > 10000 ||
+			observation.TTFTAvgMs < 0 || observation.DurationAvgMs < 0 || observation.TTFTP50Ms < 0 || observation.DurationP50Ms < 0 ||
+			observation.NormalizedRate < 0 || observation.PriceNormalizationFactor < 0 {
 			return fmt.Errorf("routing score snapshot group %d contains negative metrics", groupID)
 		}
 		finite := []float64{
-			observation.TTFTP50Ms, observation.DurationP50Ms, observation.CapacityScore,
+			observation.TTFTAvgMs, observation.DurationAvgMs, observation.TTFTP50Ms, observation.DurationP50Ms, observation.CapacityScore,
 			observation.NormalizedRate, observation.PriceNormalizationFactor, observation.Confidence, observation.PriceConfidence,
-			observation.SmoothedSuccessRate, observation.CacheHitRate,
+			observation.SmoothedSuccessRate, observation.CacheHitRate, observation.RecentSuccessRate,
 		}
 		for _, value := range finite {
 			if math.IsNaN(value) || math.IsInf(value, 0) {
 				return fmt.Errorf("routing score snapshot group %d contains non-finite metrics", groupID)
 			}
 		}
-		if observation.CapacityScore > 1 || observation.Confidence > 1 || observation.PriceConfidence > 1 || observation.SmoothedSuccessRate > 1 || observation.CacheHitRate > 1 {
+		if observation.CapacityScore > 1 || observation.Confidence > 1 || observation.PriceConfidence > 1 ||
+			observation.SmoothedSuccessRate > 1 || observation.CacheHitRate > 1 || observation.RecentSuccessRate > 1 {
 			return fmt.Errorf("routing score snapshot group %d contains out-of-range ratios", groupID)
 		}
 		if len(observation.DependencyDomains) > 4 {

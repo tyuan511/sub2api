@@ -45,11 +45,6 @@ export async function getById(id: number): Promise<ApiKey> {
   return data
 }
 
-export async function getRoutingCapabilities(): Promise<{ multi_group_routing_enabled: boolean }> {
-  const { data } = await apiClient.get<{ multi_group_routing_enabled: boolean }>('/keys/routing-capabilities')
-  return data
-}
-
 /**
  * Create new API key
  * @param name - Key name
@@ -148,7 +143,6 @@ export async function toggleStatus(id: number, status: 'active' | 'inactive'): P
 
 export const keysAPI = {
   list,
-  getRoutingCapabilities,
   getById,
   create,
   createWithRequest,

@@ -47,6 +47,8 @@ type APIKeyRoutingDecisionCandidate struct {
 	GroupID               int64                      `json:"group_id"`
 	ConfiguredPriority    int                        `json:"configured_priority"`
 	Admitted              bool                       `json:"admitted"`
+	Recovery              bool                       `json:"recovery,omitempty"`
+	RecoveryTrafficBPS    int                        `json:"recovery_traffic_bps,omitempty"`
 	ExclusionReason       string                     `json:"exclusion_reason,omitempty"`
 	Rank                  *int                       `json:"rank,omitempty"`
 	SuccessRate           *float64                   `json:"success_rate,omitempty"`
@@ -238,12 +240,12 @@ func ApplyAPIKeyRoutingUsage(ctx context.Context, log *UsageLog, actual, billabl
 	if log == nil {
 		return
 	}
-	log.ActualUsage = routingTokenUsageJSON(actual)
-	log.BillableUsage = routingTokenUsageJSON(billable)
 	meta, ok := APIKeyRoutingUsageContextFromContext(ctx)
 	if !ok {
 		return
 	}
+	log.ActualUsage = routingTokenUsageJSON(actual)
+	log.BillableUsage = routingTokenUsageJSON(billable)
 	log.InitialGroupID = positiveInt64Ptr(meta.InitialGroupID)
 	log.RouteVersion = positiveInt64Ptr(meta.RouteVersion)
 	log.ScheduleMode = optionalStringPtr(meta.ScheduleMode)

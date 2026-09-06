@@ -45,7 +45,6 @@ func TestLoadAPIKeyRoutingLearningExtensionsDisabledByDefault(t *testing.T) {
 
 func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
 	resetViperWithJWTSecret(t)
-	t.Setenv("GATEWAY_API_KEY_MULTI_GROUP_ROUTING_ENABLED", "true")
 	t.Setenv("GATEWAY_API_KEY_ROUTING_OPTIMIZATION_ENABLED", "true")
 	t.Setenv("GATEWAY_API_KEY_ROUTING_FACT_SAMPLE_RATE", "0.25")
 	t.Setenv("GATEWAY_API_KEY_ROUTING_PERSONALIZATION_ENABLED", "true")
@@ -60,7 +59,6 @@ func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
 
 	cfg, err := Load()
 	require.NoError(t, err)
-	require.True(t, cfg.Gateway.APIKeyMultiGroupRoutingEnabled)
 	require.True(t, cfg.Gateway.APIKeyRoutingOptimizationEnabled)
 	require.Equal(t, 0.25, cfg.Gateway.APIKeyRoutingFactSampleRate)
 	require.True(t, cfg.Gateway.APIKeyRoutingPersonalizationEnabled)
@@ -87,8 +85,7 @@ func TestValidateAllowsGatedLocalRoutingLearningButRejectsMissingParentSwitches(
 	cfg, err := Load()
 	require.NoError(t, err)
 	cfg.Gateway.APIKeyRoutingPersonalizationEnabled = true
-	require.ErrorContains(t, cfg.Validate(), "require multi-group routing and optimization")
-	cfg.Gateway.APIKeyMultiGroupRoutingEnabled = true
+	require.ErrorContains(t, cfg.Validate(), "require routing optimization")
 	cfg.Gateway.APIKeyRoutingOptimizationEnabled = true
 	cfg.Gateway.APIKeyRoutingModelPredictionEnabled = true
 	require.NoError(t, cfg.Validate())

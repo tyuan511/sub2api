@@ -83,14 +83,14 @@ func bindAPIKeyGroupSticky(ctx context.Context, cache GatewayCache, apiKeyID, ro
 }
 
 func (s *GatewayService) GetAPIKeyGroupSticky(ctx context.Context, apiKeyID, routeVersion int64, modelFamily, endpointKind, sessionHash string) (int64, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return 0, nil
 	}
 	return getAPIKeyGroupSticky(ctx, s.cache, apiKeyID, routeVersion, modelFamily, endpointKind, sessionHash)
 }
 
 func (s *GatewayService) BindAPIKeyGroupSticky(ctx context.Context, apiKeyID, routeVersion int64, modelFamily, endpointKind, sessionHash string, groupID int64) error {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return nil
 	}
 	seconds := 0
@@ -101,14 +101,14 @@ func (s *GatewayService) BindAPIKeyGroupSticky(ctx context.Context, apiKeyID, ro
 }
 
 func (s *OpenAIGatewayService) GetAPIKeyGroupSticky(ctx context.Context, apiKeyID, routeVersion int64, modelFamily, endpointKind, sessionHash string) (int64, error) {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return 0, nil
 	}
 	return getAPIKeyGroupSticky(ctx, s.cache, apiKeyID, routeVersion, modelFamily, endpointKind, sessionHash)
 }
 
 func (s *OpenAIGatewayService) BindAPIKeyGroupSticky(ctx context.Context, apiKeyID, routeVersion int64, modelFamily, endpointKind, sessionHash string, groupID int64) error {
-	if s == nil || s.cfg == nil || !s.cfg.Gateway.APIKeyMultiGroupRoutingEnabled {
+	if s == nil {
 		return nil
 	}
 	seconds := 0

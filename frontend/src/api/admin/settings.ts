@@ -1327,18 +1327,6 @@ export interface PanelRateLimitSettings {
   public_ip_rpm: number;
 }
 
-export interface APIKeyRoutingRolloutSettings { user_ids: number[] }
-
-export async function getAPIKeyRoutingRollout(): Promise<APIKeyRoutingRolloutSettings> {
-  const { data } = await apiClient.get<APIKeyRoutingRolloutSettings>('/admin/settings/api-key-routing-rollout')
-  return data
-}
-
-export async function updateAPIKeyRoutingRollout(settings: APIKeyRoutingRolloutSettings): Promise<APIKeyRoutingRolloutSettings> {
-  const { data } = await apiClient.put<APIKeyRoutingRolloutSettings>('/admin/settings/api-key-routing-rollout', settings)
-  return data
-}
-
 export async function getPanelRateLimitSettings(): Promise<PanelRateLimitSettings> {
   const { data } = await apiClient.get<PanelRateLimitSettings>(
     "/admin/settings/panel-rate-limit",
@@ -1584,8 +1572,6 @@ export const settingsAPI = {
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
   getPanelRateLimitSettings,
-  getAPIKeyRoutingRollout,
-  updateAPIKeyRoutingRollout,
   updatePanelRateLimitSettings,
   getStreamTimeoutSettings,
   updateStreamTimeoutSettings,

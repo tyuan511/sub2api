@@ -139,6 +139,56 @@ func shouldActivateSmartRoute(c *gin.Context, stickyRouteSelected, routeStateDeg
 	return !stickyRouteSelected && !routeStateDegraded && apiKeyMultiGroupRoutingActive(c)
 }
 
+// applyAPIKeyRoutingRecoveryTrafficBudget keeps a recovering candidate from
+// taking every new session at once. Existing sticky sessions never call this
+// path. If every candidate is recovering, retain the ranked order so a bounded
+// route set can still make a best-effort request instead of turning recovery
+// into an availability outage.
+func applyAPIKeyRoutingRecoveryTrafficBudget(apiKeyID int64, sessionHash string, ranked []service.APIKeyRoutingCandidateScore) []service.APIKeyRoutingCandidateScore {
+	hasStableCandidate := false
+	for _, score := range ranked {
+		if score.Eligible && !score.Recovery {
+			hasStableCandidate = true
+			break
+		}
+	}
+	if !hasStableCandidate {
+		return ranked
+	}
+	for index := range ranked {
+		if !ranked[index].Eligible || !ranked[index].Recovery || ranked[index].RecoveryTrafficBPS <= 0 {
+			continue
+		}
+		if service.APIKeyRoutingRecoveryTrafficAllowed(apiKeyID, ranked[index].GroupID, sessionHash, ranked[index].RecoveryTrafficBPS) {
+			continue
+		}
+		ranked[index].Eligible = false
+		ranked[index].Exclusion = "recovery_traffic_budget"
+	}
+	return ranked
+}
+
+func prioritizeAPIKeyRoutingRecoveryForPrice(ranked []service.APIKeyRoutingCandidateScore) []service.APIKeyRoutingCandidateScore {
+	result := append([]service.APIKeyRoutingCandidateScore(nil), ranked...)
+	minStableRate := 0.0
+	hasStableRate := false
+	for _, score := range result {
+		if score.Eligible && !score.Recovery && score.NormalizedRate >= 0 && (!hasStableRate || score.NormalizedRate < minStableRate) {
+			minStableRate = score.NormalizedRate
+			hasStableRate = true
+		}
+	}
+	if !hasStableRate {
+		return result
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		iRecovery := result[i].Eligible && result[i].Recovery && result[i].NormalizedRate < minStableRate
+		jRecovery := result[j].Eligible && result[j].Recovery && result[j].NormalizedRate < minStableRate
+		return iRecovery && !jRecovery
+	})
+	return result
+}
+
 // apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput is the shared HTTP/SSE
 // cross-group replay latch. A replay-safe failure is still forbidden once any
 // semantic response bytes have reached the client. Concurrency wait heartbeats
@@ -174,6 +224,24 @@ func (r apiKeyRouteRuntime) advance(c *gin.Context, model, endpoint string, cand
 	var lastErr error
 	lastErrBilling := false
 	for {
+		if state, stateOK := middleware2.GetAPIKeyRouteState(c); stateOK && state != nil && state.Plan != nil && !state.Locked {
+			if c != nil {
+				if _, exists := c.Get(failoverTransitionBudgetContextKey); !exists {
+					maxGroupTransitions := state.Plan.Len() - 1
+					if maxGroupTransitions < 1 {
+						maxGroupTransitions = 1
+					}
+					failoverTransitionBudgetFor(c, maxGroupTransitions)
+				}
+			}
+			hasNext := state.Cursor+1 < len(state.Order)
+			if len(state.Order) == 0 {
+				hasNext = state.Index+1 < state.Plan.Len()
+			}
+			if hasNext && !reserveFailoverTransition(c) {
+				return nil, nil, false, &apiKeyRouteAdvanceError{Last: lastErr, Billing: lastErrBilling}
+			}
+		}
 		apiKey, ok := middleware2.AdvanceAPIKeyRoute(c)
 		if !ok {
 			service.RecordAPIKeyRoutingTerminalFailure(c.Request.Context(),
@@ -306,6 +374,7 @@ func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey
 		}
 	}
 	baselineRanked = applyAPIKeyRoutingBreakerEligibility(c, scope.ModelFamily, scope.EndpointKind, baselineRanked)
+	baselineRanked = applyAPIKeyRoutingRecoveryTrafficBudget(apiKey.ID, sessionHash, baselineRanked)
 	eligible := make(map[int64]bool, len(baselineRanked))
 	for _, score := range baselineRanked {
 		if score.Eligible {
@@ -336,6 +405,10 @@ func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey
 		apiKey.ID, apiKey.RouteVersion, scope, *state.Plan.SmartPreference, sessionHash,
 		ranked, selection.Policy.Stability, time.Now(),
 	)
+	ranked = applyAPIKeyRoutingRecoveryTrafficBudget(apiKey.ID, sessionHash, ranked)
+	if *state.Plan.SmartPreference == service.APIKeySmartPreferencePrice {
+		ranked = prioritizeAPIKeyRoutingRecoveryForPrice(ranked)
+	}
 	// Consume a granted recovery admission rather than leaving an unused probe
 	// lease behind. activateSmart only runs for new/non-sticky sessions.
 	isRecovery := func(score service.APIKeyRoutingCandidateScore) bool {

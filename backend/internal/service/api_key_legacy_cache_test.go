@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,29 +20,23 @@ func (s *legacyRouteGuardCacheSpy) GetAPIKeyRoutingGuards(context.Context, int64
 
 func TestAPIKeyRoutingLegacyAuthAvoidsRoutingIO(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		enabled, allowed, multiple bool
+		name      string
+		multiple  bool
 		wantReads int
 	}{
-		{"disabled_single", false, false, false, 0},
-		{"disabled_multi", false, true, true, 0},
-		{"unlisted_single", true, false, false, 0},
-		{"listed_single", true, true, false, 0},
-		{"withdrawn_multi", true, false, true, 0},
-		{"listed_multi", true, true, true, 1},
+		{"single_group", false, 0},
+		{"multi_group", true, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cache := &legacyRouteGuardCacheSpy{}
-			settingsRepo := &routingRolloutRepoStub{}
-			if tc.allowed { settingsRepo.value = `{"user_ids":[7]}` }
-			cfg := &config.Config{Gateway: config.GatewayConfig{APIKeyMultiGroupRoutingEnabled: tc.enabled}}
-			svc := &APIKeyService{cache: cache, cfg: cfg, routingRolloutSettings: NewSettingService(settingsRepo, cfg)}
+			svc := &APIKeyService{cache: cache}
 			entry := &APIKeyAuthCacheEntry{Snapshot: &APIKeyAuthSnapshot{APIKeyID: 9, UserID: 7, RouteVersion: 1, RoutingDependencyVersion: 1,
 				GroupRoutes: []APIKeyAuthGroupRouteSnapshot{{GroupID: 11, Enabled: true}}}}
-			if tc.multiple { entry.Snapshot.GroupRoutes = append(entry.Snapshot.GroupRoutes, APIKeyAuthGroupRouteSnapshot{GroupID: 12, Priority: 1, Enabled: true}) }
+			if tc.multiple {
+				entry.Snapshot.GroupRoutes = append(entry.Snapshot.GroupRoutes, APIKeyAuthGroupRouteSnapshot{GroupID: 12, Priority: 1, Enabled: true})
+			}
 			require.True(t, svc.authCacheRouteVersionCurrent(context.Background(), "digest", entry))
 			require.Equal(t, tc.wantReads, cache.reads)
-			if !tc.enabled || !tc.multiple { require.Zero(t, settingsRepo.reads, "legacy auth must not query rollout settings") }
 		})
 	}
 }

@@ -946,9 +946,6 @@ const (
 
 // GatewayConfig API网关相关配置
 type GatewayConfig struct {
-	// APIKeyMultiGroupRoutingEnabled enables API-key candidate-group routing.
-	// The zero value keeps every request on the legacy mirrored group_id path.
-	APIKeyMultiGroupRoutingEnabled bool `mapstructure:"api_key_multi_group_routing_enabled"`
 	// APIKeyRoutingOptimizationEnabled is the global kill switch for sampled
 	// decision facts, shadow/canary evaluation, and later learning components.
 	// It never disables deterministic candidate routing or its safety guards.
@@ -2398,7 +2395,6 @@ func setDefaults() {
 
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
-	viper.SetDefault("gateway.api_key_multi_group_routing_enabled", false)
 	viper.SetDefault("gateway.api_key_routing_optimization_enabled", false)
 	viper.SetDefault("gateway.api_key_routing_fact_sample_rate", 0.01)
 	viper.SetDefault("gateway.api_key_routing_personalization_enabled", false)
@@ -2706,8 +2702,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("gateway.api_key_group_cache_compensation_max_switches must be between 0 and 7")
 	}
 	if (c.Gateway.APIKeyRoutingPersonalizationEnabled || c.Gateway.APIKeyRoutingModelPredictionEnabled) &&
-		(!c.Gateway.APIKeyMultiGroupRoutingEnabled || !c.Gateway.APIKeyRoutingOptimizationEnabled) {
-		return fmt.Errorf("API key routing personalization/model prediction require multi-group routing and optimization")
+		!c.Gateway.APIKeyRoutingOptimizationEnabled {
+		return fmt.Errorf("API key routing personalization/model prediction require routing optimization")
 	}
 	if c.Gateway.APIKeyRoutingExplorationEnabled {
 		return fmt.Errorf("API key routing exploration remains unavailable until propensity and traffic-budget controls are enabled")

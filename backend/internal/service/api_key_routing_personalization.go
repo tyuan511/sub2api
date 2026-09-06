@@ -342,8 +342,18 @@ func routingResidualWeight(residual APIKeyRoutingResidual, policy *APIKeyRouting
 
 func applyRoutingResidual(observation APIKeyRoutingGroupObservation, residual APIKeyRoutingResidual, weight float64) APIKeyRoutingGroupObservation {
 	observation.SmoothedSuccessRate = routeClamp01(observation.SmoothedSuccessRate + residual.SuccessProbabilityDelta*weight)
-	observation.TTFTP50Ms = nonNegativeFiniteOr(observation.TTFTP50Ms*(1+residual.LatencyRelativeDelta*weight), observation.TTFTP50Ms)
-	observation.DurationP50Ms = nonNegativeFiniteOr(observation.DurationP50Ms*(1+residual.LatencyRelativeDelta*weight), observation.DurationP50Ms)
+	ttft := observationRoutingTTFTMs(observation)
+	duration := observationRoutingDurationMs(observation)
+	if observation.TTFTAvgMs > 0 {
+		observation.TTFTAvgMs = nonNegativeFiniteOr(ttft*(1+residual.LatencyRelativeDelta*weight), ttft)
+	} else {
+		observation.TTFTP50Ms = nonNegativeFiniteOr(ttft*(1+residual.LatencyRelativeDelta*weight), ttft)
+	}
+	if observation.DurationAvgMs > 0 {
+		observation.DurationAvgMs = nonNegativeFiniteOr(duration*(1+residual.LatencyRelativeDelta*weight), duration)
+	} else {
+		observation.DurationP50Ms = nonNegativeFiniteOr(duration*(1+residual.LatencyRelativeDelta*weight), duration)
+	}
 	observation.NormalizedRate = nonNegativeFiniteOr(observation.NormalizedRate*(1+residual.NormalizedCostRelDelta*weight), observation.NormalizedRate)
 	observation.CapacityScore = routeClamp01(observation.CapacityScore + residual.CapacityScoreDelta*weight)
 	observation.CacheHitRate = routeClamp01(observation.CacheHitRate + residual.CacheHitProbabilityDelta*weight)

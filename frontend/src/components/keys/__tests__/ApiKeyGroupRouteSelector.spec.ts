@@ -76,6 +76,23 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[1, 2]])
   })
 
+  it('sorts dropdown options by platform and then group name', async () => {
+    const openaiZ = makeGroup(1, 'openai')
+    openaiZ.name = 'zeta'
+    const anthropic = makeGroup(2, 'anthropic')
+    anthropic.name = 'alpha'
+    const openaiA = makeGroup(3, 'openai')
+    openaiA.name = 'alpha'
+    const wrapper = mount(ApiKeyGroupRouteSelector, {
+      props: { modelValue: [], groups: [openaiZ, anthropic, openaiA] }
+    })
+
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    expect(wrapper.findAll('[role="option"]').map((option) => option.attributes('data-test'))).toEqual([
+      'route-group-option-2', 'route-group-option-3', 'route-group-option-1'
+    ])
+  })
+
   it('reorders and removes groups without mutating the input array', async () => {
     const initial = [1, 2, 3]
     const wrapper = mount(ApiKeyGroupRouteSelector, {

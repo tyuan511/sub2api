@@ -3,11 +3,13 @@ package handler
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"go.uber.org/zap"
 )
@@ -39,6 +41,11 @@ const (
 	// maxRequestScopedRetryDelay 限制请求级瞬时错误的指数退避上限，避免高重试配置
 	// 将单次请求拖入分钟级等待。
 	maxRequestScopedRetryDelay = 8 * time.Second
+	// failoverCrossGroupReserve keeps a small slice of the parent request
+	// deadline available for the next candidate group. Without this reserve,
+	// same-account retries could consume the entire deadline before group
+	// failover gets a chance to improve the user's result.
+	failoverCrossGroupReserve = 1500 * time.Millisecond
 	// singleAccountBackoffDelay 单账号分组 503 退避重试固定延时。
 	// Service 层在 SingleAccountRetry 模式下已做充分原地重试（最多 3 次、总等待 30s），
 	// Handler 层只需短暂间隔后重新进入 Service 层即可。
@@ -138,7 +145,89 @@ type FailoverState struct {
 	// SwitchCount 也不前进的活锁。清空后必须把它们放回排除集。
 	profitVetoedAccountIDs map[int64]struct{}
 	// profitVetoCount 本次请求累计的利润否决次数，用于 maxProfitVetoAttempts 上限。
-	profitVetoCount int
+	profitVetoCount  int
+	transitionBudget *failoverTransitionBudget
+}
+
+const failoverTransitionBudgetContextKey = "gateway_failover_transition_budget"
+
+// failoverTransitionBudget is shared by all account and group failovers in a
+// request. A per-group FailoverState is still useful for account exclusions,
+// but its switch budget must not multiply when the route advances.
+type failoverTransitionBudget struct {
+	mu   sync.Mutex
+	max  int
+	used int
+}
+
+func failoverTransitionBudgetFor(c *gin.Context, max int) *failoverTransitionBudget {
+	if c == nil {
+		return nil
+	}
+	if value, exists := c.Get(failoverTransitionBudgetContextKey); exists {
+		if budget, ok := value.(*failoverTransitionBudget); ok && budget != nil {
+			// A health check can advance the route before the account failover
+			// state is created. Let the later state attach its account allowance
+			// without replacing the already shared counter.
+			if max > budget.max {
+				budget.mu.Lock()
+				if max > budget.max {
+					budget.max = max
+				}
+				budget.mu.Unlock()
+			}
+			return budget
+		}
+	}
+	if max < 0 {
+		max = 0
+	}
+	budget := &failoverTransitionBudget{max: max}
+	c.Set(failoverTransitionBudgetContextKey, budget)
+	return budget
+}
+
+func reserveFailoverTransition(c *gin.Context) bool {
+	if c == nil {
+		return true
+	}
+	value, exists := c.Get(failoverTransitionBudgetContextKey)
+	if !exists {
+		return true
+	}
+	budget, ok := value.(*failoverTransitionBudget)
+	if !ok || budget == nil {
+		return true
+	}
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	if budget.used >= budget.max {
+		return false
+	}
+	budget.used++
+	return true
+}
+
+func NewFailoverStateForRequest(c *gin.Context, maxSwitches int, hasBoundSession bool) *FailoverState {
+	state := NewFailoverState(maxSwitches, hasBoundSession)
+	// Single-group requests retain the legacy account retry budget. The shared
+	// cross-group budget is only attached after the request has an active route
+	// plan, so existing users do not pay for or observe this control.
+	if apiKeyMultiGroupRoutingActive(c) {
+		maxGroupTransitions := 0
+		if routeState, ok := middleware2.GetAPIKeyRouteState(c); ok && routeState != nil && routeState.Plan != nil {
+			maxGroupTransitions = routeState.Plan.Len() - 1
+			if maxGroupTransitions < 0 {
+				maxGroupTransitions = 0
+			}
+		}
+		maxTotalTransitions := maxSwitches + maxGroupTransitions
+		if maxTotalTransitions < maxGroupTransitions {
+			maxTotalTransitions = maxGroupTransitions
+		}
+		state.transitionBudget = failoverTransitionBudgetFor(c, maxTotalTransitions)
+	}
+	return state
 }
 
 // NewFailoverState 创建 failover 状态
@@ -217,9 +306,19 @@ func (s *FailoverState) HandleFailoverError(
 
 	// 同账号重试：对 RetryableOnSameAccount 的临时性错误，先在同一账号上重试。
 	// 重试次数上限 retryLimit 由调用方传入（账号级 pool_mode_retry_count 配置）。
+	var retryDelay time.Duration
 	if sameAccountRetry {
-		s.SameAccountRetryCount[accountID]++
-		retryDelay := sameAccountRetryDelayFor(failoverErr, s.SameAccountRetryCount[accountID])
+		nextRetryCount := s.SameAccountRetryCount[accountID] + 1
+		retryDelay = sameAccountRetryDelayFor(failoverErr, nextRetryCount)
+		if !failoverRetryBudgetAllows(ctx, retryDelay) {
+			// Use the remaining request budget on the next configured account or
+			// group instead of starting a retry that cannot leave time for it.
+			sameAccountRetry = false
+		} else {
+			s.SameAccountRetryCount[accountID] = nextRetryCount
+		}
+	}
+	if sameAccountRetry {
 		logger.FromContext(ctx).Warn("gateway.failover_same_account_retry",
 			zap.Int64("account_id", accountID),
 			zap.Int("upstream_status", failoverErr.StatusCode),
@@ -245,6 +344,9 @@ func (s *FailoverState) HandleFailoverError(
 	if s.SwitchCount >= s.MaxSwitches {
 		return FailoverExhausted
 	}
+	if s.transitionBudget != nil && !reserveFailoverTransitionBudget(s.transitionBudget) {
+		return FailoverExhausted
+	}
 
 	// 递增切换计数
 	s.SwitchCount++
@@ -264,6 +366,30 @@ func (s *FailoverState) HandleFailoverError(
 	}
 
 	return FailoverContinue
+}
+
+func reserveFailoverTransitionBudget(budget *failoverTransitionBudget) bool {
+	if budget == nil {
+		return true
+	}
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	if budget.used >= budget.max {
+		return false
+	}
+	budget.used++
+	return true
+}
+
+func failoverRetryBudgetAllows(ctx context.Context, retryDelay time.Duration) bool {
+	if ctx == nil {
+		return true
+	}
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return true
+	}
+	return time.Until(deadline) > retryDelay+failoverCrossGroupReserve
 }
 
 // HandleSelectionExhausted 处理选号失败（所有候选账号都在排除列表中）时的退避重试决策。
