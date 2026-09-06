@@ -127,6 +127,7 @@
             {{ savingImageStorage ? t('common.loading') : t('common.save') }}
           </button>
         </div>
+        <ImageStorageHistory :revision="imageStorageRevision" />
       </div>
 
       <!-- Schedule Config -->
@@ -400,6 +401,7 @@
 </template>
 
 <script setup lang="ts">
+import ImageStorageHistory from '@/components/admin/ImageStorageHistory.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api'
@@ -459,6 +461,7 @@ const imageStorageForm = ref<ImageStorageConfig>({
   secret_access_key: '',
   force_path_style: false,
 })
+const imageStorageRevision = ref(0)
 const imageStorageSecretConfigured = ref(false)
 const savingImageStorage = ref(false)
 const testingImageStorage = ref(false)
@@ -622,6 +625,7 @@ async function saveS3Config() {
     await backupStepUp.run(() => adminAPI.backup.updateS3Config(s3Form.value))
     appStore.showSuccess(t('admin.backup.s3.saved'))
     await loadS3Config()
+    imageStorageRevision.value++
   } catch (error) {
     if (isStepUpCancelled(error)) {
       savingS3.value = false
@@ -654,6 +658,7 @@ async function saveImageStorageConfig() {
     await backupStepUp.run(() => adminAPI.backup.updateImageStorageConfig(imageStorageForm.value))
     appStore.showSuccess(t('admin.backup.imageStorage.saved'))
     await loadImageStorageConfig()
+    imageStorageRevision.value++
   } catch (error) {
     if (isStepUpCancelled(error)) {
       savingImageStorage.value = false

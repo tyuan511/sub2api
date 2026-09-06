@@ -91,9 +91,11 @@ func NormalizeInboundEndpoint(path string) string {
 		return EndpointChatCompletions
 	case strings.Contains(path, EndpointMessages):
 		return EndpointMessages
-	case strings.Contains(path, EndpointImagesGenerations) || strings.Contains(path, "/images/generations"):
+	// Studio is an application wrapper around the same Images API operation.
+	// Normalize before caching the inbound path, including for async execution.
+	case strings.Contains(path, EndpointImagesGenerations) || strings.Contains(path, "/images/generations") || strings.Contains(path, "/images/studio/generations"):
 		return EndpointImagesGenerations
-	case strings.Contains(path, EndpointImagesEdits) || strings.Contains(path, "/images/edits"):
+	case strings.Contains(path, EndpointImagesEdits) || strings.Contains(path, "/images/edits") || strings.Contains(path, "/images/studio/edits"):
 		return EndpointImagesEdits
 	case strings.Contains(path, EndpointImageTasks) || strings.Contains(path, "/images/tasks/"):
 		return EndpointImageTasks

@@ -252,6 +252,8 @@ func RegisterGatewayRoutes(
 		})
 		gateway.POST("/images/generations", imagesHandler)
 		gateway.POST("/images/edits", imagesHandler)
+		gateway.POST("/images/studio/generations", h.ImageStudio.Submit)
+		gateway.POST("/images/studio/edits", h.ImageStudio.Submit)
 		gateway.POST("/images/generations/async", h.AsyncImage.Submit)
 		gateway.POST("/images/edits/async", h.AsyncImage.Submit)
 		gateway.GET("/images/tasks/:task_id", h.AsyncImage.Get)

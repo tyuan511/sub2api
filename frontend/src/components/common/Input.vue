@@ -15,6 +15,8 @@
 
       <input
         :id="id"
+        :aria-label="ariaLabel"
+        :maxlength="maxlength"
         ref="inputRef"
         :type="type"
         :value="modelValue"
@@ -69,6 +71,8 @@ interface Props {
   error?: string
   hint?: string
   id?: string
+  ariaLabel?: string
+  maxlength?: number
   autocomplete?: string
 }
 

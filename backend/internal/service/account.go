@@ -2043,6 +2043,16 @@ func (a *Account) IsOveragesEnabled() bool {
 	return false
 }
 
+// IsOpenAIImagesUpstreamStreamEnabled opts a verified Images API provider into
+// streaming upstream while preserving the caller's non-streaming JSON contract.
+func (a *Account) IsOpenAIImagesUpstreamStreamEnabled() bool {
+	if a == nil || !a.IsOpenAI() || a.Type != AccountTypeAPIKey {
+		return false
+	}
+	enabled, _ := a.Extra["openai_images_upstream_stream"].(bool)
+	return enabled
+}
+
 // IsOpenAIPassthroughEnabled 返回 OpenAI 账号是否启用"自动透传（仅替换认证）"。
 //
 // 新字段：accounts.extra.openai_passthrough。

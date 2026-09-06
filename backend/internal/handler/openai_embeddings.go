@@ -85,7 +85,10 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		return
 	}
 
+	// Resolve the mapping after the initial route is finalized so a smart/sticky
+	// switch cannot use the primary group's upstream model.
 	var channelMapping service.ChannelMappingResult
+	forwardModel := reqModel
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
@@ -201,7 +204,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 			apiKey.GroupID,
 			"",
 			"",
-			reqModel,
+			forwardModel,
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportHTTPSSE,
 			service.OpenAIEndpointCapabilityEmbeddings,

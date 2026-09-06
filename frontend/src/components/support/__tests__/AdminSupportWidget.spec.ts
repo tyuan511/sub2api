@@ -32,7 +32,7 @@ function mountWidget() {
 }
 
 describe('AdminSupportWidget', () => {
-  it('opens the admin support workspace from the floating message button', async () => {
+  it('opens the admin support workspace from the header message button', async () => {
     mountWidget()
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()

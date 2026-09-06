@@ -200,6 +200,21 @@ func TestImageResultUploaderNilStoragePassthrough(t *testing.T) {
 	require.JSONEq(t, string(result), string(out))
 }
 
+func TestImageTaskServiceStorageDisabledDuringGenerationDoesNotPersistBase64(t *testing.T) {
+	store := &imageTaskMemoryStore{}
+	uploader := NewImageResultUploader(&fakeImageStorage{}, "images/", 0, nil)
+	svc := NewImageTaskServiceWithResolver(store, func() (*ImageResultUploader, bool) {
+		return uploader, uploader != nil
+	}, time.Hour, time.Minute)
+	created, err := svc.Create(context.Background(), ImageTaskOwner{UserID: 1, APIKeyID: 2})
+	require.NoError(t, err)
+	uploader = nil
+	require.NoError(t, svc.Complete(context.Background(), created.ID, http.StatusOK, json.RawMessage(`{"data":[{"b64_json":"aW1hZ2U="}]}`)))
+	require.Equal(t, ImageTaskStatusFailed, store.task.Status)
+	require.Empty(t, store.task.Result)
+	require.Contains(t, string(store.task.Error), "storage_unavailable")
+}
+
 func TestImageTaskServiceCompleteOffloadsToStorage(t *testing.T) {
 	store := &imageTaskMemoryStore{}
 	storage := &fakeImageStorage{}

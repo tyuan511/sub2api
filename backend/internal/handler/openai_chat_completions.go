@@ -111,8 +111,10 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
-	// Group-specific mapping is resolved after the actual initial route.
+	// Resolve the group-specific mapping after the actual initial route.  This
+	// prevents a smart/sticky switch from reusing the primary group's mapping.
 	var channelMapping service.ChannelMappingResult
+	forwardModel := reqModel
 
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
@@ -290,7 +292,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			apiKey.GroupID,
 			"",
 			sessionHash,
-			reqModel,
+			forwardModel,
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportAny,
 			service.OpenAIEndpointCapabilityChatCompletions,

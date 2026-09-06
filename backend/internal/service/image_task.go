@@ -191,7 +191,13 @@ func (s *ImageTaskService) Complete(ctx context.Context, id string, statusCode i
 	if !json.Valid(result) {
 		return s.Fail(ctx, id, http.StatusBadGateway, imageTaskErrorJSON("api_error", "upstream returned a non-JSON image response"))
 	}
-	if uploader, _ := s.current(); uploader != nil {
+	uploader, _ := s.current()
+	if s.resolve != nil && uploader == nil {
+		// Production uses the dynamic resolver. If storage was switched off while
+		// generation ran, never persist the upstream base64 as a successful result.
+		return s.Fail(ctx, id, http.StatusServiceUnavailable, imageTaskErrorJSON("storage_unavailable", "image storage became unavailable before the result could be stored"))
+	}
+	if uploader != nil {
 		rewritten, err := uploader.Rewrite(ctx, id, result)
 		if err != nil {
 			// 转存失败不回退存 base64，避免大 blob 撑爆 Redis：直接把任务标记为失败。
