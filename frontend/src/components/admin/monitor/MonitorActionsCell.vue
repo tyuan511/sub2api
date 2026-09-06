@@ -9,6 +9,17 @@
       <span class="text-xs">{{ t('admin.channelMonitor.runNow') }}</span>
     </button>
     <button
+      v-if="canBazaarLinkProbe"
+      data-testid="monitor-bazaarlink-probe"
+      :title="t('admin.channelMonitor.bazaarLinkProbe.tooltip')"
+      @click="$emit('bazaarlink-probe', row)"
+      :disabled="probing"
+      class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-violet-500 transition-colors hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-violet-900/20 dark:hover:text-violet-300"
+    >
+      <Icon name="shield" size="sm" :class="probing ? 'animate-pulse' : ''" />
+      <span class="text-xs">{{ probing ? t('admin.channelMonitor.bazaarLinkProbe.running') : t('admin.channelMonitor.bazaarLinkProbe.action') }}</span>
+    </button>
+    <button
       data-testid="monitor-duplicate"
       :title="duplicateTitle"
       :disabled="duplicating || Boolean(row.api_key_decrypt_failed)"
@@ -47,10 +58,12 @@ const props = defineProps<{
   row: ChannelMonitor
   running: boolean
   duplicating: boolean
+  probing: boolean
 }>()
 
 defineEmits<{
   (e: 'run', row: ChannelMonitor): void
+  (e: 'bazaarlink-probe', row: ChannelMonitor): void
   (e: 'duplicate', row: ChannelMonitor): void
   (e: 'edit', row: ChannelMonitor): void
   (e: 'delete', row: ChannelMonitor): void
@@ -62,4 +75,11 @@ const duplicateTitle = computed(() => {
   if (props.duplicating) return t('admin.channelMonitor.duplicating')
   return t('admin.channelMonitor.duplicate')
 })
+const canBazaarLinkProbe = computed(() =>
+  !props.row.api_key_decrypt_failed &&
+  !!props.row.endpoint?.trim() &&
+  !!props.row.primary_model?.trim() &&
+  props.row.primary_model.toLowerCase() !== 'quota' &&
+  ['openai', 'anthropic', 'grok', 'kimi', 'zhipu', 'deepseek'].includes(props.row.provider),
+)
 </script>

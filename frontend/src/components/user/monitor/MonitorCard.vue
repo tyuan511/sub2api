@@ -27,6 +27,7 @@
           <span class="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
             {{ formatMonitorModel(item.primary_model) }}
           </span>
+          <MonitorIdentityProbeView :result="item.latest_probe" />
         </div>
       </div>
       <span
@@ -83,6 +84,7 @@ import ProviderIcon from './ProviderIcon.vue'
 import MonitorAvailabilityRow from './MonitorAvailabilityRow.vue'
 import MonitorTimeline from './MonitorTimeline.vue'
 import MonitorQuotaView from '@/components/common/MonitorQuotaView.vue'
+import MonitorIdentityProbeView from '@/components/common/MonitorIdentityProbeView.vue'
 
 // 图标配色与 utils/platformColors.ts 的平台色对齐（新 4 家）。
 const PROVIDER_TINT: Record<string, string> = {

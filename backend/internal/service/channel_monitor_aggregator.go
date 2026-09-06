@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // 渠道监控聚合层：把 latest + availability 拼成 admin/user 视图所需的 summary / detail。
@@ -22,6 +24,16 @@ func (s *ChannelMonitorService) BatchMonitorStatusSummary(
 	ids []int64,
 	primaryByID map[int64]string,
 	extrasByID map[int64][]string,
+) map[int64]MonitorStatusSummary {
+	return s.batchMonitorStatusSummary(ctx, ids, primaryByID, extrasByID, true)
+}
+
+func (s *ChannelMonitorService) batchMonitorStatusSummary(
+	ctx context.Context,
+	ids []int64,
+	primaryByID map[int64]string,
+	extrasByID map[int64][]string,
+	includeProbe bool,
 ) map[int64]MonitorStatusSummary {
 	out := make(map[int64]MonitorStatusSummary, len(ids))
 	if len(ids) == 0 {
@@ -42,6 +54,14 @@ func (s *ChannelMonitorService) BatchMonitorStatusSummary(
 		slog.Warn("channel_monitor: batch compute 7d availability failed", "error", err)
 		avail7dMap = map[int64][]*ChannelMonitorAvailability{}
 	}
+	probeMap := make(map[int64]*domain.BazaarLinkProbeResult, len(ids))
+	if includeProbe && s.probeReader != nil {
+		probeMap, err = s.probeReader.ListLatestBazaarLinkProbes(ctx, ids)
+		if err != nil {
+			slog.Warn("channel_monitor: batch load latest bazaarlink probes failed", "error", err)
+			probeMap = map[int64]*domain.BazaarLinkProbeResult{}
+		}
+	}
 
 	for _, id := range ids {
 		out[id] = buildStatusSummaryWithWindows(
@@ -51,6 +71,9 @@ func (s *ChannelMonitorService) BatchMonitorStatusSummary(
 			primaryByID[id],
 			extrasByID[id],
 		)
+		summary := out[id]
+		summary.LatestProbe = probeMap[id]
+		out[id] = summary
 	}
 	return out
 }
@@ -64,6 +87,17 @@ func (s *ChannelMonitorService) BatchMonitorStatusSummary(
 //	1 次批量 timeline（主模型最近 N 条）；
 //	1 次读取监控周期已计算的分组缓存命中率快照。
 func (s *ChannelMonitorService) ListUserView(ctx context.Context) ([]*UserMonitorView, error) {
+	return s.listUserView(ctx, true)
+}
+
+// ListUserViewForUser applies the user-facing probe visibility policy before
+// querying the independent probe projection. This avoids the extra DB query
+// when the public result switch is disabled.
+func (s *ChannelMonitorService) ListUserViewForUser(ctx context.Context, includeProbe bool) ([]*UserMonitorView, error) {
+	return s.listUserView(ctx, includeProbe)
+}
+
+func (s *ChannelMonitorService) listUserView(ctx context.Context, includeProbe bool) ([]*UserMonitorView, error) {
 	monitors, err := s.repo.ListEnabled(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list enabled monitors: %w", err)
@@ -73,7 +107,7 @@ func (s *ChannelMonitorService) ListUserView(ctx context.Context) ([]*UserMonito
 	}
 
 	ids, primaryByID, extrasByID := collectMonitorIndexes(monitors)
-	summaries := s.BatchMonitorStatusSummary(ctx, ids, primaryByID, extrasByID)
+	summaries := s.batchMonitorStatusSummary(ctx, ids, primaryByID, extrasByID, includeProbe)
 	latestMap := s.batchLatest(ctx, ids)
 	timelineMap := s.batchTimeline(ctx, ids, primaryByID)
 	cacheHitRates := s.batchGroupCacheHitRates(ctx, collectGroupNames(monitors))
@@ -331,6 +365,7 @@ func buildUserViewFromSummary(
 		view.PrimaryTokensPerSecond = primaryLatest.TokensPerSecond
 		view.LatestQuota = primaryLatest.Quota
 	}
+	view.LatestProbe = summary.LatestProbe
 	return view
 }
 

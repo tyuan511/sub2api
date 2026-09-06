@@ -590,6 +590,13 @@ export default {
         kindRequired: '请选择供应商'
       },
       runResultTitle: '检测结果',
+      bazaarLinkProbe: {
+        action: '身份探测',
+        running: '探测中',
+        tooltip: '调用 BazaarLink 检查声明模型是否匹配（不改变普通探活状态）',
+        success: '身份探测任务已提交，下一次批量检查后盾牌图标会更新',
+        failed: '身份探测失败',
+      },
       noMonitorsYet: '暂无监控',
       createFirstMonitor: '创建第一个监控来跟踪渠道可用性',
       advanced: {

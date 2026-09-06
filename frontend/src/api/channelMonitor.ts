@@ -8,6 +8,19 @@ import type { MonitorQuotaSnapshot, Provider, MonitorStatus } from './admin/chan
 
 export type { Provider, MonitorStatus } from './admin/channelMonitor'
 
+export interface UserMonitorProbeResult {
+  status?: string
+  score?: number | null
+  identity_status?: string
+  confidence?: number | null
+  claimed_model?: string
+  predicted_family?: string
+  predicted_model?: string
+  predicted_model_score?: number | null
+  risk_flags?: string[]
+  checked_at: string
+}
+
 export interface UserMonitorExtraModel {
   model: string
   status: MonitorStatus
@@ -49,6 +62,7 @@ export interface UserMonitorView {
    * 服务端才会下发（关闭时服务端已剥离，前端 flag 仅作纵深防御）。
    */
   latest_quota?: MonitorQuotaSnapshot | null
+  latest_probe?: UserMonitorProbeResult | null
 }
 
 export interface UserMonitorListResponse {

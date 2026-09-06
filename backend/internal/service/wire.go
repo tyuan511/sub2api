@@ -952,6 +952,9 @@ var ProviderSet = wire.NewSet(
 	ProvideBalanceNotifyService,
 	NewChannelMonitorGatewayForwarder,
 	ProvideChannelMonitorService,
+	ProvideBazaarLinkProbeService,
+	ProvideBazaarLinkProbeReader,
+	ProvideBazaarLinkProbeRunner,
 	ProvideChannelMonitorRunner,
 	NewChannelMonitorQuotaFetcher,
 	ProvideChannelMonitorV2Service,
@@ -1004,12 +1007,35 @@ func ProvideChannelMonitorService(
 	encryptor SecretEncryptor,
 	settingService *SettingService,
 	forwarder *ChannelMonitorGatewayForwarder,
+	probeReader BazaarLinkProbeReader,
 ) *ChannelMonitorService {
 	svc := NewChannelMonitorService(repo, encryptor)
 	svc.SetRuntimeReader(settingService)
 	svc.SetUsageLogRepository(usageLogRepo)
 	svc.SetForwarder(forwarder)
+	svc.SetProbeReader(probeReader)
 	return svc
+}
+
+// ProvideBazaarLinkProbeService wires the independent BazaarLink task domain.
+func ProvideBazaarLinkProbeService(
+	repo ChannelMonitorRepository,
+	encryptor SecretEncryptor,
+	store BazaarLinkProbeTaskRepository,
+) *BazaarLinkProbeService {
+	targets := NewBazaarLinkProbeTargetReaderAdapter(repo, encryptor)
+	return NewBazaarLinkProbeService(targets, store)
+}
+
+func ProvideBazaarLinkProbeReader(store BazaarLinkProbeTaskRepository) BazaarLinkProbeReader {
+	return store
+}
+
+// ProvideBazaarLinkProbeRunner starts the independent daily/polling worker.
+func ProvideBazaarLinkProbeRunner(svc *BazaarLinkProbeService) *BazaarLinkProbeRunner {
+	runner := NewBazaarLinkProbeRunner(svc)
+	runner.Start()
+	return runner
 }
 
 // ProvideChannelMonitorRunner 创建并启动渠道监控调度器。

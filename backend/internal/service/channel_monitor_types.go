@@ -177,6 +177,7 @@ type UserMonitorView struct {
 	// LatestQuota 主模型最近一次配额快照；channel_monitor_show_quota=false
 	// 时由 handler 服务端剥离。
 	LatestQuota *domain.MonitorQuotaSnapshot
+	LatestProbe *domain.BazaarLinkProbeResult
 }
 
 // GroupCacheHitRate 分组在指定时间窗口内的缓存输入统计。
@@ -306,5 +307,6 @@ type MonitorStatusSummary struct {
 	Availability3d         float64 // 0-100，无历史时为 0
 	Availability7d         float64 // 0-100，无历史时为 0
 	ExtraModels            []ExtraModelStatus
-	LatestQuota            *domain.MonitorQuotaSnapshot // 主模型最近配额快照（配额模式）
+	LatestQuota            *domain.MonitorQuotaSnapshot  // 主模型最近配额快照（配额模式）
+	LatestProbe            *domain.BazaarLinkProbeResult // 主模型最近 BazaarLink 身份结论
 }

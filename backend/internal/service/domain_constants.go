@@ -484,6 +484,9 @@ const (
 	// fail-closed (only the literal "true" enables it). Admin endpoints always
 	// keep the full snapshots regardless of this flag.
 	SettingKeyChannelMonitorShowQuota = "channel_monitor_show_quota"
+	// SettingKeyChannelMonitorShowProbe controls whether probe verdicts are
+	// exposed by user-facing V1 monitor APIs. Admin views always include them.
+	SettingKeyChannelMonitorShowProbe = "channel_monitor_show_probe"
 
 	// SettingKeyGrokDefaultTextModel is the fallback Grok text model for empty
 	// request models and built-in Grok aliases (e.g. "grok" → this id). Default grok-4.5.

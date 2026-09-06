@@ -34,6 +34,9 @@ export default {
           showQuota: 'Show channel usage/balance to users',
           showQuotaHint:
             'When on, quota-mode channel monitors expose the linked account usage windows/balance on the user Channel Status page. Disabled by default; admins always see it.',
+          showProbe: 'Show model identity probes to users',
+          showProbeHint:
+            'When on, user-facing channel monitoring shows BazaarLink identity verdicts and risk flags. Disabled by default; admins always see them.',
         },
         availableChannels: {
           title: 'Available Channels',

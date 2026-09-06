@@ -29,11 +29,20 @@ const (
 // ChannelMonitorHandler 渠道监控管理后台 handler。
 type ChannelMonitorHandler struct {
 	monitorService *service.ChannelMonitorService
+	probeService   *service.BazaarLinkProbeService
 }
 
 // NewChannelMonitorHandler 创建 handler。
 func NewChannelMonitorHandler(monitorService *service.ChannelMonitorService) *ChannelMonitorHandler {
 	return &ChannelMonitorHandler{monitorService: monitorService}
+}
+
+// SetBazaarLinkProbeService injects the independent probe domain.
+func (h *ChannelMonitorHandler) SetBazaarLinkProbeService(probeService *service.BazaarLinkProbeService) {
+	if h == nil {
+		return
+	}
+	h.probeService = probeService
 }
 
 // --- Request / Response ---
@@ -117,9 +126,10 @@ type channelMonitorResponse struct {
 
 	// 配额模式：check_mode + 关联账号 + 主模型最近配额快照
 	// （LatestQuota 由 List handler 批量聚合后填充；管理端不受 channel_monitor_show_quota 影响）。
-	CheckMode   string                       `json:"check_mode"`
-	AccountID   *int64                       `json:"account_id"`
-	LatestQuota *domain.MonitorQuotaSnapshot `json:"latest_quota,omitempty"`
+	CheckMode   string                        `json:"check_mode"`
+	AccountID   *int64                        `json:"account_id"`
+	LatestQuota *domain.MonitorQuotaSnapshot  `json:"latest_quota,omitempty"`
+	LatestProbe *domain.BazaarLinkProbeResult `json:"latest_probe,omitempty"`
 }
 
 type channelMonitorCheckResultResponse struct {
@@ -307,6 +317,7 @@ func buildListItemResponse(m *service.ChannelMonitor, summary service.MonitorSta
 	resp.PrimaryTokensPerSecond = summary.PrimaryTokensPerSecond
 	resp.Availability7d = summary.Availability7d
 	resp.LatestQuota = summary.LatestQuota
+	resp.LatestProbe = summary.LatestProbe
 	resp.ExtraModelsStatus = make([]dto.ChannelMonitorExtraModelStatus, 0, len(summary.ExtraModels))
 	for _, e := range summary.ExtraModels {
 		resp.ExtraModelsStatus = append(resp.ExtraModelsStatus, dto.ChannelMonitorExtraModelStatus{
@@ -501,6 +512,25 @@ func (h *ChannelMonitorHandler) Run(c *gin.Context) {
 		out = append(out, checkResultToResponse(r))
 	}
 	response.Success(c, gin.H{"results": out})
+}
+
+// RunBazaarLinkProbe POST /api/v1/admin/channel-monitors/:id/bazaarlink-probe
+// 手动触发一次独立的模型身份/质量检测，不写普通可用率历史。
+func (h *ChannelMonitorHandler) RunBazaarLinkProbe(c *gin.Context) {
+	id, ok := ParseChannelMonitorID(c)
+	if !ok {
+		return
+	}
+	if h.probeService == nil {
+		response.ErrorFrom(c, service.ErrChannelMonitorBazaarLinkUnsupported)
+		return
+	}
+	result, err := h.probeService.Run(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 // History GET /api/v1/admin/channel-monitors/:id/history

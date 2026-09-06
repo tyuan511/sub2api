@@ -49,6 +49,13 @@ func (h *ChannelMonitorUserHandler) quotaVisible(c *gin.Context) bool {
 	return h.settingService.GetChannelMonitorRuntime(c.Request.Context()).ShowQuota
 }
 
+func (h *ChannelMonitorUserHandler) probeVisible(c *gin.Context) bool {
+	if h.settingService == nil {
+		return false
+	}
+	return h.settingService.GetChannelMonitorRuntime(c.Request.Context()).ShowProbe
+}
+
 // --- Response ---
 
 type channelMonitorUserListItem struct {
@@ -72,7 +79,37 @@ type channelMonitorUserListItem struct {
 	Timeline               []channelMonitorUserTimelinePoint    `json:"timeline"`
 	// LatestQuota 主模型最近配额快照；channel_monitor_show_quota=false 时
 	// 由 userMonitorViewToItem 的调用方传入 false 剥离（服务端脱敏，非仅前端隐藏）。
-	LatestQuota *domain.MonitorQuotaSnapshot `json:"latest_quota,omitempty"`
+	LatestQuota *domain.MonitorQuotaSnapshot   `json:"latest_quota,omitempty"`
+	LatestProbe *channelMonitorUserProbeResult `json:"latest_probe,omitempty"`
+}
+
+// channelMonitorUserProbeResult is deliberately smaller than the internal
+// result: task IDs, token counts, upstream errors and transport details never
+// cross the user API boundary.
+type channelMonitorUserProbeResult struct {
+	Status              string    `json:"status,omitempty"`
+	Score               *int      `json:"score,omitempty"`
+	IdentityStatus      string    `json:"identity_status,omitempty"`
+	Confidence          *float64  `json:"confidence,omitempty"`
+	ClaimedModel        string    `json:"claimed_model,omitempty"`
+	PredictedFamily     string    `json:"predicted_family,omitempty"`
+	PredictedModel      string    `json:"predicted_model,omitempty"`
+	PredictedModelScore *float64  `json:"predicted_model_score,omitempty"`
+	RiskFlags           []string  `json:"risk_flags,omitempty"`
+	CheckedAt           time.Time `json:"checked_at"`
+}
+
+func publicProbeResult(result *domain.BazaarLinkProbeResult) *channelMonitorUserProbeResult {
+	if result == nil {
+		return nil
+	}
+	return &channelMonitorUserProbeResult{
+		Status: result.Status, Score: result.Score, IdentityStatus: result.IdentityStatus,
+		Confidence: result.Confidence, ClaimedModel: result.ClaimedModel,
+		PredictedFamily: result.PredictedFamily, PredictedModel: result.PredictedModel,
+		PredictedModelScore: result.PredictedModelScore,
+		RiskFlags:           append([]string(nil), result.RiskFlags...), CheckedAt: result.CheckedAt,
+	}
 }
 
 // channelMonitorUserTimelinePoint 主模型最近一次检测的 timeline 点。
@@ -107,7 +144,7 @@ type channelMonitorUserModelStat struct {
 	AvgLatency7dMs        *int     `json:"avg_latency_7d_ms"`
 }
 
-func userMonitorViewToItem(v *service.UserMonitorView, includeQuota bool) channelMonitorUserListItem {
+func userMonitorViewToItem(v *service.UserMonitorView, includeQuota bool, includeProbe bool) channelMonitorUserListItem {
 	extras := make([]dto.ChannelMonitorExtraModelStatus, 0, len(v.ExtraModels))
 	for _, e := range v.ExtraModels {
 		extras = append(extras, dto.ChannelMonitorExtraModelStatus{
@@ -152,6 +189,9 @@ func userMonitorViewToItem(v *service.UserMonitorView, includeQuota bool) channe
 	if includeQuota {
 		item.LatestQuota = v.LatestQuota
 	}
+	if includeProbe {
+		item.LatestProbe = publicProbeResult(v.LatestProbe)
+	}
 	return item
 }
 
@@ -188,7 +228,8 @@ func (h *ChannelMonitorUserHandler) List(c *gin.Context) {
 		response.Success(c, gin.H{"items": []channelMonitorUserListItem{}})
 		return
 	}
-	views, err := h.monitorService.ListUserView(c.Request.Context())
+	includeProbe := h.probeVisible(c)
+	views, err := h.monitorService.ListUserViewForUser(c.Request.Context(), includeProbe)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -196,7 +237,7 @@ func (h *ChannelMonitorUserHandler) List(c *gin.Context) {
 	includeQuota := h.quotaVisible(c)
 	items := make([]channelMonitorUserListItem, 0, len(views))
 	for _, v := range views {
-		items = append(items, userMonitorViewToItem(v, includeQuota))
+		items = append(items, userMonitorViewToItem(v, includeQuota, includeProbe))
 	}
 	response.Success(c, gin.H{"items": items})
 }

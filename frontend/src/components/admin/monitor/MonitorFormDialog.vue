@@ -360,7 +360,7 @@ const usesQuotaMode = computed(() => form.check_mode !== CHECK_MODE_PROBE)
 const usesProbePart = computed(() => form.check_mode !== CHECK_MODE_QUOTA)
 
 // jitter 上限与后端校验一致：interval - jitter 不得低于最小检测间隔 15 秒。
-const maxJitterSeconds = computed<number>(() => Math.max(0, (form.interval_seconds || 0) - 15))
+const maxJitterSeconds = computed<number>(() => Math.min(3585, Math.max(0, (form.interval_seconds || 0) - 15)))
 
 let suppressFormWatchers = false
 

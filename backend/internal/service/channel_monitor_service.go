@@ -76,6 +76,13 @@ type channelMonitorRuntimeReader interface {
 	GetChannelMonitorRuntime(ctx context.Context) ChannelMonitorRuntime
 }
 
+// ChannelMonitorProbeReader is the read-side probe projection used by monitor
+// aggregation. The concrete BazaarLink task service is kept out of this
+// interface so monitor CRUD/checking remains independent.
+type ChannelMonitorProbeReader interface {
+	ListLatestBazaarLinkProbes(ctx context.Context, ids []int64) (map[int64]*domain.BazaarLinkProbeResult, error)
+}
+
 // monitorUsageLogWriter is implemented by the usage-log repository. It is
 // intentionally kept separate from UsageLogRepository so monitor probes never
 // enter the normal billing/idempotency path.
@@ -119,6 +126,9 @@ type ChannelMonitorService struct {
 	// forwarder is the production monitor transport. A nil value keeps the
 	// legacy direct checker available for isolated unit tests and old adapters.
 	forwarder ChannelMonitorForwarder
+	// probeReader supplies the optional BazaarLink result projection. The
+	// monitor service never submits or polls probe tasks itself.
+	probeReader ChannelMonitorProbeReader
 }
 
 const maxChannelMonitorNameRunes = 100
@@ -160,6 +170,15 @@ func (s *ChannelMonitorService) SetForwarder(forwarder ChannelMonitorForwarder) 
 		return
 	}
 	s.forwarder = forwarder
+}
+
+// SetProbeReader injects the read-only probe projection used by monitor cards.
+// BazaarLink task submission and polling remain owned by BazaarLinkProbeService.
+func (s *ChannelMonitorService) SetProbeReader(reader ChannelMonitorProbeReader) {
+	if s == nil {
+		return
+	}
+	s.probeReader = reader
 }
 
 func (s *ChannelMonitorService) probeRuntime(ctx context.Context) ChannelMonitorRuntime {

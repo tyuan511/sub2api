@@ -590,6 +590,13 @@ export default {
         kindRequired: 'Please select a provider'
       },
       runResultTitle: 'Check Result',
+      bazaarLinkProbe: {
+        action: 'Identity probe',
+        running: 'Probing',
+        tooltip: 'Ask BazaarLink whether the claimed model still matches (does not change normal health)',
+        success: 'Identity probe submitted; the shield icon updates after the next batch check',
+        failed: 'Identity probe failed',
+      },
       noMonitorsYet: 'No monitors yet',
       createFirstMonitor: 'Create your first monitor to track channel availability',
       advanced: {

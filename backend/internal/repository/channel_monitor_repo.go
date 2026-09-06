@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -33,6 +34,12 @@ type channelMonitorRepository struct {
 
 // NewChannelMonitorRepository 创建仓储实例。
 func NewChannelMonitorRepository(client *dbent.Client, db *sql.DB) service.ChannelMonitorRepository {
+	return &channelMonitorRepository{client: client, db: db}
+}
+
+// NewBazaarLinkProbeTaskRepository exposes the probe task table through the
+// independent BazaarLink service interface.
+func NewBazaarLinkProbeTaskRepository(client *dbent.Client, db *sql.DB) service.BazaarLinkProbeTaskRepository {
 	return &channelMonitorRepository{client: client, db: db}
 }
 
@@ -327,6 +334,223 @@ func (r *channelMonitorRepository) ListHistory(ctx context.Context, monitorID in
 			Quota:           row.Quota,
 		}
 		out = append(out, entry)
+	}
+	return out, nil
+}
+
+func (r *channelMonitorRepository) InsertBazaarLinkProbe(ctx context.Context, monitorID int64, result *domain.BazaarLinkProbeResult) error {
+	if r == nil || r.db == nil || monitorID <= 0 || result == nil {
+		return fmt.Errorf("invalid bazaarlink probe persistence input")
+	}
+	if result.CheckedAt.IsZero() {
+		result.CheckedAt = time.Now()
+	}
+	payload, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("marshal bazaarlink probe: %w", err)
+	}
+	checkedAt := result.CheckedAt
+	status := "completed"
+	if result.Status == "failed" || result.Status == "error" || result.Status == "timed_out" {
+		status = result.Status
+	}
+	const q = `
+		INSERT INTO channel_monitor_bazaarlink_probes
+			(monitor_id, result, checked_at, remote_run_id, task_status, submitted_at, expires_at)
+		VALUES ($1, $2::jsonb, $3, NULLIF($4, ''), $5, $3, $3)
+	`
+	if _, err := r.db.ExecContext(ctx, q, monitorID, payload, checkedAt, result.RunID, status); err != nil {
+		return fmt.Errorf("insert bazaarlink probe: %w", err)
+	}
+	return nil
+}
+
+func (r *channelMonitorRepository) FindActiveBazaarLinkProbeTask(ctx context.Context, monitorID int64, now time.Time) (*domain.BazaarLinkProbeTask, error) {
+	if r == nil || r.db == nil || monitorID <= 0 {
+		return nil, nil
+	}
+	const q = `
+		SELECT id, monitor_id, remote_run_id, task_status, result, submitted_at, expires_at, next_poll_at
+		FROM channel_monitor_bazaarlink_probes
+		WHERE monitor_id = $1
+		  AND task_status IN ('queued', 'running')
+		  AND expires_at > $2
+		ORDER BY submitted_at DESC, id DESC
+		LIMIT 1
+	`
+	return scanBazaarLinkProbeTask(r.db.QueryRowContext(ctx, q, monitorID, now))
+}
+
+func (r *channelMonitorRepository) InsertBazaarLinkProbeTask(ctx context.Context, task *domain.BazaarLinkProbeTask) error {
+	if r == nil || r.db == nil || task == nil || task.MonitorID <= 0 || strings.TrimSpace(task.RunID) == "" || task.Result == nil {
+		return fmt.Errorf("invalid bazaarlink probe task persistence input")
+	}
+	if task.SubmittedAt.IsZero() {
+		task.SubmittedAt = time.Now()
+	}
+	if task.ExpiresAt.IsZero() {
+		task.ExpiresAt = task.SubmittedAt.Add(2 * time.Hour)
+	}
+	if task.Result.CheckedAt.IsZero() {
+		task.Result.CheckedAt = task.SubmittedAt
+	}
+	status := task.Status
+	if status == "" {
+		status = "queued"
+	}
+	payload, err := json.Marshal(task.Result)
+	if err != nil {
+		return fmt.Errorf("marshal bazaarlink probe task: %w", err)
+	}
+	var nextPoll any
+	if !task.NextPollAt.IsZero() {
+		nextPoll = task.NextPollAt
+	}
+	_, err = r.db.ExecContext(ctx, `
+		INSERT INTO channel_monitor_bazaarlink_probes
+			(monitor_id, result, checked_at, remote_run_id, task_status, submitted_at, expires_at, next_poll_at)
+		VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, $8)
+	`, task.MonitorID, payload, task.Result.CheckedAt, task.RunID, status, task.SubmittedAt, task.ExpiresAt, nextPoll)
+	if err != nil {
+		return fmt.Errorf("insert bazaarlink probe task: %w", err)
+	}
+	return nil
+}
+
+func (r *channelMonitorRepository) ListActiveBazaarLinkProbeTasks(ctx context.Context) ([]*domain.BazaarLinkProbeTask, error) {
+	if r == nil || r.db == nil {
+		return []*domain.BazaarLinkProbeTask{}, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, monitor_id, remote_run_id, task_status, result, submitted_at, expires_at, next_poll_at
+		FROM channel_monitor_bazaarlink_probes
+		WHERE task_status IN ('queued', 'running')
+		ORDER BY next_poll_at NULLS FIRST, submitted_at ASC, id ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list active bazaarlink probe tasks: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := make([]*domain.BazaarLinkProbeTask, 0)
+	for rows.Next() {
+		task, scanErr := scanBazaarLinkProbeTaskRow(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, task)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate active bazaarlink probe tasks: %w", err)
+	}
+	return out, nil
+}
+
+func (r *channelMonitorRepository) UpdateBazaarLinkProbeTask(ctx context.Context, taskID int64, status string, result *domain.BazaarLinkProbeResult, nextPollAt *time.Time) error {
+	if r == nil || r.db == nil || taskID <= 0 || result == nil {
+		return fmt.Errorf("invalid bazaarlink probe task update")
+	}
+	if result.CheckedAt.IsZero() {
+		result.CheckedAt = time.Now()
+	}
+	payload, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("marshal bazaarlink probe task update: %w", err)
+	}
+	var nextPoll any
+	if nextPollAt != nil && !nextPollAt.IsZero() {
+		nextPoll = *nextPollAt
+	}
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE channel_monitor_bazaarlink_probes
+		SET result = $2::jsonb,
+		    task_status = $3,
+		    checked_at = $4,
+		    next_poll_at = $5
+		WHERE id = $1
+	`, taskID, payload, status, result.CheckedAt, nextPoll)
+	if err != nil {
+		return fmt.Errorf("update bazaarlink probe task: %w", err)
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return fmt.Errorf("bazaarlink probe task %d not found", taskID)
+	}
+	return nil
+}
+
+type bazaarLinkProbeTaskRowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanBazaarLinkProbeTask(row *sql.Row) (*domain.BazaarLinkProbeTask, error) {
+	task, err := scanBazaarLinkProbeTaskValues(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("scan active bazaarlink probe task: %w", err)
+	}
+	return task, nil
+}
+
+func scanBazaarLinkProbeTaskRow(row bazaarLinkProbeTaskRowScanner) (*domain.BazaarLinkProbeTask, error) {
+	return scanBazaarLinkProbeTaskValues(row)
+}
+
+func scanBazaarLinkProbeTaskValues(row bazaarLinkProbeTaskRowScanner) (*domain.BazaarLinkProbeTask, error) {
+	var (
+		task                   domain.BazaarLinkProbeTask
+		runID, status, payload string
+		submittedAt, expiresAt time.Time
+		nextPollAt             sql.NullTime
+	)
+	if err := row.Scan(&task.ID, &task.MonitorID, &runID, &status, &payload, &submittedAt, &expiresAt, &nextPollAt); err != nil {
+		return nil, err
+	}
+	result := &domain.BazaarLinkProbeResult{}
+	if err := json.Unmarshal([]byte(payload), result); err != nil {
+		return nil, fmt.Errorf("decode bazaarlink probe task result: %w", err)
+	}
+	task.RunID = runID
+	task.Status = status
+	task.Result = result
+	task.SubmittedAt = submittedAt
+	task.ExpiresAt = expiresAt
+	if nextPollAt.Valid {
+		task.NextPollAt = nextPollAt.Time
+	}
+	return &task, nil
+}
+
+func (r *channelMonitorRepository) ListLatestBazaarLinkProbes(ctx context.Context, ids []int64) (map[int64]*domain.BazaarLinkProbeResult, error) {
+	out := make(map[int64]*domain.BazaarLinkProbeResult, len(ids))
+	if r == nil || r.db == nil || len(ids) == 0 {
+		return out, nil
+	}
+	const q = `
+		SELECT DISTINCT ON (monitor_id) monitor_id, result
+		FROM channel_monitor_bazaarlink_probes
+		WHERE monitor_id = ANY($1)
+		ORDER BY monitor_id, checked_at DESC, id DESC
+	`
+	rows, err := r.db.QueryContext(ctx, q, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("list latest bazaarlink probes: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var monitorID int64
+		var payload []byte
+		if err := rows.Scan(&monitorID, &payload); err != nil {
+			return nil, fmt.Errorf("scan latest bazaarlink probe: %w", err)
+		}
+		result := &domain.BazaarLinkProbeResult{}
+		if err := json.Unmarshal(payload, result); err != nil {
+			return nil, fmt.Errorf("decode latest bazaarlink probe: %w", err)
+		}
+		out[monitorID] = result
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate latest bazaarlink probes: %w", err)
 	}
 	return out, nil
 }

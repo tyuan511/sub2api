@@ -23,6 +23,23 @@ export type APIMode = 'chat_completions' | 'responses'
  */
 export type CheckMode = 'probe' | 'quota' | 'quota_probe'
 
+export interface BazaarLinkProbeResult {
+  run_id?: string
+  status?: string
+  score?: number | null
+  identity_status?: 'confirmed' | 'mismatch' | 'insufficient_data' | string
+  confidence?: number | null
+  claimed_model?: string
+  predicted_family?: string
+  predicted_model?: string
+  predicted_model_score?: number | null
+  risk_flags?: string[]
+  total_input_tokens?: number | null
+  total_output_tokens?: number | null
+  error?: string
+  checked_at: string
+}
+
 /** 配额快照中的单个用量窗口（与后端 domain.MonitorQuotaTier 一致）。 */
 export interface MonitorQuotaTier {
   /** 5h | 7d | 7d-sonnet | 7d-fable | 30d | daily | weekly | total */
@@ -104,6 +121,8 @@ export interface ChannelMonitor {
   account_id: number | null
   /** 主模型最近一次配额快照（配额模式；无历史时为 null） */
   latest_quota?: MonitorQuotaSnapshot | null
+  /** 主模型最近一次 BazaarLink 身份探测结论。 */
+  latest_probe?: BazaarLinkProbeResult | null
 }
 
 export interface ExtraModelStatus {
@@ -339,6 +358,16 @@ export async function runNow(id: number): Promise<RunNowResponse> {
   return data
 }
 
+/** Submit one asynchronous BazaarLink identity/quality probe for the monitor. */
+export async function runBazaarLinkProbe(id: number): Promise<BazaarLinkProbeResult> {
+  const { data } = await apiClient.post<BazaarLinkProbeResult>(
+    `/admin/channel-monitors/${id}/bazaarlink-probe`,
+    undefined,
+    { timeout: 180000 },
+  )
+  return data
+}
+
 /**
  * List historical check results for a monitor.
  */
@@ -361,6 +390,7 @@ export const channelMonitorAPI = {
   update,
   del,
   runNow,
+  runBazaarLinkProbe,
   listHistory,
 }
 

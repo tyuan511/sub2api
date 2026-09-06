@@ -130,6 +130,17 @@ const (
 
 	// monitorRunOneBuffer runOne 的总超时缓冲（除请求超时与 ping 超时外的额外裕量）。
 	monitorRunOneBuffer = 10 * time.Second
+	// BazaarLink asynchronous quick probes are submitted once and polled in a
+	// shared batch. The remote run is closed locally after two hours.
+	// The submit endpoint is asynchronous; this only bounds the HTTP admission
+	// request. A remote task is tracked separately for up to two hours.
+	monitorBazaarLinkRunTimeout         = 45 * time.Second
+	monitorBazaarLinkTaskTimeout        = 2 * time.Hour
+	monitorBazaarLinkPollInterval       = 5 * time.Minute
+	monitorBazaarLinkPollRequestTimeout = 30 * time.Second
+	monitorBazaarLinkPollConcurrency    = 8
+	monitorBazaarLinkDailyHour          = 2
+	monitorBazaarLinkBatchConcurrency   = 3
 
 	// monitorIdleConnTimeout HTTP transport 空闲连接关闭超时。
 	monitorIdleConnTimeout = 30 * time.Second
@@ -171,6 +182,9 @@ var (
 	)
 	ErrChannelMonitorInvalidRequestBody = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_REQUEST_BODY", "openai-compatible replace-mode body_override must include non-empty messages for chat_completions or non-empty instructions and input for responses",
+	)
+	ErrChannelMonitorBazaarLinkUnsupported = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_BAZAARLINK_UNSUPPORTED", "this monitor provider does not expose an OpenAI-compatible or Anthropic endpoint for identity probing",
 	)
 	ErrChannelMonitorInvalidInterval = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_INTERVAL", "interval_seconds must be in [15, 3600]",

@@ -108,6 +108,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
+		ChannelMonitorShowProbe:              settings.ChannelMonitorShowProbe,
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 

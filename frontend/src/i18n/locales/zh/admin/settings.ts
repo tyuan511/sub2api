@@ -34,6 +34,9 @@ export default {
           showQuota: '向用户展示渠道用量/余额',
           showQuotaHint:
             '开启后，配额模式的渠道监控会在用户端渠道状态页展示关联账号的用量滚动窗口/余额。默认关闭；管理员始终可见。',
+          showProbe: '向用户展示模型身份探测',
+          showProbeHint:
+            '开启后，用户端渠道监控会展示 BazaarLink 模型身份判定和风险标记。默认关闭；管理员始终可见。',
         },
         availableChannels: {
           title: '可用渠道',

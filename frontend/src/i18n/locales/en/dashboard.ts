@@ -478,6 +478,23 @@ export default {
       quota: 'Quota',
       quota_probe: 'Probe + Quota'
     },
+    identityProbe: {
+      title: 'Model identity check',
+      unknown: 'Unknown',
+      claimed: 'Claimed model: {model}',
+      predicted: 'Detected model: {model}',
+      confidence: 'Confidence: {value}',
+      risks: 'Risk flags: {flags}',
+      checkedAt: 'Checked: {time}',
+      status: {
+        confirmed: 'Identity confirmed',
+        mismatch: 'Identity mismatch',
+        insufficient_data: 'Insufficient data',
+        pending: 'Probe submitted',
+        timed_out: 'Probe timed out',
+        failed: 'Probe failed'
+      }
+    },
     // Quota snapshot rendering (MonitorQuotaView, shared by admin + user views)
     quota: {
       unavailable: 'Quota unavailable',

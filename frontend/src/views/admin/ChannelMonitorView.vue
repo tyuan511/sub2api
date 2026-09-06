@@ -119,7 +119,9 @@
               :row="row"
               :running="runningId === row.id"
               :duplicating="duplicatingIds.has(row.id)"
+              :probing="probingIds.has(row.id)"
               @run="handleRunNow"
+              @bazaarlink-probe="handleBazaarLinkProbe"
               @duplicate="handleDuplicate"
               @edit="openEditDialog"
               @delete="handleDelete"
@@ -246,6 +248,7 @@ const deleting = ref<ChannelMonitor | null>(null)
 const showRunResult = ref(false)
 const runResults = ref<CheckResult[]>([])
 const duplicatingIds = reactive(new Set<number>())
+const probingIds = reactive(new Set<number>())
 
 let abortController: AbortController | null = null
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -359,6 +362,23 @@ async function handleRunNow(row: ChannelMonitor) {
     appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.runFailed')))
   } finally {
     runningId.value = null
+  }
+}
+
+async function handleBazaarLinkProbe(row: ChannelMonitor) {
+  if (probingIds.has(row.id)) return
+  probingIds.add(row.id)
+  try {
+    const result = await adminAPI.channelMonitor.runBazaarLinkProbe(row.id)
+    // A completed mismatch is a valid probe verdict, not a failed submission.
+    // Transport/submission failures are returned as HTTP errors by the API.
+    void result
+    appStore.showSuccess(t('admin.channelMonitor.bazaarLinkProbe.success'))
+    await reload()
+  } catch (err: unknown) {
+    appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.bazaarLinkProbe.failed')))
+  } finally {
+    probingIds.delete(row.id)
   }
 }
 

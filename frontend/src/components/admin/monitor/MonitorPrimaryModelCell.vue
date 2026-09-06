@@ -3,6 +3,7 @@
     <div class="flex items-center gap-2">
       <!-- 纯配额模式主模型是占位符 "quota"（数据源是账号不是模型），展示层替换为本地化标签 -->
       <span class="text-sm text-gray-900 dark:text-gray-100">{{ formatMonitorModel(row.primary_model) }}</span>
+      <MonitorIdentityProbeView :result="row.latest_probe" />
       <HelpTooltip>
       <template #trigger>
         <span
@@ -82,6 +83,7 @@ import { useI18n } from 'vue-i18n'
 import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import MonitorQuotaView from '@/components/common/MonitorQuotaView.vue'
+import MonitorIdentityProbeView from '@/components/common/MonitorIdentityProbeView.vue'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
 import { firstTokenSeverity, LATENCY_TEXT_CLASSES } from '@/utils/latencyHealth'
 

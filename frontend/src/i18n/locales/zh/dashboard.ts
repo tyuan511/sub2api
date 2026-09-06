@@ -483,6 +483,23 @@ export default {
       quota: '配额',
       quota_probe: '探活 + 配额'
     },
+    identityProbe: {
+      title: '模型身份检测',
+      unknown: '未知',
+      claimed: '声明模型：{model}',
+      predicted: '判定模型：{model}',
+      confidence: '置信度：{value}',
+      risks: '风险标记：{flags}',
+      checkedAt: '检测时间：{time}',
+      status: {
+        confirmed: '身份一致',
+        mismatch: '身份不一致',
+        insufficient_data: '数据不足',
+        pending: '探测任务已提交',
+        timed_out: '探测任务超时',
+        failed: '探测失败'
+      }
+    },
     // 配额快照展示（MonitorQuotaView，管理端与用户端共用）
     quota: {
       unavailable: '配额信息不可用',
