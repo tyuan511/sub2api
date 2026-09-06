@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -50,27 +49,25 @@ type APIKeyRouteState struct {
 	// Order stores indexes into the immutable Plan.Candidates slice. Sequential
 	// mode uses [0..N); smart mode replaces it once, before the first upstream
 	// attempt, with a request-frozen scored order.
-	Order                        []int
-	Cursor                       int
-	Index                        int
-	InitialGroupID               int64
-	SwitchCount                  int
-	ScoreVersion                 string
-	StrategyVersion              string
-	FeatureVersion               string
-	ModelVersion                 *string
-	ExperimentID                 *string
-	ExperimentBucket             *int
-	AssignmentReason             string
-	StickySelected               bool
-	StickyBroken                 bool
-	Locked                       bool
-	CacheCompensationMaxTokens   int
-	CacheCompensationMaxSwitches int
-	AttemptStartedAt             time.Time
-	ScoreGeneratedAt             time.Time
-	DecisionID                   string
-	ScoreFacts                   map[int64]service.APIKeyRoutingCandidateScore
+	Order            []int
+	Cursor           int
+	Index            int
+	InitialGroupID   int64
+	SwitchCount      int
+	ScoreVersion     string
+	StrategyVersion  string
+	FeatureVersion   string
+	ModelVersion     *string
+	ExperimentID     *string
+	ExperimentBucket *int
+	AssignmentReason string
+	StickySelected   bool
+	StickyBroken     bool
+	Locked           bool
+	AttemptStartedAt time.Time
+	ScoreGeneratedAt time.Time
+	DecisionID       string
+	ScoreFacts       map[int64]service.APIKeyRoutingCandidateScore
 }
 
 // MarkAPIKeyRouteStickySelected records that this request started from a
@@ -91,10 +88,6 @@ func MarkAPIKeyRouteStickyBroken(c *gin.Context) {
 		return
 	}
 	state.StickyBroken = true
-	if state.StickySelected && c != nil && c.Request != nil {
-		ctx := service.WithForceCacheBilling(c.Request.Context())
-		c.Request = c.Request.WithContext(service.WithAPIKeyGroupCacheCompensation(ctx))
-	}
 	bindAPIKeyRoutingUsageContext(c, state)
 }
 
@@ -102,17 +95,7 @@ func apiKeyRouteCoordinatorFromConfig() *service.APIKeyRouteCoordinator {
 	return service.NewAPIKeyRouteCoordinator()
 }
 
-func apiKeyRouteCompensationLimitsFromConfig(cfg *config.Config) []int {
-	if cfg == nil {
-		return nil
-	}
-	return []int{
-		cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens,
-		cfg.Gateway.APIKeyGroupCacheCompensationMaxSwitches,
-	}
-}
-
-func prepareInitialAPIKeyRoute(apiKey *service.APIKey, coordinator *service.APIKeyRouteCoordinator, compensationLimits ...int) (*service.APIKey, *APIKeyRouteState, error) {
+func prepareInitialAPIKeyRoute(apiKey *service.APIKey, coordinator *service.APIKeyRouteCoordinator) (*service.APIKey, *APIKeyRouteState, error) {
 	if apiKey != nil && len(apiKey.GroupRoutes) > 0 && (apiKey.GroupID == nil ||
 		(len(apiKey.GroupRoutes) == 1 && apiKey.GroupRoutes[0].GroupID <= 0)) {
 		return nil, nil, service.ErrInvalidAPIKeyRouteSet
@@ -121,8 +104,8 @@ func prepareInitialAPIKeyRoute(apiKey *service.APIKey, coordinator *service.APIK
 		return apiKey, nil, nil
 	}
 	if !apiKey.HasMultipleEnabledGroupRoutes() {
-			// A single-group key keeps its exact legacy projection and
-			// GROUP_DISABLED/GROUP_DELETED/permission checks.
+		// A single-group key keeps its exact legacy projection and
+		// GROUP_DISABLED/GROUP_DELETED/permission checks.
 		return apiKey, &APIKeyRouteState{Plan: &service.APIKeyRoutePlan{
 			APIKeyID: apiKey.ID, RouteVersion: apiKey.RouteVersion,
 			RoutingStateVersion: apiKey.EffectiveRoutingStateVersion(),
@@ -140,17 +123,8 @@ func prepareInitialAPIKeyRoute(apiKey *service.APIKey, coordinator *service.APIK
 	if err != nil {
 		return nil, nil, err
 	}
-	maxTokens := service.DefaultAPIKeyGroupCacheCompensationMaxTokens
-	maxSwitches := service.DefaultAPIKeyGroupCacheCompensationMaxSwitches
-	if len(compensationLimits) > 0 && compensationLimits[0] > 0 {
-		maxTokens = compensationLimits[0]
-	}
-	if len(compensationLimits) > 1 && compensationLimits[1] > 0 {
-		maxSwitches = compensationLimits[1]
-	}
 	state := &APIKeyRouteState{
 		Plan: plan, Order: make([]int, plan.Len()), AttemptStartedAt: time.Now(),
-		CacheCompensationMaxTokens: maxTokens, CacheCompensationMaxSwitches: maxSwitches,
 	}
 	for i := range state.Order {
 		state.Order[i] = i
@@ -358,10 +332,6 @@ func activateAPIKeyRouteIndex(c *gin.Context, nextIndex int, initial bool) (*ser
 		state.SwitchCount++
 		if state.StickySelected {
 			state.StickyBroken = true
-			if c.Request != nil {
-				ctx := service.WithForceCacheBilling(c.Request.Context())
-				c.Request = c.Request.WithContext(service.WithAPIKeyGroupCacheCompensation(ctx))
-			}
 		}
 		service.DefaultRoutingRuntimeMetrics().RecordSwitch(state.StickyBroken)
 	}
@@ -404,30 +374,28 @@ func bindAPIKeyRoutingUsageContext(c *gin.Context, state *APIKeyRouteState) {
 		}
 	}
 	ctx := service.WithAPIKeyRoutingUsageContext(c.Request.Context(), service.APIKeyRoutingUsageContext{
-		DecisionID:                   state.DecisionID,
-		APIKeyID:                     state.Plan.APIKeyID,
-		RouteVersion:                 state.Plan.RouteVersion,
-		InitialGroupID:               state.InitialGroupID,
-		EffectiveGroupID:             effectiveGroupID,
-		Platform:                     platform,
-		ScheduleMode:                 state.Plan.ScheduleMode,
-		SmartPreference:              state.Plan.SmartPreference,
-		SmartBalanceBPS:              state.Plan.SmartBalanceBPS,
-		RoutingMinSuccessRate:        state.Plan.RoutingMinSuccessRate,
-		RoutingStateVersion:          state.Plan.RoutingStateVersion,
-		SwitchCount:                  state.SwitchCount,
-		StrategyVersion:              state.StrategyVersion,
-		ScoreVersion:                 state.ScoreVersion,
-		FeatureVersion:               state.FeatureVersion,
-		ModelVersion:                 state.ModelVersion,
-		ExperimentID:                 state.ExperimentID,
-		ExperimentBucket:             state.ExperimentBucket,
-		AssignmentReason:             state.AssignmentReason,
-		StickyBroken:                 state.StickyBroken,
-		CacheCompensationMaxTokens:   state.CacheCompensationMaxTokens,
-		CacheCompensationMaxSwitches: state.CacheCompensationMaxSwitches,
-		AttemptStartedAt:             state.AttemptStartedAt,
-		Candidates:                   apiKeyRoutingDecisionCandidates(state, effectiveGroupID),
+		DecisionID:            state.DecisionID,
+		APIKeyID:              state.Plan.APIKeyID,
+		RouteVersion:          state.Plan.RouteVersion,
+		InitialGroupID:        state.InitialGroupID,
+		EffectiveGroupID:      effectiveGroupID,
+		Platform:              platform,
+		ScheduleMode:          state.Plan.ScheduleMode,
+		SmartPreference:       state.Plan.SmartPreference,
+		SmartBalanceBPS:       state.Plan.SmartBalanceBPS,
+		RoutingMinSuccessRate: state.Plan.RoutingMinSuccessRate,
+		RoutingStateVersion:   state.Plan.RoutingStateVersion,
+		SwitchCount:           state.SwitchCount,
+		StrategyVersion:       state.StrategyVersion,
+		ScoreVersion:          state.ScoreVersion,
+		FeatureVersion:        state.FeatureVersion,
+		ModelVersion:          state.ModelVersion,
+		ExperimentID:          state.ExperimentID,
+		ExperimentBucket:      state.ExperimentBucket,
+		AssignmentReason:      state.AssignmentReason,
+		StickyBroken:          state.StickyBroken,
+		AttemptStartedAt:      state.AttemptStartedAt,
+		Candidates:            apiKeyRoutingDecisionCandidates(state, effectiveGroupID),
 	})
 	c.Request = c.Request.WithContext(ctx)
 }

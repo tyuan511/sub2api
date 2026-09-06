@@ -83,6 +83,13 @@ func TestAPIKeyRouteDependencyInvalidation_CoversCandidateAndAccessMutations(t *
 		require.Equal(t, digest, payloadCacheKey)
 		require.NotContains(t, payloadCacheKey, rawKey)
 	}
+	assertAuthInvalidation := func() {
+		var count int
+		require.NoError(t, integrationDB.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM auth_cache_invalidation_outbox
+			WHERE cache_key = $1`, digest).Scan(&count))
+		require.Greater(t, count, 0, "group dependency changes must enqueue auth cache invalidation")
+	}
 
 	routeVersion, dependencyVersion := readVersions()
 	require.Equal(t, int64(1), routeVersion)
@@ -92,8 +99,8 @@ func TestAPIKeyRouteDependencyInvalidation_CoversCandidateAndAccessMutations(t *
 	require.NoError(t, err)
 	unchangedRoute, afterCandidateChange := readVersions()
 	require.Equal(t, routeVersion, unchangedRoute, "dependency changes must not alter user route order")
-	require.Equal(t, dependencyVersion+1, afterCandidateChange, "non-primary candidate changes must invalidate the key")
-	assertDependencyEvent(routeVersion, dependencyVersion, afterCandidateChange)
+	require.Equal(t, dependencyVersion, afterCandidateChange, "group changes must not write every dependent api_keys row")
+	assertAuthInvalidation()
 
 	_, err = integrationDB.ExecContext(ctx, "UPDATE groups SET name = name || '-cosmetic' WHERE id = $1", fallback.ID)
 	require.NoError(t, err)
@@ -110,6 +117,6 @@ func TestAPIKeyRouteDependencyInvalidation_CoversCandidateAndAccessMutations(t *
 		"INSERT INTO user_allowed_groups (user_id, group_id) VALUES ($1, $2)", user.ID, fallback.ID)
 	require.NoError(t, err)
 	_, afterAccessChange := readVersions()
-	require.Equal(t, afterUserChange+1, afterAccessChange, "one access mutation must produce one dependency bump")
-	assertDependencyEvent(routeVersion, afterUserChange, afterAccessChange)
+	require.Equal(t, afterUserChange, afterAccessChange, "allowed-group mutations must not rewrite every dependent api_keys row")
+	assertAuthInvalidation()
 }

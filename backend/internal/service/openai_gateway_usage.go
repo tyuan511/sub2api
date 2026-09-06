@@ -192,18 +192,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		CacheReadTokens:     result.Usage.CacheReadInputTokens,
 		ImageOutputTokens:   result.Usage.ImageOutputTokens,
 	}
-	actualTokens := tokens
-	// OpenAI historically did not apply the account-level force-cache flag.
-	// Only the explicitly admitted cross-group compensation may change cost.
-	cacheCompensationTokens := 0
-	if IsAPIKeyGroupCacheCompensation(ctx) {
-		cacheCompensationTokens = ForceCacheBillingInputTokens(ctx, actualInputTokens)
-	}
-	if cacheCompensationTokens > 0 {
-		tokens.InputTokens -= cacheCompensationTokens
-		tokens.CacheReadTokens += cacheCompensationTokens
-	}
-
 	// Get rate multiplier
 	multiplier := 1.0
 	if s.cfg != nil {
@@ -329,35 +317,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 		if cost != nil && standardCost != nil {
 			cost.ActualCost = standardCost.ActualCost
-		}
-	}
-
-	// Calculate the exact user discount against the same final model/tier
-	// policy, while keeping supplier/account accounting on actual token buckets.
-	uncompensatedCost := cost
-	cacheCompensationAmountUSD := 0.0
-	if cacheCompensationTokens > 0 {
-		uncompensatedCost, err = s.calculateOpenAIRecordUsageCost(
-			ctx, result, apiKey, billingModels, multiplier, imageMultiplier,
-			videoMultiplier, baseMultiplier, actualTokens, serviceTier, longContextBillingGate, pricingAt,
-		)
-		if err != nil {
-			return err
-		}
-		if groupBillsOpenAIFastAtStandard(apiKey, billingAccount, serviceTier) {
-			uncompensatedStandardCost, standardErr := s.calculateOpenAIRecordUsageCost(
-				ctx, result, apiKey, billingModels, multiplier, imageMultiplier,
-				videoMultiplier, baseMultiplier, actualTokens, "", longContextBillingGate, pricingAt,
-			)
-			if standardErr != nil {
-				return standardErr
-			}
-			if uncompensatedCost != nil && uncompensatedStandardCost != nil {
-				uncompensatedCost.ActualCost = uncompensatedStandardCost.ActualCost
-			}
-		}
-		if uncompensatedCost != nil && cost != nil && uncompensatedCost.ActualCost > cost.ActualCost {
-			cacheCompensationAmountUSD = uncompensatedCost.ActualCost - cost.ActualCost
 		}
 	}
 
@@ -521,18 +480,14 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		CacheReadTokens:     tokens.CacheReadTokens,
 		ImageInputTokens:    result.Usage.ImageInputTokens,
 		ImageOutputTokens:   result.Usage.ImageOutputTokens,
-	}, cacheCompensationTokens, cacheCompensationAmountUSD)
+	})
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
-			actualTokens, uncompensatedCost.TotalCost,
+			tokens, cost.TotalCost,
 		)
-		if cacheCompensationTokens > 0 && usageLog.AccountStatsCost == nil {
-			actualAccountCost := uncompensatedCost.TotalCost * accountRateMultiplier
-			usageLog.AccountStatsCost = &actualAccountCost
-		}
 	}
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
@@ -553,6 +508,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	billingErr := func() error {
 		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 			Cost:                  cost,
+			AccountCost:           cost,
 			User:                  user,
 			APIKey:                apiKey,
 			Account:               account,

@@ -161,7 +161,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
-		apiKey, routeState, routeErr := prepareInitialAPIKeyRoute(apiKey, routeCoordinator, apiKeyRouteCompensationLimitsFromConfig(cfg)...)
+		apiKey, routeState, routeErr := prepareInitialAPIKeyRoute(apiKey, routeCoordinator)
 		if routeErr != nil {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
 			AbortWithError(c, http.StatusServiceUnavailable, "NO_ELIGIBLE_API_KEY_ROUTE", "No eligible candidate group is currently available")

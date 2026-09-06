@@ -679,7 +679,7 @@ describe('user KeysView column settings', () => {
       pages: 1,
     })
     getAvailableGroups.mockResolvedValue([group])
-    updateKey.mockRejectedValue({ response: { status: 409 } })
+    updateKey.mockRejectedValue({ status: 409 })
     const wrapper = await mountView(true)
 
     await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')

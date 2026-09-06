@@ -226,10 +226,8 @@ gateway:
   api_key_routing_personalization_enabled: false
   api_key_routing_model_prediction_enabled: false
   api_key_routing_exploration_enabled: false
-  api_key_group_sticky_ttl_seconds: 3600
-  api_key_group_cache_compensation_max_tokens: 200000
-  api_key_group_cache_compensation_max_switches: 1
-  api_key_group_breaker_window_seconds: 300
+	api_key_group_sticky_ttl_seconds: 3600
+	api_key_group_breaker_window_seconds: 300
   api_key_group_breaker_cooldown_seconds: 30
   api_key_group_breaker_min_samples: 10
   # Timeout for waiting upstream response headers (seconds)

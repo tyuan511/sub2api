@@ -198,6 +198,7 @@ func (r *RoutingStrategyRuntime) replaceEntry(scope RoutingArtifactScope, entry 
 
 func (r *RoutingStrategyRuntime) run() {
 	defer close(r.doneCh)
+	defer func() { _ = recover() }()
 	ticker := time.NewTicker(r.refreshInterval)
 	defer ticker.Stop()
 	for {
@@ -205,21 +206,24 @@ func (r *RoutingStrategyRuntime) run() {
 		case <-r.stopCh:
 			return
 		case scope := <-r.refreshCh:
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			_ = r.Refresh(ctx, scope)
-			cancel()
+			r.refreshSafely(scope)
 		case <-ticker.C:
 			r.observed.Range(func(_, value any) bool {
 				scope, ok := value.(RoutingArtifactScope)
 				if ok {
-					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					_ = r.Refresh(ctx, scope)
-					cancel()
+					r.refreshSafely(scope)
 				}
 				return true
 			})
 		}
 	}
+}
+
+func (r *RoutingStrategyRuntime) refreshSafely(scope RoutingArtifactScope) {
+	defer func() { _ = recover() }()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = r.Refresh(ctx, scope)
 }
 
 func runtimeStrategyScopeKey(scope RoutingArtifactScope) string {

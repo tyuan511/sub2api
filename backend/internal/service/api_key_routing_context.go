@@ -6,39 +6,32 @@ import (
 	"time"
 )
 
-const (
-	DefaultAPIKeyGroupCacheCompensationMaxTokens   = 200_000
-	DefaultAPIKeyGroupCacheCompensationMaxSwitches = 1
-)
-
 // APIKeyRoutingUsageContext is the bounded, request-local routing projection
 // copied into asynchronous usage workers. It deliberately contains no API key
 // plaintext, request body, response body, account credential, or session hash.
 type APIKeyRoutingUsageContext struct {
-	DecisionID                   string
-	APIKeyID                     int64
-	RouteVersion                 int64
-	InitialGroupID               int64
-	EffectiveGroupID             int64
-	Platform                     string
-	ScheduleMode                 string
-	SmartPreference              *string
-	SmartBalanceBPS              *int
-	RoutingMinSuccessRate        int
-	RoutingStateVersion          int64
-	SwitchCount                  int
-	StrategyVersion              string
-	ScoreVersion                 string
-	FeatureVersion               string
-	ModelVersion                 *string
-	ExperimentID                 *string
-	ExperimentBucket             *int
-	AssignmentReason             string
-	StickyBroken                 bool
-	CacheCompensationMaxTokens   int
-	CacheCompensationMaxSwitches int
-	AttemptStartedAt             time.Time
-	Candidates                   []APIKeyRoutingDecisionCandidate
+	DecisionID            string
+	APIKeyID              int64
+	RouteVersion          int64
+	InitialGroupID        int64
+	EffectiveGroupID      int64
+	Platform              string
+	ScheduleMode          string
+	SmartPreference       *string
+	SmartBalanceBPS       *int
+	RoutingMinSuccessRate int
+	RoutingStateVersion   int64
+	SwitchCount           int
+	StrategyVersion       string
+	ScoreVersion          string
+	FeatureVersion        string
+	ModelVersion          *string
+	ExperimentID          *string
+	ExperimentBucket      *int
+	AssignmentReason      string
+	StickyBroken          bool
+	AttemptStartedAt      time.Time
+	Candidates            []APIKeyRoutingDecisionCandidate
 }
 
 // APIKeyRoutingDecisionCandidate is a replay-safe candidate projection. Every
@@ -70,22 +63,6 @@ type APIKeyRoutingDecisionCandidate struct {
 }
 
 type apiKeyRoutingUsageContextKey struct{}
-type apiKeyGroupCacheCompensationContextKey struct{}
-
-func WithAPIKeyGroupCacheCompensation(ctx context.Context) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return context.WithValue(ctx, apiKeyGroupCacheCompensationContextKey{}, true)
-}
-
-func IsAPIKeyGroupCacheCompensation(ctx context.Context) bool {
-	if ctx == nil {
-		return false
-	}
-	value, _ := ctx.Value(apiKeyGroupCacheCompensationContextKey{}).(bool)
-	return value
-}
 
 func WithAPIKeyRoutingUsageContext(ctx context.Context, value APIKeyRoutingUsageContext) context.Context {
 	if ctx == nil {
@@ -177,35 +154,12 @@ func CopyAPIKeyRoutingUsageContext(from, to context.Context) context.Context {
 }
 
 // ForceCacheBillingInputTokens returns the billable input-token portion that
-// may be reclassified as cache-read. Legacy account-level failover keeps its
-// existing all-input behavior; API-key group failover is additionally bounded
-// and only eligible after a healthy group-sticky binding was broken.
+// may be reclassified as cache-read for the legacy account-level failover path.
 func ForceCacheBillingInputTokens(ctx context.Context, inputTokens int) int {
 	if inputTokens <= 0 || !IsForceCacheBilling(ctx) {
 		return 0
 	}
-	if !IsAPIKeyGroupCacheCompensation(ctx) {
-		return inputTokens
-	}
-	meta, ok := APIKeyRoutingUsageContextFromContext(ctx)
-	if !ok {
-		return 0
-	}
-	if !meta.StickyBroken || meta.SwitchCount > positiveOrDefaultInt(meta.CacheCompensationMaxSwitches, DefaultAPIKeyGroupCacheCompensationMaxSwitches) {
-		return 0
-	}
-	limit := positiveOrDefaultInt(meta.CacheCompensationMaxTokens, DefaultAPIKeyGroupCacheCompensationMaxTokens)
-	if inputTokens > limit {
-		return limit
-	}
 	return inputTokens
-}
-
-func positiveOrDefaultInt(value, fallback int) int {
-	if value > 0 {
-		return value
-	}
-	return fallback
 }
 
 // RoutingTokenUsage is the only token shape persisted in routing facts. All
@@ -219,9 +173,6 @@ type RoutingTokenUsage struct {
 	CacheCreation1hTokens int `json:"cache_creation_1h_tokens,omitempty"`
 	ImageInputTokens      int `json:"image_input_tokens,omitempty"`
 	ImageOutputTokens     int `json:"image_output_tokens,omitempty"`
-	// CacheCompensationAmountUSD is audit metadata for the user-side discount.
-	// It belongs only to billable_usage; supplier actual_usage never carries it.
-	CacheCompensationAmountUSD float64 `json:"cache_compensation_amount_usd,omitempty"`
 }
 
 func routingTokenUsageJSON(usage RoutingTokenUsage) json.RawMessage {
@@ -232,11 +183,10 @@ func routingTokenUsageJSON(usage RoutingTokenUsage) json.RawMessage {
 	return payload
 }
 
-// ApplyAPIKeyRoutingUsage decorates the usage log. actual is the supplier-
-// reported token composition before any cache compensation rewrite; billable
-// is the user-facing composition after that rewrite. The final routing fact is
-// emitted separately, after the billing transaction has reached a final state.
-func ApplyAPIKeyRoutingUsage(ctx context.Context, log *UsageLog, actual, billable RoutingTokenUsage, cacheCompensationTokens int, cacheCompensationAmountUSD float64) {
+// ApplyAPIKeyRoutingUsage decorates the usage log with supplier and billable
+// token projections. The final routing fact is emitted separately, after the
+// billing transaction has reached a final state.
+func ApplyAPIKeyRoutingUsage(ctx context.Context, log *UsageLog, actual, billable RoutingTokenUsage) {
 	if log == nil {
 		return
 	}
@@ -252,15 +202,6 @@ func ApplyAPIKeyRoutingUsage(ctx context.Context, log *UsageLog, actual, billabl
 	log.SmartPreference = cloneStringPtr(meta.SmartPreference)
 	log.GroupSwitchCount = meta.SwitchCount
 	log.RoutingDecisionID = optionalStringPtr(meta.DecisionID)
-	if cacheCompensationTokens > 0 && meta.StickyBroken {
-		log.CacheColdDueToFailover = true
-		log.CacheCompensationTokens = cacheCompensationTokens
-		log.CacheCompensationReason = optionalStringPtr("group_failover_cache_cold")
-		if cacheCompensationAmountUSD > 0 {
-			billable.CacheCompensationAmountUSD = cacheCompensationAmountUSD
-			log.BillableUsage = routingTokenUsageJSON(billable)
-		}
-	}
 }
 
 func positiveInt64Ptr(value int64) *int64 {

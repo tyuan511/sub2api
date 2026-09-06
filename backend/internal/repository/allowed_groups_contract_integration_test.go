@@ -80,7 +80,7 @@ func TestUserRepository_RemoveGroupFromAllowedGroups_RemovesAllOccurrences(t *te
 	require.NotContains(t, u2After.AllowedGroups, targetGroup.ID)
 }
 
-func TestGroupRepository_DeleteCascade_PreservesApiKeyGroupID(t *testing.T) {
+func TestGroupRepository_DeleteCascade_CleansApiKeyRoutesAndRepairsMirror(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
 	entClient := tx.Client()
@@ -118,6 +118,21 @@ func TestGroupRepository_DeleteCascade_PreservesApiKeyGroupID(t *testing.T) {
 		Status:  service.StatusActive,
 	}
 	require.NoError(t, apiKeyRepo.Create(ctx, key))
+	multiKey := &service.APIKey{
+		UserID: u.ID,
+		Key:    uniqueTestValue(t, "sk-test-delete-cascade-multi"),
+		Name:   "multi route key",
+		GroupID: func() *int64 {
+			id := targetGroup.ID
+			return &id
+		}(),
+		Status: service.StatusActive,
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: targetGroup.ID, Priority: 0, Enabled: true},
+			{GroupID: otherGroup.ID, Priority: 1, Enabled: true},
+		},
+	}
+	require.NoError(t, apiKeyRepo.Create(ctx, multiKey))
 
 	_, err = groupRepo.DeleteCascade(ctx, targetGroup.ID)
 	require.NoError(t, err)
@@ -138,10 +153,18 @@ func TestGroupRepository_DeleteCascade_PreservesApiKeyGroupID(t *testing.T) {
 	require.NotContains(t, uAfter.AllowedGroups, targetGroup.ID)
 	require.Contains(t, uAfter.AllowedGroups, otherGroup.ID)
 
-	// API keys keep their group_id so auth can reject keys bound to a deleted group.
+	// A legacy single-group key loses its deleted group and has no orphan route.
 	keyAfter, err := apiKeyRepo.GetByID(ctx, key.ID)
 	require.NoError(t, err)
-	require.NotNil(t, keyAfter.GroupID)
-	require.Equal(t, targetGroup.ID, *keyAfter.GroupID)
+	require.Nil(t, keyAfter.GroupID)
 	require.Nil(t, keyAfter.Group)
+	require.Empty(t, keyAfter.GroupRoutes)
+
+	// A multi-group key keeps its remaining route as the compatibility mirror.
+	multiAfter, err := apiKeyRepo.GetByID(ctx, multiKey.ID)
+	require.NoError(t, err)
+	require.NotNil(t, multiAfter.GroupID)
+	require.Equal(t, otherGroup.ID, *multiAfter.GroupID)
+	require.Len(t, multiAfter.GroupRoutes, 1)
+	require.Equal(t, otherGroup.ID, multiAfter.GroupRoutes[0].GroupID)
 }

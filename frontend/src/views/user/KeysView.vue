@@ -1862,6 +1862,12 @@ const handleSubmit = async () => {
     appStore.showError(t('keys.routeGroupLimitReached', { max: 8 }))
     return
   }
+  // Keep editing legacy ungrouped keys possible; new keys must always have a
+  // group because the API rejects requests without an effective group.
+  if (!showEditModal.value && formData.value.group_routes.length === 0) {
+    appStore.showError(t('keys.groupRequired'))
+    return
+  }
 
   // Validate custom key if enabled
   if (!showEditModal.value && formData.value.use_custom_key) {
@@ -1972,13 +1978,14 @@ const handleSubmit = async () => {
     closeModals()
     loadApiKeys()
   } catch (error: any) {
-    if (error.response?.status === 409) {
+    const status = error?.status ?? error?.response?.status
+    if (status === 409) {
       appStore.showError(t('keys.routeConfigConflict'))
       closeModals()
       await loadApiKeys()
       return
     }
-    const errorMsg = error.response?.data?.detail || t('keys.failedToSave')
+    const errorMsg = error?.message || error?.response?.data?.detail || t('keys.failedToSave')
     appStore.showError(errorMsg)
     // Don't advance tour on error
   } finally {

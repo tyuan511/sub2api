@@ -68,6 +68,8 @@ const usageLogsRoutingDecisionIndexMigration = "250_api_key_routing_usage_decisi
 const usageLogsRoutingDecisionIndex = "idx_usage_logs_routing_decision"
 const apiKeyRoutingActivationIndexMigration = "251_api_key_routing_activation_index_notx.sql"
 const apiKeyRoutingActivationIndex = "idx_api_key_group_routes_enabled_api_key"
+const routingAttemptsOccurredAtIndexMigration = "253_api_key_routing_attempts_occurred_at_index_notx.sql"
+const routingAttemptsOccurredAtIndex = "idx_routing_attempts_occurred_at_id"
 
 type migrationChecksumCompatibilityRule struct {
 	fileChecksum       string
@@ -323,6 +325,8 @@ func prepareNonTransactionalMigration(ctx context.Context, db migrationConnectio
 		return dropInvalidIndexIfPresent(ctx, db, usageLogsRoutingDecisionIndex)
 	case apiKeyRoutingActivationIndexMigration:
 		return dropInvalidIndexIfPresent(ctx, db, apiKeyRoutingActivationIndex)
+	case routingAttemptsOccurredAtIndexMigration:
+		return dropInvalidIndexIfPresent(ctx, db, routingAttemptsOccurredAtIndex)
 	default:
 		return nil
 	}

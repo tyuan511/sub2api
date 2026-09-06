@@ -95,6 +95,7 @@ func (r *RoutingFactRecorder) Start() {
 
 func (r *RoutingFactRecorder) runRetention() {
 	defer r.wg.Done()
+	defer func() { _ = recover() }()
 	pruner := r.repo.(RoutingFactRetentionRepository)
 	prune := func() {
 		ctx, cancel := context.WithTimeout(r.ctx, 15*time.Second)
@@ -108,7 +109,7 @@ func (r *RoutingFactRecorder) runRetention() {
 		)
 		cancel()
 	}
-	prune()
+	safeRoutingFactPrune(prune)
 	ticker := time.NewTicker(6 * time.Hour)
 	defer ticker.Stop()
 	for {
@@ -116,7 +117,7 @@ func (r *RoutingFactRecorder) runRetention() {
 		case <-r.ctx.Done():
 			return
 		case <-ticker.C:
-			prune()
+			safeRoutingFactPrune(prune)
 		}
 	}
 }
@@ -179,6 +180,7 @@ func (r *RoutingFactRecorder) RecordRoutingFact(fact *RoutingAttemptFact) {
 
 func (r *RoutingFactRecorder) runPublisher() {
 	defer r.wg.Done()
+	defer func() { _ = recover() }()
 	for {
 		fact, ok := r.nextFact()
 		if !ok {
@@ -198,7 +200,7 @@ func (r *RoutingFactRecorder) runPublisher() {
 			}
 			r.streamFallbacks.Add(1)
 		}
-		r.persistDirect(fact)
+		safeRoutingFactPersist(func() { r.persistDirect(fact) })
 	}
 }
 
@@ -241,6 +243,7 @@ func (r *RoutingFactRecorder) persistDirect(fact *RoutingAttemptFact) {
 
 func (r *RoutingFactRecorder) runConsumer() {
 	defer r.wg.Done()
+	defer func() { _ = recover() }()
 	for r.ctx.Err() == nil {
 		entries, err := r.stream.Read(r.ctx, r.consumer, 128, time.Second)
 		if err != nil {
@@ -280,6 +283,16 @@ func (r *RoutingFactRecorder) runConsumer() {
 			cancel()
 		}
 	}
+}
+
+func safeRoutingFactPrune(prune func()) {
+	defer func() { _ = recover() }()
+	prune()
+}
+
+func safeRoutingFactPersist(persist func()) {
+	defer func() { _ = recover() }()
+	persist()
 }
 
 func stableRoutingFactSample(decisionID string, probability float64) bool {

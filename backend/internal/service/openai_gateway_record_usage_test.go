@@ -1196,7 +1196,7 @@ func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillingDisabledWhenGrou
 	require.Equal(t, 1, userRepo.deductCalls)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_GroupFailoverCompensationKeepsActualUsageAndAuditsAmount(t *testing.T) {
+func TestOpenAIGatewayServiceRecordUsage_GroupFailoverDoesNotCompensate(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
 	groupID := int64(41)
@@ -1204,9 +1204,7 @@ func TestOpenAIGatewayServiceRecordUsage_GroupFailoverCompensationKeepsActualUsa
 		DecisionID: "decision-compensation", APIKeyID: 141, RouteVersion: 2,
 		InitialGroupID: 40, EffectiveGroupID: groupID, Platform: PlatformOpenAI,
 		ScheduleMode: APIKeyScheduleModeSequential, StickyBroken: true, SwitchCount: 1,
-		CacheCompensationMaxTokens: 500, CacheCompensationMaxSwitches: 1,
 	})
-	ctx = WithAPIKeyGroupCacheCompensation(WithForceCacheBilling(ctx))
 
 	err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -1218,28 +1216,18 @@ func TestOpenAIGatewayServiceRecordUsage_GroupFailoverCompensationKeepsActualUsa
 	})
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
-	// Legacy columns retain supplier usage; billable_usage carries the adjusted
-	// buckets so old reporting cannot mistake compensation for a provider hit.
 	require.Equal(t, 1000, usageRepo.lastLog.InputTokens)
 	require.Zero(t, usageRepo.lastLog.CacheReadTokens)
-	require.Equal(t, 500, usageRepo.lastLog.CacheCompensationTokens)
+	require.Zero(t, usageRepo.lastLog.CacheCompensationTokens)
 
 	var actual, billable RoutingTokenUsage
 	require.NoError(t, json.Unmarshal(usageRepo.lastLog.ActualUsage, &actual))
 	require.NoError(t, json.Unmarshal(usageRepo.lastLog.BillableUsage, &billable))
 	require.Equal(t, 1000, actual.InputTokens)
 	require.Zero(t, actual.CacheReadTokens)
-	require.Equal(t, 500, billable.InputTokens)
-	require.Equal(t, 500, billable.CacheReadTokens)
-	require.Greater(t, billable.CacheCompensationAmountUSD, 0.0)
+	require.Equal(t, actual.InputTokens, billable.InputTokens)
+	require.Equal(t, actual.CacheReadTokens, billable.CacheReadTokens)
 
-	uncompensated, calcErr := svc.billingService.CalculateCost("gpt-5.1", UsageTokens{InputTokens: 1000, OutputTokens: 20}, 1)
-	require.NoError(t, calcErr)
-	compensated, calcErr := svc.billingService.CalculateCost("gpt-5.1", UsageTokens{InputTokens: 500, CacheReadTokens: 500, OutputTokens: 20}, 1)
-	require.NoError(t, calcErr)
-	require.InDelta(t, uncompensated.ActualCost-compensated.ActualCost, billable.CacheCompensationAmountUSD, 1e-12)
-	require.NotNil(t, usageRepo.lastLog.AccountStatsCost)
-	require.InDelta(t, uncompensated.TotalCost, *usageRepo.lastLog.AccountStatsCost, 1e-12)
 }
 
 // swapInOpenAILadderCatalog 给测试服务换上带 above_272k 阶梯字段的目录：

@@ -150,18 +150,35 @@ func (b *RoutingScoreBuilder) Stop() {
 func (b *RoutingScoreBuilder) run() {
 	defer close(b.doneCh)
 	defer b.running.Store(false)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			b.failures.Add(1)
+		}
+	}()
 	ticker := time.NewTicker(b.interval)
 	defer ticker.Stop()
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-		_ = b.BuildOnce(ctx)
-		cancel()
+		b.buildSafely()
 		select {
 		case <-ticker.C:
 		case <-b.stopCh:
 			return
 		}
 	}
+}
+
+// buildSafely isolates one scheduled refresh. A malformed row, cache client
+// panic, or unexpected dependency failure must not permanently stop the
+// process-wide routing score worker.
+func (b *RoutingScoreBuilder) buildSafely() {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			b.failures.Add(1)
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	_ = b.BuildOnce(ctx)
 }
 
 func (b *RoutingScoreBuilder) BuildOnce(ctx context.Context) error {

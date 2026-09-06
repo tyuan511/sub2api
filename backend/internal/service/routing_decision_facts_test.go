@@ -30,14 +30,14 @@ func TestApplyAPIKeyRoutingUsageSeparatesActualAndBillableFacts(t *testing.T) {
 	log := &UsageLog{APIKeyID: 3, GroupID: &groupID, Model: "claude-sonnet-4", RequestID: "req-1", CreatedAt: time.Now()}
 	ApplyAPIKeyRoutingUsage(ctx, log,
 		RoutingTokenUsage{InputTokens: 100, OutputTokens: 20, CacheCreation5mTokens: 30, CacheCreation1hTokens: 70},
-		RoutingTokenUsage{CacheReadTokens: 100, OutputTokens: 20}, 100, 0.0042)
+		RoutingTokenUsage{CacheReadTokens: 100, OutputTokens: 20})
 
 	require.Equal(t, int64(10), *log.InitialGroupID)
 	require.Equal(t, int64(7), *log.RouteVersion)
 	require.Equal(t, 1, log.GroupSwitchCount)
-	require.True(t, log.CacheColdDueToFailover)
-	require.Equal(t, 100, log.CacheCompensationTokens)
-	require.Equal(t, "group_failover_cache_cold", *log.CacheCompensationReason)
+	require.False(t, log.CacheColdDueToFailover)
+	require.Zero(t, log.CacheCompensationTokens)
+	require.Nil(t, log.CacheCompensationReason)
 
 	var actual, billable RoutingTokenUsage
 	require.NoError(t, json.Unmarshal(log.ActualUsage, &actual))
@@ -46,7 +46,6 @@ func TestApplyAPIKeyRoutingUsageSeparatesActualAndBillableFacts(t *testing.T) {
 	require.Equal(t, 30, actual.CacheCreation5mTokens)
 	require.Equal(t, 70, actual.CacheCreation1hTokens)
 	require.Equal(t, 100, billable.CacheReadTokens)
-	require.InDelta(t, 0.0042, billable.CacheCompensationAmountUSD, 1e-12)
 
 	fact, ok := RoutingFactFromUsage(ctx, log)
 	require.True(t, ok)
@@ -80,23 +79,9 @@ func TestEmitAPIKeyRoutingUsageFactUsesFinalCostsAndMarksPartialBillingCritical(
 	require.Zero(t, *sink.fact.BilledCost)
 }
 
-func TestForceCacheBillingInputTokensBoundsGroupFailoverButPreservesLegacyAccountFailover(t *testing.T) {
+func TestForceCacheBillingInputTokensPreservesLegacyAccountFailover(t *testing.T) {
 	legacy := WithForceCacheBilling(context.Background())
 	require.Equal(t, 300_000, ForceCacheBillingInputTokens(legacy, 300_000))
-
-	routed := WithAPIKeyGroupCacheCompensation(WithForceCacheBilling(WithAPIKeyRoutingUsageContext(context.Background(), APIKeyRoutingUsageContext{
-		DecisionID: "decision-bounded", RouteVersion: 2, InitialGroupID: 10, EffectiveGroupID: 20,
-		ScheduleMode: APIKeyScheduleModeSequential, StickyBroken: true, SwitchCount: 1,
-		CacheCompensationMaxTokens: 50_000, CacheCompensationMaxSwitches: 1,
-	})))
-	require.Equal(t, 50_000, ForceCacheBillingInputTokens(routed, 300_000))
-
-	tooManySwitches := WithAPIKeyGroupCacheCompensation(WithForceCacheBilling(WithAPIKeyRoutingUsageContext(context.Background(), APIKeyRoutingUsageContext{
-		DecisionID: "decision-too-many-switches", RouteVersion: 2, InitialGroupID: 10, EffectiveGroupID: 30,
-		ScheduleMode: APIKeyScheduleModeSequential, StickyBroken: true, SwitchCount: 2,
-		CacheCompensationMaxTokens: 50_000, CacheCompensationMaxSwitches: 1,
-	})))
-	require.Zero(t, ForceCacheBillingInputTokens(tooManySwitches, 300_000))
 }
 
 func TestValidateRoutingAttemptFactRejectsFakeDeterministicPropensity(t *testing.T) {

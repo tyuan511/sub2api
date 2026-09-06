@@ -117,7 +117,7 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
 		}
-		apiKey, routeState, routeErr := prepareInitialAPIKeyRoute(apiKey, routeCoordinator, apiKeyRouteCompensationLimitsFromConfig(cfg)...)
+		apiKey, routeState, routeErr := prepareInitialAPIKeyRoute(apiKey, routeCoordinator)
 		if routeErr != nil {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
 			abortWithGoogleError(c, 503, "No eligible candidate group is currently available")

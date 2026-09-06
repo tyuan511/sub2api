@@ -72,7 +72,10 @@ type usageLogBestEffortWriter interface {
 
 // postUsageBillingParams 统一扣费所需的参数
 type postUsageBillingParams struct {
-	Cost                  *CostBreakdown
+	Cost *CostBreakdown
+	// AccountCost is the supplier-side cost used for upstream account quota and
+	// account statistics. It must not inherit user-facing cache failover billing.
+	AccountCost           *CostBreakdown
 	User                  *User
 	APIKey                *APIKey
 	Account               *Account
@@ -126,7 +129,18 @@ func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
 }
 
 func (p *postUsageBillingParams) shouldUpdateAccountQuota() bool {
-	return p.Cost.TotalCost > 0 && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
+	accountCost := p.accountCost()
+	return p != nil && accountCost != nil && accountCost.TotalCost > 0 && p.Account != nil && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
+}
+
+func (p *postUsageBillingParams) accountCost() *CostBreakdown {
+	if p != nil && p.AccountCost != nil {
+		return p.AccountCost
+	}
+	if p != nil {
+		return p.Cost
+	}
+	return nil
 }
 
 // postUsageBilling is the legacy fallback billing path used when the unified
@@ -171,7 +185,7 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 	}
 
 	if p.shouldUpdateAccountQuota() {
-		accountCost := cost.TotalCost * p.AccountRateMultiplier
+		accountCost := p.accountCost().TotalCost * p.AccountRateMultiplier
 		if err := deps.accountRepo.IncrementQuotaUsed(billingCtx, p.Account.ID, accountCost); err != nil {
 			slog.Error("increment account quota used failed", "account_id", p.Account.ID, "cost", accountCost, "error", err)
 		}
@@ -324,7 +338,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.APIKeyRateLimitCost = p.Cost.ActualCost
 	}
 	if p.shouldUpdateAccountQuota() {
-		cmd.AccountQuotaCost = p.Cost.TotalCost * p.AccountRateMultiplier
+		cmd.AccountQuotaCost = p.accountCost().TotalCost * p.AccountRateMultiplier
 	}
 
 	cmd.Normalize()
@@ -492,16 +506,24 @@ func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *Us
 			slog.Error("panic in notifyAccountQuota", "recover", r)
 		}
 	}()
-	if p.Cost.TotalCost <= 0 || p.Account == nil || !p.Account.IsAPIKeyOrBedrock() || deps.balanceNotifyService == nil {
+	if p == nil || deps == nil {
+		return
+	}
+	accountCostBreakdown := p.accountCost()
+	accountTotalCost := 0.0
+	if accountCostBreakdown != nil {
+		accountTotalCost = accountCostBreakdown.TotalCost
+	}
+	if accountTotalCost <= 0 || p.Account == nil || !p.Account.IsAPIKeyOrBedrock() || deps.balanceNotifyService == nil {
 		slog.Debug("notifyAccountQuota: skipped",
-			"total_cost", p.Cost.TotalCost,
+			"total_cost", accountTotalCost,
 			"account_nil", p.Account == nil,
 			"is_apikey_or_bedrock", p.Account != nil && p.Account.IsAPIKeyOrBedrock(),
 			"service_nil", deps.balanceNotifyService == nil,
 		)
 		return
 	}
-	accountCost := p.Cost.TotalCost * p.AccountRateMultiplier
+	accountCost := accountTotalCost * p.AccountRateMultiplier
 	var quotaState *AccountQuotaState
 	if result != nil {
 		quotaState = result.QuotaState
@@ -719,7 +741,6 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	user := input.User
 	account := input.Account
 	subscription := input.Subscription
-	actualSupplierUsage := result.Usage
 	actualRoutingUsage := RoutingTokenUsage{
 		InputTokens:           result.Usage.InputTokens,
 		OutputTokens:          result.Usage.OutputTokens,
@@ -732,15 +753,13 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	ApplyForwardImageBillingResolution(result)
 	logServiceTierBillingDowngrade("service.gateway", account, result.RequestID, ApplyForwardServiceTierBillingResolution(result))
 
-	// 强制缓存计费只改 billable token 桶。API-key 跨组故障转移受
-	// request-local 上限约束；历史账号级故障转移保持原有全量转换语义。
-	cacheCompensationTokens := 0
+	var compensatedTokens int
 	if input.ForceCacheBilling && result.Usage.InputTokens > 0 {
 		// The legacy async billing caller carries this flag in the input, not
-		// necessarily in its detached context. Preserve that public contract
-		// while retaining the bounds for an explicit group compensation.
-		cacheCompensationTokens = ForceCacheBillingInputTokens(WithForceCacheBilling(ctx), result.Usage.InputTokens)
+		// necessarily in its detached context.
+		cacheCompensationTokens := ForceCacheBillingInputTokens(WithForceCacheBilling(ctx), result.Usage.InputTokens)
 		if cacheCompensationTokens > 0 {
+			compensatedTokens = cacheCompensationTokens
 			logger.LegacyPrintf("service.gateway", "force_cache_billing: %d input_tokens → cache_read_input_tokens (account=%d)",
 				cacheCompensationTokens, account.ID)
 			result.Usage.CacheReadInputTokens += cacheCompensationTokens
@@ -825,23 +844,18 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		}
 	}
 
-	// Reprice the supplier-reported input shape with the same effective customer
-	// pricing policy. The delta is the exact user-side cache-cold compensation;
-	// it must not leak into supplier/account cost accounting.
-	uncompensatedCost := cost
-	cacheCompensationAmountUSD := 0.0
-	groupCacheCompensation := IsAPIKeyGroupCacheCompensation(ctx) && cacheCompensationTokens > 0
-	if groupCacheCompensation {
-		uncompensatedResult := *result
-		uncompensatedResult.Usage.InputTokens += cacheCompensationTokens
-		uncompensatedResult.Usage.CacheReadInputTokens -= cacheCompensationTokens
-		if uncompensatedResult.Usage.CacheReadInputTokens < 0 {
-			uncompensatedResult.Usage.CacheReadInputTokens = 0
+	// Account-level cache compensation is a user billing policy. Upstream quota
+	// and account statistics must still use the supplier-reported token classes.
+	accountCost := cost
+	if compensatedTokens > 0 && cost != nil {
+		supplierResult := *result
+		supplierResult.Usage = result.Usage
+		supplierResult.Usage.InputTokens += compensatedTokens
+		supplierResult.Usage.CacheReadInputTokens -= compensatedTokens
+		if supplierResult.Usage.CacheReadInputTokens < 0 {
+			supplierResult.Usage.CacheReadInputTokens = 0
 		}
-		uncompensatedCost = s.calculateRecordUsageCost(ctx, &uncompensatedResult, apiKey, costBillingModel, multiplier, imageMultiplier, pricingAt)
-		if uncompensatedCost != nil && cost != nil && uncompensatedCost.ActualCost > cost.ActualCost {
-			cacheCompensationAmountUSD = uncompensatedCost.ActualCost - cost.ActualCost
-		}
+		accountCost = s.calculateRecordUsageCost(ctx, &supplierResult, apiKey, costBillingModel, multiplier, imageMultiplier, pricingAt)
 	}
 
 	// 判断计费方式：订阅模式 vs 余额模式
@@ -863,32 +877,27 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		CacheCreation5mTokens: result.Usage.CacheCreation5mTokens,
 		CacheCreation1hTokens: result.Usage.CacheCreation1hTokens,
 		ImageOutputTokens:     result.Usage.ImageOutputTokens,
-	}, cacheCompensationTokens, cacheCompensationAmountUSD)
+	})
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
-		// Fixed-group requests retain the historical account statistics, which
-		// use the final billed token buckets (including account TTL overrides).
-		if !groupCacheCompensation {
-			actualSupplierUsage = result.Usage
+		supplierCacheReadTokens := result.Usage.CacheReadInputTokens - compensatedTokens
+		if supplierCacheReadTokens < 0 {
+			supplierCacheReadTokens = 0
 		}
 		applyAccountStatsCost(ctx, usageLog, s.channelService, s.billingService,
 			account.ID, *apiKey.GroupID, result.UpstreamModel, result.Model,
 			// Anthropic's input_tokens excludes cache_read and cache_creation (billed separately);
 			// OpenAI gateway uses actualInputTokens which also excludes cache_read for the same reason.
 			UsageTokens{
-				InputTokens:         actualSupplierUsage.InputTokens,
-				OutputTokens:        actualSupplierUsage.OutputTokens,
-				CacheCreationTokens: actualSupplierUsage.CacheCreationInputTokens,
-				CacheReadTokens:     actualSupplierUsage.CacheReadInputTokens,
-				ImageOutputTokens:   actualSupplierUsage.ImageOutputTokens,
+				InputTokens:         result.Usage.InputTokens + compensatedTokens,
+				OutputTokens:        result.Usage.OutputTokens,
+				CacheCreationTokens: result.Usage.CacheCreationInputTokens,
+				CacheReadTokens:     supplierCacheReadTokens,
+				ImageOutputTokens:   result.Usage.ImageOutputTokens,
 			},
-			uncompensatedCost.TotalCost,
+			accountCost.TotalCost,
 		)
-		if groupCacheCompensation && usageLog.AccountStatsCost == nil {
-			actualAccountCost := uncompensatedCost.TotalCost * accountRateMultiplier
-			usageLog.AccountStatsCost = &actualAccountCost
-		}
 	}
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
@@ -912,6 +921,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	requestID := usageLog.RequestID
 	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 		Cost:                  cost,
+		AccountCost:           accountCost,
 		User:                  user,
 		APIKey:                apiKey,
 		Account:               account,

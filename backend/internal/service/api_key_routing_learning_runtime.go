@@ -293,6 +293,7 @@ func (r *RoutingLearningRuntime) replaceEntry(scope RoutingArtifactScope, entry 
 
 func (r *RoutingLearningRuntime) run() {
 	defer close(r.doneCh)
+	defer func() { _ = recover() }()
 	ticker := time.NewTicker(r.refreshInterval)
 	defer ticker.Stop()
 	for {
@@ -316,9 +317,10 @@ func (r *RoutingLearningRuntime) run() {
 }
 
 func (r *RoutingLearningRuntime) refreshOne(scope RoutingArtifactScope) {
+	defer func() { _ = recover() }()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	_ = r.Refresh(ctx, scope)
-	cancel()
 }
 
 func routingLearningScopeKey(scope RoutingArtifactScope) string {

@@ -39,8 +39,6 @@ func TestLoadAPIKeyRoutingLearningExtensionsDisabledByDefault(t *testing.T) {
 	require.False(t, cfg.Gateway.APIKeyRoutingExplorationEnabled)
 	require.Equal(t, .01, cfg.Gateway.APIKeyRoutingFactSampleRate)
 	require.Equal(t, 3600, cfg.Gateway.APIKeyGroupStickyTTLSeconds)
-	require.Equal(t, 200_000, cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens)
-	require.Equal(t, 1, cfg.Gateway.APIKeyGroupCacheCompensationMaxSwitches)
 }
 
 func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
@@ -51,8 +49,6 @@ func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
 	t.Setenv("GATEWAY_API_KEY_ROUTING_MODEL_PREDICTION_ENABLED", "true")
 	t.Setenv("GATEWAY_API_KEY_ROUTING_EXPLORATION_ENABLED", "false")
 	t.Setenv("GATEWAY_API_KEY_GROUP_STICKY_TTL_SECONDS", "1800")
-	t.Setenv("GATEWAY_API_KEY_GROUP_CACHE_COMPENSATION_MAX_TOKENS", "123456")
-	t.Setenv("GATEWAY_API_KEY_GROUP_CACHE_COMPENSATION_MAX_SWITCHES", "2")
 	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_WINDOW_SECONDS", "240")
 	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_COOLDOWN_SECONDS", "45")
 	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_MIN_SAMPLES", "12")
@@ -65,8 +61,6 @@ func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
 	require.True(t, cfg.Gateway.APIKeyRoutingModelPredictionEnabled)
 	require.False(t, cfg.Gateway.APIKeyRoutingExplorationEnabled)
 	require.Equal(t, 1800, cfg.Gateway.APIKeyGroupStickyTTLSeconds)
-	require.Equal(t, 123456, cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens)
-	require.Equal(t, 2, cfg.Gateway.APIKeyGroupCacheCompensationMaxSwitches)
 	require.Equal(t, 240, cfg.Gateway.APIKeyGroupBreakerWindowSeconds)
 	require.Equal(t, 45, cfg.Gateway.APIKeyGroupBreakerCooldownSeconds)
 	require.Equal(t, 12, cfg.Gateway.APIKeyGroupBreakerMinSamples)
@@ -89,18 +83,6 @@ func TestValidateAllowsGatedLocalRoutingLearningButRejectsMissingParentSwitches(
 	cfg.Gateway.APIKeyRoutingOptimizationEnabled = true
 	cfg.Gateway.APIKeyRoutingModelPredictionEnabled = true
 	require.NoError(t, cfg.Validate())
-}
-
-func TestValidateRejectsUnboundedAPIKeyGroupCacheCompensation(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	cfg, err := Load()
-	require.NoError(t, err)
-	cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens = 10_000_001
-	require.ErrorContains(t, cfg.Validate(), "cache_compensation_max_tokens")
-
-	cfg.Gateway.APIKeyGroupCacheCompensationMaxTokens = 200_000
-	cfg.Gateway.APIKeyGroupCacheCompensationMaxSwitches = 8
-	require.ErrorContains(t, cfg.Validate(), "cache_compensation_max_switches")
 }
 
 func TestLoadTimezonePrecedence(t *testing.T) {

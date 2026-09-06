@@ -143,6 +143,11 @@ func (w *APIKeyRouteConfigOutboxWorker) Stop() {
 func (w *APIKeyRouteConfigOutboxWorker) run() {
 	defer w.wg.Done()
 	defer w.running.Store(false)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			w.recordFailure(fmt.Errorf("route config outbox worker panic: %v", recovered))
+		}
+	}()
 	ticker := time.NewTicker(apiKeyRouteConfigOutboxPollInterval)
 	defer ticker.Stop()
 	for {
@@ -176,6 +181,12 @@ func (w *APIKeyRouteConfigOutboxWorker) processBatch(ctx context.Context) error 
 		go func(event APIKeyRouteConfigOutboxEvent) {
 			defer wg.Done()
 			defer func() { <-semaphore }()
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					w.recordFailure(fmt.Errorf("route config outbox event %d panic: %v", event.ID, recovered))
+					w.retryEvent(event, fmt.Errorf("route config outbox event panic: %v", recovered))
+				}
+			}()
 			w.processEvent(ctx, event)
 		}(events[i])
 	}

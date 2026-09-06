@@ -12,13 +12,13 @@ import (
 
 func TestGatewayLegacyForceCacheBillingBooleanRemainsAuthoritative(t *testing.T) {
 	for _, tc := range []struct {
-		name                           string
-		contextFlag, groupCompensation bool
-		wantInput, wantCache           int
+		name        string
+		contextFlag bool
+		wantInput   int
+		wantCache   int
 	}{
-		{"legacy_detached_context", false, false, 0, 1000},
-		{"legacy_context_flag", true, false, 0, 1000},
-		{"group_compensation_stays_bounded", true, true, 750, 250},
+		{"legacy_detached_context", false, 0, 1000},
+		{"legacy_context_flag", true, 0, 1000},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &openAIRecordUsageLogRepoStub{}
@@ -26,10 +26,6 @@ func TestGatewayLegacyForceCacheBillingBooleanRemainsAuthoritative(t *testing.T)
 			ctx := context.Background()
 			if tc.contextFlag {
 				ctx = WithForceCacheBilling(ctx)
-			}
-			if tc.groupCompensation {
-				ctx = WithAPIKeyGroupCacheCompensation(ctx)
-				ctx = WithAPIKeyRoutingUsageContext(ctx, APIKeyRoutingUsageContext{DecisionID: "bounded", RouteVersion: 1, StickyBroken: true, SwitchCount: 1, CacheCompensationMaxTokens: 250})
 			}
 			groupID := int64(11)
 			err := svc.RecordUsage(ctx, &RecordUsageInput{
@@ -41,14 +37,10 @@ func TestGatewayLegacyForceCacheBillingBooleanRemainsAuthoritative(t *testing.T)
 			require.NotNil(t, repo.lastLog)
 			require.Equal(t, tc.wantInput, repo.lastLog.InputTokens)
 			require.Equal(t, tc.wantCache, repo.lastLog.CacheReadTokens)
-			if !tc.groupCompensation {
-				require.InDelta(t, .000495, repo.lastLog.ActualCost, 1e-12)
-				require.Nil(t, repo.lastLog.AccountStatsCost, "legacy failover must not introduce a new account cost override")
-				require.Empty(t, repo.lastLog.ActualUsage)
-				require.Empty(t, repo.lastLog.BillableUsage)
-			} else {
-				require.NotNil(t, repo.lastLog.AccountStatsCost)
-			}
+			require.InDelta(t, .000495, repo.lastLog.ActualCost, 1e-12)
+			require.Nil(t, repo.lastLog.AccountStatsCost, "legacy failover must not introduce a new account cost override")
+			require.Empty(t, repo.lastLog.ActualUsage)
+			require.Empty(t, repo.lastLog.BillableUsage)
 		})
 	}
 }

@@ -111,6 +111,11 @@ func (m *RoutingCanaryMonitor) EvaluateOnce(ctx context.Context) error {
 
 func (m *RoutingCanaryMonitor) run() {
 	defer close(m.doneCh)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			m.errors.Add(1)
+		}
+	}()
 	ticker := time.NewTicker(m.interval)
 	defer ticker.Stop()
 	for {
@@ -118,9 +123,21 @@ func (m *RoutingCanaryMonitor) run() {
 		case <-m.stopCh:
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			_ = m.EvaluateOnce(ctx)
-			cancel()
+			m.evaluateSafely()
 		}
 	}
+}
+
+// evaluateSafely keeps a single canary evaluation from killing the monitor's
+// future ticks. EvaluateOnce already records ordinary errors; this boundary
+// handles panics from repositories and artifact managers.
+func (m *RoutingCanaryMonitor) evaluateSafely() {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			m.errors.Add(1)
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = m.EvaluateOnce(ctx)
 }

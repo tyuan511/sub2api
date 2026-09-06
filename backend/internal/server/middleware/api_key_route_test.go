@@ -100,10 +100,7 @@ func TestAPIKeyRouteStickyBreakPropagatesToFinalRoutingContext(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, meta.StickyBroken)
 	require.Equal(t, 1, meta.SwitchCount)
-	require.True(t, service.IsForceCacheBilling(c.Request.Context()))
-	require.True(t, service.IsAPIKeyGroupCacheCompensation(c.Request.Context()))
-	require.Equal(t, service.DefaultAPIKeyGroupCacheCompensationMaxTokens, meta.CacheCompensationMaxTokens)
-	require.Equal(t, service.DefaultAPIKeyGroupCacheCompensationMaxSwitches, meta.CacheCompensationMaxSwitches)
+	require.False(t, service.IsForceCacheBilling(c.Request.Context()))
 	require.True(t, meta.AttemptStartedAt.After(firstStartedAt))
 }
 

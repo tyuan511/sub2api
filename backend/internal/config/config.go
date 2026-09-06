@@ -960,11 +960,6 @@ type GatewayConfig struct {
 	// APIKeyGroupStickyTTLSeconds keeps a logical session on the actual fallback
 	// group long enough to preserve upstream prompt-cache locality.
 	APIKeyGroupStickyTTLSeconds int `mapstructure:"api_key_group_sticky_ttl_seconds"`
-	// Cache compensation is only available when a previously healthy group
-	// sticky binding is broken by system failover. Both limits are request-local
-	// hard bounds; the sticky TTL is the compensation window.
-	APIKeyGroupCacheCompensationMaxTokens   int `mapstructure:"api_key_group_cache_compensation_max_tokens"`
-	APIKeyGroupCacheCompensationMaxSwitches int `mapstructure:"api_key_group_cache_compensation_max_switches"`
 	// API-key group breaker uses a bounded observation window and opens only
 	// after the minimum sample count has been reached.
 	APIKeyGroupBreakerWindowSeconds   int `mapstructure:"api_key_group_breaker_window_seconds"`
@@ -2401,8 +2396,6 @@ func setDefaults() {
 	viper.SetDefault("gateway.api_key_routing_model_prediction_enabled", false)
 	viper.SetDefault("gateway.api_key_routing_exploration_enabled", false)
 	viper.SetDefault("gateway.api_key_group_sticky_ttl_seconds", 3600)
-	viper.SetDefault("gateway.api_key_group_cache_compensation_max_tokens", 200000)
-	viper.SetDefault("gateway.api_key_group_cache_compensation_max_switches", 1)
 	viper.SetDefault("gateway.api_key_group_breaker_window_seconds", 300)
 	viper.SetDefault("gateway.api_key_group_breaker_cooldown_seconds", 30)
 	viper.SetDefault("gateway.api_key_group_breaker_min_samples", 10)
@@ -2694,12 +2687,6 @@ func setEnvReachableDefaults() {
 func (c *Config) Validate() error {
 	if c.Gateway.APIKeyRoutingFactSampleRate < 0 || c.Gateway.APIKeyRoutingFactSampleRate > 1 {
 		return fmt.Errorf("gateway.api_key_routing_fact_sample_rate must be between 0 and 1")
-	}
-	if c.Gateway.APIKeyGroupCacheCompensationMaxTokens < 0 || c.Gateway.APIKeyGroupCacheCompensationMaxTokens > 10_000_000 {
-		return fmt.Errorf("gateway.api_key_group_cache_compensation_max_tokens must be between 0 and 10000000")
-	}
-	if c.Gateway.APIKeyGroupCacheCompensationMaxSwitches < 0 || c.Gateway.APIKeyGroupCacheCompensationMaxSwitches > 7 {
-		return fmt.Errorf("gateway.api_key_group_cache_compensation_max_switches must be between 0 and 7")
 	}
 	if (c.Gateway.APIKeyRoutingPersonalizationEnabled || c.Gateway.APIKeyRoutingModelPredictionEnabled) &&
 		!c.Gateway.APIKeyRoutingOptimizationEnabled {

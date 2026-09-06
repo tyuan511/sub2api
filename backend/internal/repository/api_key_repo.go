@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
 
@@ -960,11 +961,80 @@ func (r *apiKeyRepository) ClearGroupIDByGroupID(ctx context.Context, groupID in
 // UpdateGroupIDByUserAndGroup 将用户下绑定 oldGroupID 的所有 Key 迁移到 newGroupID
 func (r *apiKeyRepository) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
 	client := clientFromContext(ctx, r.client)
-	n, err := client.APIKey.Update().
-		Where(apikey.UserIDEQ(userID), apikey.GroupIDEQ(oldGroupID), apikey.DeletedAtIsNil()).
-		SetGroupID(newGroupID).
-		Save(ctx)
-	return int64(n), err
+	keys, err := client.APIKey.Query().
+		Where(
+			apikey.UserIDEQ(userID),
+			apikey.DeletedAtIsNil(),
+			apikey.Or(
+				apikey.GroupIDEQ(oldGroupID),
+				apikey.HasGroupRoutesWith(apikeygrouproute.GroupIDEQ(oldGroupID)),
+			),
+		).
+		WithGroupRoutes(func(q *dbent.APIKeyGroupRouteQuery) {
+			q.Order(dbent.Asc(apikeygrouproute.FieldPriority))
+		}).
+		All(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var migrated int64
+	for _, entity := range keys {
+		key := apiKeyEntityToService(entity)
+		if key == nil {
+			continue
+		}
+		originalPrimary := key.GroupID != nil && *key.GroupID == oldGroupID
+		routes := replaceAPIKeyRouteGroup(key.GroupRoutes, oldGroupID, newGroupID, key.ID)
+		if len(routes) == 0 {
+			routes = []service.APIKeyGroupRoute{{APIKeyID: key.ID, GroupID: newGroupID, Priority: 0, Enabled: true}}
+		}
+		if originalPrimary {
+			key.GroupID = &newGroupID
+		}
+		if err := r.updateWithClient(ctx, client, key, service.APIKeyUpdateFields{
+			GroupID: originalPrimary,
+			Routing: &service.APIKeyRoutingMutation{Routes: routes, PreserveRuntimeState: true},
+		}); err != nil {
+			return migrated, err
+		}
+		migrated++
+	}
+	return migrated, nil
+}
+
+// replaceAPIKeyRouteGroup rewrites one group binding while preserving the
+// existing failover order. If the target group is already present, the two
+// entries are merged so the unique (api_key_id, group_id) constraint remains
+// valid.
+func replaceAPIKeyRouteGroup(routes []service.APIKeyGroupRoute, oldGroupID, newGroupID, apiKeyID int64) []service.APIKeyGroupRoute {
+	byGroup := make(map[int64]service.APIKeyGroupRoute, len(routes)+1)
+	for _, route := range routes {
+		if route.GroupID == oldGroupID {
+			route.GroupID = newGroupID
+		}
+		route.APIKeyID = apiKeyID
+		if current, exists := byGroup[route.GroupID]; !exists || route.Priority < current.Priority {
+			byGroup[route.GroupID] = route
+		} else if route.Enabled {
+			current.Enabled = true
+			byGroup[route.GroupID] = current
+		}
+	}
+	result := make([]service.APIKeyGroupRoute, 0, len(byGroup))
+	for _, route := range byGroup {
+		result = append(result, route)
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].Priority != result[j].Priority {
+			return result[i].Priority < result[j].Priority
+		}
+		return result[i].GroupID < result[j].GroupID
+	})
+	for i := range result {
+		result[i].Priority = i
+	}
+	return result
 }
 
 // CountByGroupID 获取分组的 API Key 数量

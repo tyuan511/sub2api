@@ -94,20 +94,20 @@ func (s *APIKeyRouteOperationsService) Explain(ctx context.Context, apiKeyID int
 	if s == nil || s.apiKeys == nil || s.cache == nil || apiKeyID <= 0 {
 		return nil, ErrAPIKeyRouteOperationInvalid
 	}
-	modelFamily = strings.ToLower(strings.TrimSpace(modelFamily))
 	endpointKind = NormalizeAPIKeyRoutingEndpointKind(endpointKind)
-	if !boundedRoutingDimension(modelFamily) || !boundedRoutingDimension(endpointKind) {
-		return nil, ErrAPIKeyRouteOperationInvalid
-	}
 	apiKey, err := s.apiKeys.GetByID(ctx, apiKeyID)
 	if err != nil {
 		return nil, err
+	}
+	platform := PlatformFromAPIKey(apiKey)
+	modelFamily = NormalizeAPIKeyRoutingModelFamily(platform, modelFamily)
+	if !boundedRoutingDimension(modelFamily) || !boundedRoutingDimension(endpointKind) {
+		return nil, ErrAPIKeyRouteOperationInvalid
 	}
 	plan, err := NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
 	if err != nil && !errors.Is(err, ErrNoEligibleAPIKeyRoute) {
 		return nil, err
 	}
-	platform := PlatformFromAPIKey(apiKey)
 	explanation := &APIKeyRouteExplanation{
 		APIKeyID: apiKey.ID, RouteVersion: apiKey.RouteVersion, Platform: platform,
 		ModelFamily: modelFamily, EndpointKind: endpointKind, ScheduleMode: apiKey.ScheduleMode,
@@ -304,14 +304,14 @@ func (s *APIKeyRouteOperationsService) ClearState(ctx context.Context, request A
 	if s == nil || s.apiKeys == nil || s.cache == nil || request.APIKeyID <= 0 || request.RouteVersion <= 0 || (!request.ClearSticky && !request.ClearBreaker) {
 		return nil, ErrAPIKeyRouteOperationInvalid
 	}
-	request.ModelFamily = strings.ToLower(strings.TrimSpace(request.ModelFamily))
 	request.EndpointKind = NormalizeAPIKeyRoutingEndpointKind(request.EndpointKind)
-	if !boundedRoutingDimension(request.ModelFamily) || !boundedRoutingDimension(request.EndpointKind) || (request.ClearSticky && strings.TrimSpace(request.SessionHash) == "") {
-		return nil, ErrAPIKeyRouteOperationInvalid
-	}
 	apiKey, err := s.apiKeys.GetByID(ctx, request.APIKeyID)
 	if err != nil {
 		return nil, err
+	}
+	request.ModelFamily = NormalizeAPIKeyRoutingModelFamily(PlatformFromAPIKey(apiKey), request.ModelFamily)
+	if !boundedRoutingDimension(request.ModelFamily) || !boundedRoutingDimension(request.EndpointKind) || (request.ClearSticky && strings.TrimSpace(request.SessionHash) == "") {
+		return nil, ErrAPIKeyRouteOperationInvalid
 	}
 	if apiKey.RouteVersion != request.RouteVersion {
 		return nil, fmt.Errorf("%w: current=%d requested=%d", ErrAPIKeyRouteVersionStale, apiKey.RouteVersion, request.RouteVersion)

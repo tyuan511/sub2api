@@ -41,22 +41,18 @@ func TestOpenAISubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {
 	require.Equal(t, "openai-request-456", gotRequestID)
 }
 
-func TestUsageRecordContextCopiesGroupCacheCompensationState(t *testing.T) {
+func TestUsageRecordContextCopiesLegacyForceCacheBillingState(t *testing.T) {
 	parent := service.WithAPIKeyRoutingUsageContext(context.Background(), service.APIKeyRoutingUsageContext{
 		DecisionID: "decision-detached", APIKeyID: 7, RouteVersion: 3,
 		InitialGroupID: 10, EffectiveGroupID: 20,
 		ScheduleMode: service.APIKeyScheduleModeSequential,
 		StickyBroken: true, SwitchCount: 1,
-		CacheCompensationMaxTokens: 50_000, CacheCompensationMaxSwitches: 1,
 	})
 	parent = service.WithForceCacheBilling(parent)
-	parent = service.WithAPIKeyGroupCacheCompensation(parent)
 
 	detached := usageRecordContext(parent, context.Background())
 	require.True(t, service.IsForceCacheBilling(detached))
-	require.True(t, service.IsAPIKeyGroupCacheCompensation(detached))
 	meta, ok := service.APIKeyRoutingUsageContextFromContext(detached)
 	require.True(t, ok)
-	require.Equal(t, 50_000, meta.CacheCompensationMaxTokens)
-	require.Equal(t, 1, meta.CacheCompensationMaxSwitches)
+	require.True(t, meta.StickyBroken)
 }

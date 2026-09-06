@@ -258,9 +258,6 @@ func usageRecordContext(parent context.Context, base context.Context) context.Co
 	if service.IsForceCacheBilling(parent) {
 		base = service.WithForceCacheBilling(base)
 	}
-	if service.IsAPIKeyGroupCacheCompensation(parent) {
-		base = service.WithAPIKeyGroupCacheCompensation(base)
-	}
 	return service.CopyAPIKeyRoutingUsageContext(parent, base)
 }
 
