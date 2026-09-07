@@ -21,7 +21,7 @@
         <div v-if="result.confidence != null">
           {{ t('monitorCommon.identityProbe.confidence', { value: formatConfidence(result.confidence) }) }}
         </div>
-        <div v-if="result.error" class="break-words text-red-300">{{ result.error }}</div>
+        <div v-if="probeError" class="break-words text-red-300">{{ probeError }}</div>
         <div v-if="result.checked_at" class="text-gray-400">
           {{ t('monitorCommon.identityProbe.checkedAt', { time: formatCheckedAt(result.checked_at) }) }}
         </div>
@@ -42,6 +42,11 @@ const props = defineProps<{
   result?: BazaarLinkProbeResult | UserMonitorProbeResult | null
 }>()
 const { t, locale } = useI18n()
+
+const probeError = computed(() => {
+  const value = props.result && 'error' in props.result ? props.result.error : undefined
+  return typeof value === 'string' && value.trim() ? value : ''
+})
 
 const identityLabel = computed(() => {
   if (props.result?.status === 'timed_out') return t('monitorCommon.identityProbe.status.timed_out')

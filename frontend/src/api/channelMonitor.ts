@@ -18,6 +18,7 @@ export interface UserMonitorProbeResult {
   predicted_model?: string
   predicted_model_score?: number | null
   risk_flags?: string[]
+  error?: string
   checked_at: string
 }
 
