@@ -482,7 +482,7 @@ function formatBucketTime(value: string) {
 .relay-pulse-track {
   display: flex;
   align-items: flex-end;
-  height: 2.25rem;
+  height: 24px;
   gap: 3px;
   overflow: visible;
 }

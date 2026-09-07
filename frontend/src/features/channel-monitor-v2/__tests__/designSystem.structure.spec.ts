@@ -52,6 +52,7 @@ describe('channel-monitor-v2 design system structure', () => {
     expect(src).toContain('pulse-tooltip')
     expect(src).toContain('PULSE_RECORD_COUNT')
     expect(src).toContain('history60pts')
+    expect(src).toContain('height: 24px')
     expect(src).toContain('relay-bar-enter')
     expect(src).toContain('prefers-reduced-motion')
     expect(src).toContain('PLATFORM_ORDER')
