@@ -151,6 +151,12 @@ import {
 } from '@/composables/useChannelMonitorFormat'
 import { formatMultiplier } from '@/utils/formatters'
 import {
+  PROVIDER_ANTHROPIC,
+  PROVIDER_GEMINI,
+  PROVIDER_GROK,
+  PROVIDER_OPENAI,
+} from '@/constants/channelMonitor'
+import {
   formatMonitorMs,
   formatMonitorPercent,
   formatMonitorSuccessRateFromError,
@@ -163,6 +169,13 @@ const PULSE_RECORD_COUNT = 18
 type HealthMode = 'overall' | 'success' | 'ttft' | 'cache'
 const { t } = useI18n()
 const { providerLabel, providerBadgeClass } = useChannelMonitorFormat()
+
+const PLATFORM_ORDER = [
+  PROVIDER_OPENAI,
+  PROVIDER_ANTHROPIC,
+  PROVIDER_GROK,
+  PROVIDER_GEMINI,
+] as const
 
 const PROVIDER_TINT: Record<string, string> = {
   openai: 'text-emerald-600 dark:text-emerald-300',
@@ -264,6 +277,13 @@ const platformGroups = computed(() => {
       label: providerLabel(provider) === provider ? platform : providerLabel(provider),
       rows,
     }
+  }).sort((a, b) => {
+    const ai = PLATFORM_ORDER.indexOf(a.provider as (typeof PLATFORM_ORDER)[number])
+    const bi = PLATFORM_ORDER.indexOf(b.provider as (typeof PLATFORM_ORDER)[number])
+    const aRank = ai === -1 ? PLATFORM_ORDER.length : ai
+    const bRank = bi === -1 ? PLATFORM_ORDER.length : bi
+    if (aRank !== bRank) return aRank - bRank
+    return a.label.localeCompare(b.label)
   })
 })
 
@@ -328,11 +348,16 @@ function metricTone(state: string | undefined): string {
 }
 
 function barHeight(slot: AlignedSlot): number {
-  if (!slot.bucket || slot.bucket.metrics.request_count <= 0) return 18
+  if (!slot.bucket) return 18
+  const score = healthModeScore(slot.bucket.health, props.healthMode)
+  if (score != null && !Number.isNaN(score)) {
+    return Math.max(18, Math.round(score))
+  }
   const coarse = slot.bucket.health.overall
   if (coarse === 'healthy') return 100
   if (coarse === 'warning') return 40
   if (coarse === 'critical') return 32
+  if (slot.bucket.metrics.request_count > 0) return 40
   return 18
 }
 

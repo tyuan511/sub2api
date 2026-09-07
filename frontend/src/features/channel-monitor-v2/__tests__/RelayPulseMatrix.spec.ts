@@ -34,6 +34,9 @@ const i18nT = (key: string, params?: Record<string, unknown>) => {
     'monitorCommon.past': 'PAST',
     'monitorCommon.now': 'NOW',
     'monitorCommon.providers.openai': 'OpenAI',
+    'monitorCommon.providers.anthropic': 'Claude',
+    'monitorCommon.providers.grok': 'Grok',
+    'monitorCommon.providers.gemini': 'Gemini',
   }
   const template = map[key] || key
   return template.replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? ''))
@@ -217,5 +220,55 @@ describe('RelayPulseMatrix axis range', () => {
     })
     expect(wrapper.findAll('.pulse-cell')).toHaveLength(18)
     expect(wrapper.findAll('.pulse-cell.has-data')).toHaveLength(18)
+  })
+})
+
+describe('RelayPulseMatrix privacy-safe bars and platform order', () => {
+  it('keeps redacted user buckets tall instead of treating request_count=0 as empty', () => {
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [{
+          platform: 'openai',
+          group_id: 7,
+          group_name: '默认组',
+          metrics: metrics(0),
+          health,
+          buckets: [
+            { bucket_start: '2026-08-01T00:02:00Z', metrics: metrics(0), health },
+          ],
+        }],
+        coverage,
+        healthMode: 'overall',
+        showThroughput: false,
+      },
+    })
+    const dataCell = wrapper.find('.pulse-cell.has-data')
+    expect(dataCell.exists()).toBe(true)
+    expect(dataCell.attributes('style')).toContain('height: 52%')
+  })
+
+  it('orders platforms as OpenAI, Claude, Grok, then Gemini', () => {
+    const row = (platform: string, group: string) => ({
+      platform,
+      group_id: 1,
+      group_name: group,
+      metrics: metrics(10),
+      health,
+      buckets: [] as { bucket_start: string; metrics: ReturnType<typeof metrics>; health: typeof health }[],
+    })
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [
+          row('gemini', 'g'),
+          row('grok', 'x'),
+          row('anthropic', 'c'),
+          row('openai', 'o'),
+        ],
+        coverage,
+        healthMode: 'overall',
+      },
+    })
+    const headings = wrapper.findAll('h3').map((node) => node.text())
+    expect(headings).toEqual(['OpenAI', 'Claude', 'Grok', 'Gemini'])
   })
 })
