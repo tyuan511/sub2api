@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -353,26 +352,7 @@ func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey
 	}
 	projectedSnapshot := service.ProjectAPIKeyRoutingScoreSnapshot(state.Plan.Candidates, snapshot, userRates)
 	baselineRanked := service.RankAPIKeyRoutingCandidatesWithPolicy(state.Plan.Candidates, projectedSnapshot, selection.Policy)
-	statisticallyExcluded := make(map[int64]string)
-	// A breaker-owned recovery attempt is distinct from ordinary admission.
-	// Only the subsequent atomic health check can grant its bounded probe.
-	for index := range baselineRanked {
-		if !strings.HasPrefix(baselineRanked[index].Exclusion, "success_rate_below_") {
-			continue
-		}
-		statisticallyExcluded[baselineRanked[index].GroupID] = baselineRanked[index].Exclusion
-		if candidateCheck != nil {
-			baselineRanked[index].Eligible = true
-			baselineRanked[index].Exclusion = ""
-		}
-	}
 	baselineRanked = applyAPIKeyRoutingCandidateCheck(c, baselineRanked, candidateCheck)
-	for index := range baselineRanked {
-		if reason, excluded := statisticallyExcluded[baselineRanked[index].GroupID]; excluded && !service.APIKeyRouteRecoveryAdmitted(c.Request.Context(), scope.ModelFamily, scope.EndpointKind, baselineRanked[index].GroupID) {
-			baselineRanked[index].Eligible = false
-			baselineRanked[index].Exclusion = reason
-		}
-	}
 	baselineRanked = applyAPIKeyRoutingBreakerEligibility(c, scope.ModelFamily, scope.EndpointKind, baselineRanked)
 	baselineRanked = applyAPIKeyRoutingRecoveryTrafficBudget(apiKey.ID, sessionHash, baselineRanked)
 	eligible := make(map[int64]bool, len(baselineRanked))
@@ -389,17 +369,6 @@ func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey
 	learning := service.ApplyDefaultAPIKeyRoutingLearning(strategyScope, apiKey.ID, userID, selection.ExperimentID, projectedSnapshot, eligible, time.Now())
 	ranked := service.RankAPIKeyRoutingCandidatesWithPolicy(state.Plan.Candidates, learning.Snapshot, selection.Policy)
 	ranked = applyAPIKeyRoutingBaselineEligibility(ranked, baselineRanked)
-	for index := range ranked {
-		if !strings.HasPrefix(ranked[index].Exclusion, "success_rate_below_") {
-			continue
-		}
-		for _, base := range baselineRanked {
-			if base.GroupID == ranked[index].GroupID && base.Eligible {
-				ranked[index] = base
-				break
-			}
-		}
-	}
 	ranked = annotateAPIKeyRoutingLearning(ranked, baselineRanked, learning.Personalization.AppliedGroups)
 	ranked = service.DefaultAPIKeyRoutingOrderStabilizer().Stabilize(
 		apiKey.ID, apiKey.RouteVersion, scope, *state.Plan.SmartPreference, sessionHash,

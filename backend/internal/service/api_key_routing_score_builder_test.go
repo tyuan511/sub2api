@@ -144,26 +144,11 @@ func TestRankAPIKeyRoutingCandidatesAllowsRecentRecoveryButKeepsRampMetadata(t *
 			recovered = score
 		}
 	}
-	require.True(t, recovered.Eligible, "recent recovery may bypass the stale long-window gate")
+	require.True(t, recovered.Eligible, "a recovering group remains scorable")
 	require.True(t, recovered.Recovery)
 	require.Equal(t, APIKeyRoutingRecoveryEarlyBPS, recovered.RecoveryTrafficBPS)
-	// Early recovery remains confidence-shrunk; the handler's deterministic
-	// recovery budget gives it a bounded share even when the stable route still
-	// has the higher score.
-	strict := DefaultAPIKeyRoutingStrategyPolicy(APIKeySmartPreferencePrice)
-	strict.SuccessRateHardGate = .95
-	snapshot.Groups[1] = func() APIKeyRoutingGroupObservation {
-		observation := snapshot.Groups[1]
-		observation.RecentSuccessRate = .90
-		return observation
-	}()
-	strictRanked := RankAPIKeyRoutingCandidatesWithPolicy(
-		[]APIKeyRouteCandidate{{GroupID: 1}, {GroupID: 2}}, snapshot, strict,
-	)
-	for _, score := range strictRanked {
-		if score.GroupID == 1 {
-			require.False(t, score.Eligible, "recovery must not bypass a stricter user success-rate floor")
-		}
+	for _, score := range ranked {
+		require.True(t, score.Eligible, "success rate must not hard-exclude a candidate")
 	}
 }
 
@@ -418,16 +403,17 @@ func TestSmoothRoutingScoreSnapshotBoundsTransientChangesButKeepsRawCounts(t *te
 	require.InDelta(t, 1250, got.DurationAvgMs, 1e-9)
 }
 
-func TestRoutingHardGateUsesRawRateEvenWhenSmoothedRateIsHealthy(t *testing.T) {
+func TestRoutingLowRawSuccessRemainsEligible(t *testing.T) {
 	policy := DefaultAPIKeyRoutingStrategyPolicy(APIKeySmartPreferenceBalanced)
 	snapshot := &APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
-		1: {GroupID: 1, SuccessRequests: 4, FailedRequests: 6, SmoothedSuccessRate: .9, Confidence: 1, NormalizedRate: 1},
+		1: {GroupID: 1, SuccessRequests: 4, FailedRequests: 6, SmoothedSuccessRate: .4, Confidence: 1, NormalizedRate: 1},
 		2: {GroupID: 2, SuccessRequests: 9, FailedRequests: 1, SmoothedSuccessRate: .8, Confidence: 1, NormalizedRate: 1},
 	}}
 	ranked := RankAPIKeyRoutingCandidatesWithPolicy([]APIKeyRouteCandidate{{GroupID: 1}, {GroupID: 2}}, snapshot, policy)
 	require.Equal(t, int64(2), ranked[0].GroupID)
-	require.False(t, ranked[1].Eligible)
-	require.Equal(t, "success_rate_below_50_percent", ranked[1].Exclusion)
+	require.True(t, ranked[0].Eligible)
+	require.True(t, ranked[1].Eligible)
+	require.Equal(t, int64(1), ranked[1].GroupID)
 }
 
 func TestRoutingObservationFreshnessDecaysLowTrafficEvidence(t *testing.T) {

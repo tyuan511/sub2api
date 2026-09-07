@@ -159,7 +159,7 @@ func TestRoutingScoreLossMappingUsesTheSameImmutableStrategyWeights(t *testing.T
 	require.Equal(t, policy.Weights, mapping.OnlineScoreWeights)
 	require.Equal(t, policy.Weights.Success, mapping.FailureRiskWeight)
 	require.Equal(t, policy.Weights.Price, mapping.CostWeight)
-	require.Equal(t, policy.Weights.Speed, mapping.TimeWeight)
+	require.Equal(t, policy.Weights.Speed+policy.Weights.TTFT, mapping.TimeWeight)
 	require.Equal(t, policy.Weights.Capacity, mapping.CapacityRiskWeight)
 	require.Equal(t, "hard_guardrail", mapping.StabilityMode)
 }

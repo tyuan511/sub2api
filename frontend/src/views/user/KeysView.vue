@@ -545,25 +545,13 @@
           </div>
         </div>
 
-        <RoutingPreferenceSlider
-          v-if="hasMultipleRouteGroups"
-          v-model="formData.routing_min_success_rate"
-          :min="50" :max="95" :step="5" :default-value="DEFAULT_ROUTING_MIN_SUCCESS_RATE" :ticks="10"
-          :label="t('keys.successThreshold')" :value-label="formData.routing_min_success_rate + '%'"
-          :description="t('keys.successThresholdDescription')"
-          :left-label="t('keys.thresholdFlexible')" :right-label="t('keys.thresholdStrict')"
-          :reset-label="t('keys.resetThreshold')" data-test="routing-success-slider"
-        >
-          <p class="mt-3 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ t('keys.successThresholdHint') }}</p>
-        </RoutingPreferenceSlider>
-
         <div v-if="hasMultipleRouteGroups && formData.schedule_mode === 'smart'" class="space-y-2">
           <RoutingPreferenceSlider
             v-model="formData.smart_balance_bps"
             :min="0" :max="10000" :step="500" :default-value="5000"
             :label="t('keys.smartPreferenceLabel')" :value-label="balanceLabel"
-            :description="t('keys.balanceRatio', { price: priceRatio, speed: speedRatio })"
-            :left-label="t('keys.sliderPrice')" :right-label="t('keys.sliderSpeed')"
+            :description="t('keys.balanceRatio', { price: priceRatio, stability: stabilityRatio })"
+            :left-label="t('keys.sliderPrice')" :right-label="t('keys.sliderStability')"
             :reset-label="t('keys.resetBalance')" data-test="smart-balance-slider"
           >
             <div class="mt-4 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs sm:grid-cols-4 dark:border-dark-700" data-test="routing-score-weights">
@@ -1443,7 +1431,6 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
   }
 }
 
-const DEFAULT_ROUTING_MIN_SUCCESS_RATE = 80
 const routingEnabled = true
 const hasMultipleRouteGroups = computed(() => formData.value.group_routes.length > 1)
 const legacyGroupId = computed({
@@ -1459,7 +1446,6 @@ const formData = ref({
   group_routes: [] as number[],
   schedule_mode: 'sequential' as ApiKeyScheduleMode,
   smart_balance_bps: 5000,
-  routing_min_success_rate: DEFAULT_ROUTING_MIN_SUCCESS_RATE,
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -1513,17 +1499,17 @@ const scheduleModeOptions = computed(() => [
   }
 ])
 
-const speedRatio = computed(() => formData.value.smart_balance_bps / 100)
-const priceRatio = computed(() => 100 - speedRatio.value)
+const stabilityRatio = computed(() => formData.value.smart_balance_bps / 100)
+const priceRatio = computed(() => 100 - stabilityRatio.value)
 const balancePreference = computed<ApiKeySmartPreference>(() =>
-  speedRatio.value < 50 ? 'price' : speedRatio.value > 50 ? 'speed' : 'balanced')
-const balanceLabel = computed(() => t(speedRatio.value === 50
-  ? 'keys.preferenceBalanced' : speedRatio.value < 50 ? 'keys.preferencePrice' : 'keys.preferenceSpeed'))
+  stabilityRatio.value < 50 ? 'price' : stabilityRatio.value > 50 ? 'speed' : 'balanced')
+const balanceLabel = computed(() => t(stabilityRatio.value === 50
+  ? 'keys.preferenceBalanced' : stabilityRatio.value < 50 ? 'keys.preferencePrice' : 'keys.preferenceSpeed'))
 const scoreWeights = computed(() => [
-  { label: t('keys.weightReliability'), value: 50 },
-  { label: t('keys.weightCapacity'), value: 10 },
-  { label: t('keys.weightPrice'), value: Number((priceRatio.value * .4).toFixed(2)) },
-  { label: t('keys.weightSpeed'), value: Number((speedRatio.value * .4).toFixed(2)) }
+  { label: t('keys.weightPrice'), value: Number(priceRatio.value.toFixed(2)) },
+  { label: t('keys.weightReliability'), value: Number((stabilityRatio.value * 0.5).toFixed(2)) },
+  { label: t('keys.weightTTFT'), value: Number((stabilityRatio.value * 0.25).toFixed(2)) },
+  { label: t('keys.weightSpeed'), value: Number((stabilityRatio.value * 0.25).toFixed(2)) }
 ])
 
 const selectScheduleMode = (mode: ApiKeyScheduleMode) => {
@@ -1753,7 +1739,6 @@ const editKey = async (key: ApiKey) => {
     group_routes: routeGroupIds,
     schedule_mode: key.schedule_mode || 'sequential',
     smart_balance_bps: key.smart_balance_bps ?? (key.smart_preference === 'price' ? 1250 : key.smart_preference === 'speed' ? 8750 : 5000),
-    routing_min_success_rate: key.routing_min_success_rate ?? 50,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -1936,7 +1921,6 @@ const handleSubmit = async () => {
         schedule_mode: groupRoutes.length > 1 ? scheduleMode : undefined,
         smart_preference: groupRoutes.length > 1 ? smartPreference : undefined,
         smart_balance_bps: scheduleMode === 'smart' ? formData.value.smart_balance_bps : undefined,
-        routing_min_success_rate: hasMultipleRouteGroups.value ? formData.value.routing_min_success_rate : undefined,
         expected_route_version: selectedKey.value.route_version,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
@@ -1960,7 +1944,6 @@ const handleSubmit = async () => {
         schedule_mode: groupRoutes.length > 1 ? scheduleMode : undefined,
         smart_preference: groupRoutes.length > 1 ? smartPreference : undefined,
         smart_balance_bps: scheduleMode === 'smart' ? formData.value.smart_balance_bps : undefined,
-        routing_min_success_rate: hasMultipleRouteGroups.value ? formData.value.routing_min_success_rate : undefined,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota,
@@ -2022,7 +2005,6 @@ const closeModals = () => {
     group_routes: [],
     schedule_mode: 'sequential',
     smart_balance_bps: 5000,
-    routing_min_success_rate: DEFAULT_ROUTING_MIN_SUCCESS_RATE,
     status: 'active',
     use_custom_key: false,
     custom_key: '',

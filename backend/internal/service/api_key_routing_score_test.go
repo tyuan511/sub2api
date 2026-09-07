@@ -6,15 +6,20 @@ import (
 	"time"
 )
 
-func TestAPIKeyRoutingWeightsKeepSuccessAsCommonBaseline(t *testing.T) {
+func TestAPIKeyRoutingWeightsSplitPriceAndStability(t *testing.T) {
 	for _, preference := range []string{APIKeySmartPreferencePrice, APIKeySmartPreferenceSpeed, APIKeySmartPreferenceBalanced} {
 		weights := APIKeyRoutingWeights(preference)
-		if weights.Success != 0.50 {
-			t.Fatalf("preference %s success weight = %v, want 0.50", preference, weights.Success)
-		}
-		if got := weights.Success + weights.Price + weights.Speed + weights.Capacity; math.Abs(got-1) > 1e-12 {
+		if got := apiKeyRoutingWeightSum(weights); math.Abs(got-1) > 1e-12 {
 			t.Fatalf("preference %s weights sum = %v, want 1", preference, got)
 		}
+	}
+	price := APIKeyRoutingWeights(APIKeySmartPreferencePrice)
+	speed := APIKeyRoutingWeights(APIKeySmartPreferenceSpeed)
+	if price.Price <= price.Success+price.TTFT+price.Speed {
+		t.Fatalf("price preference should overweight price: %+v", price)
+	}
+	if speed.Price >= speed.Success+speed.TTFT+speed.Speed {
+		t.Fatalf("stability preference should overweight stability: %+v", speed)
 	}
 }
 
@@ -32,20 +37,22 @@ func TestRankAPIKeyRoutingCandidatesPreferenceOnlyChangesWeights(t *testing.T) {
 
 	price := RankAPIKeyRoutingCandidates(candidates, snapshot, APIKeySmartPreferencePrice, 10)
 	speed := RankAPIKeyRoutingCandidates(candidates, snapshot, APIKeySmartPreferenceSpeed, 10)
-	if price[0].GroupID != 11 {
-		t.Fatalf("price first group = %d, want cheap healthy group 11", price[0].GroupID)
+	if price[0].GroupID != 33 {
+		t.Fatalf("price first group = %d, want cheapest group 33 even below 50%% success", price[0].GroupID)
 	}
 	if speed[0].GroupID != 22 {
-		t.Fatalf("speed first group = %d, want fast healthy group 22", speed[0].GroupID)
+		t.Fatalf("stability first group = %d, want fast healthy group 22", speed[0].GroupID)
 	}
 	for _, ranked := range [][]APIKeyRoutingCandidateScore{price, speed} {
-		if ranked[len(ranked)-1].GroupID != 33 || ranked[len(ranked)-1].Eligible {
-			t.Fatalf("below-50%% group must be hard-excluded: %+v", ranked)
+		for _, score := range ranked {
+			if !score.Eligible {
+				t.Fatalf("low success must remain eligible for scoring: %+v", ranked)
+			}
 		}
 	}
 }
 
-func TestRankAPIKeyRoutingCandidatesFiftyPercentRemainsEligible(t *testing.T) {
+func TestRankAPIKeyRoutingCandidatesLowSuccessRemainsEligible(t *testing.T) {
 	ranked := RankAPIKeyRoutingCandidates(
 		[]APIKeyRouteCandidate{{GroupID: 2, Priority: 0}, {GroupID: 1, Priority: 0}},
 		&APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
@@ -56,10 +63,10 @@ func TestRankAPIKeyRoutingCandidatesFiftyPercentRemainsEligible(t *testing.T) {
 		10,
 	)
 	if ranked[0].GroupID != 1 || !ranked[0].Eligible {
-		t.Fatalf("exactly 50%% candidate should remain eligible: %+v", ranked)
+		t.Fatalf("higher success should rank first and stay eligible: %+v", ranked)
 	}
-	if ranked[1].GroupID != 2 || ranked[1].Eligible {
-		t.Fatalf("below 50%% candidate should be excluded: %+v", ranked)
+	if ranked[1].GroupID != 2 || !ranked[1].Eligible {
+		t.Fatalf("below 50%% candidate should still be scored: %+v", ranked)
 	}
 }
 

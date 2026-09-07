@@ -52,21 +52,20 @@ func TestParseAPIKeyRoutingStrategyArtifactIgnoresUnknownFieldsButRejectsMissing
 	require.ErrorIs(t, err, ErrRoutingArtifactInvalid)
 }
 
-func TestRankAPIKeyRoutingCandidatesWithPolicyNeverScoresBelowHardGate(t *testing.T) {
+func TestRankAPIKeyRoutingCandidatesWithPolicyScoresBelowFormerHardGate(t *testing.T) {
 	groups := []APIKeyRouteCandidate{
 		{GroupID: 1, Priority: 0, Group: &Group{ID: 1, RateMultiplier: 10}},
 		{GroupID: 2, Priority: 1, Group: &Group{ID: 2, RateMultiplier: 1}},
 	}
 	snapshot := &APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
-		1: {GroupID: 1, SuccessRequests: 90, FailedRequests: 10, NormalizedRate: 10, Confidence: 1},
-		2: {GroupID: 2, SuccessRequests: 49, FailedRequests: 51, NormalizedRate: 1, Confidence: 1},
+		1: {GroupID: 1, SuccessRequests: 90, FailedRequests: 10, NormalizedRate: 10, Confidence: 1, PriceConfidence: 1},
+		2: {GroupID: 2, SuccessRequests: 49, FailedRequests: 51, NormalizedRate: 1, Confidence: 1, PriceConfidence: 1},
 	}}
 	policy := DefaultAPIKeyRoutingStrategyPolicy(APIKeySmartPreferencePrice)
 	policy.Weights = APIKeyRoutingScoreWeights{Success: 0.5, Price: 0.45, Speed: 0, Capacity: 0.05}
 
 	ranked := RankAPIKeyRoutingCandidatesWithPolicy(groups, snapshot, policy)
-	require.Equal(t, int64(1), ranked[0].GroupID)
 	require.True(t, ranked[0].Eligible)
-	require.Equal(t, int64(2), ranked[1].GroupID)
-	require.False(t, ranked[1].Eligible, "a cheap group below 50% must remain excluded")
+	require.True(t, ranked[1].Eligible, "a cheap group below 50% must remain scorable")
+	require.Equal(t, int64(2), ranked[0].GroupID, "price-heavy weights may prefer the cheaper lower-success group")
 }

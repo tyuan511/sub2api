@@ -151,8 +151,7 @@ func (m *RoutingArtifactManager) RunOfflineReplay(ctx context.Context, experimen
 			continue
 		}
 		for _, sourceCandidate := range decision.Candidates {
-			if sourceCandidate.GroupID == ranked[0].GroupID && (!sourceCandidate.Admitted ||
-				(sourceCandidate.SuccessRate != nil && *sourceCandidate.SuccessRate < decisionPolicy.SuccessRateHardGate)) {
+			if sourceCandidate.GroupID == ranked[0].GroupID && !sourceCandidate.Admitted {
 				report.HardConstraintViolations++
 			}
 		}

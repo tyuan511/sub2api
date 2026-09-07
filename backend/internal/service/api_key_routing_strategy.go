@@ -85,23 +85,14 @@ func ValidateAPIKeyRoutingStrategyPolicy(policy APIKeyRoutingStrategyPolicy) err
 		return fmt.Errorf("%w: invalid strategy identity", ErrRoutingArtifactInvalid)
 	}
 	weights := policy.Weights
-	values := []float64{weights.Success, weights.Price, weights.Speed, weights.Capacity}
+	values := []float64{weights.Success, weights.Price, weights.Speed, weights.TTFT, weights.Capacity}
 	for _, value := range values {
 		if value < 0 || value > 1 || math.IsNaN(value) || math.IsInf(value, 0) {
 			return fmt.Errorf("%w: invalid strategy weight", ErrRoutingArtifactInvalid)
 		}
 	}
-	if math.Abs(weights.Success+weights.Price+weights.Speed+weights.Capacity-1) > 1e-9 || weights.Success < 0.5 {
-		return fmt.Errorf("%w: weights must sum to one and success must remain primary", ErrRoutingArtifactInvalid)
-	}
-	if policy.Preference == APIKeySmartPreferencePrice && weights.Price < weights.Speed {
-		return fmt.Errorf("%w: price preference envelope violated", ErrRoutingArtifactInvalid)
-	}
-	if policy.Preference == APIKeySmartPreferenceSpeed && weights.Speed < weights.Price {
-		return fmt.Errorf("%w: speed preference envelope violated", ErrRoutingArtifactInvalid)
-	}
-	if policy.Preference == APIKeySmartPreferenceBalanced && math.Abs(weights.Price-weights.Speed) > 0.15 {
-		return fmt.Errorf("%w: balanced preference envelope violated", ErrRoutingArtifactInvalid)
+	if math.Abs(apiKeyRoutingWeightSum(weights)-1) > 1e-9 {
+		return fmt.Errorf("%w: weights must sum to one", ErrRoutingArtifactInvalid)
 	}
 	if policy.SuccessRateHardGate < 0.5 || policy.SuccessRateHardGate > 0.95 ||
 		policy.MinimumSamples < 1 || policy.MinimumSamples > 10000 ||

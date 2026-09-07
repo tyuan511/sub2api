@@ -746,7 +746,8 @@ export interface ApiKeyGroupRoute {
     success: number
     price: number
     speed: number
-    capacity: number
+    ttft?: number
+    capacity?: number
   }
   group?: Group
 }

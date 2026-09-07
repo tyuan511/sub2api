@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -12,18 +11,29 @@ type APIKeyRoutingScoreWeights struct {
 	Success  float64 `json:"success"`
 	Price    float64 `json:"price"`
 	Speed    float64 `json:"speed"`
-	Capacity float64 `json:"capacity"`
+	TTFT     float64 `json:"ttft,omitempty"`
+	Capacity float64 `json:"capacity,omitempty"`
 }
+
+const (
+	apiKeyRoutingStabilitySuccessShare = 0.50
+	apiKeyRoutingStabilityTTFTShare    = 0.25
+	apiKeyRoutingStabilitySpeedShare   = 0.25
+)
 
 func APIKeyRoutingWeights(preference string) APIKeyRoutingScoreWeights {
 	switch preference {
 	case APIKeySmartPreferencePrice:
-		return APIKeyRoutingScoreWeights{Success: 0.50, Price: 0.35, Speed: 0.05, Capacity: 0.10}
+		return APIKeyRoutingBalanceWeights(1250)
 	case APIKeySmartPreferenceSpeed:
-		return APIKeyRoutingScoreWeights{Success: 0.50, Price: 0.05, Speed: 0.35, Capacity: 0.10}
+		return APIKeyRoutingBalanceWeights(8750)
 	default:
-		return APIKeyRoutingScoreWeights{Success: 0.50, Price: 0.20, Speed: 0.20, Capacity: 0.10}
+		return APIKeyRoutingBalanceWeights(5000)
 	}
+}
+
+func apiKeyRoutingWeightSum(weights APIKeyRoutingScoreWeights) float64 {
+	return weights.Success + weights.Price + weights.Speed + weights.TTFT + weights.Capacity
 }
 
 // NormalizeAPIKeyRoutingModelFamily keeps score-cardinality bounded while
@@ -200,9 +210,9 @@ type APIKeyRoutingSelectionEvidence struct {
 	Window             string
 }
 
-// RankAPIKeyRoutingCandidates applies one explainable scoring model. Every
-// preference shares the same 50% success hard gate and success weight; only the
-// price/speed emphasis changes.
+// RankAPIKeyRoutingCandidates applies one explainable scoring model. The user
+// slider allocates weight between price (cache-adjusted rate) and stability
+// (success + TTFT + duration). Success rate is a score, not a hard gate.
 func RankAPIKeyRoutingCandidates(candidates []APIKeyRouteCandidate, snapshot *APIKeyRoutingScoreSnapshot, preference string, minimumSamples int64) []APIKeyRoutingCandidateScore {
 	policy := DefaultAPIKeyRoutingStrategyPolicy(preference)
 	if minimumSamples > 0 {
@@ -213,7 +223,8 @@ func RankAPIKeyRoutingCandidates(candidates []APIKeyRouteCandidate, snapshot *AP
 
 // RankAPIKeyRoutingCandidatesWithPolicy applies versioned weights and bounded
 // reliability controls. Candidate membership has already been frozen by the
-// route plan, and the raw-success hard gate is evaluated before every score.
+// route plan. Low success lowers the stability score instead of excluding a
+// group, so a globally degraded platform cannot make the key unusable.
 func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, snapshot *APIKeyRoutingScoreSnapshot, policy APIKeyRoutingStrategyPolicy) []APIKeyRoutingCandidateScore {
 	if ValidateAPIKeyRoutingStrategyPolicy(policy) != nil {
 		policy = DefaultAPIKeyRoutingStrategyPolicy(policy.Preference)
@@ -233,30 +244,22 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 				observations[i].NormalizedRate = nonNegativeFiniteOr(candidate.Group.RateMultiplier, 1)
 			}
 		}
-		total := observations[i].SuccessRequests + observations[i].FailedRequests
-		longHealthy := total < minimumSamples || float64(observations[i].SuccessRequests)/float64(total) >= policy.SuccessRateHardGate
-		recoverySignal := observations[i].RecoveryEligible && observations[i].RecoveryTrafficBPS > 0 &&
-			observations[i].RecentSuccessRate >= policy.SuccessRateHardGate
-		// A recent, high-confidence recovery signal may temporarily reopen a
-		// stale long-window exclusion. Traffic is still capped by the recovery
-		// budget carried in the observation and enforced by the request handler.
-		eligible[i] = longHealthy || recoverySignal
+		eligible[i] = true
 	}
 	dependencyCounts := make(map[string]int)
-	for index, observation := range observations {
-		if !eligible[index] {
-			continue
-		}
+	for _, observation := range observations {
 		for _, domain := range observation.DependencyDomains {
 			dependencyCounts[domain]++
 		}
 	}
+	// NormalizedRate already folds the group multiplier and observed cache
+	// composition into one cheaper-is-better price signal.
 	priceScores := inverseMinMaxEligible(observations, eligible, func(o APIKeyRoutingGroupObservation) float64 { return nonNegativeFiniteOr(o.NormalizedRate, 1) })
-	speedScores := inverseMinMaxEligible(observations, eligible, func(o APIKeyRoutingGroupObservation) float64 {
-		if value := observationRoutingTTFTMs(o); value > 0 {
-			return value
-		}
-		return positiveOr(observationRoutingDurationMs(o), 1)
+	ttftScores := inverseMinMaxEligible(observations, eligible, func(o APIKeyRoutingGroupObservation) float64 {
+		return positiveOr(observationRoutingTTFTMs(o), positiveOr(observationRoutingDurationMs(o), 1))
+	})
+	durationScores := inverseMinMaxEligible(observations, eligible, func(o APIKeyRoutingGroupObservation) float64 {
+		return positiveOr(observationRoutingDurationMs(o), positiveOr(observationRoutingTTFTMs(o), 1))
 	})
 	for i, candidate := range candidates {
 		observation := observations[i]
@@ -269,8 +272,7 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 		if candidate.Group != nil {
 			fallbackRate = nonNegativeFiniteOr(candidate.Group.RateMultiplier, 1)
 		}
-		recoverySignal := observation.RecoveryEligible && observation.RecoveryTrafficBPS > 0 &&
-			observation.RecentSuccessRate >= policy.SuccessRateHardGate
+		recoverySignal := observation.RecoveryEligible && observation.RecoveryTrafficBPS > 0
 		score := APIKeyRoutingCandidateScore{
 			GroupID: candidate.GroupID, Priority: candidate.Priority, Eligible: true,
 			Recovery: recoverySignal, RecoveryTrafficBPS: observation.RecoveryTrafficBPS,
@@ -279,12 +281,6 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 			DurationMS: observationRoutingDurationMs(observation), CapacityScore: correlationAdjustedCapacity(observation, dependencyCounts),
 			CacheHitRate: routeClamp01(observation.CacheHitRate), ObservationWindow: observation.ObservationWindow,
 			DependencyDomains: append([]string(nil), observation.DependencyDomains...),
-		}
-		if total >= minimumSamples && successRate < policy.SuccessRateHardGate && !recoverySignal {
-			score.Eligible = false
-			score.Exclusion = fmt.Sprintf("success_rate_below_%d_percent", int(math.Round(policy.SuccessRateHardGate*100)))
-			result = append(result, score)
-			continue
 		}
 		confidence := score.Confidence
 		if total > 0 && confidence == 0 {
@@ -314,13 +310,15 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 		score.SmoothedSuccessRate = scoringSuccessRate
 		shrunkSuccess := confidence*scoringSuccessRate + (1-confidence)*0.5
 		shrunkPrice := priceConfidence*priceScores[i] + (1-priceConfidence)*0.5
-		shrunkSpeed := confidence*speedScores[i] + (1-confidence)*0.5
+		shrunkTTFT := confidence*ttftScores[i] + (1-confidence)*0.5
+		shrunkDuration := confidence*durationScores[i] + (1-confidence)*0.5
 		shrunkCapacity := confidence*score.CapacityScore + (1-confidence)*0.5
 		score.Breakdown = APIKeyRoutingScoreWeights{
 			Success: shrunkSuccess * weights.Success, Price: shrunkPrice * weights.Price,
-			Speed: shrunkSpeed * weights.Speed, Capacity: shrunkCapacity * weights.Capacity,
+			Speed: shrunkDuration * weights.Speed, TTFT: shrunkTTFT * weights.TTFT,
+			Capacity: shrunkCapacity * weights.Capacity,
 		}
-		score.Score = score.Breakdown.Success + score.Breakdown.Price + score.Breakdown.Speed + score.Breakdown.Capacity
+		score.Score = apiKeyRoutingWeightSum(score.Breakdown)
 		result = append(result, score)
 	}
 	sort.SliceStable(result, func(i, j int) bool {

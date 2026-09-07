@@ -235,8 +235,8 @@ func TestAPIKeyRouteRuntimeUsesRecentRecoveryForCheaperNewSession(t *testing.T) 
 	primaryID, recoveredID := int64(141), int64(142)
 	pref := service.APIKeySmartPreferencePrice
 	routes := []service.APIKeyGroupRoute{
-		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
-		{GroupID: recoveredID, Priority: 1, Enabled: true, Group: &service.Group{ID: recoveredID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 1}},
+		{GroupID: recoveredID, Priority: 1, Enabled: true, Group: &service.Group{ID: recoveredID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 0.7}},
 	}
 	apiKey := &service.APIKey{ID: 139, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 137}, RouteVersion: 1,
 		ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref, GroupRoutes: routes}
@@ -287,13 +287,13 @@ func TestAPIKeyRouteRuntimeUsesRecentRecoveryForCheaperNewSession(t *testing.T) 
 	}
 }
 
-func TestAPIKeyRouteSmartControlsCannotReviveBelowThresholdWithoutProbe(t *testing.T) {
+func TestAPIKeyRouteSmartControlsDoNotHardExcludeBelowStoredThreshold(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	pref, balance := service.APIKeySmartPreferencePrice, 0
 	id := int64(81)
 	routes := []service.APIKeyGroupRoute{
-		{GroupID: 81, Enabled: true, Group: &service.Group{ID: 81, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
-		{GroupID: 82, Priority: 1, Enabled: true, Group: &service.Group{ID: 82, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: 81, Enabled: true, Group: &service.Group{ID: 81, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 0.1}},
+		{GroupID: 82, Priority: 1, Enabled: true, Group: &service.Group{ID: 82, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 1}},
 	}
 	key := &service.APIKey{ID: 80, RouteVersion: 1, GroupID: &id, Group: routes[0].Group, GroupRoutes: routes,
 		User: &service.User{ID: 80}, ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref, SmartBalanceBPS: &balance, RoutingMinSuccessRate: 95}
@@ -314,10 +314,14 @@ func TestAPIKeyRouteSmartControlsCannotReviveBelowThresholdWithoutProbe(t *testi
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
 		middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: id})
 		c.Set(string(middleware2.ContextKeyAPIKey), key)
-		_, _, ranked, _, err := (apiKeyRouteRuntime{}).activateSmart(c, key, "gpt-5.6-sol", "/v1/responses", "controls-session", check)
-		require.ErrorIs(t, err, service.ErrNoEligibleAPIKeyRoute)
+		actual, _, ranked, changed, err := (apiKeyRouteRuntime{}).activateSmart(c, key, "gpt-5.6-sol", "/v1/responses", "controls-session", check)
+		require.NoError(t, err)
+		require.False(t, changed, "cheaper group 81 is already the initial candidate")
+		require.Equal(t, id, *actual.GroupID)
+		require.Len(t, ranked, 2)
 		for _, score := range ranked {
-			require.False(t, score.Eligible)
+			require.True(t, score.Eligible, "stored success threshold is not a hard intercept")
+			require.Empty(t, score.Exclusion)
 		}
 	}
 }

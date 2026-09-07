@@ -107,27 +107,34 @@ func TestAPIKeyRoutingControlsValidationAndLegacyCompatibility(t *testing.T) {
 	require.Equal(t, &legacy, updated.SmartPreference)
 }
 
-func TestAPIKeyRoutingControlsWeightsAndThresholdAreHardBoundaries(t *testing.T) {
+func TestAPIKeyRoutingControlsWeightsFollowPriceStabilitySlider(t *testing.T) {
 	for balance := 0; balance <= 10000; balance += 50 {
 		policy := ApplyAPIKeyRoutingControls(DefaultAPIKeyRoutingStrategyPolicy(APIKeySmartPreferenceBalanced),
 			&APIKey{SmartBalanceBPS: &balance, RoutingMinSuccessRate: 85})
 		require.NoError(t, ValidateAPIKeyRoutingStrategyPolicy(policy))
-		require.Equal(t, .5, policy.Weights.Success)
-		require.Equal(t, .1, policy.Weights.Capacity)
-		require.InDelta(t, .4, policy.Weights.Price+policy.Weights.Speed, 1e-12)
-		require.Equal(t, .85, policy.SuccessRateHardGate)
+		stability := float64(balance) / 10000
+		require.InDelta(t, 1-stability, policy.Weights.Price, 1e-12)
+		require.InDelta(t, stability*apiKeyRoutingStabilitySuccessShare, policy.Weights.Success, 1e-12)
+		require.InDelta(t, stability*apiKeyRoutingStabilityTTFTShare, policy.Weights.TTFT, 1e-12)
+		require.InDelta(t, stability*apiKeyRoutingStabilitySpeedShare, policy.Weights.Speed, 1e-12)
+		require.InDelta(t, 1, apiKeyRoutingWeightSum(policy.Weights), 1e-12)
+		require.Equal(t, .5, policy.SuccessRateHardGate, "user threshold is not projected into ranking")
 	}
 	weights := APIKeyRoutingBalanceWeights(3000)
-	require.InDelta(t, .28, weights.Price, 1e-12)
-	require.InDelta(t, .12, weights.Speed, 1e-12)
+	require.InDelta(t, .7, weights.Price, 1e-12)
+	require.InDelta(t, .15, weights.Success, 1e-12)
+	require.InDelta(t, .075, weights.TTFT, 1e-12)
+	require.InDelta(t, .075, weights.Speed, 1e-12)
 	for preference, balance := range map[string]int{APIKeySmartPreferencePrice: 1250, APIKeySmartPreferenceSpeed: 8750, APIKeySmartPreferenceBalanced: 5000} {
 		old, actual := APIKeyRoutingWeights(preference), APIKeyRoutingBalanceWeights(balance)
 		require.InDelta(t, old.Price, actual.Price, 1e-12)
+		require.InDelta(t, old.Success, actual.Success, 1e-12)
+		require.InDelta(t, old.TTFT, actual.TTFT, 1e-12)
 		require.InDelta(t, old.Speed, actual.Speed, 1e-12)
 	}
 }
 
-func TestAPIKeyRoutingControlsChangeActualRankingAndExactGate(t *testing.T) {
+func TestAPIKeyRoutingControlsChangeActualRankingWithoutSuccessGate(t *testing.T) {
 	candidates := []APIKeyRouteCandidate{{GroupID: 1}, {GroupID: 2, Priority: 1}}
 	snapshot := &APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
 		1: {GroupID: 1, SuccessRequests: 85, FailedRequests: 15, NormalizedRate: 1, TTFTP50Ms: 1000, Confidence: 1, PriceConfidence: 1, CapacityScore: 1},
@@ -139,13 +146,14 @@ func TestAPIKeyRoutingControlsChangeActualRankingAndExactGate(t *testing.T) {
 	}{{0, 1}, {3000, 1}, {7000, 2}, {10000, 2}} {
 		policy := ApplyAPIKeyRoutingControls(DefaultAPIKeyRoutingStrategyPolicy("balanced"), &APIKey{SmartBalanceBPS: &test.balance, RoutingMinSuccessRate: 85})
 		ranked := RankAPIKeyRoutingCandidatesWithPolicy(candidates, snapshot, policy)
-		require.True(t, ranked[0].Eligible, "equal to threshold is admitted")
+		require.True(t, ranked[0].Eligible)
+		require.True(t, ranked[1].Eligible)
 		require.Equal(t, test.first, ranked[0].GroupID)
 		policy.SuccessRateHardGate = .9
 		ranked = RankAPIKeyRoutingCandidatesWithPolicy(candidates, snapshot, policy)
 		for _, score := range ranked {
-			require.False(t, score.Eligible)
-			require.Equal(t, "success_rate_below_90_percent", score.Exclusion)
+			require.True(t, score.Eligible, "success-rate hard gate must not exclude candidates")
+			require.Empty(t, score.Exclusion)
 		}
 	}
 }
@@ -157,9 +165,9 @@ func TestAPIKeyRoutingControlsRuntimeVersionAndStrictOutage(t *testing.T) {
 	require.Equal(t, int64(3), apiKeyRoutingRuntimeVersion(ctx, 7, 9))
 	require.Equal(t, int64(8), apiKeyRoutingRuntimeVersion(ctx, 7, 8), "a different frozen request must not borrow state")
 	allowed, state, err := allowAPIKeyRoute(ctx, &unavailableRouteHealthCacheStub{}, DefaultAPIKeyRouteHealthPolicy(nil), 7, 9, 11, "gpt-5", "responses")
-	require.NoError(t, err)
-	require.False(t, allowed, "a strict user threshold must not degrade to unchecked sequential routing")
-	require.Equal(t, "STATE_UNAVAILABLE", state)
+	require.Error(t, err)
+	require.True(t, allowed, "user success rate is not a hard intercept, so Redis outage fail-opens")
+	require.Equal(t, APIKeyRouteBreakerClosed, state)
 }
 
 func TestAPIKeyRoutingControlsProbeAdmissionIsRequestScoped(t *testing.T) {

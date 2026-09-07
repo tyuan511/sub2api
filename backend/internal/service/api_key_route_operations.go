@@ -221,11 +221,6 @@ func (s *APIKeyRouteOperationsService) Explain(ctx context.Context, apiKeyID int
 			item.Admitted = false
 			item.ExclusionReason = "breaker_open"
 		}
-		total := item.Breaker.Successes + item.Breaker.Failures
-		if item.Breaker.State == APIKeyRouteBreakerClosed && total >= int64(DefaultAPIKeyRouteHealthPolicy(s.apiKeys.cfg).MinimumSamples) && item.Breaker.Successes*100 < total*int64(apiKey.EffectiveRoutingMinSuccessRate()) {
-			item.Admitted = false
-			item.ExclusionReason = fmt.Sprintf("success_rate_below_%d_percent", apiKey.EffectiveRoutingMinSuccessRate())
-		}
 		if score, ok := scoreByGroup[candidate.GroupID]; ok {
 			scoreCopy := score
 			item.Score = &scoreCopy

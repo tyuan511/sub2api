@@ -129,7 +129,7 @@ func RoutingScoreLossMappingForPolicy(policy APIKeyRoutingStrategyPolicy) (Routi
 	return RoutingScoreLossMapping{
 		MappingVersion: RoutingScoreLossMappingVersion, StrategyVersion: policy.Version, Preference: policy.Preference,
 		OnlineScoreWeights: policy.Weights, FailureRiskWeight: policy.Weights.Success,
-		CostWeight: policy.Weights.Price, TimeWeight: policy.Weights.Speed,
+		CostWeight: policy.Weights.Price, TimeWeight: policy.Weights.Speed + policy.Weights.TTFT,
 		CapacityRiskWeight: policy.Weights.Capacity, StabilityMode: "hard_guardrail",
 	}, nil
 }

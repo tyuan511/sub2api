@@ -10,7 +10,7 @@ import (
 const DefaultNewAPIKeyRoutingMinSuccessRate = 80
 
 // Count configured selections before request/health filtering. A multi-group
-// key with only one currently healthy candidate must not bypass its hard gate.
+// key with only one currently healthy candidate still keeps routing controls.
 func (k *APIKey) HasMultipleEnabledGroupRoutes() bool {
 	if k == nil {
 		return false
@@ -64,17 +64,21 @@ func (k *APIKey) EffectiveRoutingStateVersion() int64 {
 }
 
 func APIKeyRoutingBalanceWeights(balance int) APIKeyRoutingScoreWeights {
-	speed := float64(max(0, min(10000, balance))) / 10000
-	return APIKeyRoutingScoreWeights{Success: .50, Capacity: .10, Price: .40 * (1 - speed), Speed: .40 * speed}
+	stability := float64(max(0, min(10000, balance))) / 10000
+	return APIKeyRoutingScoreWeights{
+		Price:   1 - stability,
+		Success: stability * apiKeyRoutingStabilitySuccessShare,
+		TTFT:    stability * apiKeyRoutingStabilityTTFTShare,
+		Speed:   stability * apiKeyRoutingStabilitySpeedShare,
+	}
 }
 
 // Apply after selecting active/canary/shadow artifacts. Optimization may improve
-// component estimates and stability, but cannot override the user's exact ratio.
+// component estimates, but cannot override the user's exact price/stability ratio.
 func ApplyAPIKeyRoutingControls(policy APIKeyRoutingStrategyPolicy, key *APIKey) APIKeyRoutingStrategyPolicy {
 	if key == nil {
 		return policy
 	}
-	policy.SuccessRateHardGate = float64(key.EffectiveRoutingMinSuccessRate()) / 100
 	if key.SmartBalanceBPS != nil {
 		policy.Weights = APIKeyRoutingBalanceWeights(*key.SmartBalanceBPS)
 		policy.Preference = APIKeyRoutingBalancePreference(*key.SmartBalanceBPS)
@@ -144,40 +148,17 @@ func apiKeyRoutingRuntimeVersion(ctx context.Context, id, version int64) int64 {
 	return version
 }
 
-func apiKeyRoutingMinimumFromContext(ctx context.Context, id, version int64) int {
-	minimum := 50
-	if state, ok := apiKeyRouteRequestRuntimeStateFromContext(ctx); ok && state.APIKeyID == id && state.RouteVersion == version {
-		minimum = state.MinSuccessRate
-	} else if meta, ok := APIKeyRoutingUsageContextFromContext(ctx); ok && meta.APIKeyID == id && meta.RouteVersion == version {
-		minimum = meta.RoutingMinSuccessRate
-	}
-	if minimum < 50 || minimum > 95 || minimum%5 != 0 {
-		return 50
-	}
-	return minimum
+func apiKeyRoutingMinimumFromContext(context.Context, int64, int64) int {
+	// Success rate is a ranking signal, not a user-configurable intercept.
+	// The breaker still uses the original 50% floor as an internal safety net.
+	return 50
 }
 
 // Shared observations are read from local memory, including on sticky and
 // sequential paths. Missing samples are unknown, never fabricated as failures.
-func apiKeyRoutingBelowSharedGate(ctx context.Context, groupID int64, model, endpoint string, minimum, samples int) bool {
-	state, ok := apiKeyRouteRequestRuntimeStateFromContext(ctx)
-	if !ok {
-		return false
-	}
-	scope := APIKeyRoutingScoreScope{Platform: state.Platform, ModelFamily: model, EndpointKind: endpoint}
-	snapshot, ok := DefaultAPIKeyRoutingScoreStore().Lookup(scope, 180*time.Second, time.Now())
-	if !ok {
-		return false
-	}
-	observation, ok := snapshot.Groups[groupID]
-	if !ok {
-		return false
-	}
-	if apiKeyRoutingRecoveryOverride(observation, minimum) {
-		return false
-	}
-	total := observation.SuccessRequests + observation.FailedRequests
-	return total >= int64(samples) && observation.SuccessRequests*100 < total*int64(minimum)
+// Success rate no longer force-opens a candidate; low success only lowers score.
+func apiKeyRoutingBelowSharedGate(context.Context, int64, string, string, int, int) bool {
+	return false
 }
 
 func apiKeyRoutingRecoveryOverride(observation APIKeyRoutingGroupObservation, minimum int) bool {

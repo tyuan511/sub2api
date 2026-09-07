@@ -93,9 +93,9 @@ func TestMultiGroupKeyRetainsControlsWhenFilteringLeavesOneCandidate(t *testing.
 	require.True(t, plan.RoutingEnabled, "configured multi-group intent survives request-local filtering")
 	ctx := WithAPIKeyRouteRequestRuntimeState(context.Background(), plan)
 	allowed, state, err := allowAPIKeyRoute(ctx, &unavailableRouteHealthCacheStub{}, DefaultAPIKeyRouteHealthPolicy(nil), 9, 4, 11, "gpt-5", "responses")
-	require.NoError(t, err)
-	require.False(t, allowed)
-	require.Equal(t, "STATE_UNAVAILABLE", state)
+	require.Error(t, err)
+	require.True(t, allowed, "remaining candidate still uses routing controls, but success rate is not a hard intercept")
+	require.Equal(t, APIKeyRouteBreakerClosed, state)
 }
 
 func TestSingleGroupBypassRetainsFailureObservations(t *testing.T) {
