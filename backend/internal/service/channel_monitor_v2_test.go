@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/stretchr/testify/require"
 )
 
@@ -158,6 +159,33 @@ func TestChannelMonitorV2MatrixForwardsGroupingAndAdminScope(t *testing.T) {
 
 	_, err = NewChannelMonitorV2Service(repo).Matrix(context.Background(), ChannelMonitorV2Filter{}, "bad", false)
 	require.ErrorIs(t, err, ErrChannelMonitorV2InvalidGroupBy)
+}
+
+type channelMonitorV2ProbeReaderStub struct {
+	probes map[string]*domain.BazaarLinkProbeResult
+}
+
+func (s channelMonitorV2ProbeReaderStub) ListLatestBazaarLinkProbesByGroupName(context.Context, bool) (map[string]*domain.BazaarLinkProbeResult, error) {
+	return s.probes, nil
+}
+
+func TestChannelMonitorV2MatrixJoinsProbeByVisibleGroupName(t *testing.T) {
+	now := time.Now().UTC()
+	repo := &channelMonitorV2RepoStub{
+		config: ChannelMonitorV2Config{Enabled: true},
+		matrix: &ChannelMonitorV2Matrix{Items: []ChannelMonitorV2MatrixRow{{GroupName: "visible"}}},
+	}
+	svc := NewChannelMonitorV2Service(repo)
+	svc.SetProbeReader(channelMonitorV2ProbeReaderStub{probes: map[string]*domain.BazaarLinkProbeResult{
+		"visible": {Status: "completed", IdentityStatus: "confirmed", PredictedModel: "gpt-5", CheckedAt: now, Error: "private transport error"},
+		"hidden":  {Status: "completed", IdentityStatus: "mismatch", CheckedAt: now},
+	}})
+
+	result, err := svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByPlatformGroup, false)
+	require.NoError(t, err)
+	require.Contains(t, result.ProbesByGroup, "visible")
+	require.NotContains(t, result.ProbesByGroup, "hidden")
+	require.Equal(t, "confirmed", result.ProbesByGroup["visible"].IdentityStatus)
 }
 
 func TestChannelMonitorV2ConfigValidation(t *testing.T) {

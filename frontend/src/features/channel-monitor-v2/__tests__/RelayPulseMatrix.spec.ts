@@ -3,10 +3,10 @@ const i18nT = (key: string, params?: Record<string, unknown>) => {
     'channelMonitorV2.matrix.title': '色块矩阵',
     'channelMonitorV2.matrix.description': '趋势色块视图',
     'channelMonitorV2.bucket.minutes': '{count}分钟',
-    'channelMonitorV2.matrix.wheelZoomX': '滚轮缩放横向',
-    'channelMonitorV2.matrix.resetZoom': '重置缩放',
     'channelMonitorV2.matrix.dimension': '维度',
     'channelMonitorV2.metrics.successRate': '成功率',
+    'channelMonitorV2.metrics.availability': '可用率',
+    'channelMonitorV2.metrics.availabilityValue': '可用率 {value}',
     'channelMonitorV2.metrics.ttft': '首 Token',
     'channelMonitorV2.metrics.tps': '每秒 Token',
     'channelMonitorV2.metrics.cacheRate': '缓存率',
@@ -27,7 +27,13 @@ const i18nT = (key: string, params?: Record<string, unknown>) => {
     'channelMonitorV2.matrix.healthyLegend': '健康',
     'channelMonitorV2.matrix.warningLegend': '警告',
     'channelMonitorV2.matrix.criticalLegend': '异常',
-    'channelMonitorV2.matrix.unknownLegend': '未知',
+    'channelMonitorV2.matrix.unknownLegend': '样本不足',
+    'channelMonitorV2.userRate': '倍率 {value}x',
+    'monitorCommon.history60pts': '近 {n} 次记录',
+    'monitorCommon.nextUpdateIn': '{n}s 后刷新',
+    'monitorCommon.past': 'PAST',
+    'monitorCommon.now': 'NOW',
+    'monitorCommon.providers.openai': 'OpenAI',
   }
   const template = map[key] || key
   return template.replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? ''))
@@ -39,7 +45,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     ...actual,
     useI18n: () => ({
       t: i18nT,
-      te: (key: string) => key.startsWith('channelMonitorV2.'),
+      te: (key: string) => key.startsWith('channelMonitorV2.') || key.startsWith('monitorCommon.'),
       locale: { value: 'zh' },
     }),
   }
@@ -81,8 +87,19 @@ function metrics(requestCount: number): MonitorMetric {
   }
 }
 
+const coverage = {
+  requested_start: '2026-08-01T00:00:00Z',
+  requested_end: '2026-08-01T00:03:00Z',
+  coverage_start: '2026-08-01T00:00:00Z',
+  data_through: '2026-08-01T00:03:00Z',
+  computed_at: '2026-08-01T00:03:00Z',
+  aggregation_lag_seconds: 0,
+  coverage_complete: true,
+  bucket_seconds: 60,
+}
+
 describe('RelayPulseMatrix', () => {
-  it('shows privacy-safe hover tooltips and multi-band colors without click modal', async () => {
+  it('shows a fixed 18-bar pulse with compact hover tooltips and no zoom chrome', async () => {
     const wrapper = mount(RelayPulseMatrix, {
       props: {
         rows: [{
@@ -97,53 +114,48 @@ describe('RelayPulseMatrix', () => {
             { bucket_start: '2026-08-01T00:01:00Z', metrics: metrics(0), health },
           ],
         }],
-        coverage: {
-          requested_start: '2026-08-01T00:00:00Z',
-          requested_end: '2026-08-01T00:03:00Z',
-          coverage_start: '2026-08-01T00:00:00Z',
-          data_through: '2026-08-01T00:03:00Z',
-          computed_at: '2026-08-01T00:03:00Z',
-          aggregation_lag_seconds: 0,
-          coverage_complete: true,
-          bucket_seconds: 60,
-        },
+        coverage,
         healthMode: 'overall',
+        countdownSeconds: 8,
+        ratesByGroupId: { 7: 0.06 },
       },
     })
 
     const cells = wrapper.findAll('.pulse-cell')
-    expect(cells).toHaveLength(3)
-    // Hover tooltip content (privacy-safe: no absolute request/error counts)
-    const tip = cells[0].text()
-    expect(tip).toContain('成功率')
+    expect(cells).toHaveLength(18)
+    expect(wrapper.text()).toContain('近 18 次记录')
+    expect(wrapper.text()).toContain('倍率 0.06x')
+    expect(wrapper.find('.user-rate').element.parentElement?.className).toContain('whitespace-nowrap')
+    expect(wrapper.find('.user-rate').element.parentElement?.className).not.toContain('flex-wrap')
+    expect(wrapper.find('.relay-health-pill').text()).not.toContain('无流量')
+    expect(wrapper.text()).toContain('8s 后刷新')
+    expect(wrapper.text()).toContain('PAST')
+    expect(wrapper.text()).toContain('NOW')
+    expect(wrapper.text()).not.toContain('重置缩放')
+    expect(wrapper.text()).not.toContain('滚轮')
+
+    const tip = cells.find((cell) => cell.classes().includes('has-data'))?.text() || ''
+    expect(tip).toContain('可用率')
     expect(tip).toContain('90.0%')
     expect(tip).toContain('首 Token')
-    expect(tip).toContain('每秒 Token')
     expect(tip).toContain('缓存率')
-    expect(tip).toContain('RPM')
+    expect(tip).not.toContain('每秒 Token')
+    expect(tip).not.toContain('RPM')
     expect(tip).not.toContain('请求数')
-    expect(tip).not.toContain('用户错误')
-    expect(tip).not.toContain('上游受影响')
-    // Summary columns: success · ttft · tokens/s · cache
-    const header = wrapper.find('.matrix-header').text()
-    expect(header).toContain('成功率')
-    expect(header).toContain('首 Token')
-    expect(header).toContain('每秒 Token')
-    expect(header).toContain('缓存率')
-    // Multi-band class from score 52 → score5
-    expect(cells[0].classes().some((c) => c.startsWith('health-score'))).toBe(true)
-    // Redacted user payloads may have request_count=0 but still include score.
-    expect(cells[1].classes().some((c) => c.startsWith('health-score'))).toBe(true)
-    expect(cells[2].classes()).toContain('health-unknown')
 
-    // No click-to-open modal
+    const header = wrapper.find('.matrix-header').text()
+    expect(header).toContain('可用率')
+    expect(header).toContain('首 Token')
+    expect(header).toContain('缓存率')
+
+    expect(cells[0].classes().some((c) => c.startsWith('health-'))).toBe(true)
     await cells[0].trigger('click')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
 })
 
 describe('RelayPulseMatrix axis range', () => {
-  it('uses selected requested range for the X axis even with partial coverage', () => {
+  it('pads the selected range to a fixed 18 records instead of zooming', () => {
     const wrapper = mount(RelayPulseMatrix, {
       props: {
         rows: [{
@@ -170,7 +182,40 @@ describe('RelayPulseMatrix axis range', () => {
         healthMode: 'overall',
       },
     })
-    // 5 minutes @ 60s buckets → 5 cells spanning the selected range
-    expect(wrapper.findAll('.pulse-cell')).toHaveLength(5)
+    expect(wrapper.findAll('.pulse-cell')).toHaveLength(18)
+    expect(wrapper.findAll('.pulse-cell.has-data')).toHaveLength(1)
+  })
+
+  it('keeps only the latest 18 buckets when the range is longer', () => {
+    const buckets = Array.from({ length: 24 }, (_, i) => ({
+      bucket_start: new Date(Date.parse('2026-08-01T00:00:00Z') + i * 3600_000).toISOString(),
+      metrics: metrics(10),
+      health,
+    }))
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [{
+          platform: 'openai',
+          group_id: 7,
+          group_name: '默认组',
+          metrics: metrics(10),
+          health,
+          buckets,
+        }],
+        coverage: {
+          requested_start: '2026-08-01T00:00:00Z',
+          requested_end: '2026-08-02T00:00:00Z',
+          coverage_start: '2026-08-01T00:00:00Z',
+          data_through: '2026-08-02T00:00:00Z',
+          computed_at: '2026-08-02T00:00:00Z',
+          aggregation_lag_seconds: 0,
+          coverage_complete: true,
+          bucket_seconds: 3600,
+        },
+        healthMode: 'overall',
+      },
+    })
+    expect(wrapper.findAll('.pulse-cell')).toHaveLength(18)
+    expect(wrapper.findAll('.pulse-cell.has-data')).toHaveLength(18)
   })
 })

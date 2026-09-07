@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 const (
@@ -253,10 +256,33 @@ type ChannelMonitorV2MatrixRow struct {
 	Buckets   []ChannelMonitorV2TrendPoint `json:"buckets"`
 }
 
+// ChannelMonitorV2ProbeResult is the public, credential-free BazaarLink
+// projection displayed on V2 cards. Transport details, token counts and raw
+// upstream errors deliberately stay out of the matrix API.
+type ChannelMonitorV2ProbeResult struct {
+	Status              string    `json:"status,omitempty"`
+	Score               *int      `json:"score,omitempty"`
+	IdentityStatus      string    `json:"identity_status,omitempty"`
+	Confidence          *float64  `json:"confidence,omitempty"`
+	ClaimedModel        string    `json:"claimed_model,omitempty"`
+	PredictedFamily     string    `json:"predicted_family,omitempty"`
+	PredictedModel      string    `json:"predicted_model,omitempty"`
+	PredictedModelScore *float64  `json:"predicted_model_score,omitempty"`
+	RiskFlags           []string  `json:"risk_flags,omitempty"`
+	CheckedAt           time.Time `json:"checked_at"`
+}
+
 type ChannelMonitorV2Matrix struct {
 	GroupBy  ChannelMonitorV2GroupBy     `json:"group_by"`
 	Coverage ChannelMonitorV2Coverage    `json:"coverage"`
 	Items    []ChannelMonitorV2MatrixRow `json:"items"`
+	// ProbesByGroup carries the latest redacted BazaarLink verdict keyed by the
+	// same group name used by platform/group matrix rows.
+	ProbesByGroup map[string]*ChannelMonitorV2ProbeResult `json:"probes_by_group,omitempty"`
+}
+
+type ChannelMonitorV2ProbeReader interface {
+	ListLatestBazaarLinkProbesByGroupName(context.Context, bool) (map[string]*domain.BazaarLinkProbeResult, error)
 }
 
 type ChannelMonitorV2ErrorRow struct {
@@ -376,9 +402,10 @@ func ChannelMonitorV2BootstrapProgress(now, coveredFrom time.Time, hasData bool)
 }
 
 type ChannelMonitorV2Service struct {
-	repo     ChannelMonitorV2Repository
-	settings channelMonitorRuntimeReader
-	now      func() time.Time
+	repo        ChannelMonitorV2Repository
+	settings    channelMonitorRuntimeReader
+	probeReader ChannelMonitorV2ProbeReader
+	now         func() time.Time
 }
 
 func NewChannelMonitorV2Service(repo ChannelMonitorV2Repository) *ChannelMonitorV2Service {
@@ -391,6 +418,14 @@ func (s *ChannelMonitorV2Service) SetRuntimeReader(r channelMonitorRuntimeReader
 		return
 	}
 	s.settings = r
+}
+
+// SetProbeReader injects the optional BazaarLink projection used by V2 cards.
+func (s *ChannelMonitorV2Service) SetProbeReader(r ChannelMonitorV2ProbeReader) {
+	if s == nil {
+		return
+	}
+	s.probeReader = r
 }
 
 func (s *ChannelMonitorV2Service) hideThroughputForViewer(ctx context.Context, admin bool) bool {
@@ -523,6 +558,36 @@ func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMoni
 			redactChannelMonitorV2Metric(&matrix.Items[i].Metrics, hideTP)
 			for j := range matrix.Items[i].Buckets {
 				redactChannelMonitorV2Metric(&matrix.Items[i].Buckets[j].Metrics, hideTP)
+			}
+		}
+	}
+	if matrix != nil && s.probeReader != nil {
+		probes, probeErr := s.probeReader.ListLatestBazaarLinkProbesByGroupName(ctx, admin)
+		if probeErr != nil {
+			// BazaarLink is an optional enrichment; a storage hiccup must not make
+			// the primary V2 monitoring matrix unavailable.
+			slog.Warn("channel_monitor_v2: load bazaarlink probes failed", "error", probeErr)
+			return matrix, nil
+		}
+		// Keep the projection scoped to dimensions present in this response. This
+		// prevents a user's authorized group view from receiving unrelated probe
+		// verdicts merely because the projection is loaded in one batch.
+		visibleGroups := make(map[string]struct{})
+		for _, row := range matrix.Items {
+			if name := strings.TrimSpace(row.GroupName); name != "" {
+				visibleGroups[name] = struct{}{}
+			}
+		}
+		matrix.ProbesByGroup = make(map[string]*ChannelMonitorV2ProbeResult, len(visibleGroups))
+		for name, probe := range probes {
+			if _, ok := visibleGroups[name]; ok && probe != nil {
+				matrix.ProbesByGroup[name] = &ChannelMonitorV2ProbeResult{
+					Status: probe.Status, Score: probe.Score, IdentityStatus: probe.IdentityStatus,
+					Confidence: probe.Confidence, ClaimedModel: probe.ClaimedModel,
+					PredictedFamily: probe.PredictedFamily, PredictedModel: probe.PredictedModel,
+					PredictedModelScore: probe.PredictedModelScore,
+					RiskFlags:           append([]string(nil), probe.RiskFlags...), CheckedAt: probe.CheckedAt,
+				}
 			}
 		}
 	}

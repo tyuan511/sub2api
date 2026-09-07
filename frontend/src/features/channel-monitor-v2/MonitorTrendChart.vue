@@ -25,14 +25,6 @@
           <span class="h-2 w-2 rounded-full bg-sky-500"></span>{{ t('channelMonitorV2.chart.ttftLegend') }}
         </span>
         <span class="badge badge-gray shrink-0">{{ bucketLabel }}</span>
-        <button
-          type="button"
-          class="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
-          :disabled="!zoomed"
-          @click="resetChartZoom"
-        >
-          {{ t('channelMonitorV2.chart.resetZoom') }}
-        </button>
       </div>
     </div>
     <div class="card-body min-h-0 flex-1 !p-0">
@@ -41,9 +33,7 @@
       </div>
       <div
         v-else-if="chartData"
-        ref="chartRef"
         class="h-[280px] sm:h-[300px]"
-        @wheel="onChartWheel"
       >
         <Line :data="chartData" :options="chartOptions" />
       </div>
@@ -59,7 +49,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -76,14 +66,6 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
 import type { MonitorCoverage, MonitorMetric, MonitorHealth } from '@/api/channelMonitorV2'
 import { formatMonitorMs, formatMonitorPercent } from '@/features/channel-monitor-v2/monitorFormat'
-import {
-  applyWheelZoom,
-  clientXRatio,
-  isZoomed,
-  resetZoom,
-  sliceByZoom,
-  type ZoomState,
-} from '@/features/channel-monitor-v2/monitorZoom'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 const { t, locale } = useI18n()
@@ -93,10 +75,6 @@ const props = defineProps<{
   coverage: MonitorCoverage | null
   loading?: boolean
 }>()
-
-const chartRef = ref<HTMLElement | null>(null)
-const zoom = ref<ZoomState>(resetZoom())
-const zoomed = computed(() => isZoomed(zoom.value))
 
 const isDark = computed(() =>
   typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
@@ -175,23 +153,7 @@ const chartData = computed(() => {
   }
 })
 
-/** Window the series by zoom state around the cursor — not always the last N points. */
-const visibleTrend = computed(() => sliceByZoom(props.trend || [], zoom.value))
-
-function onChartWheel(event: WheelEvent) {
-  // Plain vertical wheel zooms X (narrower time range); shift/horizontal pans.
-  event.preventDefault()
-  const ratio = clientXRatio(event.clientX, chartRef.value)
-  zoom.value = applyWheelZoom(zoom.value, event, ratio)
-}
-
-function resetChartZoom() {
-  zoom.value = resetZoom()
-}
-
-watch(() => props.trend, () => {
-  zoom.value = resetZoom()
-})
+const visibleTrend = computed(() => (props.trend || []).slice(-18))
 
 function smoothTrend(values: Array<number | null>): Array<number | null> {
   if (values.length <= 2) return values

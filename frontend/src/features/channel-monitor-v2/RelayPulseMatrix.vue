@@ -1,147 +1,123 @@
 <template>
-  <section
-    class="card flex min-h-[360px] flex-col overflow-visible !rounded-3xl !border-0 !p-6 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700"
-  >
-    <div class="card-header mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3 !border-0 !p-0">
-      <div class="min-w-0">
-        <h2 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-          <span class="inline-flex h-4 w-4 text-emerald-500" aria-hidden="true">
-            <Icon name="grid" size="sm" />
+  <section>
+    <div class="matrix-header sr-only">
+      {{ t('channelMonitorV2.metrics.cacheRate') }}
+      {{ t('channelMonitorV2.metrics.availability') }}
+      {{ t('channelMonitorV2.metrics.ttft') }}
+    </div>
+    <div v-if="rows.length" class="space-y-8">
+      <div v-for="group in platformGroups" :key="group.platform">
+        <div class="mb-4 flex items-center gap-3 px-1">
+          <span
+            class="grid h-9 w-9 flex-none place-items-center rounded-xl ring-1 ring-black/5 dark:ring-white/10"
+            :class="[providerGradient(group.provider), providerTint(group.provider)]"
+          >
+            <ProviderIcon :provider="group.provider" :size="18" />
           </span>
-          {{ t('channelMonitorV2.matrix.title') }}
-        </h2>
-        <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
-          {{ t('channelMonitorV2.matrix.description') }}
-        </p>
-      </div>
-      <div class="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 text-xs text-gray-500 dark:text-gray-400 sm:w-auto">
-        <span class="badge badge-gray shrink-0">{{ bucketLabel }}</span>
-        <span class="hidden text-[11px] text-gray-400 dark:text-dark-400 sm:inline">{{ t('channelMonitorV2.matrix.wheelZoomX') }}</span>
-        <button
-          type="button"
-          class="inline-flex shrink-0 items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
-          :disabled="!zoomed"
-          @click="resetMatrixZoom"
-        >
-          {{ t('channelMonitorV2.matrix.resetZoom') }}
-        </button>
+          <h3 class="text-lg font-extrabold tracking-tight text-gray-900 dark:text-white">
+            {{ group.label }}
+          </h3>
+          <span class="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-gray-500 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300">
+            {{ group.rows.length }}
+          </span>
+        </div>
+        <div class="relay-card-grid">
+          <article
+            v-for="entry in group.rows"
+            :key="rowKey(entry.row)"
+            class="relay-card-item card !rounded-3xl !border-0 p-5 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700"
+          >
+            <header class="flex items-start justify-between gap-2">
+              <div class="flex min-w-0 items-center gap-3">
+                <span
+                  class="grid h-10 w-10 flex-none place-items-center rounded-xl ring-1 ring-black/5 dark:ring-white/10"
+                  :class="[providerGradient(group.provider), providerTint(group.provider)]"
+                >
+                  <ProviderIcon :provider="group.provider" :size="20" />
+                </span>
+                <div class="min-w-0">
+                  <h4 class="truncate text-base font-semibold tracking-tight text-gray-900 dark:text-white">
+                    {{ cardTitle(entry.row) }}
+                  </h4>
+                  <div class="mt-1 flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+                    <span
+                      class="inline-flex flex-shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+                      :class="providerBadgeClass(group.provider)"
+                    >
+                      {{ group.label }}
+                    </span>
+                    <span
+                      v-if="rateLabel(entry.row)"
+                      class="user-rate font-mono text-[11px] text-gray-500 dark:text-gray-400"
+                    >
+                      {{ rateLabel(entry.row) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <span :class="['relay-health-pill bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', cellClass(entry.row.health, entry.row.metrics.request_count)]">
+                {{ healthLabel(entry.row.health, entry.row.metrics.request_count) }}
+              </span>
+            </header>
+
+            <div class="mt-5 grid grid-cols-3 gap-2">
+              <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
+                <span>{{ t('channelMonitorV2.metrics.cacheRate') }}</span>
+                <strong>{{ formatPercent(entry.row.metrics.cache_rate) }}</strong>
+              </div>
+              <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
+                <span>{{ t('channelMonitorV2.metrics.availability') }}</span>
+                <strong :class="metricTone(entry.row.health.error_rate)">{{ availability(entry.row.metrics) }}</strong>
+              </div>
+              <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
+                <span>{{ t('channelMonitorV2.metrics.ttft') }}</span>
+                <strong :class="metricTone(entry.row.health.ttft)">{{ formatMs(entry.row.metrics.ttft.p50_ms) }}</strong>
+              </div>
+            </div>
+
+            <div class="mt-5 border-t border-gray-100 pt-4 dark:border-dark-700/70">
+              <div class="mb-2.5 flex items-center justify-between gap-3 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400">
+                <span>{{ t('monitorCommon.history60pts', { n: PULSE_RECORD_COUNT }) }}</span>
+                <span class="font-mono tabular-nums text-gray-500 dark:text-gray-400">
+                  {{ t('monitorCommon.nextUpdateIn', { n: countdownSeconds }) }}
+                </span>
+              </div>
+              <div class="pulse-track relay-pulse-track" role="img" :aria-label="t('monitorCommon.history60pts', { n: PULSE_RECORD_COUNT })">
+                <span
+                  v-for="(slot, index) in entry.slots"
+                  :key="slot.start"
+                  class="pulse-cell relay-pulse-cell relative"
+                  :class="[
+                    slot.bucket ? cellClass(slot.bucket.health, slot.bucket.metrics.request_count) : 'health-unknown',
+                    slot.bucket ? 'has-data' : 'is-empty',
+                  ]"
+                  :style="{ height: `${barHeight(slot)}%`, '--bar-delay': `${index * 28}ms` }"
+                  :title="slot.bucket ? bucketTooltip(slot.bucket) : formatBucketTime(slot.start)"
+                  tabindex="0"
+                  role="img"
+                  :aria-label="slot.bucket ? bucketTooltip(slot.bucket) : formatBucketTime(slot.start)"
+                  @mouseenter="showTooltip($event, slot)"
+                  @mousemove="moveTooltip($event)"
+                  @mouseleave="hideTooltip"
+                  @focus="showTooltip($event, slot)"
+                  @blur="hideTooltip"
+                >
+                  <span class="pulse-tooltip" role="tooltip">
+                    <span class="pulse-tooltip-line">{{ slot.bucket ? bucketTooltip(slot.bucket) : t('channelMonitorV2.matrix.noTraffic') }}</span>
+                  </span>
+                </span>
+              </div>
+              <div class="mt-1.5 flex justify-between font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-gray-400">
+                <span>{{ t('monitorCommon.past') }}</span>
+                <span>{{ t('monitorCommon.now') }}</span>
+              </div>
+            </div>
+          </article>
+        </div>
       </div>
     </div>
-
-    <div class="card-body min-h-0 flex-1 !p-0">
-      <div
-        v-if="rows.length"
-        ref="scrollRef"
-        class="matrix-scroll max-h-[min(42vh,420px)] max-w-full overflow-auto rounded-2xl bg-gray-50/60 p-2 dark:bg-dark-900/30"
-        @wheel="onMatrixWheel"
-      >
-        <div class="matrix-table w-full" :style="tableStyle">
-          <div
-            class="matrix-header matrix-row sticky top-0 z-[3] bg-gray-50 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-dark-900 dark:text-gray-400"
-            :class="showThroughput ? 'matrix-row--with-tps' : ''"
-          >
-            <span>{{ t('channelMonitorV2.matrix.dimension') }}</span>
-            <span>{{ t('channelMonitorV2.metrics.successRate') }}</span>
-            <span>{{ t('channelMonitorV2.metrics.ttft') }}</span>
-            <span v-if="showThroughput">{{ t('channelMonitorV2.metrics.tps') }}</span>
-            <span>{{ t('channelMonitorV2.metrics.cacheRate') }}</span>
-            <span class="pulse-axis flex justify-between gap-3">
-              <i class="not-italic">{{ axisStart }}</i>
-              <i class="not-italic">{{ axisEnd }}</i>
-            </span>
-          </div>
-          <div
-            v-for="entry in alignedRows"
-            :key="rowKey(entry.row)"
-            class="matrix-row border-b border-gray-100/80 dark:border-dark-700/60"
-            :class="showThroughput ? 'matrix-row--with-tps' : ''"
-          >
-            <div class="dimension-cell flex min-w-0 items-center gap-2 bg-white dark:bg-dark-800" :title="rowLabel(entry.row)">
-              <span :class="['status-dot', cellClass(entry.row.health, entry.row.metrics.request_count)]"></span>
-              <strong class="truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{{ rowLabel(entry.row) }}</strong>
-            </div>
-            <strong class="summary-value bg-white text-xs font-medium tabular-nums text-gray-600 dark:bg-dark-800 dark:text-gray-300">
-              {{ successRate(entry.row.metrics) }}
-            </strong>
-            <strong
-              class="summary-value bg-white text-xs font-medium tabular-nums text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-              :title="latencyPrivacy(entry.row.metrics.ttft)"
-            >
-              {{ formatMs(entry.row.metrics.ttft.p50_ms) }}
-            </strong>
-            <strong
-              v-if="showThroughput"
-              class="summary-value bg-white text-xs font-medium tabular-nums text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-              :title="exactTps(entry.row.metrics.tpm)"
-            >
-              {{ formatTps(entry.row.metrics.tpm) }}
-            </strong>
-            <strong
-              class="summary-value bg-white text-xs font-medium tabular-nums text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-            >
-              {{ formatPercent(entry.row.metrics.cache_rate) }}
-            </strong>
-            <div class="pulse-track grid items-stretch" :style="pulseStyle">
-              <span
-                v-for="slot in entry.slots"
-                :key="slot.start"
-                class="pulse-cell relative rounded-sm border-0 p-0 outline-offset-1"
-                :class="[
-                  slot.bucket ? cellClass(slot.bucket.health, slot.bucket.metrics.request_count) : 'health-unknown',
-                  slot.bucket ? 'has-data' : 'is-empty',
-                ]"
-                tabindex="0"
-                role="img"
-                :title="slot.bucket ? bucketTooltip(slot.bucket) : t('channelMonitorV2.matrix.noTrafficAt', { time: formatBucketRange(slot.start) })"
-                :aria-label="slot.bucket ? bucketTooltip(slot.bucket) : t('channelMonitorV2.matrix.noTrafficAt', { time: formatBucketRange(slot.start) })"
-                @mouseenter="showTooltip($event, slot)"
-                @mousemove="moveTooltip($event)"
-                @mouseleave="hideTooltip"
-                @focus="showTooltip($event, slot)"
-                @blur="hideTooltip"
-              >
-                <span class="pulse-tooltip" role="tooltip">
-                  <template v-if="slot.bucket">
-                    <span class="pulse-tooltip-line pulse-tooltip-title">{{ formatBucketRange(slot.start) }}</span>
-                    <span class="pulse-tooltip-line">{{ t('channelMonitorV2.matrix.scoreLine', { score: formatScore(slot.bucket.health) }) }}</span>
-                    <span class="pulse-tooltip-line">{{ t('channelMonitorV2.metrics.successRateValue', { value: successRate(slot.bucket.metrics) }) }}</span>
-                    <span class="pulse-tooltip-line">{{ t('channelMonitorV2.metrics.ttftValue', { value: latencyPrivacy(slot.bucket.metrics.ttft) }) }}</span>
-                    <span v-if="showThroughput" class="pulse-tooltip-line">{{ t('channelMonitorV2.metrics.tpsValue', { value: formatTps(slot.bucket.metrics.tpm) }) }}</span>
-                    <span class="pulse-tooltip-line">{{ t('channelMonitorV2.metrics.cacheRateValue', { value: formatPercent(slot.bucket.metrics.cache_rate) }) }}</span>
-                    <span class="pulse-tooltip-line">{{ t('channelMonitorV2.metrics.errorRateValue', { value: formatPercent(slot.bucket.metrics.error_rate) }) }}</span>
-                    <span v-if="showThroughput" class="pulse-tooltip-line">{{ t('channelMonitorV2.metrics.rpmValue', { value: formatRate(slot.bucket.metrics.rpm) }) }}</span>
-                    <span class="pulse-tooltip-line">{{ t('channelMonitorV2.metrics.durationValue', { value: latencyPrivacy(slot.bucket.metrics.duration) }) }}</span>
-                  </template>
-                  <template v-else>
-                    <span class="pulse-tooltip-line pulse-tooltip-title">{{ formatBucketRange(slot.start) }}</span>
-                    <span class="pulse-tooltip-line">{{ t('channelMonitorV2.matrix.noTraffic') }}</span>
-                  </template>
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="flex min-h-[200px] items-center justify-center py-8">
-        <EmptyState
-          :title="t('channelMonitorV2.matrix.emptyTitle')"
-          :description="t('channelMonitorV2.empty.description')"
-        />
-      </div>
-
-      <div class="mt-4 flex flex-col gap-2" :aria-label="t('channelMonitorV2.matrix.legendAria')">
-        <div class="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-          <span class="shrink-0">{{ t('channelMonitorV2.matrix.bad') }}</span>
-          <div class="score-legend h-2.5 flex-1 overflow-hidden rounded-full"></div>
-          <span class="shrink-0">{{ t('channelMonitorV2.matrix.good') }}</span>
-        </div>
-        <div class="flex flex-wrap gap-4 text-[11px] text-gray-500 dark:text-gray-400">
-          <span class="inline-flex items-center gap-1.5"><i class="status-dot health-score10"></i>{{ t('channelMonitorV2.matrix.healthyLegend') }}</span>
-          <span class="inline-flex items-center gap-1.5"><i class="status-dot health-score6"></i>{{ t('channelMonitorV2.matrix.warningLegend') }}</span>
-          <span class="inline-flex items-center gap-1.5"><i class="status-dot health-score2"></i>{{ t('channelMonitorV2.matrix.criticalLegend') }}</span>
-          <span class="inline-flex items-center gap-1.5"><i class="status-dot health-unknown"></i>{{ t('channelMonitorV2.matrix.unknownLegend') }}</span>
-        </div>
-      </div>
+    <div v-else class="flex min-h-[200px] items-center justify-center text-sm text-gray-400">
+      {{ t('channelMonitorV2.matrix.emptyTitle') }}
     </div>
 
     <Teleport to="body">
@@ -151,14 +127,7 @@
         :style="{ left: `${floatingTooltip.x}px`, top: `${floatingTooltip.y}px` }"
         role="tooltip"
       >
-        <span
-          v-for="(line, index) in floatingTooltip.lines"
-          :key="`${index}:${line}`"
-          class="matrix-floating-tooltip-line"
-          :class="index === 0 ? 'matrix-floating-tooltip-title' : ''"
-        >
-          {{ line }}
-        </span>
+        {{ floatingTooltip.text }}
       </div>
     </Teleport>
   </section>
@@ -166,73 +135,74 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive } from 'vue'
 import type {
-  LatencyMetric,
   MonitorCoverage,
   MonitorHealth,
   MonitorMatrixBucket,
   MonitorMatrixRow,
   MonitorMetric,
 } from '@/api/channelMonitorV2'
-import EmptyState from '@/components/common/EmptyState.vue'
-import Icon from '@/components/icons/Icon.vue'
+import type { Provider } from '@/api/admin/channelMonitor'
+import ProviderIcon from '@/components/user/monitor/ProviderIcon.vue'
 import {
-  formatLatencyPrivacy,
+  providerGradient,
+  useChannelMonitorFormat,
+} from '@/composables/useChannelMonitorFormat'
+import { formatMultiplier } from '@/utils/formatters'
+import {
   formatMonitorMs,
   formatMonitorPercent,
   formatMonitorSuccessRateFromError,
-  formatMonitorThroughput,
-  formatMonitorTokensPerSecond,
-  tokensPerSecondFromTpm,
   healthModeScore,
   healthScoreClass,
 } from '@/features/channel-monitor-v2/monitorFormat'
-import {
-  applyWheelZoom,
-  clientXRatio,
-  isZoomed,
-  resetZoom,
-  sliceByZoom,
-  type ZoomState,
-} from '@/features/channel-monitor-v2/monitorZoom'
+
+const PULSE_RECORD_COUNT = 18
 
 type HealthMode = 'overall' | 'success' | 'ttft' | 'cache'
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const { providerLabel, providerBadgeClass } = useChannelMonitorFormat()
+
+const PROVIDER_TINT: Record<string, string> = {
+  openai: 'text-emerald-600 dark:text-emerald-300',
+  anthropic: 'text-orange-600 dark:text-orange-300',
+  gemini: 'text-sky-600 dark:text-sky-300',
+  grok: 'text-zinc-700 dark:text-zinc-200',
+  antigravity: 'text-purple-600 dark:text-purple-300',
+  kimi: 'text-pink-600 dark:text-pink-300',
+  zhipu: 'text-indigo-600 dark:text-indigo-300',
+  deepseek: 'text-teal-600 dark:text-teal-300',
+}
 
 const props = withDefaults(
   defineProps<{
     rows: MonitorMatrixRow[]
     coverage: MonitorCoverage
     healthMode: HealthMode
-    /** When false, RPM/TPM are omitted from tooltips (user scale privacy). */
     showThroughput?: boolean
+    ratesByGroupId?: Record<number, number>
+    countdownSeconds?: number
   }>(),
-  { showThroughput: true },
+  { showThroughput: true, countdownSeconds: 0 },
 )
 
 type AlignedSlot = { start: string; bucket?: MonitorMatrixBucket }
+type AlignedRow = { row: MonitorMatrixRow; slots: AlignedSlot[] }
 
 const floatingTooltip = reactive({
   visible: false,
   x: 0,
   y: 0,
-  lines: [] as string[],
+  text: '',
 })
 
-const scrollRef = ref<HTMLElement | null>(null)
-const zoom = ref<ZoomState>(resetZoom())
-const zoomed = computed(() => isZoomed(zoom.value))
-
 const allBucketStarts = computed(() => {
-  // X-axis always spans the UI-selected range [requested_start, requested_end).
-  // Partial backfill leaves empty cells until coverage_start/data_through fill in.
   const step = Math.max(60, props.coverage.bucket_seconds) * 1000
   const requestedStart = new Date(props.coverage.requested_start).getTime()
   const requestedEndRaw = props.coverage.requested_end
     ? new Date(props.coverage.requested_end).getTime()
     : NaN
-  // Fallback for older payloads without requested_end.
   const dataThrough = new Date(props.coverage.data_through).getTime()
   const end = Number.isFinite(requestedEndRaw) && requestedEndRaw > requestedStart
     ? requestedEndRaw
@@ -244,58 +214,27 @@ const allBucketStarts = computed(() => {
   }
   return starts
 })
-/** Visible bucket window after X zoom (cursor-centered), not always the tail. */
-const bucketStarts = computed(() => sliceByZoom(allBucketStarts.value, zoom.value))
-const tableStyle = computed(() => ({
-  '--bucket-count': String(Math.max(1, bucketStarts.value.length)),
-  minWidth: zoomed.value ? `calc(260px + ${pulseMinWidth.value})` : '0',
-}))
-const pulseMinWidth = computed(() => {
-  const count = Math.max(1, bucketStarts.value.length)
-  if (!zoomed.value) return '0px'
-  // Zoom in = fewer columns + wider min cell (span shrinks → intensity grows).
-  const intensity = Math.min(12, Math.round((1 - zoom.value.span) / 0.08))
-  const width = 6 + intensity * 4
-  const gap = intensity >= 4 ? 3 : 2
-  return `${count * width + Math.max(0, count - 1) * gap}px`
-})
-const pulseStyle = computed(() => {
-  const count = Math.max(1, bucketStarts.value.length)
-  const intensity = zoomed.value ? Math.min(12, Math.round((1 - zoom.value.span) / 0.08)) : 0
-  const gapPx = !zoomed.value ? (count > 24 ? 1 : 2) : intensity >= 4 ? 3 : 2
-  const heightPx = 16
-  // Unzoomed: equal flex fractions. Zoomed: enforce growing min width so blocks lengthen.
-  const minCell = !zoomed.value ? '0' : `${6 + intensity * 4}px`
-  return {
-    gridTemplateColumns: `repeat(${count}, minmax(${minCell}, 1fr))`,
-    gap: `${gapPx}px`,
-    height: `${heightPx}px`,
-    minWidth: pulseMinWidth.value,
+
+/** Fixed last-N window. Pad the left with empty slots when history is short. */
+const bucketStarts = computed(() => {
+  const all = allBucketStarts.value
+  if (all.length >= PULSE_RECORD_COUNT) return all.slice(-PULSE_RECORD_COUNT)
+  const step = Math.max(60, props.coverage.bucket_seconds) * 1000
+  const first = all.length ? new Date(all[0]).getTime() : Date.now()
+  const pad: string[] = []
+  for (let i = PULSE_RECORD_COUNT - all.length; i > 0; i -= 1) {
+    pad.push(new Date(first - i * step).toISOString())
   }
-})
-const axisStart = computed(() =>
-  bucketStarts.value.length ? formatAxisTime(bucketStarts.value[0]) : '时间脉冲'
-)
-const axisEnd = computed(() =>
-  bucketStarts.value.length ? formatAxisTime(bucketStarts.value[bucketStarts.value.length - 1]) : ''
-)
-const bucketLabel = computed(() => {
-  const minutes = props.coverage.bucket_seconds / 60
-  if (minutes < 60) return t('channelMonitorV2.bucket.minutes', { count: minutes })
-  const hours = minutes / 60
-  if (hours < 24) return t('channelMonitorV2.bucket.hours', { count: hours })
-  return t('channelMonitorV2.bucket.days', { count: hours / 24 })
+  return [...pad, ...all]
 })
 
-/** Shared ISO start → column index for the visible window (rebuilt when zoom/coverage changes). */
 const bucketStartIndex = computed(() => {
   const map = new Map<string, number>()
   bucketStarts.value.forEach((start, index) => map.set(start, index))
   return map
 })
 
-/** Pre-aligned sparse slots per row so wheel zoom does not rebuild Maps every paint. */
-const alignedRows = computed(() => {
+const alignedRows = computed<AlignedRow[]>(() => {
   const starts = bucketStarts.value
   const indexByStart = bucketStartIndex.value
   return props.rows.map((row) => {
@@ -309,101 +248,108 @@ const alignedRows = computed(() => {
   })
 })
 
-function onMatrixWheel(event: WheelEvent) {
-  const track = scrollRef.value
-  const target = event.target as HTMLElement | null
-  const pulse = target?.closest('.pulse-track') as HTMLElement | null
-  const overMatrix = Boolean(target?.closest('.matrix-scroll'))
-  // Plain vertical wheel over the matrix zooms X (narrower range → wider cells).
-  // Shift+wheel or horizontal delta pans; leave non-matrix page scroll alone.
-  const isPan = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)
-  if (!overMatrix && !pulse) return
-  // When not zoomed and user scrolls vertically outside pulse, still zoom if over matrix body.
-  if (!overMatrix && !isPan) return
-  event.preventDefault()
-  const ratioEl = pulse || track
-  const ratio = clientXRatio(event.clientX, ratioEl)
-  zoom.value = applyWheelZoom(zoom.value, event, ratio)
+const platformGroups = computed(() => {
+  const groups = new Map<string, AlignedRow[]>()
+  for (const entry of alignedRows.value) {
+    const platform = entry.row.platform || t('channelMonitorV2.matrix.dimension')
+    const rows = groups.get(platform) || []
+    rows.push(entry)
+    groups.set(platform, rows)
+  }
+  return Array.from(groups, ([platform, rows]) => {
+    const provider = normalizeProvider(platform)
+    return {
+      platform,
+      provider,
+      label: providerLabel(provider) === provider ? platform : providerLabel(provider),
+      rows,
+    }
+  })
+})
+
+function normalizeProvider(platform: string): Provider {
+  return platform.trim().toLowerCase() as Provider
 }
 
-function resetMatrixZoom() {
-  zoom.value = resetZoom()
+function providerTint(provider: string): string {
+  return PROVIDER_TINT[provider] ?? 'text-gray-500 dark:text-gray-300'
 }
 
-watch(
-  () => [
-    props.coverage.requested_start,
-    props.coverage.requested_end,
-    props.coverage.coverage_start,
-    props.coverage.data_through,
-    props.coverage.bucket_seconds,
-  ],
-  () => {
-    zoom.value = resetZoom()
-  },
-)
+function rateLabel(row: MonitorMatrixRow): string {
+  const id = row.group_id
+  if (id == null) return ''
+  const rate = props.ratesByGroupId?.[id]
+  if (rate == null || Number.isNaN(Number(rate))) return ''
+  return t('channelMonitorV2.userRate', { value: formatMultiplier(Number(rate)) })
+}
 
 function cellClass(health: MonitorHealth, requestCount: number): string {
   return healthScoreClass(health, props.healthMode, requestCount)
 }
 
-function rowLabel(row: MonitorMatrixRow): string {
-  const parts = [row.platform]
-  if (row.group_name || row.group_id) parts.push(row.group_name || `#${row.group_id}`)
-  if (row.model) parts.push(row.model === '__other__' ? t('channelMonitorV2.otherModels') : row.model)
-  return parts.join(' / ')
+function healthLabel(health: MonitorHealth, requestCount: number): string {
+  const state = cellClass(health, requestCount)
+  const label = (key: string) => t(key).replace(/\s*\(.+$/, '')
+  if (state.includes('score')) {
+    const score = healthModeScore(health, props.healthMode)
+    if (score != null && score >= 80) return label('channelMonitorV2.matrix.healthyLegend')
+    if (score != null && score >= 50) return label('channelMonitorV2.matrix.warningLegend')
+    return label('channelMonitorV2.matrix.criticalLegend')
+  }
+  if (state === 'health-healthy') return label('channelMonitorV2.matrix.healthyLegend')
+  if (state === 'health-warning') return label('channelMonitorV2.matrix.warningLegend')
+  if (state === 'health-critical') return label('channelMonitorV2.matrix.criticalLegend')
+  return label('channelMonitorV2.matrix.unknownLegend')
 }
 
 function rowKey(row: MonitorMatrixRow): string {
   return [row.platform, row.group_id || 0, row.model || ''].join(':')
 }
 
-function successRate(metrics: MonitorMetric): string {
-  // Empty traffic: no request count and no throughput signal.
-  // When throughput is hidden for privacy, still show success from error_rate.
+function cardTitle(row: MonitorMatrixRow): string {
+  if (row.group_name) return row.group_name
+  if (row.model === '__other__') return t('channelMonitorV2.otherModels')
+  if (row.model) return row.model
+  return row.platform
+}
+
+function availability(metrics: MonitorMetric): string {
   const noCount = metrics.request_count <= 0
   const noTP = (metrics.rpm || 0) <= 0 && (metrics.tpm || 0) <= 0
   if (noCount && noTP && props.showThroughput) return '-'
   return formatMonitorSuccessRateFromError(metrics.error_rate)
 }
 
-function formatScore(health: MonitorHealth): string {
-  const score = healthModeScore(health, props.healthMode)
-  if (score == null) return '—'
-  return `${Math.round(score)}`
+function metricTone(state: string | undefined): string {
+  if (state === 'healthy') return 'text-emerald-600 dark:text-emerald-300'
+  if (state === 'warning') return 'text-amber-600 dark:text-amber-300'
+  if (state === 'critical') return 'text-red-600 dark:text-red-300'
+  return ''
+}
+
+function barHeight(slot: AlignedSlot): number {
+  if (!slot.bucket || slot.bucket.metrics.request_count <= 0) return 18
+  const coarse = slot.bucket.health.overall
+  if (coarse === 'healthy') return 100
+  if (coarse === 'warning') return 40
+  if (coarse === 'critical') return 32
+  return 18
 }
 
 function bucketTooltip(bucket: MonitorMatrixBucket): string {
-  return bucketTooltipLines(bucket).join('\n')
-}
-
-function bucketTooltipLines(bucket: MonitorMatrixBucket): string[] {
   const metrics = bucket.metrics
-  const lines = [
-    formatBucketRange(bucket.bucket_start),
-    t('channelMonitorV2.matrix.scoreLine', { score: formatScore(bucket.health) }),
-    t('channelMonitorV2.metrics.successRateValue', { value: successRate(metrics) }),
-    t('channelMonitorV2.metrics.ttftValue', { value: latencyPrivacy(metrics.ttft) }),
-  ]
-  if (props.showThroughput) {
-    lines.push(t('channelMonitorV2.metrics.tpsValue', { value: formatTps(metrics.tpm) }))
-  }
-  lines.push(
+  return [
+    formatBucketTime(bucket.bucket_start),
+    t('channelMonitorV2.metrics.availabilityValue', { value: availability(metrics) }),
     t('channelMonitorV2.metrics.cacheRateValue', { value: formatPercent(metrics.cache_rate) }),
-    t('channelMonitorV2.metrics.errorRateValue', { value: formatPercent(metrics.error_rate) }),
-  )
-  if (props.showThroughput) {
-    lines.push(t('channelMonitorV2.metrics.rpmValue', { value: formatRate(metrics.rpm) }))
-  }
-  lines.push(t('channelMonitorV2.metrics.durationValue', { value: latencyPrivacy(metrics.duration) }))
-  return lines
-}
-function emptyTooltipLines(start: string): string[] {
-  return [formatBucketRange(start), t('channelMonitorV2.matrix.noTraffic')]
+    t('channelMonitorV2.metrics.ttftValue', { value: formatMs(metrics.ttft.p50_ms) }),
+  ].join(' · ')
 }
 
 function showTooltip(event: MouseEvent | FocusEvent, slot: AlignedSlot) {
-  floatingTooltip.lines = slot.bucket ? bucketTooltipLines(slot.bucket) : emptyTooltipLines(slot.start)
+  floatingTooltip.text = slot.bucket
+    ? bucketTooltip(slot.bucket)
+    : t('channelMonitorV2.matrix.noTraffic')
   floatingTooltip.visible = true
   positionTooltip(event)
 }
@@ -430,185 +376,141 @@ function positionTooltip(event: MouseEvent | FocusEvent) {
   floatingTooltip.y = rect.top - 10
 }
 
-function latencyPrivacy(metric: LatencyMetric) {
-  return formatLatencyPrivacy(metric.p50_ms, metric.p90_ms, metric.avg_ms, metric.p95_ms)
-}
-
 function formatPercent(value: number) {
   return formatMonitorPercent(value)
-}
-
-function formatRate(value: number) {
-  return formatMonitorThroughput(value)
-}
-
-function formatTps(tpm: number | null | undefined) {
-  return formatMonitorTokensPerSecond(tpm)
-}
-
-function exactTps(tpm: number | null | undefined) {
-  const tps = tokensPerSecondFromTpm(tpm)
-  return Intl.NumberFormat(locale.value || undefined, { maximumFractionDigits: 3 }).format(tps)
 }
 
 function formatMs(value: number | null) {
   return formatMonitorMs(value)
 }
 
-function formatAxisTime(value: string) {
-  return new Intl.DateTimeFormat(locale.value || undefined, {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value))
-}
-
-function formatBucketRange(value: string) {
-  const start = new Date(value)
-  const end = new Date(start.getTime() + props.coverage.bucket_seconds * 1000)
-  return `${formatAxisTime(start.toISOString())} - ${new Intl.DateTimeFormat(locale.value || undefined, { hour: '2-digit', minute: '2-digit' }).format(end)}`
+function formatBucketTime(value: string) {
+  const date = new Date(value)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${month}/${day} ${hour}:${minute}`
 }
 </script>
 
 <style scoped>
-/* dimension | success | ttft | cache | pulse */
-.matrix-row {
+.relay-card-grid {
   display: grid;
-  grid-template-columns:
-    minmax(120px, 1.2fr)
-    minmax(52px, 0.34fr)
-    minmax(58px, 0.36fr)
-    minmax(52px, 0.34fr)
-    minmax(120px, 2.8fr);
-  align-items: center;
-  gap: 0.5rem clamp(0.25rem, 0.8vw, 0.625rem);
-  min-height: 2.25rem;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
 }
-/* + tokens/s column when throughput visible */
-.matrix-row--with-tps {
-  grid-template-columns:
-    minmax(110px, 1.15fr)
-    minmax(48px, 0.3fr)
-    minmax(54px, 0.32fr)
-    minmax(58px, 0.36fr)
-    minmax(48px, 0.3fr)
-    minmax(120px, 2.6fr);
+@media (min-width: 640px) {
+  .relay-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
-.matrix-table,
-.pulse-track {
-  min-width: 0;
+@media (min-width: 1024px) {
+  .relay-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
-.status-dot {
-  display: inline-block;
-  height: 0.5rem;
-  width: 0.5rem;
+@media (min-width: 1536px) {
+  .relay-card-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.relay-health-pill {
+  border-radius: 999px;
+  padding: 0.12rem 0.42rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.2;
   flex: none;
-  border-radius: 9999px;
-}
-
-/* Multi-stop green → yellow → red (score10 best … score0 worst) */
-.health-score10 { background: #16a34a; }
-.health-score9  { background: #22c55e; }
-.health-score8  { background: #4ade80; }
-.health-score7  { background: #a3e635; }
-.health-score6  { background: #facc15; }
-.health-score5  { background: #fbbf24; }
-.health-score4  { background: #f59e0b; }
-.health-score3  { background: #f97316; }
-.health-score2  { background: #fb7185; }
-.health-score1  { background: #f87171; }
-.health-score0  { background: rgb(239, 67, 67); }
-/* Coarse fallbacks (older payloads without score) */
-.health-healthy  { background: #22c55e; }
-.health-warning  { background: #f59e0b; }
-.health-critical { background: #ef4444; }
-.health-unknown  { background: #9ca3af; }
-
-.score-legend {
-  background: linear-gradient(
-    90deg,
-    rgb(239, 67, 67) 0%,
-    #f87171 15%,
-    #f97316 30%,
-    #f59e0b 45%,
-    #facc15 55%,
-    #a3e635 70%,
-    #22c55e 85%,
-    #16a34a 100%
-  );
-}
-
-.pulse-cell {
-  position: relative;
-  min-width: 0;
-}
-.pulse-cell.has-data {
-  cursor: help;
-}
-.pulse-cell.is-empty {
-  opacity: 0.55;
-  cursor: default;
-}
-.pulse-cell.has-data:hover,
-.pulse-cell.has-data:focus-visible {
-  outline: 2px solid rgb(var(--color-primary-500, 99 102 241) / 0.55);
-  outline-offset: 1px;
-  z-index: 5;
-}
-
-/* CSS-only hover tooltip — no click modal, no absolute request counts.
-   Native title is also provided so dense/scrolling layouts can always show the
-   full content even when a browser clips transformed children. */
-.pulse-tooltip {
-  pointer-events: none;
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  z-index: 40;
-  min-width: 11.5rem;
-  max-width: 16rem;
-  transform: translateX(-50%) translateY(4px);
-  border-radius: 0.75rem;
-  border: 1px solid rgb(229 231 235);
-  background: rgb(255 255 255);
-  padding: 0.5rem 0.625rem;
-  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.15);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
   white-space: nowrap;
 }
-:global(.dark) .pulse-tooltip {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
-  color: rgb(229 231 235);
+.relay-health-pill.health-warning,
+.relay-health-pill.health-score4,
+.relay-health-pill.health-score5,
+.relay-health-pill.health-score6,
+.relay-health-pill.health-score7 {
+  @apply bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300;
 }
-.pulse-tooltip-line {
+.relay-health-pill.health-critical,
+.relay-health-pill.health-score0,
+.relay-health-pill.health-score1,
+.relay-health-pill.health-score2,
+.relay-health-pill.health-score3 {
+  @apply bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300;
+}
+.relay-stat span {
   display: block;
-  font-size: 11px;
-  line-height: 1.45;
-  color: rgb(75 85 99);
+  font-size: 0.65rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
-:global(.dark) .pulse-tooltip-line {
-  color: rgb(209 213 219);
+.relay-stat strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  @apply text-gray-900 dark:text-gray-50;
 }
-.pulse-tooltip-title {
-  margin-bottom: 0.2rem;
-  font-weight: 600;
-  color: rgb(17 24 39);
+
+.relay-pulse-track {
+  display: flex;
+  align-items: flex-end;
+  height: 2.25rem;
+  gap: 3px;
+  overflow: visible;
 }
-:global(.dark) .pulse-tooltip-title {
-  color: rgb(243 244 246);
+.relay-pulse-cell {
+  min-width: 0;
+  flex: 1;
+  border-radius: 3px;
+  transform-origin: bottom;
+  animation: relay-bar-enter 0.58s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  animation-delay: var(--bar-delay, 0ms);
+  @apply bg-gray-300 dark:bg-slate-600;
 }
-.pulse-cell:hover .pulse-tooltip,
-.pulse-cell:focus-visible .pulse-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(0);
+@keyframes relay-bar-enter {
+  from {
+    transform: scaleY(0.12);
+    opacity: 0.25;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
 }
-/* Keep semantic/test text in-cell, but render the visible tooltip through body
-   Teleport so it cannot be clipped by the matrix viewport. */
+@media (prefers-reduced-motion: reduce) {
+  .relay-pulse-cell {
+    animation: none;
+  }
+}
+.relay-pulse-cell.has-data { cursor: help; }
+.relay-pulse-cell.is-empty { opacity: 0.7; }
+.relay-pulse-cell.health-score10,
+.relay-pulse-cell.health-score9,
+.relay-pulse-cell.health-score8,
+.relay-pulse-cell.health-healthy { background: #10b981; }
+.relay-pulse-cell.health-score7,
+.relay-pulse-cell.health-score6,
+.relay-pulse-cell.health-score5,
+.relay-pulse-cell.health-warning { background: #f59e0b; }
+.relay-pulse-cell.health-score4,
+.relay-pulse-cell.health-score3,
+.relay-pulse-cell.health-score2,
+.relay-pulse-cell.health-score1,
+.relay-pulse-cell.health-score0,
+.relay-pulse-cell.health-critical { background: #ef4444; }
+.relay-pulse-cell.health-unknown {
+  @apply bg-gray-300 dark:bg-slate-600;
+}
+.relay-pulse-cell:hover,
+.relay-pulse-cell:focus-visible {
+  filter: brightness(0.92);
+  outline: 2px solid rgb(16 185 129 / 0.4);
+  outline-offset: 1px;
+}
+
 .pulse-tooltip {
   display: none;
 }
@@ -616,49 +518,14 @@ function formatBucketRange(value: string) {
   pointer-events: none;
   position: fixed;
   z-index: 9999;
-  min-width: 11.5rem;
   max-width: min(18rem, calc(100vw - 1.5rem));
   transform: translate(-50%, -100%);
-  border-radius: 0.75rem;
-  border: 1px solid rgb(229 231 235);
-  background: rgb(255 255 255);
-  padding: 0.5rem 0.625rem;
-  box-shadow: 0 18px 40px -12px rgb(0 0 0 / 0.28);
-  white-space: nowrap;
-}
-:global(.dark) .matrix-floating-tooltip {
-  border-color: rgb(55 65 81);
+  border-radius: 0.5rem;
   background: rgb(17 24 39);
-  color: rgb(229 231 235);
-}
-.matrix-floating-tooltip-line {
-  display: block;
-  font-size: 11px;
-  line-height: 1.45;
-  color: rgb(75 85 99);
-}
-:global(.dark) .matrix-floating-tooltip-line {
-  color: rgb(209 213 219);
-}
-.matrix-floating-tooltip-title {
-  margin-bottom: 0.2rem;
-  font-weight: 600;
-  color: rgb(17 24 39);
-}
-:global(.dark) .matrix-floating-tooltip-title {
   color: rgb(243 244 246);
-}
-
-@media (max-width: 640px) {
-  .matrix-row {
-    grid-template-columns: minmax(88px, 1fr) minmax(48px, 0.45fr) minmax(54px, 0.5fr) minmax(96px, 2.6fr);
-    gap: 0.35rem;
-  }
-  .matrix-row > :nth-child(2) {
-    left: 0;
-  }
-  .matrix-row > :nth-child(3) {
-    left: 0;
-  }
+  padding: 0.4rem 0.65rem;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 12px 28px -10px rgb(0 0 0 / 0.45);
 }
 </style>

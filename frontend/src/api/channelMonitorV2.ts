@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import type { UserMonitorProbeResult } from './channelMonitor'
 
 export type MonitorRange = '90m' | '24h' | '7d' | '30d'
 export type HealthState = 'unknown' | 'healthy' | 'warning' | 'critical'
@@ -172,6 +173,8 @@ export interface MonitorMatrixResponse {
   coverage: MonitorCoverage
   group_by: MonitorMatrixGroupBy
   items: MonitorMatrixRow[]
+  /** Latest BazaarLink verdict keyed by the configured monitor group name. */
+  probes_by_group?: Record<string, UserMonitorProbeResult>
 }
 
 export interface MonitorDimensions {

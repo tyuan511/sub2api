@@ -83,6 +83,58 @@ type ChannelMonitorProbeReader interface {
 	ListLatestBazaarLinkProbes(ctx context.Context, ids []int64) (map[int64]*domain.BazaarLinkProbeResult, error)
 }
 
+// ListLatestBazaarLinkProbesByGroupName returns the newest BazaarLink verdict
+// for each enabled monitor group. V2 cards are grouped by group_name rather
+// than monitor ID, so this projection keeps that association in one place.
+// User callers are gated by channel_monitor_show_probe; administrators always
+// receive the projection.
+func (s *ChannelMonitorService) ListLatestBazaarLinkProbesByGroupName(ctx context.Context, admin bool) (map[string]*domain.BazaarLinkProbeResult, error) {
+	out := make(map[string]*domain.BazaarLinkProbeResult)
+	if s == nil || s.repo == nil || s.probeReader == nil {
+		return out, nil
+	}
+	if !admin && !s.probeRuntime(ctx).ShowProbe {
+		return out, nil
+	}
+	monitors, err := s.repo.ListEnabled(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list enabled monitors for bazaarlink projection: %w", err)
+	}
+	if len(monitors) == 0 {
+		return out, nil
+	}
+	ids := make([]int64, 0, len(monitors))
+	groupByID := make(map[int64]string, len(monitors))
+	for _, monitor := range monitors {
+		if monitor == nil {
+			continue
+		}
+		groupName := strings.TrimSpace(monitor.GroupName)
+		if groupName == "" {
+			continue
+		}
+		ids = append(ids, monitor.ID)
+		groupByID[monitor.ID] = groupName
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	probes, err := s.probeReader.ListLatestBazaarLinkProbes(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("list latest bazaarlink probes for v2: %w", err)
+	}
+	for monitorID, probe := range probes {
+		groupName := groupByID[monitorID]
+		if groupName == "" || probe == nil {
+			continue
+		}
+		if existing := out[groupName]; existing == nil || probe.CheckedAt.After(existing.CheckedAt) {
+			out[groupName] = probe
+		}
+	}
+	return out, nil
+}
+
 // monitorUsageLogWriter is implemented by the usage-log repository. It is
 // intentionally kept separate from UsageLogRepository so monitor probes never
 // enter the normal billing/idempotency path.
