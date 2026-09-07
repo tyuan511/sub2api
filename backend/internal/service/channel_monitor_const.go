@@ -139,8 +139,10 @@ const (
 	monitorBazaarLinkPollInterval       = 5 * time.Minute
 	monitorBazaarLinkPollRequestTimeout = 30 * time.Second
 	monitorBazaarLinkPollConcurrency    = 8
-	monitorBazaarLinkDailyHour          = 2
 	monitorBazaarLinkBatchConcurrency   = 3
+	// How often the scheduler re-reads settings when probing is disabled or the
+	// cron expression is temporarily invalid.
+	monitorBazaarLinkScheduleRecheck = time.Minute
 
 	// monitorIdleConnTimeout HTTP transport 空闲连接关闭超时。
 	monitorIdleConnTimeout = 30 * time.Second
@@ -185,6 +187,12 @@ var (
 	)
 	ErrChannelMonitorBazaarLinkUnsupported = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_BAZAARLINK_UNSUPPORTED", "this monitor provider does not expose an OpenAI-compatible or Anthropic endpoint for identity probing",
+	)
+	ErrChannelMonitorBazaarLinkDisabled = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_BAZAARLINK_DISABLED", "model identity probing is disabled in system settings",
+	)
+	ErrChannelMonitorBazaarLinkEmptyGroups = infraerrors.BadRequest(
+		"CHANNEL_MONITOR_BAZAARLINK_EMPTY_GROUPS", "select at least one channel monitor group to probe",
 	)
 	ErrChannelMonitorInvalidInterval = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_INTERVAL", "interval_seconds must be in [15, 3600]",

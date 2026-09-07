@@ -192,6 +192,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyChannelMonitorHideThroughput:         "true",
 		SettingKeyChannelMonitorShowQuota:              "false",
 		SettingKeyChannelMonitorShowProbe:              "false",
+		SettingKeyChannelMonitorBazaarLinkProbeEnabled: "true",
+		SettingKeyChannelMonitorBazaarLinkProbeCron:    DefaultBazaarLinkProbeCron,
 
 		// Grok: safe defaults — no cross-vendor model rewrite unless operators enable it.
 		SettingKeyGrokDefaultTextModel:           "grok-4.6",
@@ -805,6 +807,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	// （与 setting_public.go 公开读取路径保持一致）。
 	result.ChannelMonitorShowQuota = settings[SettingKeyChannelMonitorShowQuota] == "true"
 	result.ChannelMonitorShowProbe = settings[SettingKeyChannelMonitorShowProbe] == "true"
+	// Identity probing defaults on (historical always-on daily batch). Only the
+	// literal "false" disables it so missing keys keep prior behavior.
+	result.ChannelMonitorBazaarLinkProbeEnabled = !isFalseSettingValue(settings[SettingKeyChannelMonitorBazaarLinkProbeEnabled])
+	result.ChannelMonitorBazaarLinkProbeCron = normalizeBazaarLinkProbeCron(settings[SettingKeyChannelMonitorBazaarLinkProbeCron])
 
 	// Grok default mapping policy
 	result.GrokDefaultTextModel = strings.TrimSpace(settings[SettingKeyGrokDefaultTextModel])

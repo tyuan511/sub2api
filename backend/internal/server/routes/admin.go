@@ -808,6 +808,10 @@ func registerChannelMonitorRoutes(admin *gin.RouterGroup, h *handler.Handlers, s
 	{
 		monitors.GET("", h.Admin.ChannelMonitor.List)
 		monitors.POST("", h.Admin.ChannelMonitor.Create)
+		// Static paths must be registered before /:id so Gin does not treat
+		// "bazaarlink-probe-groups" as an id segment.
+		monitors.GET("/bazaarlink-probe-groups", h.Admin.ChannelMonitor.ListBazaarLinkProbeGroups)
+		monitors.POST("/bazaarlink-probe-batch", h.Admin.ChannelMonitor.RunBazaarLinkProbeBatch)
 		monitors.GET("/:id", h.Admin.ChannelMonitor.Get)
 		monitors.POST("/:id/duplicate", h.Admin.ChannelMonitor.Duplicate)
 		monitors.PUT("/:id", h.Admin.ChannelMonitor.Update)

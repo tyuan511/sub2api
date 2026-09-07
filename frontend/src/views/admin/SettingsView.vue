@@ -7139,6 +7139,137 @@
                 </div>
                 <Toggle v-model="form.channel_monitor_show_probe" />
               </div>
+
+              <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">
+                      {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeEnabled') }}
+                    </p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeEnabledHint') }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.channel_monitor_bazaarlink_probe_enabled" />
+                </div>
+                <div v-if="form.channel_monitor_bazaarlink_probe_enabled" class="mt-4 space-y-4">
+                  <div>
+                    <label class="input-label">
+                      {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeCron') }}
+                    </label>
+                    <input
+                      v-model="form.channel_monitor_bazaarlink_probe_cron"
+                      type="text"
+                      class="input font-mono"
+                      placeholder="0 2 * * *"
+                      spellcheck="false"
+                      autocomplete="off"
+                    />
+                    <p class="mt-1 text-xs text-gray-400">
+                      {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeCronHint') }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <label class="input-label mb-0">
+                        {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeGroups') }}
+                      </label>
+                      <div class="flex items-center gap-2 text-xs">
+                        <button
+                          type="button"
+                          class="text-primary-600 hover:underline disabled:opacity-50 dark:text-primary-400"
+                          :disabled="bazaarLinkProbeGroupsLoading || bazaarLinkProbeGroups.length === 0"
+                          @click="selectAllBazaarLinkProbeGroups"
+                        >
+                          {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeGroupsSelectAll') }}
+                        </button>
+                        <span class="text-gray-300 dark:text-dark-600">|</span>
+                        <button
+                          type="button"
+                          class="text-primary-600 hover:underline disabled:opacity-50 dark:text-primary-400"
+                          :disabled="selectedBazaarLinkProbeGroups.size === 0"
+                          @click="clearBazaarLinkProbeGroups"
+                        >
+                          {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeGroupsClear') }}
+                        </button>
+                      </div>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">
+                      {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeGroupsHint') }}
+                    </p>
+
+                    <div
+                      v-if="bazaarLinkProbeGroupsLoading"
+                      class="mt-3 text-xs text-gray-500 dark:text-gray-400"
+                    >
+                      {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeGroupsLoading') }}
+                    </div>
+                    <div
+                      v-else-if="bazaarLinkProbeGroups.length === 0"
+                      class="mt-3 rounded-lg border border-dashed border-gray-200 px-3 py-4 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400"
+                    >
+                      {{ t('admin.settings.features.channelMonitor.bazaarLinkProbeGroupsEmpty') }}
+                    </div>
+                    <div
+                      v-else
+                      class="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-dark-600"
+                    >
+                      <label
+                        v-for="group in bazaarLinkProbeGroups"
+                        :key="group.group_name"
+                        class="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-dark-700/60"
+                      >
+                        <input
+                          type="checkbox"
+                          class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-800"
+                          :checked="selectedBazaarLinkProbeGroups.has(group.group_name)"
+                          @change="toggleBazaarLinkProbeGroup(group.group_name, ($event.target as HTMLInputElement).checked)"
+                        />
+                        <span class="min-w-0 flex-1">
+                          <span class="block truncate text-sm text-gray-900 dark:text-white">
+                            {{ group.group_name }}
+                          </span>
+                          <span class="block text-xs text-gray-400">
+                            {{
+                              t('admin.settings.features.channelMonitor.bazaarLinkProbeGroupsEligible', {
+                                eligible: group.eligible_count,
+                                total: group.monitor_count,
+                              })
+                            }}
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t('admin.settings.features.channelMonitor.bazaarLinkProbeGroupsSelected', {
+                            count: selectedBazaarLinkProbeGroups.size,
+                          })
+                        }}
+                      </p>
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        :disabled="
+                          bazaarLinkProbeBatchRunning ||
+                          bazaarLinkProbeGroupsLoading ||
+                          selectedBazaarLinkProbeGroups.size === 0
+                        "
+                        @click="runBazaarLinkProbeBatchNow"
+                      >
+                        {{
+                          bazaarLinkProbeBatchRunning
+                            ? t('admin.settings.features.channelMonitor.bazaarLinkProbeRunning')
+                            : t('admin.settings.features.channelMonitor.bazaarLinkProbeRunNow')
+                        }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -8916,6 +9047,107 @@ function focusSettingsTab(tab: SettingsTab): void {
   });
 }
 
+// Manual BazaarLink identity probe group multi-select (settings → features).
+// Selection is ephemeral (not a saved setting); only the run action hits the API.
+type BazaarLinkProbeGroupRow = {
+  group_name: string;
+  monitor_count: number;
+  eligible_count: number;
+};
+const bazaarLinkProbeGroups = ref<BazaarLinkProbeGroupRow[]>([]);
+const bazaarLinkProbeGroupsLoading = ref(false);
+const bazaarLinkProbeBatchRunning = ref(false);
+const selectedBazaarLinkProbeGroups = ref<Set<string>>(new Set());
+let bazaarLinkProbeGroupsLoaded = false;
+
+async function loadBazaarLinkProbeGroups(force = false): Promise<void> {
+  if (!form.channel_monitor_enabled || !form.channel_monitor_bazaarlink_probe_enabled) {
+    return;
+  }
+  if (bazaarLinkProbeGroupsLoading.value) {
+    return;
+  }
+  if (bazaarLinkProbeGroupsLoaded && !force) {
+    return;
+  }
+  bazaarLinkProbeGroupsLoading.value = true;
+  try {
+    const items = await adminAPI.channelMonitor.listBazaarLinkProbeGroups();
+    bazaarLinkProbeGroups.value = Array.isArray(items) ? items : [];
+    const valid = new Set(bazaarLinkProbeGroups.value.map((g) => g.group_name));
+    const next = new Set<string>();
+    for (const name of selectedBazaarLinkProbeGroups.value) {
+      if (valid.has(name)) {
+        next.add(name);
+      }
+    }
+    selectedBazaarLinkProbeGroups.value = next;
+    bazaarLinkProbeGroupsLoaded = true;
+  } catch (err: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        err,
+        t("admin.settings.features.channelMonitor.bazaarLinkProbeGroupsLoadFailed"),
+      ),
+    );
+  } finally {
+    bazaarLinkProbeGroupsLoading.value = false;
+  }
+}
+
+function toggleBazaarLinkProbeGroup(name: string, checked: boolean): void {
+  const next = new Set(selectedBazaarLinkProbeGroups.value);
+  if (checked) {
+    next.add(name);
+  } else {
+    next.delete(name);
+  }
+  selectedBazaarLinkProbeGroups.value = next;
+}
+
+function selectAllBazaarLinkProbeGroups(): void {
+  selectedBazaarLinkProbeGroups.value = new Set(
+    bazaarLinkProbeGroups.value.map((g) => g.group_name),
+  );
+}
+
+function clearBazaarLinkProbeGroups(): void {
+  selectedBazaarLinkProbeGroups.value = new Set();
+}
+
+async function runBazaarLinkProbeBatchNow(): Promise<void> {
+  const names = Array.from(selectedBazaarLinkProbeGroups.value);
+  if (names.length === 0) {
+    appStore.showError(
+      t("admin.settings.features.channelMonitor.bazaarLinkProbeRunNeedSelection"),
+    );
+    return;
+  }
+  if (bazaarLinkProbeBatchRunning.value) {
+    return;
+  }
+  bazaarLinkProbeBatchRunning.value = true;
+  try {
+    const result = await adminAPI.channelMonitor.runBazaarLinkProbeBatch(names);
+    appStore.showSuccess(
+      t("admin.settings.features.channelMonitor.bazaarLinkProbeRunSuccess", {
+        submitted: result?.submitted ?? 0,
+        skipped: result?.skipped ?? 0,
+        failed: result?.failed ?? 0,
+      }),
+    );
+  } catch (err: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        err,
+        t("admin.settings.features.channelMonitor.bazaarLinkProbeRunFailed"),
+      ),
+    );
+  } finally {
+    bazaarLinkProbeBatchRunning.value = false;
+  }
+}
+
 function handleSettingsTabKeydown(event: KeyboardEvent, tab: SettingsTab): void {
   const action =
     settingsTabKeyboardActions[
@@ -9496,6 +9728,8 @@ type SettingsForm = Omit<
   channel_monitor_hide_throughput: boolean;
   channel_monitor_show_quota: boolean;
   channel_monitor_show_probe: boolean;
+  channel_monitor_bazaarlink_probe_enabled: boolean;
+  channel_monitor_bazaarlink_probe_cron: string;
   smtp_password: string;
   turnstile_secret_key: string;
   tencent_captcha_app_secret_key: string;
@@ -9811,6 +10045,8 @@ const form = reactive<SettingsForm>({
   channel_monitor_hide_throughput: false,
   channel_monitor_show_quota: false,
   channel_monitor_show_probe: false,
+  channel_monitor_bazaarlink_probe_enabled: true,
+  channel_monitor_bazaarlink_probe_cron: '0 2 * * *',
   // Available Channels feature switch
   available_channels_enabled: false,
   // Model Plaza feature switches + description
@@ -10820,6 +11056,10 @@ async function loadSettings() {
     form.channel_monitor_show_probe = Boolean(
       settings.channel_monitor_show_probe
     );
+    form.channel_monitor_bazaarlink_probe_enabled =
+      settings.channel_monitor_bazaarlink_probe_enabled !== false;
+    form.channel_monitor_bazaarlink_probe_cron =
+      (settings.channel_monitor_bazaarlink_probe_cron || '').trim() || '0 2 * * *';
     form.login_agreement_updated_at =
       settings.login_agreement_updated_at || "2026-03-31";
     form.login_agreement_documents =
@@ -11475,6 +11715,11 @@ async function saveSettings() {
       channel_monitor_hide_throughput: Boolean(form.channel_monitor_hide_throughput),
       channel_monitor_show_quota: Boolean(form.channel_monitor_show_quota),
       channel_monitor_show_probe: Boolean(form.channel_monitor_show_probe),
+      channel_monitor_bazaarlink_probe_enabled: Boolean(
+        form.channel_monitor_bazaarlink_probe_enabled
+      ),
+      channel_monitor_bazaarlink_probe_cron:
+        (form.channel_monitor_bazaarlink_probe_cron || '').trim() || '0 2 * * *',
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
       // Model Plaza feature switches + description
@@ -12936,6 +13181,22 @@ watch(
   (enabled, prev) => {
     if (enabled && !prev) {
       loadAffiliateUsers();
+    }
+  },
+);
+
+// Lazy-load probe groups when the admin opens Features with identity probe on,
+// or when they turn the master switch back on.
+watch(
+  () =>
+    [
+      activeTab.value,
+      form.channel_monitor_enabled,
+      form.channel_monitor_bazaarlink_probe_enabled,
+    ] as const,
+  ([tab, monitorEnabled, probeEnabled]) => {
+    if (tab === "features" && monitorEnabled && probeEnabled) {
+      void loadBazaarLinkProbeGroups();
     }
   },
 );

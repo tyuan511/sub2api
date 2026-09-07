@@ -533,6 +533,48 @@ func (h *ChannelMonitorHandler) RunBazaarLinkProbe(c *gin.Context) {
 	response.Success(c, result)
 }
 
+// ListBazaarLinkProbeGroups GET /api/v1/admin/channel-monitors/bazaarlink-probe-groups
+// 返回启用监控中可勾选的分组（非空 group_name），供设置页手动批量探测。
+func (h *ChannelMonitorHandler) ListBazaarLinkProbeGroups(c *gin.Context) {
+	if h.probeService == nil {
+		response.ErrorFrom(c, service.ErrChannelMonitorBazaarLinkUnsupported)
+		return
+	}
+	groups, err := h.probeService.ListProbeGroups(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if groups == nil {
+		groups = []service.BazaarLinkProbeGroupInfo{}
+	}
+	response.Success(c, gin.H{"items": groups})
+}
+
+type bazaarLinkProbeBatchRequest struct {
+	GroupNames []string `json:"group_names"`
+}
+
+// RunBazaarLinkProbeBatch POST /api/v1/admin/channel-monitors/bazaarlink-probe-batch
+// 按勾选的分组一次性提交 BazaarLink 身份探测（异步任务，不写普通探活历史）。
+func (h *ChannelMonitorHandler) RunBazaarLinkProbeBatch(c *gin.Context) {
+	if h.probeService == nil {
+		response.ErrorFrom(c, service.ErrChannelMonitorBazaarLinkUnsupported)
+		return
+	}
+	var req bazaarLinkProbeBatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request body")
+		return
+	}
+	result, err := h.probeService.RunByGroupNames(c.Request.Context(), req.GroupNames)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 // History GET /api/v1/admin/channel-monitors/:id/history
 func (h *ChannelMonitorHandler) History(c *gin.Context) {
 	id, ok := ParseChannelMonitorID(c)

@@ -1022,18 +1022,19 @@ func ProvideBazaarLinkProbeService(
 	repo ChannelMonitorRepository,
 	encryptor SecretEncryptor,
 	store BazaarLinkProbeTaskRepository,
+	settings *SettingService,
 ) *BazaarLinkProbeService {
 	targets := NewBazaarLinkProbeTargetReaderAdapter(repo, encryptor)
-	return NewBazaarLinkProbeService(targets, store)
+	return NewBazaarLinkProbeService(targets, store, settings)
 }
 
 func ProvideBazaarLinkProbeReader(store BazaarLinkProbeTaskRepository) BazaarLinkProbeReader {
 	return store
 }
 
-// ProvideBazaarLinkProbeRunner starts the independent daily/polling worker.
-func ProvideBazaarLinkProbeRunner(svc *BazaarLinkProbeService) *BazaarLinkProbeRunner {
-	runner := NewBazaarLinkProbeRunner(svc)
+// ProvideBazaarLinkProbeRunner starts the independent scheduled/polling worker.
+func ProvideBazaarLinkProbeRunner(svc *BazaarLinkProbeService, settings *SettingService) *BazaarLinkProbeRunner {
+	runner := NewBazaarLinkProbeRunner(svc, settings)
 	runner.Start()
 	return runner
 }

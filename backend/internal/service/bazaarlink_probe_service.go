@@ -16,11 +16,37 @@ import (
 // monitor scheduling or check_mode semantics.
 type BazaarLinkProbeTarget struct {
 	ID                  int64
+	GroupName           string
 	Provider            string
 	Endpoint            string
 	APIKey              string
 	APIKeyDecryptFailed bool
 	Model               string
+}
+
+// BazaarLinkProbeGroupInfo is one selectable group for manual batch identity probes.
+type BazaarLinkProbeGroupInfo struct {
+	GroupName     string `json:"group_name"`
+	MonitorCount  int    `json:"monitor_count"`
+	EligibleCount int    `json:"eligible_count"`
+}
+
+// BazaarLinkProbeBatchResult summarizes a multi-group manual probe submission.
+type BazaarLinkProbeBatchResult struct {
+	Total     int                         `json:"total"`
+	Submitted int                         `json:"submitted"`
+	Skipped   int                         `json:"skipped"`
+	Failed    int                         `json:"failed"`
+	Items     []BazaarLinkProbeBatchItem  `json:"items"`
+}
+
+// BazaarLinkProbeBatchItem is one monitor outcome inside a batch submission.
+type BazaarLinkProbeBatchItem struct {
+	MonitorID int64                       `json:"monitor_id"`
+	GroupName string                      `json:"group_name"`
+	Status    string                      `json:"status"` // submitted | skipped | failed
+	Error     string                      `json:"error,omitempty"`
+	Result    *domain.BazaarLinkProbeResult `json:"result,omitempty"`
 }
 
 // BazaarLinkProbeTargetReader is implemented by a narrow configuration
@@ -100,12 +126,31 @@ func bazaarLinkProbeTargetFromMonitor(monitor *ChannelMonitor) *BazaarLinkProbeT
 	}
 	return &BazaarLinkProbeTarget{
 		ID:                  monitor.ID,
+		GroupName:           strings.TrimSpace(monitor.GroupName),
 		Provider:            monitor.Provider,
 		Endpoint:            monitor.Endpoint,
 		APIKey:              monitor.APIKey,
 		APIKeyDecryptFailed: monitor.APIKeyDecryptFailed,
 		Model:               monitor.PrimaryModel,
 	}
+}
+
+// bazaarLinkTargetEligible reports whether a target can be submitted to BazaarLink.
+func bazaarLinkTargetEligible(target *BazaarLinkProbeTarget) bool {
+	if target == nil || target.APIKeyDecryptFailed {
+		return false
+	}
+	if !bazaarLinkProviderSupported(target.Provider) {
+		return false
+	}
+	if strings.TrimSpace(target.Endpoint) == "" || strings.TrimSpace(target.APIKey) == "" {
+		return false
+	}
+	model := strings.TrimSpace(target.Model)
+	if model == "" || strings.EqualFold(model, MonitorDefaultQuotaModel) {
+		return false
+	}
+	return true
 }
 
 // BazaarLinkProbeReader is the read-side projection consumed by monitor cards.
@@ -129,12 +174,13 @@ type BazaarLinkProbeTaskRepository interface {
 // optional integration: the monitor domain only supplies target configuration
 // and reads the latest result projection.
 type BazaarLinkProbeService struct {
-	targets BazaarLinkProbeTargetReader
-	store   BazaarLinkProbeTaskRepository
+	targets  BazaarLinkProbeTargetReader
+	store    BazaarLinkProbeTaskRepository
+	settings bazaarLinkProbeRuntimeReader
 }
 
-func NewBazaarLinkProbeService(targets BazaarLinkProbeTargetReader, store BazaarLinkProbeTaskRepository) *BazaarLinkProbeService {
-	return &BazaarLinkProbeService{targets: targets, store: store}
+func NewBazaarLinkProbeService(targets BazaarLinkProbeTargetReader, store BazaarLinkProbeTaskRepository, settings bazaarLinkProbeRuntimeReader) *BazaarLinkProbeService {
+	return &BazaarLinkProbeService{targets: targets, store: store, settings: settings}
 }
 
 // Run submits one asynchronous probe. A target with no concrete model is not
@@ -143,6 +189,9 @@ func NewBazaarLinkProbeService(targets BazaarLinkProbeTargetReader, store Bazaar
 func (s *BazaarLinkProbeService) Run(ctx context.Context, id int64) (*domain.BazaarLinkProbeResult, error) {
 	if s == nil || s.targets == nil || s.store == nil {
 		return nil, fmt.Errorf("bazaarlink probe is not configured")
+	}
+	if s.settings != nil && !s.settings.GetBazaarLinkProbeRuntime(ctx).Enabled {
+		return nil, ErrChannelMonitorBazaarLinkDisabled
 	}
 	target, err := s.targets.GetBazaarLinkProbeTarget(ctx, id)
 	if err != nil {
@@ -159,6 +208,163 @@ func (s *BazaarLinkProbeService) Run(ctx context.Context, id int64) (*domain.Baz
 	}
 	if strings.TrimSpace(target.Model) == "" || strings.EqualFold(strings.TrimSpace(target.Model), MonitorDefaultQuotaModel) {
 		return nil, ErrChannelMonitorBazaarLinkUnsupported
+	}
+	return s.runTarget(ctx, target)
+}
+
+// ListProbeGroups returns distinct non-empty group names from enabled monitors,
+// with counts used by the admin settings multi-select UI.
+func (s *BazaarLinkProbeService) ListProbeGroups(ctx context.Context) ([]BazaarLinkProbeGroupInfo, error) {
+	if s == nil || s.targets == nil {
+		return nil, fmt.Errorf("bazaarlink probe is not configured")
+	}
+	targets, err := s.targets.ListEnabledBazaarLinkProbeTargets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	type counters struct {
+		total    int
+		eligible int
+	}
+	byGroup := make(map[string]*counters)
+	order := make([]string, 0)
+	for _, target := range targets {
+		if target == nil {
+			continue
+		}
+		name := strings.TrimSpace(target.GroupName)
+		if name == "" {
+			continue
+		}
+		c, ok := byGroup[name]
+		if !ok {
+			c = &counters{}
+			byGroup[name] = c
+			order = append(order, name)
+		}
+		c.total++
+		if bazaarLinkTargetEligible(target) {
+			c.eligible++
+		}
+	}
+	out := make([]BazaarLinkProbeGroupInfo, 0, len(order))
+	for _, name := range order {
+		c := byGroup[name]
+		out = append(out, BazaarLinkProbeGroupInfo{
+			GroupName:     name,
+			MonitorCount:  c.total,
+			EligibleCount: c.eligible,
+		})
+	}
+	return out, nil
+}
+
+// RunByGroupNames submits identity probes for every eligible enabled monitor
+// whose group_name is in the requested set. Submission is concurrent (same
+// limits as the scheduled batch) and returns a compact per-monitor summary.
+func (s *BazaarLinkProbeService) RunByGroupNames(ctx context.Context, groupNames []string) (*BazaarLinkProbeBatchResult, error) {
+	if s == nil || s.targets == nil || s.store == nil {
+		return nil, fmt.Errorf("bazaarlink probe is not configured")
+	}
+	if s.settings != nil && !s.settings.GetBazaarLinkProbeRuntime(ctx).Enabled {
+		return nil, ErrChannelMonitorBazaarLinkDisabled
+	}
+	want := make(map[string]struct{}, len(groupNames))
+	for _, raw := range groupNames {
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			continue
+		}
+		want[name] = struct{}{}
+	}
+	if len(want) == 0 {
+		return nil, ErrChannelMonitorBazaarLinkEmptyGroups
+	}
+	targets, err := s.targets.ListEnabledBazaarLinkProbeTargets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	selected := make([]*BazaarLinkProbeTarget, 0)
+	for _, target := range targets {
+		if target == nil {
+			continue
+		}
+		if _, ok := want[strings.TrimSpace(target.GroupName)]; !ok {
+			continue
+		}
+		selected = append(selected, target)
+	}
+	result := &BazaarLinkProbeBatchResult{
+		Total: len(selected),
+		Items: make([]BazaarLinkProbeBatchItem, 0, len(selected)),
+	}
+	if len(selected) == 0 {
+		return result, nil
+	}
+
+	type itemOut struct {
+		item BazaarLinkProbeBatchItem
+	}
+	outCh := make(chan itemOut, len(selected))
+	sem := make(chan struct{}, monitorBazaarLinkBatchConcurrency)
+	var wg sync.WaitGroup
+	for _, target := range selected {
+		target := target
+		if !bazaarLinkTargetEligible(target) {
+			result.Skipped++
+			result.Items = append(result.Items, BazaarLinkProbeBatchItem{
+				MonitorID: target.ID,
+				GroupName: target.GroupName,
+				Status:    "skipped",
+				Error:     "monitor is not eligible for identity probing",
+			})
+			continue
+		}
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			return result, ctx.Err()
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			probeCtx, cancel := context.WithTimeout(ctx, monitorBazaarLinkRunTimeout)
+			defer cancel()
+			item := BazaarLinkProbeBatchItem{
+				MonitorID: target.ID,
+				GroupName: target.GroupName,
+			}
+			res, runErr := s.runTarget(probeCtx, target)
+			if runErr != nil {
+				item.Status = "failed"
+				item.Error = runErr.Error()
+			} else {
+				item.Status = "submitted"
+				item.Result = res
+			}
+			outCh <- itemOut{item: item}
+		}()
+	}
+	wg.Wait()
+	close(outCh)
+	for row := range outCh {
+		result.Items = append(result.Items, row.item)
+		switch row.item.Status {
+		case "submitted":
+			result.Submitted++
+		case "failed":
+			result.Failed++
+		default:
+			result.Skipped++
+		}
+	}
+	return result, nil
+}
+
+func (s *BazaarLinkProbeService) runTarget(ctx context.Context, target *BazaarLinkProbeTarget) (*domain.BazaarLinkProbeResult, error) {
+	if target == nil {
+		return nil, ErrChannelMonitorNotFound
 	}
 	now := time.Now()
 	if existing, err := s.store.FindActiveBazaarLinkProbeTask(ctx, target.ID, now); err != nil {

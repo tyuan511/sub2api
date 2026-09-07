@@ -261,19 +261,14 @@ type ChannelMonitorV2MatrixRow struct {
 }
 
 // ChannelMonitorV2ProbeResult is the public, credential-free BazaarLink
-// projection displayed on V2 cards. Transport details, token counts and raw
-// upstream errors deliberately stay out of the matrix API.
+// projection displayed on V2 cards. Only claimed model + confidence (+ status
+// and time) are exposed; risk flags and predicted-model detail stay out.
 type ChannelMonitorV2ProbeResult struct {
-	Status              string    `json:"status,omitempty"`
-	Score               *int      `json:"score,omitempty"`
-	IdentityStatus      string    `json:"identity_status,omitempty"`
-	Confidence          *float64  `json:"confidence,omitempty"`
-	ClaimedModel        string    `json:"claimed_model,omitempty"`
-	PredictedFamily     string    `json:"predicted_family,omitempty"`
-	PredictedModel      string    `json:"predicted_model,omitempty"`
-	PredictedModelScore *float64  `json:"predicted_model_score,omitempty"`
-	RiskFlags           []string  `json:"risk_flags,omitempty"`
-	CheckedAt           time.Time `json:"checked_at"`
+	Status         string    `json:"status,omitempty"`
+	IdentityStatus string    `json:"identity_status,omitempty"`
+	Confidence     *float64  `json:"confidence,omitempty"`
+	ClaimedModel   string    `json:"claimed_model,omitempty"`
+	CheckedAt      time.Time `json:"checked_at"`
 }
 
 type ChannelMonitorV2Matrix struct {
@@ -586,11 +581,11 @@ func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMoni
 		for name, probe := range probes {
 			if _, ok := visibleGroups[name]; ok && probe != nil {
 				matrix.ProbesByGroup[name] = &ChannelMonitorV2ProbeResult{
-					Status: probe.Status, Score: probe.Score, IdentityStatus: probe.IdentityStatus,
-					Confidence: probe.Confidence, ClaimedModel: probe.ClaimedModel,
-					PredictedFamily: probe.PredictedFamily, PredictedModel: probe.PredictedModel,
-					PredictedModelScore: probe.PredictedModelScore,
-					RiskFlags:           append([]string(nil), probe.RiskFlags...), CheckedAt: probe.CheckedAt,
+					Status:         probe.Status,
+					IdentityStatus: probe.IdentityStatus,
+					Confidence:     probe.Confidence,
+					ClaimedModel:   probe.ClaimedModel,
+					CheckedAt:      probe.CheckedAt,
 				}
 			}
 		}

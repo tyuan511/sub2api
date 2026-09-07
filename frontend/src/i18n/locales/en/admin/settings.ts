@@ -36,7 +36,31 @@ export default {
             'When on, quota-mode channel monitors expose the linked account usage windows/balance on the user Channel Status page. Disabled by default; admins always see it.',
           showProbe: 'Show model identity probes to users',
           showProbeHint:
-            'When on, user-facing channel monitoring shows BazaarLink identity verdicts and risk flags. Disabled by default; admins always see them.',
+            'When on, user channel-monitor cards show a gold shield next to the group name; hover reveals claimed model and confidence. Disabled by default; admins always see them.',
+          bazaarLinkProbeEnabled: 'Enable model identity probes (BazaarLink)',
+          bazaarLinkProbeEnabledHint:
+            'Master switch: when off, scheduled probes stop and admin manual triggers are rejected. Does not affect normal health probes. On by default (matches the historical daily schedule).',
+          bazaarLinkProbeCron: 'Scheduled probe cron',
+          bazaarLinkProbeCronHint:
+            'Standard 5-field cron (min hour day month weekday), interpreted in the app timezone. Default 0 2 * * * (02:00 daily). Examples: 0 */6 * * * every 6 hours; 30 1 * * 1-5 weekdays 01:30.',
+          bazaarLinkProbeCronInvalid: 'Invalid cron expression. Use a standard 5-field form (e.g. 0 2 * * *)',
+          bazaarLinkProbeGroups: 'Manual probe groups',
+          bazaarLinkProbeGroupsHint:
+            'Select channel-monitor groups and submit BazaarLink identity probes in one batch. Only enabled monitors with a non-empty group name appear here; ungrouped monitors can still be probed from the Channel Monitor page.',
+          bazaarLinkProbeGroupsEmpty:
+            'No groups available (set a group name on enabled channel monitors first)',
+          bazaarLinkProbeGroupsLoading: 'Loading groups…',
+          bazaarLinkProbeGroupsLoadFailed: 'Failed to load groups',
+          bazaarLinkProbeGroupsSelectAll: 'Select all',
+          bazaarLinkProbeGroupsClear: 'Clear',
+          bazaarLinkProbeGroupsSelected: '{count} groups selected',
+          bazaarLinkProbeGroupsEligible: '{eligible}/{total} eligible',
+          bazaarLinkProbeRunNow: 'Probe selected groups now',
+          bazaarLinkProbeRunning: 'Submitting…',
+          bazaarLinkProbeRunNeedSelection: 'Select at least one group first',
+          bazaarLinkProbeRunSuccess:
+            'Submitted {submitted} probe(s) (skipped {skipped}, failed {failed})',
+          bazaarLinkProbeRunFailed: 'Batch identity probe failed',
         },
         availableChannels: {
           title: 'Available Channels',

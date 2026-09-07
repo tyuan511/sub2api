@@ -129,9 +129,108 @@ func TestBazaarLinkProbeRejectsQuotaPlaceholder(t *testing.T) {
 			APIKey: "secret-key", Model: MonitorDefaultQuotaModel,
 		}},
 		&bazaarLinkTaskRepoStub{},
+		nil,
 	)
 	_, err := svc.Run(context.Background(), 1)
 	require.ErrorIs(t, err, ErrChannelMonitorBazaarLinkUnsupported)
+}
+
+type bazaarLinkRuntimeStub struct {
+	rt BazaarLinkProbeRuntime
+}
+
+func (s bazaarLinkRuntimeStub) GetBazaarLinkProbeRuntime(context.Context) BazaarLinkProbeRuntime {
+	return s.rt
+}
+
+func TestBazaarLinkProbeRunRespectsDisabledSetting(t *testing.T) {
+	svc := NewBazaarLinkProbeService(
+		&bazaarLinkTargetReaderStub{target: &BazaarLinkProbeTarget{
+			ID: 1, Provider: MonitorProviderOpenAI, Endpoint: "https://relay.example",
+			APIKey: "secret-key", Model: "gpt-4.1",
+		}},
+		&bazaarLinkTaskRepoStub{},
+		bazaarLinkRuntimeStub{rt: BazaarLinkProbeRuntime{Enabled: false, Cron: DefaultBazaarLinkProbeCron}},
+	)
+	_, err := svc.Run(context.Background(), 1)
+	require.ErrorIs(t, err, ErrChannelMonitorBazaarLinkDisabled)
+}
+
+type bazaarLinkMultiTargetReaderStub struct {
+	targets []*BazaarLinkProbeTarget
+}
+
+func (r *bazaarLinkMultiTargetReaderStub) GetBazaarLinkProbeTarget(_ context.Context, id int64) (*BazaarLinkProbeTarget, error) {
+	for _, t := range r.targets {
+		if t != nil && t.ID == id {
+			return t, nil
+		}
+	}
+	return nil, ErrChannelMonitorNotFound
+}
+
+func (r *bazaarLinkMultiTargetReaderStub) ListEnabledBazaarLinkProbeTargets(context.Context) ([]*BazaarLinkProbeTarget, error) {
+	return r.targets, nil
+}
+
+func TestBazaarLinkProbeListGroupsAndBatchSelection(t *testing.T) {
+	targets := []*BazaarLinkProbeTarget{
+		{ID: 1, GroupName: "alpha", Provider: MonitorProviderOpenAI, Endpoint: "https://a.example", APIKey: "k1", Model: "gpt-4.1"},
+		{ID: 2, GroupName: "alpha", Provider: MonitorProviderOpenAI, Endpoint: "https://a.example", APIKey: "k2", Model: MonitorDefaultQuotaModel},
+		{ID: 3, GroupName: "beta", Provider: MonitorProviderOpenAI, Endpoint: "https://b.example", APIKey: "k3", Model: "gpt-4o"},
+		{ID: 4, GroupName: "", Provider: MonitorProviderOpenAI, Endpoint: "https://c.example", APIKey: "k4", Model: "gpt-4o"},
+		{ID: 5, GroupName: "gamma", Provider: "gemini", Endpoint: "https://g.example", APIKey: "k5", Model: "gemini-pro"},
+	}
+	svc := NewBazaarLinkProbeService(&bazaarLinkMultiTargetReaderStub{targets: targets}, &bazaarLinkTaskRepoStub{}, nil)
+
+	groups, err := svc.ListProbeGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, groups, 3)
+	require.Equal(t, "alpha", groups[0].GroupName)
+	require.Equal(t, 2, groups[0].MonitorCount)
+	require.Equal(t, 1, groups[0].EligibleCount)
+	require.Equal(t, "beta", groups[1].GroupName)
+	require.Equal(t, 1, groups[1].EligibleCount)
+	require.Equal(t, "gamma", groups[2].GroupName)
+	require.Equal(t, 0, groups[2].EligibleCount)
+
+	_, err = svc.RunByGroupNames(context.Background(), nil)
+	require.ErrorIs(t, err, ErrChannelMonitorBazaarLinkEmptyGroups)
+
+	// Ineligible monitors (quota placeholder / unsupported provider) are skipped.
+	// The remaining eligible target is attempted (submitted or failed depending on
+	// remote admission); we only assert selection/eligibility accounting here.
+	batch, err := svc.RunByGroupNames(context.Background(), []string{"alpha", "gamma", " missing "})
+	require.NoError(t, err)
+	require.Equal(t, 3, batch.Total) // alpha×2 + gamma×1
+	require.Equal(t, 2, batch.Skipped)
+	require.Equal(t, 1, batch.Submitted+batch.Failed)
+	require.Len(t, batch.Items, 3)
+}
+
+func TestBazaarLinkProbeBatchRespectsDisabledSetting(t *testing.T) {
+	svc := NewBazaarLinkProbeService(
+		&bazaarLinkMultiTargetReaderStub{targets: []*BazaarLinkProbeTarget{
+			{ID: 1, GroupName: "alpha", Provider: MonitorProviderOpenAI, Endpoint: "https://a.example", APIKey: "k", Model: "gpt-4.1"},
+		}},
+		&bazaarLinkTaskRepoStub{},
+		bazaarLinkRuntimeStub{rt: BazaarLinkProbeRuntime{Enabled: false, Cron: DefaultBazaarLinkProbeCron}},
+	)
+	_, err := svc.RunByGroupNames(context.Background(), []string{"alpha"})
+	require.ErrorIs(t, err, ErrChannelMonitorBazaarLinkDisabled)
+}
+
+func TestNormalizeAndNextBazaarLinkProbeCron(t *testing.T) {
+	require.Equal(t, DefaultBazaarLinkProbeCron, normalizeBazaarLinkProbeCron(""))
+	require.Equal(t, DefaultBazaarLinkProbeCron, normalizeBazaarLinkProbeCron("not a cron"))
+	require.Equal(t, "15 3 * * 1", normalizeBazaarLinkProbeCron(" 15 3 * * 1 "))
+	require.NoError(t, validateBazaarLinkProbeCron(DefaultBazaarLinkProbeCron))
+	require.Error(t, validateBazaarLinkProbeCron("99 99 * * *"))
+
+	now := time.Date(2026, 3, 10, 1, 0, 0, 0, time.UTC)
+	next, err := nextBazaarLinkProbeAt(now, "0 2 * * *")
+	require.NoError(t, err)
+	require.True(t, next.After(now))
 }
 
 type bazaarLinkTaskUpdate struct {
@@ -181,7 +280,7 @@ func TestPollBazaarLinkProbesClosesExpiredTasks(t *testing.T) {
 		Result:    &domain.BazaarLinkProbeResult{RunID: "run-expired", Status: bazaarLinkTaskStatusRunning},
 		ExpiresAt: time.Now().Add(-time.Minute),
 	}}}
-	svc := NewBazaarLinkProbeService(nil, repo)
+	svc := NewBazaarLinkProbeService(nil, repo, nil)
 
 	require.NoError(t, svc.Poll(context.Background()))
 	require.Len(t, repo.updates, 1)

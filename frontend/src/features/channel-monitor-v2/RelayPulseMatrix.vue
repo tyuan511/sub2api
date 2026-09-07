@@ -36,8 +36,12 @@
                   <ProviderIcon :provider="group.provider" :size="20" />
                 </span>
                 <div class="min-w-0">
-                  <h4 class="truncate text-base font-semibold tracking-tight text-gray-900 dark:text-white">
-                    {{ cardTitle(entry.row) }}
+                  <h4 class="flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight text-gray-900 dark:text-white">
+                    <span class="truncate">{{ cardTitle(entry.row) }}</span>
+                    <MonitorIdentityProbeView
+                      v-if="probeFor(entry.row)"
+                      :result="probeFor(entry.row)"
+                    />
                   </h4>
                   <div class="mt-1 flex min-w-0 items-center gap-1.5 whitespace-nowrap">
                     <span
@@ -144,7 +148,9 @@ import type {
   MonitorMetric,
 } from '@/api/channelMonitorV2'
 import type { Provider } from '@/api/admin/channelMonitor'
+import type { UserMonitorProbeResult } from '@/api/channelMonitor'
 import ProviderIcon from '@/components/user/monitor/ProviderIcon.vue'
+import MonitorIdentityProbeView from '@/components/common/MonitorIdentityProbeView.vue'
 import {
   providerGradient,
   useChannelMonitorFormat,
@@ -195,6 +201,8 @@ const props = withDefaults(
     healthMode: HealthMode
     showThroughput?: boolean
     ratesByGroupId?: Record<number, number>
+    /** Latest BazaarLink verdicts keyed by channel-monitor group_name. */
+    probesByGroup?: Record<string, UserMonitorProbeResult>
     countdownSeconds?: number
   }>(),
   { showThroughput: true, countdownSeconds: 0 },
@@ -331,6 +339,12 @@ function cardTitle(row: MonitorMatrixRow): string {
   if (row.model === '__other__') return t('channelMonitorV2.otherModels')
   if (row.model) return row.model
   return row.platform
+}
+
+function probeFor(row: MonitorMatrixRow): UserMonitorProbeResult | null {
+  const name = (row.group_name || '').trim()
+  if (!name || !props.probesByGroup) return null
+  return props.probesByGroup[name] ?? null
 }
 
 function availability(metrics: MonitorMetric): string {

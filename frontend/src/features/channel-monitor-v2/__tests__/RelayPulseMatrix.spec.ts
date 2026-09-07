@@ -121,6 +121,24 @@ describe('RelayPulseMatrix', () => {
         healthMode: 'overall',
         countdownSeconds: 8,
         ratesByGroupId: { 7: 0.06 },
+        probesByGroup: {
+          '默认组': {
+            claimed_model: 'gpt-5',
+            confidence: 0.98,
+            identity_status: 'confirmed',
+            status: 'completed',
+            checked_at: '2026-08-01T00:03:00Z',
+            risk_flags: ['should-not-render'],
+          },
+        },
+      },
+      global: {
+        stubs: {
+          MonitorIdentityProbeView: {
+            props: ['result'],
+            template: `<span data-testid="identity-probe" :data-model="result?.claimed_model" :data-flags="(result?.risk_flags || []).join(',')">probe</span>`,
+          },
+        },
       },
     })
 
@@ -136,6 +154,9 @@ describe('RelayPulseMatrix', () => {
     expect(wrapper.text()).toContain('NOW')
     expect(wrapper.text()).not.toContain('重置缩放')
     expect(wrapper.text()).not.toContain('滚轮')
+
+    const probe = wrapper.get('[data-testid="identity-probe"]')
+    expect(probe.attributes('data-model')).toBe('gpt-5')
 
     const tip = cells.find((cell) => cell.classes().includes('has-data'))?.text() || ''
     expect(tip).toContain('可用率')

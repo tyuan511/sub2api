@@ -233,6 +233,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorHideThroughput,
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyChannelMonitorShowProbe,
+		SettingKeyChannelMonitorBazaarLinkProbeEnabled,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
@@ -360,6 +361,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorHideThroughput:         !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput]),
 		ChannelMonitorShowQuota:              settings[SettingKeyChannelMonitorShowQuota] == "true",
 		ChannelMonitorShowProbe:              settings[SettingKeyChannelMonitorShowProbe] == "true",
+		ChannelMonitorBazaarLinkProbeEnabled: !isFalseSettingValue(settings[SettingKeyChannelMonitorBazaarLinkProbeEnabled]),
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
@@ -436,6 +438,16 @@ type ChannelMonitorRuntime struct {
 	ShowProbe bool
 }
 
+// BazaarLinkProbeRuntime is the lightweight view of the model-identity probe
+// master switch + schedule, consumed by BazaarLinkProbeService/Runner.
+type BazaarLinkProbeRuntime struct {
+	// Enabled gates both manual admin triggers and the scheduled batch.
+	// Default true (historical always-on). Only literal "false" disables.
+	Enabled bool
+	// Cron is a normalized 5-field expression in the application timezone.
+	Cron string
+}
+
 // ActiveProbesAllowed reports whether V1 active provider probes may run.
 func (r ChannelMonitorRuntime) ActiveProbesAllowed() bool {
 	return r.Enabled && r.Mode == ChannelMonitorModeV1
@@ -480,6 +492,26 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 		HideThroughput:         !isFalseSettingValue(vals[SettingKeyChannelMonitorHideThroughput]),
 		ShowQuota:              vals[SettingKeyChannelMonitorShowQuota] == "true",
 		ShowProbe:              vals[SettingKeyChannelMonitorShowProbe] == "true",
+	}
+}
+
+// GetBazaarLinkProbeRuntime reads the identity-probe master switch and cron.
+// Fail-open to Enabled=true + DefaultBazaarLinkProbeCron so a settings read
+// failure does not silently stop historical daily probing.
+func (s *SettingService) GetBazaarLinkProbeRuntime(ctx context.Context) BazaarLinkProbeRuntime {
+	if s == nil || s.settingRepo == nil {
+		return BazaarLinkProbeRuntime{Enabled: true, Cron: DefaultBazaarLinkProbeCron}
+	}
+	vals, err := s.settingRepo.GetMultiple(ctx, []string{
+		SettingKeyChannelMonitorBazaarLinkProbeEnabled,
+		SettingKeyChannelMonitorBazaarLinkProbeCron,
+	})
+	if err != nil {
+		return BazaarLinkProbeRuntime{Enabled: true, Cron: DefaultBazaarLinkProbeCron}
+	}
+	return BazaarLinkProbeRuntime{
+		Enabled: !isFalseSettingValue(vals[SettingKeyChannelMonitorBazaarLinkProbeEnabled]),
+		Cron:    normalizeBazaarLinkProbeCron(vals[SettingKeyChannelMonitorBazaarLinkProbeCron]),
 	}
 }
 
@@ -624,8 +656,10 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
 	// ChannelMonitorShowQuota gates the user-facing quota/balance display on
 	// monitors; fail-closed (absent/false = hidden). Admin UI always shows it.
-	ChannelMonitorShowQuota    bool `json:"channel_monitor_show_quota"`
-	AvailableChannelsEnabled   bool `json:"available_channels_enabled"`
+	ChannelMonitorShowQuota              bool `json:"channel_monitor_show_quota"`
+	ChannelMonitorShowProbe              bool `json:"channel_monitor_show_probe"`
+	ChannelMonitorBazaarLinkProbeEnabled bool `json:"channel_monitor_bazaarlink_probe_enabled"`
+	AvailableChannelsEnabled             bool `json:"available_channels_enabled"`
 	ModelPlazaEnabled          bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth      bool `json:"model_plaza_require_auth"`
 	PluginManagementEnabled    bool `json:"plugin_management_enabled"`
@@ -706,6 +740,8 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
+		ChannelMonitorShowProbe:              settings.ChannelMonitorShowProbe,
+		ChannelMonitorBazaarLinkProbeEnabled: settings.ChannelMonitorBazaarLinkProbeEnabled,
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
 		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,

@@ -419,6 +419,15 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyChannelMonitorHideThroughput] = strconv.FormatBool(settings.ChannelMonitorHideThroughput)
 	updates[SettingKeyChannelMonitorShowQuota] = strconv.FormatBool(settings.ChannelMonitorShowQuota)
 	updates[SettingKeyChannelMonitorShowProbe] = strconv.FormatBool(settings.ChannelMonitorShowProbe)
+	updates[SettingKeyChannelMonitorBazaarLinkProbeEnabled] = strconv.FormatBool(settings.ChannelMonitorBazaarLinkProbeEnabled)
+	cronExpr := strings.TrimSpace(settings.ChannelMonitorBazaarLinkProbeCron)
+	if cronExpr == "" {
+		cronExpr = DefaultBazaarLinkProbeCron
+	}
+	if err := validateBazaarLinkProbeCron(cronExpr); err != nil {
+		return nil, infraerrors.BadRequest("INVALID_BAZAARLINK_PROBE_CRON", err.Error())
+	}
+	updates[SettingKeyChannelMonitorBazaarLinkProbeCron] = cronExpr
 
 	// Grok model mapping policy
 	if v := strings.TrimSpace(settings.GrokDefaultTextModel); v != "" {

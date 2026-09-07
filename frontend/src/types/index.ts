@@ -274,6 +274,8 @@ export interface PublicSettings {
   /** When true, user monitor shows account quota/balance snapshots (default off). */
   channel_monitor_show_quota?: boolean
   channel_monitor_show_probe?: boolean
+  /** Master switch for BazaarLink identity probes (manual + scheduled). Default on. */
+  channel_monitor_bazaarlink_probe_enabled?: boolean
   available_channels_enabled: boolean
   model_plaza_enabled: boolean
   model_plaza_require_auth: boolean

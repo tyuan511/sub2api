@@ -53,6 +53,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import Icon from '@/components/icons/Icon.vue'
+import { useAppStore } from '@/stores/app'
 
 const props = defineProps<{
   row: ChannelMonitor
@@ -70,12 +71,14 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
+const appStore = useAppStore()
 const duplicateTitle = computed(() => {
   if (props.row.api_key_decrypt_failed) return t('admin.channelMonitor.duplicateKeyUnavailable')
   if (props.duplicating) return t('admin.channelMonitor.duplicating')
   return t('admin.channelMonitor.duplicate')
 })
 const canBazaarLinkProbe = computed(() =>
+  appStore.cachedPublicSettings?.channel_monitor_bazaarlink_probe_enabled !== false &&
   !props.row.api_key_decrypt_failed &&
   !!props.row.endpoint?.trim() &&
   !!props.row.primary_model?.trim() &&

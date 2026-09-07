@@ -36,7 +36,30 @@ export default {
             '开启后，配额模式的渠道监控会在用户端渠道状态页展示关联账号的用量滚动窗口/余额。默认关闭；管理员始终可见。',
           showProbe: '向用户展示模型身份探测',
           showProbeHint:
-            '开启后，用户端渠道监控会展示 BazaarLink 模型身份判定和风险标记。默认关闭；管理员始终可见。',
+            '开启后，用户端渠道监控分组名旁会显示金色盾牌，悬停可查看声明模型与置信度。默认关闭；管理员始终可见。',
+          bazaarLinkProbeEnabled: '启用模型身份探测（BazaarLink）',
+          bazaarLinkProbeEnabledHint:
+            '总开关：关闭后停止定时探测，且管理员手动触发也会被拒绝。不影响普通探活健康检查。默认开启（兼容历史每日探测）。',
+          bazaarLinkProbeCron: '定时探测 Cron',
+          bazaarLinkProbeCronHint:
+            '标准 5 段 cron（分 时 日 月 周），按服务器应用时区解释。默认 0 2 * * *（每天 02:00）。示例：0 */6 * * * 每 6 小时；30 1 * * 1-5 工作日 01:30。',
+          bazaarLinkProbeCronInvalid: 'Cron 表达式无效，请使用标准 5 段格式（如 0 2 * * *）',
+          bazaarLinkProbeGroups: '手动探测分组',
+          bazaarLinkProbeGroupsHint:
+            '勾选渠道监控中的分组，一次性提交 BazaarLink 身份探测。仅包含已启用且填写了分组名称的监控项；未分组监控仍可在渠道监控页单条触发。',
+          bazaarLinkProbeGroupsEmpty: '暂无可用分组（请先在渠道监控中为启用项填写分组名称）',
+          bazaarLinkProbeGroupsLoading: '加载分组中…',
+          bazaarLinkProbeGroupsLoadFailed: '加载分组失败',
+          bazaarLinkProbeGroupsSelectAll: '全选',
+          bazaarLinkProbeGroupsClear: '清空',
+          bazaarLinkProbeGroupsSelected: '已选 {count} 个分组',
+          bazaarLinkProbeGroupsEligible: '{eligible}/{total} 可探测',
+          bazaarLinkProbeRunNow: '立即探测所选分组',
+          bazaarLinkProbeRunning: '提交中…',
+          bazaarLinkProbeRunNeedSelection: '请先勾选至少一个分组',
+          bazaarLinkProbeRunSuccess:
+            '已提交 {submitted} 个探测任务（跳过 {skipped}，失败 {failed}）',
+          bazaarLinkProbeRunFailed: '批量身份探测失败',
         },
         availableChannels: {
           title: '可用渠道',

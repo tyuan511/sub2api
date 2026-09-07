@@ -335,6 +335,8 @@ type UpdateSettingsRequest struct {
 	ChannelMonitorHideThroughput         *bool   `json:"channel_monitor_hide_throughput"`
 	ChannelMonitorShowQuota              *bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorShowProbe              *bool   `json:"channel_monitor_show_probe"`
+	ChannelMonitorBazaarLinkProbeEnabled *bool   `json:"channel_monitor_bazaarlink_probe_enabled"`
+	ChannelMonitorBazaarLinkProbeCron    *string `json:"channel_monitor_bazaarlink_probe_cron"`
 
 	// Grok model mapping policy
 	GrokDefaultTextModel           *string `json:"grok_default_text_model"`
@@ -1913,6 +1915,18 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.ChannelMonitorShowProbe
 		}(),
+		ChannelMonitorBazaarLinkProbeEnabled: func() bool {
+			if req.ChannelMonitorBazaarLinkProbeEnabled != nil {
+				return *req.ChannelMonitorBazaarLinkProbeEnabled
+			}
+			return previousSettings.ChannelMonitorBazaarLinkProbeEnabled
+		}(),
+		ChannelMonitorBazaarLinkProbeCron: func() string {
+			if req.ChannelMonitorBazaarLinkProbeCron != nil {
+				return *req.ChannelMonitorBazaarLinkProbeCron
+			}
+			return previousSettings.ChannelMonitorBazaarLinkProbeCron
+		}(),
 		GrokDefaultTextModel: func() string {
 			if req.GrokDefaultTextModel != nil {
 				return *req.GrokDefaultTextModel
@@ -2374,6 +2388,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ChannelMonitorHideThroughput:         updatedSettings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              updatedSettings.ChannelMonitorShowQuota,
 		ChannelMonitorShowProbe:              updatedSettings.ChannelMonitorShowProbe,
+		ChannelMonitorBazaarLinkProbeEnabled: updatedSettings.ChannelMonitorBazaarLinkProbeEnabled,
+		ChannelMonitorBazaarLinkProbeCron:    updatedSettings.ChannelMonitorBazaarLinkProbeCron,
 
 		GrokDefaultTextModel:           updatedSettings.GrokDefaultTextModel,
 		GrokCrossClientModelMapEnabled: updatedSettings.GrokCrossClientModelMapEnabled,

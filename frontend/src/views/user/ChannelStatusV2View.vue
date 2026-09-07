@@ -128,6 +128,7 @@
           :health-mode="healthMode"
           :show-throughput="showThroughput"
           :rates-by-group-id="ratesByGroupId"
+          :probes-by-group="matrix.probes_by_group || {}"
           :countdown-seconds="countdownSeconds"
         />
         <div

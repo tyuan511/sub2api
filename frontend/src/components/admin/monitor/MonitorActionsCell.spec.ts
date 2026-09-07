@@ -8,6 +8,14 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
+vi.mock('@/stores/app', () => ({
+  useAppStore: () => ({
+    cachedPublicSettings: {
+      channel_monitor_bazaarlink_probe_enabled: true,
+    },
+  }),
+}))
+
 function makeMonitor(overrides: Partial<ChannelMonitor> = {}): ChannelMonitor {
   return {
     id: 42,
@@ -44,7 +52,7 @@ describe('MonitorActionsCell duplicate action', () => {
   it('emits the selected monitor when duplicate is clicked', async () => {
     const row = makeMonitor()
     const wrapper = mount(MonitorActionsCell, {
-      props: { row, running: false, duplicating: false },
+      props: { row, running: false, duplicating: false, probing: false },
     })
 
     await wrapper.get('[data-testid="monitor-duplicate"]').trigger('click')
@@ -54,7 +62,7 @@ describe('MonitorActionsCell duplicate action', () => {
 
   it('disables the action while the same monitor is being duplicated', () => {
     const wrapper = mount(MonitorActionsCell, {
-      props: { row: makeMonitor(), running: false, duplicating: true },
+      props: { row: makeMonitor(), running: false, duplicating: true, probing: false },
     })
     const button = wrapper.get('[data-testid="monitor-duplicate"]')
 
@@ -69,6 +77,7 @@ describe('MonitorActionsCell duplicate action', () => {
         row: makeMonitor({ api_key_decrypt_failed: true }),
         running: false,
         duplicating: false,
+        probing: false,
       },
     })
     const button = wrapper.get('[data-testid="monitor-duplicate"]')

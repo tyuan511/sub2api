@@ -488,6 +488,19 @@ const (
 	// exposed by user-facing V1 monitor APIs. Admin views always include them.
 	SettingKeyChannelMonitorShowProbe = "channel_monitor_show_probe"
 
+	// SettingKeyChannelMonitorBazaarLinkProbeEnabled is the master switch for
+	// BazaarLink model-identity probing (manual admin trigger + scheduled batch).
+	// Default true preserves the historical always-on daily schedule.
+	SettingKeyChannelMonitorBazaarLinkProbeEnabled = "channel_monitor_bazaarlink_probe_enabled"
+
+	// SettingKeyChannelMonitorBazaarLinkProbeCron is a standard 5-field cron
+	// expression (min hour dom month dow) for the scheduled identity-probe batch.
+	// Empty falls back to DefaultBazaarLinkProbeCron ("0 2 * * *", local TZ 02:00).
+	SettingKeyChannelMonitorBazaarLinkProbeCron = "channel_monitor_bazaarlink_probe_cron"
+
+	// DefaultBazaarLinkProbeCron matches the historical fixed daily 02:00 local run.
+	DefaultBazaarLinkProbeCron = "0 2 * * *"
+
 	// SettingKeyGrokDefaultTextModel is the fallback Grok text model for empty
 	// request models and built-in Grok aliases (e.g. "grok" → this id). Default grok-4.5.
 	SettingKeyGrokDefaultTextModel = "grok_default_text_model"

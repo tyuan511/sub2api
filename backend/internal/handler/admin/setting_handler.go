@@ -377,6 +377,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
 		ChannelMonitorShowProbe:              settings.ChannelMonitorShowProbe,
+		ChannelMonitorBazaarLinkProbeEnabled: settings.ChannelMonitorBazaarLinkProbeEnabled,
+		ChannelMonitorBazaarLinkProbeCron:    settings.ChannelMonitorBazaarLinkProbeCron,
 
 		GrokDefaultTextModel:           settings.GrokDefaultTextModel,
 		GrokCrossClientModelMapEnabled: settings.GrokCrossClientModelMapEnabled,

@@ -368,6 +368,50 @@ export async function runBazaarLinkProbe(id: number): Promise<BazaarLinkProbeRes
   return data
 }
 
+/** One selectable group for manual batch BazaarLink probes. */
+export interface BazaarLinkProbeGroupInfo {
+  group_name: string
+  monitor_count: number
+  eligible_count: number
+}
+
+export interface BazaarLinkProbeBatchItem {
+  monitor_id: number
+  group_name: string
+  status: 'submitted' | 'skipped' | 'failed' | string
+  error?: string
+  result?: BazaarLinkProbeResult
+}
+
+export interface BazaarLinkProbeBatchResult {
+  total: number
+  submitted: number
+  skipped: number
+  failed: number
+  items: BazaarLinkProbeBatchItem[]
+}
+
+/** List enabled-monitor groups available for batch identity probing. */
+export async function listBazaarLinkProbeGroups(): Promise<BazaarLinkProbeGroupInfo[]> {
+  const { data } = await apiClient.get<{ items: BazaarLinkProbeGroupInfo[] }>(
+    '/admin/channel-monitors/bazaarlink-probe-groups',
+  )
+  return data?.items ?? []
+}
+
+/** Submit BazaarLink probes for all eligible monitors in the selected groups. */
+export async function runBazaarLinkProbeBatch(
+  groupNames: string[],
+): Promise<BazaarLinkProbeBatchResult> {
+  const { data } = await apiClient.post<BazaarLinkProbeBatchResult>(
+    '/admin/channel-monitors/bazaarlink-probe-batch',
+    { group_names: groupNames },
+    // Batch admission waits on the shared IP pacer; allow multi-minute runs.
+    { timeout: 600000 },
+  )
+  return data
+}
+
 /**
  * List historical check results for a monitor.
  */
@@ -391,6 +435,8 @@ export const channelMonitorAPI = {
   del,
   runNow,
   runBazaarLinkProbe,
+  listBazaarLinkProbeGroups,
+  runBazaarLinkProbeBatch,
   listHistory,
 }
 

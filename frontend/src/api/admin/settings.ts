@@ -721,6 +721,8 @@ export interface SystemSettings {
   channel_monitor_hide_throughput?: boolean;
   channel_monitor_show_quota?: boolean;
   channel_monitor_show_probe?: boolean;
+  channel_monitor_bazaarlink_probe_enabled?: boolean;
+  channel_monitor_bazaarlink_probe_cron?: string;
 
   // Available Channels feature switch
   available_channels_enabled: boolean;
@@ -1023,6 +1025,8 @@ export interface UpdateSettingsRequest {
   channel_monitor_hide_throughput?: boolean;
   channel_monitor_show_quota?: boolean;
   channel_monitor_show_probe?: boolean;
+  channel_monitor_bazaarlink_probe_enabled?: boolean;
+  channel_monitor_bazaarlink_probe_cron?: string;
 
   // Available Channels feature switch
   available_channels_enabled?: boolean;

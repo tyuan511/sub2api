@@ -87,28 +87,25 @@ type channelMonitorUserListItem struct {
 // result: task IDs, token counts, upstream errors and transport details never
 // cross the user API boundary.
 type channelMonitorUserProbeResult struct {
-	Status              string    `json:"status,omitempty"`
-	Score               *int      `json:"score,omitempty"`
-	IdentityStatus      string    `json:"identity_status,omitempty"`
-	Confidence          *float64  `json:"confidence,omitempty"`
-	ClaimedModel        string    `json:"claimed_model,omitempty"`
-	PredictedFamily     string    `json:"predicted_family,omitempty"`
-	PredictedModel      string    `json:"predicted_model,omitempty"`
-	PredictedModelScore *float64  `json:"predicted_model_score,omitempty"`
-	RiskFlags           []string  `json:"risk_flags,omitempty"`
-	CheckedAt           time.Time `json:"checked_at"`
+	Status         string    `json:"status,omitempty"`
+	IdentityStatus string    `json:"identity_status,omitempty"`
+	Confidence     *float64  `json:"confidence,omitempty"`
+	ClaimedModel   string    `json:"claimed_model,omitempty"`
+	CheckedAt      time.Time `json:"checked_at"`
 }
 
 func publicProbeResult(result *domain.BazaarLinkProbeResult) *channelMonitorUserProbeResult {
 	if result == nil {
 		return nil
 	}
+	// User-facing projection: claimed model + confidence (+ status/time). No risk
+	// flags, predicted model, score, or transport details.
 	return &channelMonitorUserProbeResult{
-		Status: result.Status, Score: result.Score, IdentityStatus: result.IdentityStatus,
-		Confidence: result.Confidence, ClaimedModel: result.ClaimedModel,
-		PredictedFamily: result.PredictedFamily, PredictedModel: result.PredictedModel,
-		PredictedModelScore: result.PredictedModelScore,
-		RiskFlags:           append([]string(nil), result.RiskFlags...), CheckedAt: result.CheckedAt,
+		Status:         result.Status,
+		IdentityStatus: result.IdentityStatus,
+		Confidence:     result.Confidence,
+		ClaimedModel:   result.ClaimedModel,
+		CheckedAt:      result.CheckedAt,
 	}
 }
 

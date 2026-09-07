@@ -3,28 +3,34 @@ package service
 import (
 	"context"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
 	appTimezone "github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
-// BazaarLinkProbeRunner owns BazaarLink's independent daily submission and
-// five-minute polling schedules. It has no dependency on ChannelMonitorRunner.
-type BazaarLinkProbeRunner struct {
-	service *BazaarLinkProbeService
-	ctx     context.Context
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	mu      sync.Mutex
-	started bool
-	stopped bool
+// bazaarLinkProbeRuntimeReader is the optional settings view used to gate and
+// schedule identity probes without coupling to SettingService concrete type.
+type bazaarLinkProbeRuntimeReader interface {
+	GetBazaarLinkProbeRuntime(ctx context.Context) BazaarLinkProbeRuntime
 }
 
-func NewBazaarLinkProbeRunner(service *BazaarLinkProbeService) *BazaarLinkProbeRunner {
+// BazaarLinkProbeRunner owns BazaarLink's independent scheduled submission and
+// five-minute polling schedules. It has no dependency on ChannelMonitorRunner.
+type BazaarLinkProbeRunner struct {
+	service  *BazaarLinkProbeService
+	settings bazaarLinkProbeRuntimeReader
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	mu       sync.Mutex
+	started  bool
+	stopped  bool
+}
+
+func NewBazaarLinkProbeRunner(service *BazaarLinkProbeService, settings bazaarLinkProbeRuntimeReader) *BazaarLinkProbeRunner {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &BazaarLinkProbeRunner{service: service, ctx: ctx, cancel: cancel}
+	return &BazaarLinkProbeRunner{service: service, settings: settings, ctx: ctx, cancel: cancel}
 }
 
 func (r *BazaarLinkProbeRunner) Start() {
@@ -39,7 +45,7 @@ func (r *BazaarLinkProbeRunner) Start() {
 	r.started = true
 	r.wg.Add(2)
 	r.mu.Unlock()
-	go r.runDaily()
+	go r.runScheduler()
 	go r.runPoller()
 }
 
@@ -64,33 +70,65 @@ func (r *BazaarLinkProbeRunner) poll() {
 	}
 }
 
-func nextBazaarLinkProbeAt(now time.Time) time.Time {
-	loc := appTimezone.Location()
-	localNow := now.In(loc)
-	next := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), monitorBazaarLinkDailyHour, 0, 0, 0, loc)
-	if !next.After(localNow) {
-		next = next.AddDate(0, 0, 1)
+func (r *BazaarLinkProbeRunner) probeRuntime() BazaarLinkProbeRuntime {
+	if r == nil || r.settings == nil {
+		return BazaarLinkProbeRuntime{Enabled: true, Cron: DefaultBazaarLinkProbeCron}
 	}
-	return next
+	return r.settings.GetBazaarLinkProbeRuntime(r.ctx)
 }
 
-func (r *BazaarLinkProbeRunner) runDaily() {
+// runScheduler waits for the next cron fire (or rechecks settings when disabled).
+// Settings are re-read every cycle so admin toggles/cron edits take effect without restart.
+func (r *BazaarLinkProbeRunner) runScheduler() {
 	defer r.wg.Done()
 	for {
-		next := nextBazaarLinkProbeAt(appTimezone.Now())
-		timer := time.NewTimer(time.Until(next))
+		rt := r.probeRuntime()
+		if !rt.Enabled {
+			if !r.sleep(monitorBazaarLinkScheduleRecheck) {
+				return
+			}
+			continue
+		}
+		next, err := nextBazaarLinkProbeAt(appTimezone.Now(), rt.Cron)
+		if err != nil || next.IsZero() {
+			slog.Warn("bazaarlink: invalid probe cron; backing off", "cron", rt.Cron, "error", err)
+			if !r.sleep(monitorBazaarLinkScheduleRecheck) {
+				return
+			}
+			continue
+		}
+		delay := time.Until(next)
+		if delay < 0 {
+			delay = 0
+		}
+		if !r.sleep(delay) {
+			return
+		}
+		// Re-check after wake: cron/enabled may have changed while waiting.
+		rt = r.probeRuntime()
+		if !rt.Enabled {
+			continue
+		}
+		r.submitBatch()
+	}
+}
+
+func (r *BazaarLinkProbeRunner) sleep(d time.Duration) bool {
+	if d <= 0 {
 		select {
 		case <-r.ctx.Done():
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			return
-		case <-timer.C:
-			r.submitBatch()
+			return false
+		default:
+			return true
 		}
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-r.ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
 }
 
@@ -107,10 +145,7 @@ func (r *BazaarLinkProbeRunner) submitBatch() {
 	sem := make(chan struct{}, monitorBazaarLinkBatchConcurrency)
 	var wg sync.WaitGroup
 	for _, target := range targets {
-		if target == nil || target.APIKeyDecryptFailed ||
-			!bazaarLinkProviderSupported(target.Provider) ||
-			strings.TrimSpace(target.Endpoint) == "" || strings.TrimSpace(target.APIKey) == "" ||
-			strings.TrimSpace(target.Model) == "" || strings.EqualFold(strings.TrimSpace(target.Model), MonitorDefaultQuotaModel) {
+		if !bazaarLinkTargetEligible(target) {
 			continue
 		}
 		select {
@@ -126,7 +161,7 @@ func (r *BazaarLinkProbeRunner) submitBatch() {
 			probeCtx, probeCancel := context.WithTimeout(ctx, monitorBazaarLinkRunTimeout)
 			defer probeCancel()
 			if _, err := r.service.Run(probeCtx, target.ID); err != nil {
-				slog.Warn("bazaarlink: daily probe failed", "monitor_id", target.ID, "error", err)
+				slog.Warn("bazaarlink: scheduled probe failed", "monitor_id", target.ID, "error", err)
 			}
 		}()
 	}
