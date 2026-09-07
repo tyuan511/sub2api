@@ -168,7 +168,7 @@ func apiKeyRoutingRecoveryOverride(observation APIKeyRoutingGroupObservation, mi
 
 func apiKeyRoutingRecoveryOverrideForContext(ctx context.Context, groupID int64, model, endpoint string, minimum int) bool {
 	state, ok := apiKeyRouteRequestRuntimeStateFromContext(ctx)
-	if !ok || groupID <= 0 {
+	if !ok || groupID <= 0 || state.ScheduleMode != APIKeyScheduleModeSmart {
 		return false
 	}
 	scope := APIKeyRoutingScoreScope{Platform: state.Platform, ModelFamily: model, EndpointKind: endpoint}

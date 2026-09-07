@@ -46,6 +46,7 @@ type APIKeyRouteRequestRuntimeState struct {
 	RouteVersion        int64
 	RoutingStateVersion int64
 	RoutingEnabled      bool
+	ScheduleMode        string
 	MinSuccessRate      int
 	Platform            string
 	GroupIDs            []int64
@@ -80,6 +81,7 @@ func WithAPIKeyRouteRequestRuntimeState(ctx context.Context, plan *APIKeyRoutePl
 	state := &APIKeyRouteRequestRuntimeState{
 		APIKeyID: plan.APIKeyID, RouteVersion: plan.RouteVersion,
 		RoutingEnabled:      true,
+		ScheduleMode:        plan.ScheduleMode,
 		RoutingStateVersion: plan.RoutingStateVersion, MinSuccessRate: plan.RoutingMinSuccessRate,
 		GroupIDs: make([]int64, 0, len(plan.Candidates)),
 		scopes:   make(map[string]apiKeyRouteRuntimeScopeSnapshot),

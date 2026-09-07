@@ -759,16 +759,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		if previousResponseID != "" {
 			return false, nil
 		}
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("openai.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
-			middleware2.MarkAPIKeyRouteStickyBroken(c)
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("openai.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
 		}
 		nextAPIKey, nextSubscription, advanced, err := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, responseCandidateCheck)
 		if !advanced {
@@ -789,6 +784,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 		c.Request = c.Request.WithContext(newPricingCtx)
 		pricingAt = newPricingAt
+		switchCount = 0
 		firstOutputTimeoutSwitchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
@@ -1062,6 +1058,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						return
 					}
 					if !openAIForwardMayFailover(c, writerSizeBeforeForward, failoverErr) {
+						if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, failoverErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+							reqLog.Warn("openai.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+						}
 						h.gatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 						h.handleFailoverExhausted(c, failoverErr, true)
 						return
@@ -1554,16 +1553,11 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	c.Request = c.Request.WithContext(msgPricingCtx)
 	routeAdmitted := true
 	advanceMessagesRoute := func(routeErr error) (bool, error) {
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("openai_messages.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
-			middleware2.MarkAPIKeyRouteStickyBroken(c)
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("openai_messages.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
 		}
 		nextAPIKey, nextSubscription, advanced, err := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, messagesCandidateCheck)
 		if !advanced {
@@ -1579,6 +1573,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 		c.Request = c.Request.WithContext(newPricingCtx)
 		pricingAt = newPricingAt
+		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)
@@ -1788,6 +1783,9 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 					if c.Writer.Size() != writerSizeBeforeForward {
+						if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, failoverErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+							reqLog.Warn("openai_messages.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+						}
 						h.gatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 						h.handleAnthropicFailoverExhausted(c, failoverErr, true)
 						return
@@ -3120,16 +3118,11 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	ctx = wsPricingCtx
 	c.Request = c.Request.WithContext(ctx)
 	advanceWSRoute = func(routeErr error) (bool, error) {
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("openai.websocket_api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		if routeLocked || !apiKeyRouteFailureAllowsAdvance(routeErr) {
 			return false, nil
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
-			middleware2.MarkAPIKeyRouteStickyBroken(c)
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("openai.websocket_api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
 		}
 		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, wsCandidateCheck)
 		if !advanced {
@@ -3152,6 +3145,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		ctx = service.WithOpenAIGuardianParentAffinity(ctx, c, firstMessage, reqModel)
 		ctx, _ = h.gatewayService.RebindOpenAIRequestPricingContext(ctx, apiKey.GroupID)
 		c.Request = c.Request.WithContext(ctx)
+		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)

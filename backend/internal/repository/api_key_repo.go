@@ -960,7 +960,28 @@ func (r *apiKeyRepository) ClearGroupIDByGroupID(ctx context.Context, groupID in
 
 // UpdateGroupIDByUserAndGroup 将用户下绑定 oldGroupID 的所有 Key 迁移到 newGroupID
 func (r *apiKeyRepository) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
-	client := clientFromContext(ctx, r.client)
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		return r.updateGroupIDByUserAndGroupWithClient(ctx, tx.Client(), userID, oldGroupID, newGroupID)
+	}
+	tx, err := r.client.Tx(ctx)
+	if errors.Is(err, dbent.ErrTxStarted) {
+		return r.updateGroupIDByUserAndGroupWithClient(ctx, r.client, userID, oldGroupID, newGroupID)
+	}
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	migrated, err := r.updateGroupIDByUserAndGroupWithClient(dbent.NewTxContext(ctx, tx), tx.Client(), userID, oldGroupID, newGroupID)
+	if err != nil {
+		return migrated, err
+	}
+	if err := tx.Commit(); err != nil {
+		return migrated, err
+	}
+	return migrated, nil
+}
+
+func (r *apiKeyRepository) updateGroupIDByUserAndGroupWithClient(ctx context.Context, client *dbent.Client, userID, oldGroupID, newGroupID int64) (int64, error) {
 	keys, err := client.APIKey.Query().
 		Where(
 			apikey.UserIDEQ(userID),

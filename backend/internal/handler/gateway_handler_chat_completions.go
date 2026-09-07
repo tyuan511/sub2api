@@ -242,16 +242,11 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		fs = NewFailoverStateForRequest(c, h.maxAccountSwitchesGemini, false)
 	}
 	advanceGatewayCCRoute := func(routeErr error) (bool, error) {
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("gateway.cc.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
-			middleware2.MarkAPIKeyRouteStickyBroken(c)
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("gateway.cc.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
 		}
 		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, gatewayCCCandidateCheck)
 		if !advanced {

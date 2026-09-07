@@ -175,6 +175,18 @@ func TestRequestFailoverTransitionBudgetIsSharedAcrossGroupStateResets(t *testin
 	require.Equal(t, 5, upgrade.max, "a later route state may add its account allowance")
 }
 
+func TestReleaseFailoverTransitionRefundsHardFilterSkip(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	failoverTransitionBudgetFor(c, 1)
+	require.True(t, reserveFailoverTransition(c))
+	require.False(t, reserveFailoverTransition(c))
+	releaseFailoverTransition(c)
+	require.True(t, reserveFailoverTransition(c), "a skipped candidate must not keep the shared failover slot")
+	releaseFailoverTransition(c)
+	releaseFailoverTransition(c)
+	require.True(t, reserveFailoverTransition(c), "releasing below zero must stay a no-op")
+}
+
 func TestNewFailoverStateForRequestCombinesAccountAndGroupBudgets(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: &service.APIKeyRoutePlan{
@@ -729,6 +741,28 @@ func TestHandleFailoverErrorReservesDeadlineForNextAccount(t *testing.T) {
 	require.Equal(t, 0, fs.SameAccountRetryCount[100], "the retry delay would leave no reserve for the next account")
 	require.Equal(t, 1, fs.SwitchCount)
 	require.Less(t, time.Since(started), 300*time.Millisecond)
+}
+
+func TestLegacySingleGroupFailoverKeepsSameAccountRetryNearDeadline(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	defer cancel()
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(ctx)
+	groupID := int64(11)
+	key := &service.APIKey{
+		ID: 9, GroupID: &groupID, RouteVersion: 1,
+		GroupRoutes: []service.APIKeyGroupRoute{{GroupID: groupID, Priority: 0, Enabled: true}},
+	}
+	c.Set(string(middleware2.ContextKeyAPIKey), key)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{
+		Plan: &service.APIKeyRoutePlan{APIKeyID: key.ID, RouteVersion: key.RouteVersion},
+	})
+	state := NewFailoverStateForRequest(c, 0, false)
+	require.True(t, state.skipRetryDeadlineReserve)
+	action := state.HandleFailoverError(ctx, &mockTempUnscheduler{}, 100, service.PlatformOpenAI, maxSameAccountRetries, newTestFailoverErr(503, true, false))
+	require.Equal(t, FailoverContinue, action)
+	require.Equal(t, 1, state.SameAccountRetryCount[100])
 }
 
 func TestHandleFailoverError_FailedAccountIDs(t *testing.T) {

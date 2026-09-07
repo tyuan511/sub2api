@@ -185,3 +185,19 @@ func TestAPIKeyRoutingControlsProbeAdmissionIsRequestScoped(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, APIKeyRouteBreakerHalfOpen, breaker.State)
 }
+
+func TestAPIKeyRoutingRecoveryOverrideIsSmartOnly(t *testing.T) {
+	sequential := &APIKeyRoutePlan{
+		APIKeyID: 7, RouteVersion: 3, RoutingEnabled: true, ScheduleMode: APIKeyScheduleModeSequential,
+		Candidates: []APIKeyRouteCandidate{{GroupID: 11, Group: &Group{ID: 11, Platform: PlatformOpenAI}}},
+	}
+	ctx := WithAPIKeyRouteRequestRuntimeState(context.Background(), sequential)
+	require.False(t, apiKeyRoutingRecoveryOverrideForContext(ctx, 11, "gpt-5", "responses", 50),
+		"sequential keys must not treat shared recovery as a CLOSED fast-path")
+
+	smart := *sequential
+	smart.ScheduleMode = APIKeyScheduleModeSmart
+	ctx = WithAPIKeyRouteRequestRuntimeState(context.Background(), &smart)
+	require.False(t, apiKeyRoutingRecoveryOverrideForContext(ctx, 11, "gpt-5", "responses", 50),
+		"missing snapshot stays unknown rather than fabricating recovery")
+}

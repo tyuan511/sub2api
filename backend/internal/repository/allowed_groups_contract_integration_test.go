@@ -153,10 +153,12 @@ func TestGroupRepository_DeleteCascade_CleansApiKeyRoutesAndRepairsMirror(t *tes
 	require.NotContains(t, uAfter.AllowedGroups, targetGroup.ID)
 	require.Contains(t, uAfter.AllowedGroups, otherGroup.ID)
 
-	// A legacy single-group key loses its deleted group and has no orphan route.
+	// A legacy single-group key keeps its deleted group mirror so auth can
+	// return GROUP_DELETED, and it has no orphan route row.
 	keyAfter, err := apiKeyRepo.GetByID(ctx, key.ID)
 	require.NoError(t, err)
-	require.Nil(t, keyAfter.GroupID)
+	require.NotNil(t, keyAfter.GroupID)
+	require.Equal(t, targetGroup.ID, *keyAfter.GroupID)
 	require.Nil(t, keyAfter.Group)
 	require.Empty(t, keyAfter.GroupRoutes)
 

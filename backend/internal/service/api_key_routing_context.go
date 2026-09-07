@@ -184,8 +184,10 @@ func routingTokenUsageJSON(usage RoutingTokenUsage) json.RawMessage {
 }
 
 // ApplyAPIKeyRoutingUsage decorates the usage log with supplier and billable
-// token projections. The final routing fact is emitted separately, after the
-// billing transaction has reached a final state.
+// token projections. Cross-group failover must not rewrite billable usage or
+// fill CacheCompensationTokens; intra-group ForceCacheBilling is applied by
+// the caller before this helper. The final routing fact is emitted separately,
+// after the billing transaction has reached a final state.
 func ApplyAPIKeyRoutingUsage(ctx context.Context, log *UsageLog, actual, billable RoutingTokenUsage) {
 	if log == nil {
 		return

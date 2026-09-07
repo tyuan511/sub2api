@@ -235,6 +235,9 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	defer func() { stopJSONKeepalive() }()
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
 	advanceImagesRoute := func(routeErr error) (bool, error) {
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, requestModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("openai.images.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		// Image generation/edit may already have been accepted upstream even
 		// when no response bytes arrived. Cross-group replay is therefore only
 		// allowed for pre-upstream capacity/selection failures.
@@ -244,11 +247,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
 		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, requestModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("openai.images.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
-		}
 		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, requestModel, routeEndpoint, imagesCandidateCheck)
 		if !advanced {
 			return false, advanceErr
@@ -257,6 +255,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		subscription = nextSubscription
 		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, routingModel)
 		requestCtx = service.WithOpenAIImagesEndpoint(service.WithOpenAIImageGenerationIntent(c.Request.Context()))
+		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)

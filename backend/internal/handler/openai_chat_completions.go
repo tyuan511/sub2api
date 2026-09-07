@@ -249,16 +249,11 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	ccPricingCtx, pricingAt := h.gatewayService.WithOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 	c.Request = c.Request.WithContext(ccPricingCtx)
 	advanceChatRoute := func(routeErr error) (bool, error) {
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("openai_chat_completions.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
-			middleware2.MarkAPIKeyRouteStickyBroken(c)
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("openai_chat_completions.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
 		}
 		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, chatCandidateCheck)
 		if !advanced {
@@ -272,6 +267,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		newPricingCtx, newPricingAt := h.gatewayService.RebindOpenAIRequestPricingContext(c.Request.Context(), apiKey.GroupID)
 		c.Request = c.Request.WithContext(newPricingCtx)
 		pricingAt = newPricingAt
+		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)
@@ -476,6 +472,9 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 						return
 					}
 					if c.Writer.Size() != writerSizeBeforeForward {
+						if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, reqModel, routeEndpoint, failoverErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+							reqLog.Warn("openai_chat_completions.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+						}
 						h.gatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 						h.handleFailoverExhausted(c, failoverErr, true)
 						return

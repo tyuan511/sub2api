@@ -184,8 +184,8 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 	identity := liveCallIdentity(c, apiKey, subject.UserID, subscription)
 	created, err := h.gatewayService.CreateLiveCall(c.Request.Context(), request, identity, subject.Concurrency)
 	if err != nil {
-		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
-			_, _ = h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, routeEndpoint, err)
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, model, routeEndpoint, err, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("openai.live.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
 		}
 		h.writeLiveCreateError(c, err)
 		return

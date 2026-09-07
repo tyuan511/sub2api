@@ -717,16 +717,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 	fallbackUsed := false
 	advanceGatewayRoute := func(routeErr error) (bool, error) {
+		if state, observeErr := observeAPIKeyRouteFailure(c, currentAPIKey, reqModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("gateway.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil {
-			middleware2.MarkAPIKeyRouteStickyBroken(c)
-		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && currentAPIKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), currentAPIKey.ID, currentAPIKey.RouteVersion, *currentAPIKey.GroupID, reqModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("gateway.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
 		}
 		nextAPIKey, nextSubscription, advanced, err := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, gatewayCandidateCheck)
 		if !advanced {

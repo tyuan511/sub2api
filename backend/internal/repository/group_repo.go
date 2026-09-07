@@ -898,42 +898,40 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
 	// Route rows are not removed by the group's soft delete. Remove them in the
 	// same transaction and repair the compatibility mirror so auth never sees a
 	// deleted primary group or a route set that points at a missing group.
+	// Update dependent keys before deleting the route rows. A data-modifying
+	// CTE cannot see the DELETE result in a sibling table scan under PostgreSQL's
+	// statement snapshot, which would leave a multi-group mirror pointing at the
+	// deleted primary group.
 	if _, err := exec.ExecContext(ctx, `
-		WITH removed AS (
-			DELETE FROM api_key_group_routes
-			WHERE group_id = $1
-			RETURNING api_key_id
-		), affected AS (
-			SELECT DISTINCT api_key_id
-			FROM removed
-		)
 		UPDATE api_keys AS k
-		SET group_id = (
+		SET group_id = COALESCE((
 			SELECT r.group_id
 			FROM api_key_group_routes AS r
 			WHERE r.api_key_id = k.id
+			  AND r.group_id <> $1
 			ORDER BY r.enabled DESC, r.priority ASC, r.id ASC
 			LIMIT 1
-		),
+		), k.group_id),
 			route_version = k.route_version + 1,
 			routing_dependency_version = k.routing_dependency_version + 1,
 			updated_at = NOW()
-		FROM affected
-		WHERE k.id = affected.api_key_id
+		WHERE k.id IN (
+			SELECT DISTINCT api_key_id
+			FROM api_key_group_routes
+			WHERE group_id = $1
+		)
 		  AND k.deleted_at IS NULL`, id); err != nil {
 		return nil, err
 	}
-	// Legacy keys can have only the compatibility column and no route row.
 	if _, err := exec.ExecContext(ctx, `
-		UPDATE api_keys
-		SET group_id = NULL,
-			route_version = route_version + 1,
-			routing_dependency_version = routing_dependency_version + 1,
-			updated_at = NOW()
-		WHERE group_id = $1 AND deleted_at IS NULL
-		  AND NOT EXISTS (SELECT 1 FROM api_key_group_routes r WHERE r.api_key_id = api_keys.id)`, id); err != nil {
+		DELETE FROM api_key_group_routes
+		WHERE group_id = $1`, id); err != nil {
 		return nil, err
 	}
+	// Legacy keys intentionally keep their compatibility group_id when their
+	// only group is deleted. Auth can then return the historical
+	// GROUP_DELETED response instead of silently turning the key into an
+	// unscoped key (which could enter the global pool when that setting is on).
 
 	// 5. Soft-delete group itself.
 	if _, err := txClient.Group.Delete().Where(group.IDEQ(id)).Exec(ctx); err != nil {

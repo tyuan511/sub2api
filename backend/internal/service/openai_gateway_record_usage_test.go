@@ -1197,6 +1197,8 @@ func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillingDisabledWhenGrou
 }
 
 func TestOpenAIGatewayServiceRecordUsage_GroupFailoverDoesNotCompensate(t *testing.T) {
+	// Product decision: cross-group failover never rewrites user billing as
+	// cache compensation. Intra-group ForceCacheBilling is a separate path.
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
 	groupID := int64(41)

@@ -299,6 +299,9 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	advanceGrokMediaRoute := func(routeErr error) (bool, error) {
 		// Media submissions may be accepted upstream without any response bytes.
 		// Cross-group replay is limited to pre-upstream capacity/eligibility misses.
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, routingModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("grok_media.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
 		if routeLocked || !endpoint.IsGenerationRequest() || lastFailoverErr != nil {
 			return false, nil
 		}
@@ -308,11 +311,6 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
 			return false, nil
 		}
-		if apiKeyMultiGroupRoutingActive(c) && routeErr != nil && apiKey.GroupID != nil {
-			if state, observeErr := h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, routingModel, routeEndpoint, routeErr); observeErr != nil {
-				reqLog.Warn("grok_media.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
-			}
-		}
 		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, routingModel, routeEndpoint, grokMediaCandidateCheck)
 		if !advanced {
 			return false, advanceErr
@@ -320,6 +318,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		apiKey = nextAPIKey
 		subscription = nextSubscription
 		requestCtx = service.WithOpenAIProfitControlSuppressed(c.Request.Context())
+		switchCount = 0
 		profitVetoCount = 0
 		failedAccountIDs = make(map[int64]struct{})
 		sameAccountRetryCount = make(map[int64]int)

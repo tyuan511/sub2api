@@ -132,10 +132,29 @@ func apiKeyMultiGroupRoutingActive(c *gin.Context) bool {
 }
 
 // shouldActivateSmartRoute is the session-isolation gate shared by every text
-// protocol: a healthy existing group-sticky session never enters canary/shadow
-// strategy selection; only a session without an accepted sticky target does.
+// protocol: sequential keys, sticky sessions, and Redis-degraded requests stay
+// on the frozen candidate order. Recovery reordering is smart-only.
 func shouldActivateSmartRoute(c *gin.Context, stickyRouteSelected, routeStateDegraded bool) bool {
-	return !stickyRouteSelected && !routeStateDegraded && apiKeyMultiGroupRoutingActive(c)
+	if stickyRouteSelected || routeStateDegraded || !apiKeyMultiGroupRoutingActive(c) {
+		return false
+	}
+	state, ok := middleware2.GetAPIKeyRouteState(c)
+	return ok && state != nil && state.Plan != nil &&
+		state.Plan.ScheduleMode == service.APIKeyScheduleModeSmart &&
+		state.Plan.SmartPreference != nil
+}
+
+type apiKeyRouteFailureObserver func(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string, cause error) (string, error)
+
+// observeAPIKeyRouteFailure records a group-health failure even when semantic
+// output has already closed cross-group replay. Failover remains gated; the
+// denominator must still include the completed group visit.
+func observeAPIKeyRouteFailure(c *gin.Context, apiKey *service.APIKey, model, endpoint string, routeErr error, observe apiKeyRouteFailureObserver) (string, error) {
+	if c == nil || routeErr == nil || apiKey == nil || apiKey.GroupID == nil || observe == nil || !apiKeyMultiGroupRoutingActive(c) {
+		return "", nil
+	}
+	middleware2.MarkAPIKeyRouteStickyBroken(c)
+	return observe(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, endpoint, routeErr)
 }
 
 // applyAPIKeyRoutingRecoveryTrafficBudget keeps a recovering candidate from
@@ -223,6 +242,7 @@ func (r apiKeyRouteRuntime) advance(c *gin.Context, model, endpoint string, cand
 	var lastErr error
 	lastErrBilling := false
 	for {
+		reserved := false
 		if state, stateOK := middleware2.GetAPIKeyRouteState(c); stateOK && state != nil && state.Plan != nil && !state.Locked {
 			if c != nil {
 				if _, exists := c.Get(failoverTransitionBudgetContextKey); !exists {
@@ -237,12 +257,18 @@ func (r apiKeyRouteRuntime) advance(c *gin.Context, model, endpoint string, cand
 			if len(state.Order) == 0 {
 				hasNext = state.Index+1 < state.Plan.Len()
 			}
-			if hasNext && !reserveFailoverTransition(c) {
-				return nil, nil, false, &apiKeyRouteAdvanceError{Last: lastErr, Billing: lastErrBilling}
+			if hasNext {
+				if !reserveFailoverTransition(c) {
+					return nil, nil, false, &apiKeyRouteAdvanceError{Last: lastErr, Billing: lastErrBilling}
+				}
+				reserved = true
 			}
 		}
 		apiKey, ok := middleware2.AdvanceAPIKeyRoute(c)
 		if !ok {
+			if reserved {
+				releaseFailoverTransition(c)
+			}
 			service.RecordAPIKeyRoutingTerminalFailure(c.Request.Context(),
 				service.NormalizeAPIKeyRoutingModelFamily(routingPlatformFromContext(c), model),
 				service.NormalizeAPIKeyRoutingEndpointKind(endpoint))
@@ -253,6 +279,9 @@ func (r apiKeyRouteRuntime) advance(c *gin.Context, model, endpoint string, cand
 		}
 		if candidateCheck != nil {
 			if err := candidateCheck(apiKey); err != nil {
+				if reserved {
+					releaseFailoverTransition(c)
+				}
 				lastErr = err
 				lastErrBilling = false
 				continue
@@ -260,6 +289,9 @@ func (r apiKeyRouteRuntime) advance(c *gin.Context, model, endpoint string, cand
 		}
 		subscription, err := r.subscriptionForCandidate(c.Request.Context(), apiKey)
 		if err != nil {
+			if reserved {
+				releaseFailoverTransition(c)
+			}
 			lastErr = err
 			lastErrBilling = true
 			continue
@@ -267,6 +299,9 @@ func (r apiKeyRouteRuntime) advance(c *gin.Context, model, endpoint string, cand
 		if r.billing != nil {
 			platform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			if err := r.billing.CheckRouteSwitchBillingEligibility(c.Request.Context(), apiKey.User, apiKey.Group, subscription, platform); err != nil {
+				if reserved {
+					releaseFailoverTransition(c)
+				}
 				lastErr = err
 				lastErrBilling = true
 				continue

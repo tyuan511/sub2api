@@ -147,6 +147,9 @@ type FailoverState struct {
 	// profitVetoCount 本次请求累计的利润否决次数，用于 maxProfitVetoAttempts 上限。
 	profitVetoCount  int
 	transitionBudget *failoverTransitionBudget
+	// Legacy requests retain the historical same-account retry deadline
+	// behavior. The reserve is only meaningful for routed multi-group plans.
+	skipRetryDeadlineReserve bool
 }
 
 const failoverTransitionBudgetContextKey = "gateway_failover_transition_budget"
@@ -208,6 +211,27 @@ func reserveFailoverTransition(c *gin.Context) bool {
 	return true
 }
 
+// releaseFailoverTransition refunds a reservation that did not become an
+// upstream attempt, such as a pre-upstream hard filter skip.
+func releaseFailoverTransition(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	value, exists := c.Get(failoverTransitionBudgetContextKey)
+	if !exists {
+		return
+	}
+	budget, ok := value.(*failoverTransitionBudget)
+	if !ok || budget == nil {
+		return
+	}
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	if budget.used > 0 {
+		budget.used--
+	}
+}
+
 func NewFailoverStateForRequest(c *gin.Context, maxSwitches int, hasBoundSession bool) *FailoverState {
 	state := NewFailoverState(maxSwitches, hasBoundSession)
 	// Single-group requests retain the legacy account retry budget. The shared
@@ -226,6 +250,8 @@ func NewFailoverStateForRequest(c *gin.Context, maxSwitches int, hasBoundSession
 			maxTotalTransitions = maxGroupTransitions
 		}
 		state.transitionBudget = failoverTransitionBudgetFor(c, maxTotalTransitions)
+	} else {
+		state.skipRetryDeadlineReserve = true
 	}
 	return state
 }
@@ -310,7 +336,10 @@ func (s *FailoverState) HandleFailoverError(
 	if sameAccountRetry {
 		nextRetryCount := s.SameAccountRetryCount[accountID] + 1
 		retryDelay = sameAccountRetryDelayFor(failoverErr, nextRetryCount)
-		if !failoverRetryBudgetAllows(ctx, retryDelay) {
+		// Reserve time for another candidate only when this request actually
+		// has a multi-group route plan. Legacy single-group requests retain
+		// their established same-account retry behavior.
+		if !s.skipRetryDeadlineReserve && !failoverRetryBudgetAllows(ctx, retryDelay) {
 			// Use the remaining request budget on the next configured account or
 			// group instead of starting a retry that cannot leave time for it.
 			sameAccountRetry = false

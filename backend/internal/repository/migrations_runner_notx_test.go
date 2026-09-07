@@ -11,6 +11,12 @@ import (
 )
 
 func TestValidateMigrationExecutionMode(t *testing.T) {
+	t.Run("事务迁移注释中的CONCURRENTLY不触发误判", func(t *testing.T) {
+		nonTx, err := validateMigrationExecutionMode("241_api_key_routing_optimization_foundation.sql", "-- CREATE INDEX CONCURRENTLY is created by a later migration\nALTER TABLE api_keys ADD COLUMN route_version BIGINT;")
+		require.False(t, nonTx)
+		require.NoError(t, err)
+	})
+
 	t.Run("事务迁移包含CONCURRENTLY会被拒绝", func(t *testing.T) {
 		nonTx, err := validateMigrationExecutionMode("001_add_idx.sql", "CREATE INDEX CONCURRENTLY idx_a ON t(a);")
 		require.False(t, nonTx)

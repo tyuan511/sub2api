@@ -172,8 +172,8 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 		if selection != nil {
 			break
 		}
-		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
-			_, _ = h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, routeEndpoint, service.ErrNoAvailableAccounts)
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, model, routeEndpoint, service.ErrNoAvailableAccounts, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("grok_realtime.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
 		}
 		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, model, routeEndpoint, grokRealtimeCandidateCheck)
 		if !advanced {
@@ -416,8 +416,8 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 			// response bytes; never replay it in another physical group.
 			break
 		}
-		if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
-			_, _ = h.gatewayService.RecordAPIKeyRouteFailure(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, selectionModel, routeEndpoint, service.ErrNoAvailableAccounts)
+		if state, observeErr := observeAPIKeyRouteFailure(c, apiKey, selectionModel, routeEndpoint, service.ErrNoAvailableAccounts, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("grok_voice.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
 		}
 		nextAPIKey, nextSubscription, advanced, advanceErr := h.apiKeyRouteRuntime().advance(c, selectionModel, routeEndpoint, grokVoiceCandidateCheck)
 		if !advanced {

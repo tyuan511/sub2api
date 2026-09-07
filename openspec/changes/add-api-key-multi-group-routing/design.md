@@ -100,7 +100,7 @@ PostgreSQL 是 API Key、候选组、策略、版本、使用记录、账单、o
 
 组级路由粘性键包含 API Key、路由版本、会话、模型族和端点；选定组后继续使用现有组内账号粘性。切换后默认滑动保持 1h。原组恢复时进入 HALF_OPEN/RECOVERING：单租约探测成功后只接收新会话，已有备用组会话继续到 TTL 自然结束。只有备用组也不可用时才允许提前迁移。
 
-主动故障转移导致的缓存冷启动单独记录 `actual_usage` 与 `billable_usage`。补偿有原因、上限和窗口，实际供应商成本与实际物理组不被改写。
+主动故障转移导致的缓存冷启动单独记录 `actual_usage` 与 `billable_usage`。跨组不补偿：`billable_usage` 等于 `actual_usage`，`cache_compensation_tokens` 保持 0。实际供应商成本与实际物理组不被改写。组内账号粘性切换仍使用既有 ForceCacheBilling。
 
 ## 8. 共享评分后台构建，用户价格最多在 8 个候选上本地投影
 

@@ -516,7 +516,10 @@ func isMigrationChecksumCompatible(name, dbChecksum, fileChecksum string) bool {
 
 func validateMigrationExecutionMode(name, content string) (bool, error) {
 	normalizedName := strings.ToLower(strings.TrimSpace(name))
-	upperContent := strings.ToUpper(content)
+	// Ignore line comments when checking transactional migrations. A prose
+	// reference to CONCURRENTLY must not make an otherwise transactional
+	// migration look like it contains a concurrent index statement.
+	upperContent := strings.ToUpper(stripSQLLineComment(content))
 	nonTx := strings.HasSuffix(normalizedName, nonTransactionalMigrationSuffix)
 
 	if !nonTx {

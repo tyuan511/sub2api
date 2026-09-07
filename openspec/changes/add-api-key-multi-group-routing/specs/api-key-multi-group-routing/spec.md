@@ -37,6 +37,7 @@
 10. 回切 MUST 优先保护已有会话的缓存连续性；健康恢复不等于缓存已经预热。
 11. 任一有效统计窗口内的分组访问成功率一旦低于 50%，该分组 MUST 立即熔断；价格、速度、容量或用户顺序都不得覆盖该硬阈值。
 12. 价格评分 MUST 使用一定窗口内的整体缓存命中率、普通输入、缓存创建、缓存读取和输出用量，换算成以“输入 100% 命中缓存”为基准的归一化有效倍率；不得直接使用名义分组倍率排序。
+13. 跨分组故障转移 MUST NOT 对用户做冷缓存计费补偿。组内账号粘性切换的 `ForceCacheBilling` 保持既有行为，不得记为跨组补偿。
 
 ## 3. 术语
 
@@ -50,7 +51,7 @@
 - **路由熔断器（route breaker）**：某个 Key 对某个配置分组、模型族和端点类型的短期状态机。
 - **全局健康（global health）**：由所有有效流量聚合出的物理分组、模型族和端点类型的历史服务质量。
 - **语义输出（semantic output）**：会被客户端解释为模型内容、工具调用、媒体结果或最终响应的输出；SSE 心跳或协议注释不属于语义输出。
-- **冷缓存补偿（cold-cache compensation）**：因系统主动故障转移造成上游上下文缓存失效时，对用户计费量进行的有界修正，不改变供应商真实用量。
+- **冷缓存补偿（cold-cache compensation）**：曾规划为系统主动跨组故障转移时对用户计费量的有界修正。产品决定：跨组不补偿；该字段仅保留审计列，跨组请求 MUST 为 0。组内账号粘性切换仍使用既有 `ForceCacheBilling`。
 
 ## 4. 非目标
 
@@ -195,7 +196,7 @@ MUST 建立 `(api_key_id, group_id)` 唯一约束和 `(api_key_id, priority)` �
 - 价格窗口、缓存命中率、输入输出结构、归一化有效倍率和价格置信度。
 - 分组访问结果、标准化失败类别、是否可重试。
 - 排队时间、TTFT、完成耗时、是否输出语义数据。
-- 是否发生分组切换、熔断状态变化和缓存补偿，以及最终真实成本、用户计费成本和最终成功概率评估。
+- 是否发生分组切换和熔断状态变化，以及最终真实成本、用户计费成本和最终成功概率评估。跨组切换 MUST NOT 产生缓存补偿字段。
 
 候选特征 MUST 使用固定 schema 和有界列/数组表达，最多保存当前 Key 允许的 8 个候选；不得把任意模型返回、完整配置对象或无界调试 JSON 直接写入事实表。特征值必须是“决策发生时”的快照，后续价格、健康或模型版本变化不得反向改写历史事实。
 
@@ -228,8 +229,8 @@ MUST 建立 `(api_key_id, group_id)` 唯一约束和 `(api_key_id, priority)` �
 - `group_switch_count`。
 - `routing_decision_id`：与路由尝试链关联。
 - `cache_cold_due_to_failover`。
-- 供应商真实 token 字段与用户计费 token 字段，二者不得互相覆盖。
-- `cache_compensation_tokens` 和补偿原因。
+- 供应商真实 token 字段与用户计费 token 字段，二者不得互相覆盖。跨组故障转移时 `billable_usage` MUST 等于 `actual_usage`。
+- `cache_compensation_tokens` 和补偿原因：跨组请求 MUST 保持 0/空。
 
 ### 6.5 存储职责与性能架构
 
@@ -786,16 +787,16 @@ CLOSED ──失败阈值──> OPEN ──冷却到期──> HALF_OPEN
 
 ### 14.2 故障转移冷缓存补偿
 
-系统无法保证供应商缓存跨分组或账号迁移。对于满足全部条件的首次冷启动请求，平台 SHOULD 提供有界补偿：
+系统无法保证供应商缓存跨分组迁移。产品决定：跨分组故障转移 MUST NOT 改写用户计费量，也 MUST NOT 写入 `cache_compensation_tokens`。
 
-- 会话此前存在成功的路由粘性。
-- 分组切换由系统故障、熔断或容量溢出触发，而不是用户修改配置或自然开启新会话。
-- 请求仍属于同一 `route_version`、模型族和端点类型。
-- 供应商实际用量表明原本可能命中缓存的输入被按普通输入计费。
+减轻冷缓存的手段仅限于：
 
-补偿 MUST 受单次切换次数、时间窗和 token 上限约束，避免重复补偿或滥用。恢复后的排水式回切不应产生第二次强制冷启动。
+- 会话粘性尽量把同一会话留在同一物理分组。
+- 排水式回切避免恢复时二次强制冷启动。
 
-供应商真实用量、真实成本和性能统计 MUST 保留原值；系统只能单独生成 `billable_input_tokens`、`cache_compensation_tokens` 或等价计费字段，MUST NOT 通过把真实 input tokens 原地改写为 cache-read tokens 来伪造实际用量。
+组内账号粘性切换仍可使用既有 `ForceCacheBilling`。该标记 MUST NOT 从上一分组的账号 failover 状态带入下一分组的成功计费。
+
+供应商真实用量、真实成本和性能统计 MUST 保留原值。跨组成功请求的 `billable_usage` MUST 等于 `actual_usage`。
 
 ## 15. 跨分组重试安全
 
@@ -888,7 +889,7 @@ CLOSED ──失败阈值──> OPEN ──冷却到期──> HALF_OPEN
 - `gateway_route_cache_hit_rate{group,model_family,window}`。
 - `gateway_route_normalized_effective_rate{group,model_family,window}`。
 - `gateway_route_price_score_fallback_total{reason,group}`。
-- `gateway_cold_cache_compensation_tokens_total{reason,group}`。
+- `gateway_cold_cache_compensation_tokens_total{reason,group}` 若仍暴露，跨组路径 MUST 保持为 0。
 - `gateway_route_strategy_decisions_total{strategy_version,stage,preference,result}`。
 - `gateway_route_shadow_disagreements_total{baseline_version,candidate_version,preference}`。
 - `gateway_route_canary_guardrail_status{strategy_version,guardrail}`。
@@ -907,7 +908,7 @@ CLOSED ──失败阈值──> OPEN ──冷却到期──> HALF_OPEN
 - 分组切换率或开路率异常升高。
 - `RECOVERING` 长时间无法回到 `CLOSED`。
 - 预估倍率与实际倍率长期显著偏离。
-- 冷缓存补偿量异常升高。
+- 跨组请求出现非零 `cache_compensation_tokens`。
 - shadow/canary 的最终成功率、成本、延迟、切换或冷缓存护栏恶化。
 - 排名翻转率或策略回滚率异常升高。
 - 决策样本覆盖率低于目标、采样概率缺失或实验事件丢失。
@@ -1159,7 +1160,7 @@ PostgreSQL SHALL 保存不可变、可审计的版本元数据。可以使用以
 - 到最终成功的 TTFT、完成耗时和 P95/P99。
 - 每次最终成功的用户实际归一化成本。
 - 首选一次成功率、跨组切换率、重试次数和全部候选失败率。
-- 粘性保持率、异常粘性失效率、冷缓存率和缓存补偿量。
+- 粘性保持率、异常粘性失效率、冷缓存率；跨组补偿量 MUST 保持为 0。
 - 熔断开路率、恢复耗时、容量溢出率和评分振荡次数。
 - 预测成功率/延迟/成本的校准误差、特征缺失和 drift。
 
@@ -1370,9 +1371,9 @@ Prometheus 中的具体策略和模型版本标签只允许暴露 active、canar
 - **THEN** 未知价格表现 MUST NOT 被当作最优价格
 
 #### Scenario: 故障转移制造冷缓存
-- **WHEN** 一个已有缓存的会话因系统跨分组故障转移而产生首次冷缓存或计费补偿
+- **WHEN** 一个已有缓存的会话因系统跨分组故障转移而产生首次冷缓存
 - **THEN** 该事件 MUST NOT 降低目标分组的稳态缓存命中率或重复进入价格训练样本
-- **THEN** 真实用量和补偿事实仍 MUST 独立保留用于成本与审计
+- **THEN** 用户计费 MUST 按供应商真实用量结算，MUST NOT 写入跨组缓存补偿
 
 #### Scenario: 非文本 token 计费模型
 - **WHEN** 模型按次、按图片或使用不具备可比较缓存价格的计费方式
@@ -1457,12 +1458,12 @@ Prometheus 中的具体策略和模型版本标签只允许暴露 active、canar
 - **THEN** 系统 MUST 使用有界退避延长冷却时间
 
 ### Requirement: 缓存失效必须被减轻且真实用量不可被改写
-系统 SHALL 通过会话粘性和排水式回切减少跨分组冷缓存。对系统故障转移导致的合格冷启动 MAY 提供有界计费补偿，但必须同时保存供应商真实用量和独立的用户计费用量。
+系统 SHALL 通过会话粘性和排水式回切减少跨分组冷缓存。跨分组故障转移 MUST NOT 对用户做冷缓存计费补偿。
 
 #### Scenario: 故障转移导致首次冷缓存
 - **WHEN** 一个已有成功粘性的会话因系统故障被迫切换分组且产生可识别的冷缓存差额
-- **THEN** 系统 SHOULD 在配置上限内记录冷缓存补偿
-- **THEN** 用户计费字段 MAY 应用补偿
+- **THEN** 系统 MUST NOT 记录 `cache_compensation_tokens`
+- **THEN** 用户计费字段 MUST 等于供应商真实用量
 - **THEN** 供应商真实 token 和真实成本 MUST 保持不变
 
 #### Scenario: 用户主动修改路由导致冷缓存
@@ -1490,7 +1491,7 @@ Prometheus 中的具体策略和模型版本标签只允许暴露 active、canar
 #### Scenario: 失败尝试产生供应商成本
 - **WHEN** 失败或部分流式请求已经产生供应商可计费量
 - **THEN** 系统 MUST 记录真实成本和实际分组
-- **THEN** 用户计费处理 MUST 遵守部分结果与补偿策略，且不得丢失成本事实
+- **THEN** 用户计费处理 MUST 遵守部分结果策略，且不得丢失成本事实；跨组 MUST NOT 另做缓存补偿
 
 ### Requirement: 预估倍率必须可解释但不得替代实际结算
 系统 SHALL 根据动态排序下各分组的预计实际命中占比和缓存修正后的归一化有效倍率，计算模型相关的整体预估倍率，并同时展示名义倍率、区间、价格窗口和置信度。
@@ -1702,7 +1703,7 @@ Prometheus 中的具体策略和模型版本标签只允许暴露 active、canar
 - **THEN** `api_key_id`、`request_id` 和 `session_hash` MUST NOT 成为常规指标标签
 
 ### Requirement: 路由行为必须可观测和可审计
-系统 SHALL 为路由决定、候选排除、分组切换、熔断变化、恢复探测、倍率估算误差和缓存补偿提供指标与脱敏事件。
+系统 SHALL 为路由决定、候选排除、分组切换、熔断变化、恢复探测和倍率估算误差提供指标与脱敏事件。
 
 #### Scenario: 管理员诊断一次故障转移
 - **WHEN** 管理员使用 request ID 查询请求
@@ -1972,7 +1973,7 @@ Prometheus 中的具体策略和模型版本标签只允许暴露 active、canar
 - [ ] 价格维度用当前价格重放普通输入、5m/1h 缓存创建、缓存读取和输出结构。
 - [ ] 归一化有效倍率以全部逻辑输入 100% 缓存命中为基准，并保留输出成本。
 - [ ] 名义倍率更低但缓存实际成本更高的分组，不会在价格评分中被错误判定为更便宜。
-- [ ] 故障转移造成的首次冷缓存和人工补偿不会污染稳态价格评分。
+- [ ] 故障转移造成的首次冷缓存不会污染稳态价格评分，且跨组不写入计费补偿。
 - [ ] 价格样本不足时按规定保守回退并显示低置信度。
 - [ ] 小样本 100% 成功率不会获得主流量。
 - [ ] PostgreSQL 是路由配置、最终使用、账单和长期审计事实的唯一权威来源。
@@ -2002,7 +2003,7 @@ Prometheus 中的具体策略和模型版本标签只允许暴露 active、canar
 - [ ] 媒体和异步任务在接收状态不明时不会重复创建。
 - [ ] `previous_response_id` 等账号绑定上下文不会被错误迁移。
 - [ ] 成功使用记录的 `group_id` 始终等于实际成功分组。
-- [ ] 供应商真实用量与补偿后的用户计费用量分别保存。
+- [ ] 供应商真实用量与用户计费用量分别保存；跨组请求二者 MUST 相等且补偿字段为 0。
 - [ ] 预估倍率按模型、用户倍率和预测分配计算，并显示置信度。
 - [ ] 权限或分组状态变化后缓存及时失效。
 - [ ] 全部候选不可用时返回稳定错误，绝不访问集合外分组。
@@ -2045,7 +2046,7 @@ Prometheus 中的具体策略和模型版本标签只允许暴露 active、canar
 - Builder/事件消费者的独立数据库连接预算、查询超时、分区周期和归档批量。
 - 测试与生产环境允许的新增路由 P95/P99 延迟、Redis 错误率和降级率门槛。
 - 路由粘性 TTL；默认建议与现有账号粘性保持 1 小时。
-- 冷缓存补偿的时间、次数和 token 上限。
+- （已取消）跨组冷缓存补偿的时间、次数和 token 上限；跨组不补偿。
 - 路由尝试事实和高基数指标的保留周期。
 - 第一阶段各协议与端点的支持矩阵。
 - 策略 draft/shadow/canary/active 的晋级条件、最小观察周期、稳定分桶比例和自动回滚阈值。

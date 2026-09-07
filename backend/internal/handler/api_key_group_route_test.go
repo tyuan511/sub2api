@@ -88,6 +88,36 @@ func TestAPIKeyRouteRuntimeAdvanceSkipsRequestIneligibleCandidate(t *testing.T) 
 	require.Equal(t, 2, state.SwitchCount)
 }
 
+func TestAPIKeyRouteRuntimeAdvanceDoesNotSpendBudgetOnHardFilterSkip(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ids := []int64{31, 32, 33}
+	routes := make([]service.APIKeyGroupRoute, 0, len(ids))
+	for priority, id := range ids {
+		routes = append(routes, service.APIKeyGroupRoute{
+			GroupID: id, Priority: priority, Enabled: true,
+			Group: &service.Group{ID: id, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard},
+		})
+	}
+	apiKey := &service.APIKey{ID: 29, GroupID: &ids[0], Group: routes[0].Group, User: &service.User{ID: 27}, RouteVersion: 2, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, InitialGroupID: ids[0]})
+	failoverTransitionBudgetFor(c, 1)
+
+	actual, _, advanced, err := (apiKeyRouteRuntime{}).advance(c, "gpt-5", "/v1/responses", func(candidate *service.APIKey) error {
+		if candidate.Group.ID == ids[1] {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	require.True(t, advanced)
+	require.Equal(t, ids[2], actual.Group.ID)
+	require.False(t, reserveFailoverTransition(c), "the successful group switch should be the only budgeted transition")
+}
+
 func TestAPIKeyRouteRuntimeEnsureInitialFiltersWithoutCountingSwitch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ids := []int64{24, 25, 26}
@@ -381,7 +411,8 @@ func TestAPIKeyRoutingLearningCannotResurrectHardExcludedCandidate(t *testing.T)
 func TestSmartCanarySelectionOnlyAppliesToNewSession(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	groupIDs := []int64{41, 42}
-	apiKey := &service.APIKey{ID: 39, RouteVersion: 7, ScheduleMode: service.APIKeyScheduleModeSmart,
+	preference := service.APIKeySmartPreferenceBalanced
+	apiKey := &service.APIKey{ID: 39, RouteVersion: 7, ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &preference,
 		GroupRoutes: []service.APIKeyGroupRoute{
 			{GroupID: groupIDs[0], Priority: 0, Enabled: true, Group: &service.Group{ID: groupIDs[0], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
 			{GroupID: groupIDs[1], Priority: 1, Enabled: true, Group: &service.Group{ID: groupIDs[1], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
@@ -396,6 +427,24 @@ func TestSmartCanarySelectionOnlyAppliesToNewSession(t *testing.T) {
 	require.False(t, shouldActivateSmartRoute(c, true, false), "accepted healthy sticky session must bypass canary strategy selection")
 	require.True(t, shouldActivateSmartRoute(c, false, false), "new session may use the active/canary strategy")
 	require.False(t, shouldActivateSmartRoute(c, false, true), "Redis route-state failure must degrade to frozen sequential order")
+}
+
+func TestSequentialScheduleNeverActivatesSmartOrRecoveryReorder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	groupIDs := []int64{61, 62}
+	apiKey := &service.APIKey{ID: 59, RouteVersion: 3, ScheduleMode: service.APIKeyScheduleModeSequential,
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: groupIDs[0], Priority: 0, Enabled: true, Group: &service.Group{ID: groupIDs[0], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
+			{GroupID: groupIDs[1], Priority: 1, Enabled: true, Group: &service.Group{ID: groupIDs[1], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
+		},
+	}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	require.Equal(t, service.APIKeyScheduleModeSequential, plan.ScheduleMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}})
+	require.False(t, shouldActivateSmartRoute(c, false, false), "sequential keys must keep configured priority, including during recovery")
 }
 
 func TestRecoveryTrafficBudgetKeepsRecoveredCheapRouteOnNewSessionSubset(t *testing.T) {
@@ -523,6 +572,35 @@ func TestAPIKeyRouteReplayLatchBlocksAfterSemanticOutputButAllowsHeartbeats(t *t
 	require.NoError(t, err)
 	require.False(t, apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, service.ErrNoAvailableAccounts), "semantic output permanently closes cross-group replay")
 	require.False(t, apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, service.ErrSubscriptionExpired), "non-replayable failures stay blocked before and after output")
+}
+
+func TestObserveAPIKeyRouteFailureRecordsAfterSemanticOutput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ids := []int64{71, 72}
+	routes := []service.APIKeyGroupRoute{
+		{GroupID: ids[0], Priority: 0, Enabled: true, Group: &service.Group{ID: ids[0], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
+		{GroupID: ids[1], Priority: 1, Enabled: true, Group: &service.Group{ID: ids[1], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
+	}
+	apiKey := &service.APIKey{ID: 70, GroupID: &ids[0], Group: routes[0].Group, RouteVersion: 4, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: ids[0]})
+	_, _ = c.Writer.Write([]byte("data: {\"type\":\"response.output_text.delta\"}\n\n"))
+	require.False(t, apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, service.ErrNoAvailableAccounts))
+
+	var recordedGroup int64
+	state, observeErr := observeAPIKeyRouteFailure(c, apiKey, "gpt-5", "/v1/responses", &service.UpstreamFailoverError{StatusCode: 502},
+		func(_ context.Context, _, _, groupID int64, _, _ string, _ error) (string, error) {
+			recordedGroup = groupID
+			return service.APIKeyRouteBreakerOpen, nil
+		})
+	require.NoError(t, observeErr)
+	require.Equal(t, service.APIKeyRouteBreakerOpen, state)
+	require.Equal(t, ids[0], recordedGroup)
+	routeState, _ := middleware2.GetAPIKeyRouteState(c)
+	require.True(t, routeState.StickyBroken)
 }
 
 func TestAPIKeyRouteAdvanceErrorOnlyClassifiesSubscriptionAndBillingFailuresAsBilling(t *testing.T) {
