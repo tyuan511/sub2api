@@ -177,7 +177,7 @@ func TestChannelMonitorV2MatrixJoinsProbeByVisibleGroupName(t *testing.T) {
 	}
 	svc := NewChannelMonitorV2Service(repo)
 	svc.SetProbeReader(channelMonitorV2ProbeReaderStub{probes: map[string]*domain.BazaarLinkProbeResult{
-		"visible": {Status: "completed", IdentityStatus: "confirmed", PredictedModel: "gpt-5", CheckedAt: now, Error: "private transport error"},
+		"visible": {RunID: "e9475a75-9d1d-4624-9efd-0f3787eb84ee", Status: "completed", IdentityStatus: "confirmed", PredictedModel: "gpt-5", CheckedAt: now, Error: "private transport error"},
 		"hidden":  {Status: "completed", IdentityStatus: "mismatch", CheckedAt: now},
 	}})
 
@@ -186,6 +186,7 @@ func TestChannelMonitorV2MatrixJoinsProbeByVisibleGroupName(t *testing.T) {
 	require.Contains(t, result.ProbesByGroup, "visible")
 	require.NotContains(t, result.ProbesByGroup, "hidden")
 	require.Equal(t, "confirmed", result.ProbesByGroup["visible"].IdentityStatus)
+	require.Equal(t, "https://bazaarlink.ai/probe?runId=e9475a75-9d1d-4624-9efd-0f3787eb84ee", result.ProbesByGroup["visible"].ReportURL)
 }
 
 func TestChannelMonitorV2ConfigValidation(t *testing.T) {

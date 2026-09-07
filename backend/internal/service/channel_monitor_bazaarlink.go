@@ -16,6 +16,17 @@ import (
 )
 
 const bazaarLinkProbeURL = "https://bazaarlink.ai/api/probe/run"
+const bazaarLinkProbeReportBaseURL = "https://bazaarlink.ai/probe"
+
+// BazaarLinkProbeReportURL is the public report page for a remote run.
+// Empty run IDs produce no link; the raw API path is never returned.
+func BazaarLinkProbeReportURL(runID string) string {
+	runID = strings.TrimSpace(runID)
+	if runID == "" {
+		return ""
+	}
+	return bazaarLinkProbeReportBaseURL + "?runId=" + url.QueryEscape(runID)
+}
 
 const (
 	bazaarLinkTaskStatusQueued    = "queued"
@@ -110,6 +121,19 @@ type bazaarLinkProbeResponse struct {
 	TotalOutputTokens *int `json:"totalOutputTokens"`
 }
 
+func normalizeBazaarLinkIdentityStatus(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "confirmed", "match", "matched":
+		return "confirmed"
+	case "mismatch", "no_match":
+		return "mismatch"
+	case "insufficient_data":
+		return "insufficient_data"
+	default:
+		return strings.TrimSpace(status)
+	}
+}
+
 func bazaarLinkTaskStatus(status string) string {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case bazaarLinkTaskStatusQueued, "pending", "accepted":
@@ -176,7 +200,7 @@ func compactBazaarLinkProbeResult(decoded bazaarLinkProbeResponse, checkedAt tim
 		CheckedAt:         checkedAt,
 	}
 	if assessment := decoded.IdentityAssessment; assessment != nil {
-		result.IdentityStatus = assessment.Status
+		result.IdentityStatus = normalizeBazaarLinkIdentityStatus(assessment.Status)
 		result.Confidence = assessment.Confidence
 		result.ClaimedModel = assessment.ClaimedModel
 		result.PredictedFamily = assessment.PredictedFamily

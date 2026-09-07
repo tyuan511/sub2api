@@ -486,6 +486,7 @@ export default {
       confidence: 'Confidence: {value}',
       risks: 'Risk flags: {flags}',
       checkedAt: 'Checked: {time}',
+      viewReport: 'View full report',
       status: {
         confirmed: 'Identity confirmed',
         mismatch: 'Identity mismatch',

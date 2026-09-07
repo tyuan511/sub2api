@@ -55,6 +55,21 @@ func TestRunBazaarLinkProbeKeepsOnlyCompactVerdict(t *testing.T) {
 	require.NotContains(t, string(stored), "secret-key")
 }
 
+func TestNormalizeBazaarLinkIdentityStatus(t *testing.T) {
+	require.Equal(t, "confirmed", normalizeBazaarLinkIdentityStatus("match"))
+	require.Equal(t, "confirmed", normalizeBazaarLinkIdentityStatus("MATCHED"))
+	require.Equal(t, "confirmed", normalizeBazaarLinkIdentityStatus("confirmed"))
+	require.Equal(t, "mismatch", normalizeBazaarLinkIdentityStatus("no_match"))
+	require.Equal(t, "insufficient_data", normalizeBazaarLinkIdentityStatus("insufficient_data"))
+	require.Empty(t, normalizeBazaarLinkIdentityStatus("  "))
+}
+
+func TestBazaarLinkProbeReportURL(t *testing.T) {
+	require.Empty(t, BazaarLinkProbeReportURL("  "))
+	require.Equal(t, "https://bazaarlink.ai/probe?runId=e9475a75-9d1d-4624-9efd-0f3787eb84ee", BazaarLinkProbeReportURL(" e9475a75-9d1d-4624-9efd-0f3787eb84ee "))
+	require.Equal(t, "https://bazaarlink.ai/probe?runId=a+b", BazaarLinkProbeReportURL("a b"))
+}
+
 func TestPollBazaarLinkProbeUsesRunIDAndKeepsVerdict(t *testing.T) {
 	originalClient := bazaarLinkHTTPClient
 	t.Cleanup(func() { bazaarLinkHTTPClient = originalClient })

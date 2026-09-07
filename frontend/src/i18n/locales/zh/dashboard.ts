@@ -491,6 +491,7 @@ export default {
       confidence: '置信度：{value}',
       risks: '风险标记：{flags}',
       checkedAt: '检测时间：{time}',
+      viewReport: '查看完整报告',
       status: {
         confirmed: '身份一致',
         mismatch: '身份不一致',

@@ -25,6 +25,7 @@ export type CheckMode = 'probe' | 'quota' | 'quota_probe'
 
 export interface BazaarLinkProbeResult {
   run_id?: string
+  report_url?: string
   status?: string
   score?: number | null
   identity_status?: 'confirmed' | 'mismatch' | 'insufficient_data' | string

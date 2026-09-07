@@ -262,12 +262,14 @@ type ChannelMonitorV2MatrixRow struct {
 
 // ChannelMonitorV2ProbeResult is the public, credential-free BazaarLink
 // projection displayed on V2 cards. Only claimed model + confidence (+ status
-// and time) are exposed; risk flags and predicted-model detail stay out.
+// and time) and the public report URL are exposed; risk flags and
+// predicted-model detail stay out.
 type ChannelMonitorV2ProbeResult struct {
 	Status         string    `json:"status,omitempty"`
 	IdentityStatus string    `json:"identity_status,omitempty"`
 	Confidence     *float64  `json:"confidence,omitempty"`
 	ClaimedModel   string    `json:"claimed_model,omitempty"`
+	ReportURL      string    `json:"report_url,omitempty"`
 	CheckedAt      time.Time `json:"checked_at"`
 }
 
@@ -585,6 +587,7 @@ func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMoni
 					IdentityStatus: probe.IdentityStatus,
 					Confidence:     probe.Confidence,
 					ClaimedModel:   probe.ClaimedModel,
+					ReportURL:      BazaarLinkProbeReportURL(probe.RunID),
 					CheckedAt:      probe.CheckedAt,
 				}
 			}

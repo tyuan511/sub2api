@@ -10,9 +10,11 @@
       </span>
     </template>
     <div class="space-y-2 text-left">
-      <div class="flex flex-wrap items-center gap-2 pr-2">
+      <div class="flex items-baseline gap-1.5 pr-2">
         <span class="font-semibold">{{ t('monitorCommon.identityProbe.title') }}</span>
-        <span class="rounded-full px-1.5 py-0.5 font-medium" :class="identityClass">{{ identityLabel }}</span>
+        <span class="text-[11px] font-medium leading-none" :class="identityClass" data-testid="identity-status">
+          {{ identityLabel }}
+        </span>
       </div>
       <div class="space-y-1 text-gray-300">
         <div v-if="result.claimed_model">
@@ -25,6 +27,16 @@
         <div v-if="result.checked_at" class="text-gray-400">
           {{ t('monitorCommon.identityProbe.checkedAt', { time: formatCheckedAt(result.checked_at) }) }}
         </div>
+        <a
+          v-if="reportUrl"
+          :href="reportUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex text-amber-300 underline-offset-2 hover:underline"
+          @click.stop
+        >
+          {{ t('monitorCommon.identityProbe.viewReport') }}
+        </a>
       </div>
     </div>
   </HelpTooltip>
@@ -48,34 +60,81 @@ const probeError = computed(() => {
   return typeof value === 'string' && value.trim() ? value : ''
 })
 
-const identityLabel = computed(() => {
-  if (props.result?.status === 'timed_out') return t('monitorCommon.identityProbe.status.timed_out')
-  if (props.result?.status === 'queued' || props.result?.status === 'running') {
-    return t('monitorCommon.identityProbe.status.pending')
+const reportUrl = computed(() => {
+  const result = props.result
+  if (!result) return ''
+  if ('report_url' in result && typeof result.report_url === 'string' && result.report_url.trim()) {
+    return result.report_url.trim()
   }
-  if (props.result?.status === 'failed') return t('monitorCommon.identityProbe.status.failed')
-  const status = props.result?.identity_status
-  if (status === 'confirmed') return t('monitorCommon.identityProbe.status.confirmed')
-  if (status === 'mismatch') return t('monitorCommon.identityProbe.status.mismatch')
-  if (status === 'insufficient_data') return t('monitorCommon.identityProbe.status.insufficient_data')
-  if (!status) return t('monitorCommon.identityProbe.unknown')
+  if ('run_id' in result && typeof result.run_id === 'string' && result.run_id.trim()) {
+    return `https://bazaarlink.ai/probe?runId=${encodeURIComponent(result.run_id.trim())}`
+  }
+  return ''
+})
+
+type IdentityKind = 'timed_out' | 'pending' | 'failed' | 'confirmed' | 'mismatch' | 'insufficient_data' | 'unknown'
+
+function normalizeIdentityStatus(status?: string): string {
+  switch ((status || '').trim().toLowerCase()) {
+    case 'confirmed':
+    case 'match':
+    case 'matched':
+      return 'confirmed'
+    case 'mismatch':
+    case 'no_match':
+      return 'mismatch'
+    case 'insufficient_data':
+      return 'insufficient_data'
+    default:
+      return (status || '').trim()
+  }
+}
+
+const identityKind = computed<IdentityKind | string>(() => {
+  if (props.result?.status === 'timed_out') return 'timed_out'
+  if (props.result?.status === 'queued' || props.result?.status === 'running') return 'pending'
+  if (props.result?.status === 'failed') return 'failed'
+  const status = normalizeIdentityStatus(props.result?.identity_status)
+  if (status === 'confirmed' || status === 'mismatch' || status === 'insufficient_data') return status
+  if (!status) return 'unknown'
   return status
 })
 
-const identityClass = computed(() => {
-  if (props.result?.status === 'failed' || props.result?.status === 'timed_out') {
-    return 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300'
-  }
-  if (props.result?.status === 'queued' || props.result?.status === 'running') {
-    return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
-  }
-  switch (props.result?.identity_status) {
+const identityLabel = computed(() => {
+  const kind = identityKind.value
+  switch (kind) {
+    case 'timed_out':
+      return t('monitorCommon.identityProbe.status.timed_out')
+    case 'pending':
+      return t('monitorCommon.identityProbe.status.pending')
+    case 'failed':
+      return t('monitorCommon.identityProbe.status.failed')
     case 'confirmed':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+      return t('monitorCommon.identityProbe.status.confirmed')
     case 'mismatch':
-      return 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300'
+      return t('monitorCommon.identityProbe.status.mismatch')
+    case 'insufficient_data':
+      return t('monitorCommon.identityProbe.status.insufficient_data')
+    case 'unknown':
+      return t('monitorCommon.identityProbe.unknown')
     default:
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
+      return kind
+  }
+})
+
+const identityClass = computed(() => {
+  switch (identityKind.value) {
+    case 'confirmed':
+      return 'text-emerald-400'
+    case 'mismatch':
+    case 'failed':
+    case 'timed_out':
+      return 'text-rose-400'
+    case 'pending':
+    case 'insufficient_data':
+      return 'text-amber-400'
+    default:
+      return 'text-gray-400'
   }
 })
 

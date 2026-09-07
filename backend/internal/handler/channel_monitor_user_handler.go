@@ -84,13 +84,15 @@ type channelMonitorUserListItem struct {
 }
 
 // channelMonitorUserProbeResult is deliberately smaller than the internal
-// result: task IDs, token counts, upstream errors and transport details never
-// cross the user API boundary.
+// result: token counts, upstream errors and transport details never cross
+// the user API boundary. ReportURL is the public BazaarLink page derived
+// from the remote run ID; the raw run ID itself is not exposed.
 type channelMonitorUserProbeResult struct {
 	Status         string    `json:"status,omitempty"`
 	IdentityStatus string    `json:"identity_status,omitempty"`
 	Confidence     *float64  `json:"confidence,omitempty"`
 	ClaimedModel   string    `json:"claimed_model,omitempty"`
+	ReportURL      string    `json:"report_url,omitempty"`
 	CheckedAt      time.Time `json:"checked_at"`
 }
 
@@ -98,13 +100,14 @@ func publicProbeResult(result *domain.BazaarLinkProbeResult) *channelMonitorUser
 	if result == nil {
 		return nil
 	}
-	// User-facing projection: claimed model + confidence (+ status/time). No risk
-	// flags, predicted model, score, or transport details.
+	// User-facing projection: claimed model + confidence (+ status/time) and
+	// a public report link. No risk flags, predicted model, score, or transport details.
 	return &channelMonitorUserProbeResult{
 		Status:         result.Status,
 		IdentityStatus: result.IdentityStatus,
 		Confidence:     result.Confidence,
 		ClaimedModel:   result.ClaimedModel,
+		ReportURL:      service.BazaarLinkProbeReportURL(result.RunID),
 		CheckedAt:      result.CheckedAt,
 	}
 }
