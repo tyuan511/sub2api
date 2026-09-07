@@ -9,6 +9,7 @@ import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
 import { updateFavicon } from '@/utils/branding'
+import { DEFAULT_SEO_SITE_NAME, seoForRoute, updateSeoMetadata } from '@/utils/seo'
 
 const router = useRouter()
 const route = useRoute()
@@ -24,7 +25,14 @@ function updateDocumentTitle() {
     ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
     ...(authStore.isAdmin ? adminSettingsStore.customMenuItems : []),
   ]
-  document.title = resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems)
+  const isHome = route.path === '/' || route.path === '/home'
+  const title = isHome
+    ? `${appStore.siteName || DEFAULT_SEO_SITE_NAME} - AI API Gateway`
+    : resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems)
+  const configuredDescription = route.path === '/' || route.path === '/home'
+    ? appStore.cachedPublicSettings?.site_subtitle
+    : undefined
+  updateSeoMetadata(seoForRoute(route, title, appStore.siteName, configuredDescription))
 }
 
 // Watch for site settings changes and update favicon/title
@@ -44,6 +52,7 @@ watch(
     () => route.meta.title,
     () => route.meta.titleKey,
     () => appStore.siteName,
+    () => appStore.cachedPublicSettings?.site_subtitle,
     () => appStore.cachedPublicSettings?.custom_menu_items,
     () => authStore.isAdmin,
     () => adminSettingsStore.customMenuItems,

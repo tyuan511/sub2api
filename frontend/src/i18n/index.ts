@@ -75,6 +75,7 @@ export async function setLocale(locale: string): Promise<void> {
   const { useAppStore } = await import('@/stores/app')
   const { useAuthStore } = await import('@/stores/auth')
   const { useAdminSettingsStore } = await import('@/stores/adminSettings')
+  const { seoForRoute, updateSeoMetadata } = await import('@/utils/seo')
   const route = router.currentRoute.value
   const appStore = useAppStore()
   const authStore = useAuthStore()
@@ -83,7 +84,16 @@ export async function setLocale(locale: string): Promise<void> {
     ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
     ...(authStore.isAdmin ? adminSettingsStore.customMenuItems : []),
   ]
-  document.title = resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems)
+  const isHome = route.path === '/' || route.path === '/home'
+  const title = isHome
+    ? `${appStore.siteName || 'FastVibe'} - AI API Gateway`
+    : resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems)
+  updateSeoMetadata(seoForRoute(
+    route,
+    title,
+    appStore.siteName,
+    isHome ? appStore.cachedPublicSettings?.site_subtitle : undefined,
+  ))
 }
 
 export function getLocale(): LocaleCode {
