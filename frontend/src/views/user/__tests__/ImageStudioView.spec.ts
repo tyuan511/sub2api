@@ -150,7 +150,7 @@ describe('image studio user flow', () => {
   it('displays history from oldest to newest without changing the paginated store order', async () => {
     mocks.creations = [3, 2, 1].map(index => ({ id: `creation-${index}`, prompt: `Creation ${index}`, model: 'gpt-image-2', ratio: '1:1', resolution: '1K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: index * 1000, status: 'failed', images: [], references: [] }))
     const wrapper = render(); await flushPromises()
-    expect(wrapper.findAll('.creation-caption > p').map(item => item.text())).toEqual(['Creation 1', 'Creation 2', 'Creation 3'])
+    expect(wrapper.findAll('.creation-prompt').map(item => item.text())).toEqual(['Creation 1', 'Creation 2', 'Creation 3'])
     expect(mocks.creations.map(item => item.id)).toEqual(['creation-3', 'creation-2', 'creation-1'])
     wrapper.unmount()
   })

@@ -115,8 +115,8 @@ export function healthScoreClass(
 ): string {
   const score = healthModeScore(health, mode)
   if (score == null) {
-    if (requestCount <= 0) return 'health-unknown'
     // Fall back to coarse state when score is absent (older payloads).
+    // User payloads redact request_count to 0, so do not treat that as empty.
     const coarse =
       mode === 'success'
         ? health.error_rate
@@ -125,6 +125,8 @@ export function healthScoreClass(
           : mode === 'cache'
             ? health.cache
             : health.overall
+    if (coarse && coarse !== 'unknown') return healthStateClass(coarse)
+    if (requestCount <= 0) return 'health-unknown'
     return healthStateClass(coarse)
   }
   return `health-${scoreToBand(score)}`

@@ -13,7 +13,11 @@
         <article v-for="creation in chronologicalCreations" :key="creation.id" class="creation" :data-status="creation.status">
           <div class="creation-description">
             <StudioReferencePicker v-if="creation.references.length" :references="creation.references" read-only />
-            <div class="creation-caption"><p>{{ creation.prompt }}</p><div class="creation-meta"><span>{{ creation.model }}</span><span>{{ creation.ratio === 'auto' ? t('imageStudio.autoRatio') : creation.ratio }}</span><span v-if="creation.ratio !== 'auto'" :title="creation.size?.replace('x', '×')">{{ creation.model.startsWith('gpt-image-2') ? creation.resolution : t('imageStudio.standard') }}</span><span>{{ creation.keyName }}</span><span v-if="creation.references.length">{{ t('imageStudio.referenceCount', { count: creation.references.length }) }}</span><time :datetime="new Date(creation.createdAt).toISOString()">{{ formatTime(creation.createdAt) }}</time></div></div>
+            <div class="creation-caption">
+              <p class="creation-prompt" tabindex="0">{{ creation.prompt }}</p>
+              <p class="creation-prompt-pop" aria-hidden="true">{{ creation.prompt }}</p>
+              <div class="creation-meta"><span>{{ creation.model }}</span><span>{{ creation.ratio === 'auto' ? t('imageStudio.autoRatio') : creation.ratio }}</span><span v-if="creation.ratio !== 'auto'" :title="creation.size?.replace('x', '×')">{{ creation.model.startsWith('gpt-image-2') ? creation.resolution : t('imageStudio.standard') }}</span><span>{{ creation.keyName }}</span><span v-if="creation.references.length">{{ t('imageStudio.referenceCount', { count: creation.references.length }) }}</span><time :datetime="new Date(creation.createdAt).toISOString()">{{ formatTime(creation.createdAt) }}</time></div>
+            </div>
           </div>
           <div v-if="creation.status === 'generating'" class="creation-grid" :style="{ '--image-count': creation.count }" role="status">
             <StudioGenerationPlaceholder v-for="index in creation.count" :key="index" :ratio="creation.ratio" :index="index - 1" />
@@ -500,11 +504,43 @@ onBeforeUnmount(() => {
 .prompt-suggestions button:hover { border-color: var(--studio-accent); transform: translateY(-1px); }
 .prompt-suggestions button svg { flex-shrink: 0; color: var(--studio-accent); }
 .prompt-suggestions button svg:last-child { margin-left: auto; width: 13px; transform: rotate(45deg); }
-.creation { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid var(--studio-line); }
+.creation { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid var(--studio-line); position: relative; }
 .creation:last-child { margin-bottom: 0; border-bottom: 0; }
+.creation:has(.creation-caption:hover),
+.creation:has(.creation-caption:focus-within) { z-index: 4; }
 .creation-description { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
-.creation-caption { min-width: 0; padding-top: 1px; }
-.creation-caption > p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.7; max-height: 100px; overflow: auto; }
+.creation-caption { min-width: 0; padding-top: 1px; position: relative; }
+.creation-prompt,
+.creation-prompt-pop {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.creation-prompt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.creation-prompt-pop {
+  display: none;
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  right: 0;
+  top: 0;
+  max-height: min(48vh, 360px);
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--studio-surface);
+  border: 1px solid var(--studio-line);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgb(15 18 28 / .16);
+  scrollbar-width: thin;
+}
+.creation-caption:hover .creation-prompt-pop,
+.creation-caption:focus-within .creation-prompt-pop { display: block; }
 .creation-meta { display: flex; flex-wrap: wrap; gap: 7px 0; align-items: center; color: var(--studio-muted); font-size: 11px; margin-top: 6px; }
 .creation-meta > * + *::before { content: '·'; margin: 0 9px; opacity: .6; }
 .creation-grid { display: grid; grid-template-columns: repeat(var(--image-count), minmax(0, 1fr)); gap: 8px; max-width: 100%; }

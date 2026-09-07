@@ -313,9 +313,9 @@ const defaultThresholds = {
   // Higher is better: below 85% watch, below 60% critical.
   warning_cache_rate: 0.85,
   critical_cache_rate: 0.60,
-  error_weight: 0.60,
-  ttft_weight: 0.20,
-  cache_weight: 0.20,
+  error_weight: 0.75,
+  ttft_weight: 0.25,
+  cache_weight: 0,
 }
 
 /** Factory ignored categories (matches backend DefaultChannelMonitorV2IgnoredErrorCategories). */

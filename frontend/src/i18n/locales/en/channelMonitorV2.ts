@@ -117,7 +117,7 @@ export default {
       ignoredSummary: 'Ignored {ignored} categories · counted in error rate {counted} categories',
       healthTitle: 'Health thresholds',
       healthHint:
-        'Controls user-facing color bands and overall score. Defaults are tolerant so small error rates or low cache do not immediately show as unhealthy.',
+        'Controls user-facing color bands and overall score. Overall health uses availability and first token only; cache rate is not mixed in.',
       fields: {
         minimumSample: 'Minimum samples',
         warningError: 'Error rate watch %',
@@ -132,8 +132,8 @@ export default {
       namedModelsCount: 'Showing {count} named model dimensions; unlisted models fold into per-platform “Other”.',
       userContractTitle: 'User-facing display contract',
       userContract: {
-        health: 'Health color weights: error rate 60% + first-token P50 20% + cache rate 20% (thresholds configurable above)',
-        trend: 'Trend can switch between pulse matrix and line chart (error · cache · first token)',
+        health: 'Health color weights: availability (error rate) 75% + first-token P50 25%; cache rate is display-only and not mixed into the overall score',
+        trend: 'Trend can switch between pulse matrix and line chart (availability · first token)',
         latency: 'Latency shows AVG · P50 · P90; absolute request / error counts are not shown',
         models: 'Empty model lists show real names and never dump everything into “Other”',
       },

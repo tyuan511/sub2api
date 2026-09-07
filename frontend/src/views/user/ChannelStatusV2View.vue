@@ -44,13 +44,13 @@
             </div>
           </div>
           <button
-            class="btn btn-secondary btn-icon flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-400 dark:hover:bg-dark-600"
+            class="btn btn-secondary"
             type="button"
             :title="t('common.refresh')"
             :disabled="loading"
             @click="reload(false)"
           >
-            <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
+            <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
           </button>
         </header>
 
@@ -89,8 +89,7 @@
           </div>
         </div>
 
-        <!-- Range + V2 contract + overall rates (screenshot layout) -->
-        <div class="monitor-toolbar flex flex-nowrap items-center gap-2 overflow-x-auto px-4 py-3 sm:px-5">
+        <div class="monitor-toolbar flex flex-nowrap items-center gap-3 overflow-x-auto px-4 py-2.5 sm:px-5">
           <div
             class="tabs inline-flex shrink-0"
             role="group"
@@ -100,18 +99,13 @@
               v-for="option in ranges"
               :key="option.value"
               type="button"
-              class="tab !px-2 !py-1 text-xs sm:!px-2.5"
+              class="tab !px-2.5 !py-1 text-xs"
               :class="filter.range === option.value ? 'tab-active' : ''"
               @click="setRange(option.value)"
             >
               {{ option.label }}
             </button>
           </div>
-
-          <span class="mx-0.5 hidden h-5 w-px shrink-0 bg-gray-200 dark:bg-dark-700 sm:block" aria-hidden="true"></span>
-          <span class="hidden shrink-0 text-xs text-gray-500 dark:text-gray-400 sm:inline">
-            {{ t('channelMonitorV2.passiveUsage') }}
-          </span>
           <span
             v-if="snapshot"
             class="ml-auto shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400"

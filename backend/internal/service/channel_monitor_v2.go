@@ -126,8 +126,9 @@ type ChannelMonitorV2Health struct {
 	ErrorRate string `json:"error_rate"`
 	TTFT      string `json:"ttft"`
 	Cache     string `json:"cache"`
-	// Score is 0–100 when samples are sufficient; omitted/null when unknown.
-	// Overall blends error-rate, TTFT p50, and cache rate (weights in Thresholds).
+	// Score is 0–100 when the bucket has traffic; omitted/null when unknown.
+	// Overall blends error-rate (availability) and TTFT p50 only. Cache is
+	// scored independently for display and is not mixed into the overall score.
 	Score          *float64                         `json:"score,omitempty"`
 	ErrorRateScore *float64                         `json:"error_rate_score,omitempty"`
 	TTFTScore      *float64                         `json:"ttft_score,omitempty"`
@@ -137,7 +138,9 @@ type ChannelMonitorV2Health struct {
 }
 
 type ChannelMonitorV2HealthThresholds struct {
-	// MinimumSample is required before scoring request/latency/cache signals.
+	// MinimumSample is retained for config compatibility. Pulse/matrix buckets
+	// score availability and TTFT as soon as they have traffic so hourly cells
+	// are not greyed out by a 50-request floor.
 	MinimumSample int64 `json:"minimum_sample"`
 	// WarningErrorRate / CriticalErrorRate map to discrete bands for legacy UI.
 	WarningErrorRate  float64 `json:"warning_error_rate"`
@@ -150,7 +153,8 @@ type ChannelMonitorV2HealthThresholds struct {
 	// Higher cache rate is better; defaults 20% warning / 5% critical.
 	WarningCacheRate  float64 `json:"warning_cache_rate"`
 	CriticalCacheRate float64 `json:"critical_cache_rate"`
-	// ErrorWeight + TTFTWeight + CacheWeight should sum to 1.0.
+	// ErrorWeight + TTFTWeight should sum to 1.0 (renormalized if they do not).
+	// CacheWeight is retained for config compatibility but is not used in overall.
 	ErrorWeight float64 `json:"error_weight"`
 	TTFTWeight  float64 `json:"ttft_weight"`
 	CacheWeight float64 `json:"cache_weight"`
@@ -850,13 +854,13 @@ func DefaultChannelMonitorV2HealthThresholds() ChannelMonitorV2HealthThresholds 
 		TargetTTFTMs:      3000,
 		WarningTTFTMs:     3000,
 		CriticalTTFTMs:    10000,
-		// A zero/zero cache threshold means cache misses do not affect health
-		// until an operator explicitly configures cache scoring.
+		// A zero/zero cache threshold means cache misses do not affect the
+		// independent cache band. Cache is never mixed into overall health.
 		WarningCacheRate:  0,
 		CriticalCacheRate: 0,
-		ErrorWeight:       0.60,
-		TTFTWeight:        0.20,
-		CacheWeight:       0.20,
+		ErrorWeight:       0.75,
+		TTFTWeight:        0.25,
+		CacheWeight:       0,
 	}
 }
 
@@ -1021,29 +1025,27 @@ func ChannelMonitorV2HealthForWithThresholds(metrics ChannelMonitorV2Metric, thr
 	}
 	parts := make([]scored, 0, 3)
 
-	if metrics.RequestCount >= result.MinimumSample {
+	if metrics.RequestCount > 0 {
 		s := errorRateScore(metrics.ErrorRate, thresholds.CriticalErrorRate)
 		result.ErrorRateScore = &s
 		result.ErrorRate = healthBand(metrics.ErrorRate, thresholds.WarningErrorRate, thresholds.CriticalErrorRate)
 		parts = append(parts, scored{score: s, weight: thresholds.ErrorWeight, band: result.ErrorRate})
 	}
 	// Prefer p50 for TTFT scoring; fall back to p95 only if p50 is missing.
-	if metrics.TTFT.SampleCount >= result.MinimumSample {
+	if metrics.TTFT.P50Ms != nil || metrics.TTFT.P95Ms != nil {
 		var ttftMs *int64
 		if metrics.TTFT.P50Ms != nil {
 			ttftMs = metrics.TTFT.P50Ms
-		} else if metrics.TTFT.P95Ms != nil {
+		} else {
 			ttftMs = metrics.TTFT.P95Ms
 		}
-		if ttftMs != nil {
-			s := ttftP50Score(float64(*ttftMs), float64(thresholds.TargetTTFTMs), float64(thresholds.CriticalTTFTMs))
-			result.TTFTScore = &s
-			result.TTFT = healthBand(float64(*ttftMs), float64(thresholds.WarningTTFTMs), float64(thresholds.CriticalTTFTMs))
-			parts = append(parts, scored{score: s, weight: thresholds.TTFTWeight, band: result.TTFT})
-		}
+		s := ttftP50Score(float64(*ttftMs), float64(thresholds.TargetTTFTMs), float64(thresholds.CriticalTTFTMs))
+		result.TTFTScore = &s
+		result.TTFT = healthBand(float64(*ttftMs), float64(thresholds.WarningTTFTMs), float64(thresholds.CriticalTTFTMs))
+		parts = append(parts, scored{score: s, weight: thresholds.TTFTWeight, band: result.TTFT})
 	}
 	// Cache: need a meaningful denominator; higher rate is better.
-	if metrics.CacheRateDenominator >= result.MinimumSample {
+	if metrics.CacheRateDenominator > 0 {
 		s := cacheRateScore(metrics.CacheRate)
 		if thresholds.WarningCacheRate <= 0 && thresholds.CriticalCacheRate <= 0 {
 			// A zero/zero cache threshold means "do not penalize cache misses".
@@ -1052,7 +1054,7 @@ func ChannelMonitorV2HealthForWithThresholds(metrics ChannelMonitorV2Metric, thr
 		result.CacheScore = &s
 		// Invert for healthBand (lower is worse): use (1 - rate) against warning/critical floors.
 		result.Cache = cacheRateBand(metrics.CacheRate, thresholds.WarningCacheRate, thresholds.CriticalCacheRate)
-		parts = append(parts, scored{score: s, weight: thresholds.CacheWeight, band: result.Cache})
+		// Cache stays a standalone display signal; do not blend it into overall.
 	}
 
 	if len(parts) == 0 {

@@ -114,7 +114,7 @@ export default {
         '勾选「忽略」的类别不计入错误率与健康分，仍在错误原因列表中以灰色显示并标记忽略。未匹配的错误归入「其他」。',
       ignoredSummary: '已忽略 {ignored} 类 · 计入错误率 {counted} 类',
       healthTitle: '健康阈值',
-      healthHint: '控制用户端色块和整体评分。默认阈值较宽松，避免少量错误或低缓存率立即显示异常。',
+      healthHint: '控制用户端色块和整体评分。综合分只看可用率与首 Token，缓存率不计入。',
       fields: {
         minimumSample: '最小样本数',
         warningError: '错误率关注 %',
@@ -129,8 +129,8 @@ export default {
       namedModelsCount: '将展示 {count} 个命名模型维度；名单外模型归入各平台「其他」。',
       userContractTitle: '用户端展示约定',
       userContract: {
-        health: '健康色三指标：错误率 60% + 首 Token P50 20% + 缓存率 20%（阈值可在上方配置）',
-        trend: '趋势可切换色块矩阵 / 折线图（错误率 · 缓存率 · 首 Token）',
+        health: '健康色两指标：可用率（错误率）75% + 首 Token P50 25%；缓存率仅展示，不计入综合分',
+        trend: '趋势可切换色块矩阵 / 折线图（可用率 · 首 Token）',
         latency: '延迟展示 AVG · P50 · P90；不展示绝对请求数 / 错误数',
         models: '模型列表留空时展示真实模型名，不会全部归入「其他」',
       },

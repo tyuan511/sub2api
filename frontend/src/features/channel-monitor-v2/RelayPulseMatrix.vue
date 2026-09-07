@@ -353,11 +353,17 @@ function barHeight(slot: AlignedSlot): number {
   if (score != null && !Number.isNaN(score)) {
     return Math.max(18, Math.round(score))
   }
-  const coarse = slot.bucket.health.overall
+  const coarse =
+    props.healthMode === 'success'
+      ? slot.bucket.health.error_rate
+      : props.healthMode === 'ttft'
+        ? slot.bucket.health.ttft
+        : props.healthMode === 'cache'
+          ? slot.bucket.health.cache
+          : slot.bucket.health.overall
   if (coarse === 'healthy') return 100
   if (coarse === 'warning') return 40
   if (coarse === 'critical') return 32
-  if (slot.bucket.metrics.request_count > 0) return 40
   return 18
 }
 
@@ -482,7 +488,7 @@ function formatBucketTime(value: string) {
 .relay-pulse-track {
   display: flex;
   align-items: flex-end;
-  height: 24px;
+  height: 20px;
   gap: 3px;
   overflow: visible;
 }
@@ -510,7 +516,7 @@ function formatBucketTime(value: string) {
     animation: none;
   }
 }
-.relay-pulse-cell.has-data { cursor: help; }
+.relay-pulse-cell.has-data { cursor: crosshair; }
 .relay-pulse-cell.is-empty { opacity: 0.7; }
 .relay-pulse-cell.health-score10,
 .relay-pulse-cell.health-score9,

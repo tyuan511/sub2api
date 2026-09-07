@@ -103,7 +103,9 @@ describe('monitorFormat accuracy', () => {
     expect(healthScoreClass(health, 'cache', 10)).toBe('health-score5')
     // Redacted user payloads have request_count=0 but keep score fields.
     expect(healthScoreClass(health, 'overall', 0)).toBe('health-score5')
-    expect(healthScoreClass({ ...health, score: null }, 'overall', 0)).toBe('health-unknown')
+    // Coarse overall still colors the bar when score is absent (hourly buckets).
+    expect(healthScoreClass({ ...health, score: null }, 'overall', 0)).toBe('health-warning')
+    expect(healthScoreClass({ ...health, score: null, overall: 'unknown' }, 'overall', 0)).toBe('health-unknown')
   })
 
   it('maps health states for status dots', () => {

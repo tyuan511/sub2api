@@ -229,9 +229,9 @@ func TestChannelMonitorV2ErrorTaxonomyPriority(t *testing.T) {
 	}
 }
 
-func TestChannelMonitorV2HealthBlendsErrorTTFTAndCache(t *testing.T) {
-	// error 3%/5% → 40; ttft p50 2s → 100; cache 50% → 50
-	// overall = (0.6*40 + 0.2*100 + 0.2*50) / 1.0 = 54 → warning
+func TestChannelMonitorV2HealthBlendsErrorAndTTFTNotCache(t *testing.T) {
+	// error 3%/5% → 40; ttft p50 2s → 100; cache 50% → 50 (display only)
+	// overall = (0.6*40 + 0.2*100) / 0.8 = 55 → warning; cache must not pull this down
 	p50 := int64(2000)
 	p95 := int64(9000)
 	thresholds := ChannelMonitorV2HealthThresholds{
@@ -261,7 +261,14 @@ func TestChannelMonitorV2HealthBlendsErrorTTFTAndCache(t *testing.T) {
 	require.NotNil(t, health.Score)
 	require.NotNil(t, health.CacheScore)
 	require.InDelta(t, 50.0, *health.CacheScore, 0.01)
-	require.InDelta(t, 54.0, *health.Score, 0.01)
+	require.InDelta(t, 55.0, *health.Score, 0.01)
+	require.Equal(t, "warning", health.Overall)
+
+	// Zero cache must not change overall (cache is display-only).
+	metrics.CacheRate = 0
+	health = ChannelMonitorV2HealthForWithThresholds(metrics, thresholds)
+	require.InDelta(t, 0.0, *health.CacheScore, 0.01)
+	require.InDelta(t, 55.0, *health.Score, 0.01)
 	require.Equal(t, "warning", health.Overall)
 
 	// Perfect signals → 100
@@ -274,8 +281,20 @@ func TestChannelMonitorV2HealthBlendsErrorTTFTAndCache(t *testing.T) {
 	require.NotNil(t, health.Score)
 	require.InDelta(t, 100.0, *health.Score, 0.01)
 
-	// Small samples stay unknown
-	health = ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{RequestCount: 2})
+	// Hourly pulse buckets often have fewer than MinimumSample requests.
+	// Availability + TTFT must still color the bar (cache no longer fills that gap).
+	p50Small := int64(2000)
+	health = ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{
+		RequestCount: 2,
+		ErrorRate:    0,
+		TTFT:         ChannelMonitorV2Latency{SampleCount: 2, P50Ms: &p50Small},
+	})
+	require.Equal(t, "healthy", health.Overall)
+	require.NotNil(t, health.Score)
+	require.InDelta(t, 100.0, *health.Score, 0.01)
+
+	// Empty buckets stay unknown.
+	health = ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{})
 	require.Equal(t, "unknown", health.Overall)
 	require.Nil(t, health.Score)
 }
