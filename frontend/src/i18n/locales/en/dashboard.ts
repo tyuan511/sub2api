@@ -654,7 +654,7 @@ export default {
       noModels: 'No models configured for this group',
       noPricing: 'Pricing not configured',
       peakNote: 'Peak hours {window}: billing rate ×{multiplier}',
-      longContextDisabledNote: 'Long-context tier pricing is disabled for this group: requests above the threshold are billed at the base tier; official tiers are for reference only'
+      longContextDisabledNote: 'Long-context tier pricing is disabled for this group: requests above the threshold are billed at the base tier'
     },
     table: {
       model: 'Model',
@@ -677,8 +677,7 @@ export default {
         '; prices in this row exclude the peak-hour rate — where this period overlaps the peak hours {window}, the overlapping portion is additionally multiplied by ×{multiplier}',
       timePricingWeekdays: 'Weekdays',
       timePricingRateHint: 'Effective rate {rate} × period multiplier {multiplier}',
-      paidPrice: 'Your Price (Discounted)',
-      officialPrice: 'Official Price',
+      paidPrice: 'Price',
       rate: 'Rate',
       unitPerMillion: '$ / 1M tokens',
       perUnitRequest: '/ request',

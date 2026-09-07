@@ -108,12 +108,14 @@ const platforms = computed(() =>
 )
 
 const groupOptions = computed(() =>
-  (props.response?.groups ?? []).map((g) => ({
-    id: g.id,
-    name: g.name,
-    platform: g.platform,
-    rate: effectiveRate(g)
-  }))
+  (props.response?.groups ?? [])
+    .map((g) => ({
+      id: g.id,
+      name: g.name,
+      platform: g.platform,
+      rate: effectiveRate(g)
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 )
 
 /** 全量生效倍率;当前组合下不可用的项由 FilterBar 置灰而非隐藏。 */

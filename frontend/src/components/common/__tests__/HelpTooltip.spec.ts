@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
@@ -14,6 +14,8 @@ function getTooltipElement(): HTMLDivElement {
 describe('HelpTooltip', () => {
   afterEach(() => {
     document.body.innerHTML = ''
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    Object.defineProperty(window, 'scrollX', { configurable: true, value: 0 })
   })
 
   it('keeps the existing hover interaction by default', async () => {
@@ -104,6 +106,48 @@ describe('HelpTooltip', () => {
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await nextTick()
     expect(tooltip.style.display).toBe('none')
+
+    wrapper.unmount()
+  })
+
+  it('keeps a fixed tooltip aligned to the trigger after the page scrolls', async () => {
+    const wrapper = mount(HelpTooltip, {
+      attachTo: document.body,
+      props: {
+        content: 'scroll details',
+      },
+    })
+
+    const trigger = wrapper.get('.group')
+    const triggerEl = trigger.element as HTMLElement
+    let top = 120
+    vi.spyOn(triggerEl, 'getBoundingClientRect').mockImplementation(() => ({
+      x: 40,
+      y: top,
+      top,
+      left: 40,
+      width: 20,
+      height: 20,
+      right: 60,
+      bottom: top + 20,
+      toJSON: () => ({}),
+    }))
+
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    Object.defineProperty(window, 'scrollX', { configurable: true, value: 0 })
+
+    await trigger.trigger('mouseenter')
+    await nextTick()
+    const tooltip = getTooltipElement()
+    expect(tooltip.style.top).toBe('calc(112px)')
+    expect(tooltip.style.left).toBe('50px')
+
+    top = 40
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 80 })
+    window.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    expect(tooltip.style.top).toBe('calc(32px)')
+    expect(tooltip.style.left).toBe('50px')
 
     wrapper.unmount()
   })

@@ -108,14 +108,10 @@ const peakNote = computed(() => {
 })
 
 /**
- * 分组关闭了长上下文阶梯、但组内有模型官方带阶梯时提示:实付列只展示基础档,
- * 官方阶梯仅供参考。字段缺失(旧后端)不提示。
+ * 分组关闭了长上下文阶梯时提示:实付列只展示基础档。字段缺失(旧后端)不提示。
  */
 const longContextNote = computed(() => {
   if (props.group.long_context_pricing_enabled !== false) return ''
-  const hasOfficialLadder = props.group.models.some(
-    (m) => (m.official_pricing?.intervals?.length ?? 0) > 1
-  )
-  return hasOfficialLadder ? t('modelPlaza.detail.longContextDisabledNote') : ''
+  return t('modelPlaza.detail.longContextDisabledNote')
 })
 </script>

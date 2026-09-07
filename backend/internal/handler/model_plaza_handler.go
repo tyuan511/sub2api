@@ -36,17 +36,6 @@ func NewModelPlazaHandler(
 	}
 }
 
-// modelPlazaOfficialPricing 官方参考价（USD per token，与计费目录同源）。
-type modelPlazaOfficialPricing struct {
-	InputPrice        *float64 `json:"input_price"`
-	OutputPrice       *float64 `json:"output_price"`
-	CacheWritePrice   *float64 `json:"cache_write_price"`
-	CacheWrite1hPrice *float64 `json:"cache_write_1h_price,omitempty"`
-	CacheReadPrice    *float64 `json:"cache_read_price"`
-	// Intervals 官方长上下文阶梯，仅多档模型给出。
-	Intervals []userPricingIntervalDTO `json:"intervals,omitempty"`
-}
-
 // modelPlazaTimePricingPeriod 分时倍率时段（配置时区当天 [start, end)）。
 type modelPlazaTimePricingPeriod struct {
 	StartTime  string  `json:"start_time"`
@@ -62,12 +51,11 @@ type modelPlazaTimePricing struct {
 	Periods      []modelPlazaTimePricingPeriod `json:"periods"`
 }
 
-// modelPlazaModel 广场模型条目：实收口径展示定价（白名单形态）+ 官方参考价。
+// modelPlazaModel 广场模型条目：实收口径展示定价（白名单形态）。
 type modelPlazaModel struct {
-	Name            string                     `json:"name"`
-	Platform        string                     `json:"platform"`
-	Pricing         *userSupportedModelPricing `json:"pricing"`
-	OfficialPricing *modelPlazaOfficialPricing `json:"official_pricing"`
+	Name     string                     `json:"name"`
+	Platform string                     `json:"platform"`
+	Pricing  *userSupportedModelPricing `json:"pricing"`
 	// LongContextBasis 多档时的计价基准："whole_request"（整单按档）| "marginal"（仅超出部分）。
 	LongContextBasis string `json:"long_context_basis,omitempty"`
 	// TimePricing 分时倍率时段，落在时段内的请求整单乘倍率；无分时省略。
@@ -192,7 +180,6 @@ func toModelPlazaGroupDTO(g *service.PlazaGroup, userRates map[int64]float64) mo
 			Name:             m.Name,
 			Platform:         m.Platform,
 			Pricing:          toUserPricing(m.Pricing),
-			OfficialPricing:  toModelPlazaOfficialPricing(m.OfficialPricing),
 			LongContextBasis: string(m.LongContextBasis),
 			TimePricing:      toModelPlazaTimePricing(m.TimePricing),
 		})
@@ -234,19 +221,4 @@ func toModelPlazaTimePricing(p *service.TimePricingSchedule) *modelPlazaTimePric
 		})
 	}
 	return &modelPlazaTimePricing{Timezone: p.Timezone, WeekdaysOnly: p.WeekdaysOnly, Periods: periods}
-}
-
-// toModelPlazaOfficialPricing 转换官方参考价；nil 透传（前端显示 "-"）。
-func toModelPlazaOfficialPricing(p *service.PlazaOfficialPricing) *modelPlazaOfficialPricing {
-	if p == nil {
-		return nil
-	}
-	return &modelPlazaOfficialPricing{
-		InputPrice:        p.InputPrice,
-		OutputPrice:       p.OutputPrice,
-		CacheWritePrice:   p.CacheWritePrice,
-		CacheWrite1hPrice: p.CacheWrite1hPrice,
-		CacheReadPrice:    p.CacheReadPrice,
-		Intervals:         toUserPricingIntervals(p.Intervals),
-	}
 }
