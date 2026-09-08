@@ -440,21 +440,18 @@ func formatTelegramStationStats(stats telegramStationStats) string {
 		fmt.Fprintf(&b, "实际消耗   $%.4f\n", stats.TodayActualCost)
 	}
 
-	b.WriteString("\n【监控 90m · 每组最近 10 次】\n")
+	b.WriteString("\n【监控 90m】\n")
 	if stats.MonitorErr != "" && len(stats.MonitorGroups) == 0 {
 		fmt.Fprintf(&b, "%s\n", stats.MonitorErr)
 	} else if len(stats.MonitorGroups) == 0 {
 		b.WriteString("暂无数据\n")
 	} else {
-		for _, g := range stats.MonitorGroups {
-			fmt.Fprintf(&b, "▸ %s / %s\n", g.Platform, g.GroupName)
-			if len(g.Points) == 0 {
-				b.WriteString("  暂无数据\n")
-				continue
+		for i, g := range stats.MonitorGroups {
+			if i > 0 {
+				b.WriteByte('\n')
 			}
-			for _, p := range g.Points {
-				fmt.Fprintf(&b, "  %s\n", formatTelegramMonitorPoint(p))
-			}
+			b.WriteString(formatTelegramMonitorGroup(g))
+			b.WriteByte('\n')
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
@@ -468,42 +465,63 @@ func padTelegramLabel(s string, width int) string {
 	return s + strings.Repeat(" ", pad)
 }
 
-func formatTelegramMonitorPoint(p telegramMonitorPoint) string {
-	if p.RequestCount <= 0 {
-		return fmt.Sprintf("%s  -", p.Time.Format("15:04"))
+func formatTelegramMonitorGroup(g telegramMonitorGroup) string {
+	if len(g.Points) == 0 {
+		return fmt.Sprintf("⬜\n%s · 无数据", telegramMonitorGroupLabel(g))
 	}
-	ttft := "-"
-	if p.TTFTMs != nil {
-		ttft = fmt.Sprintf("%dms", *p.TTFTMs)
+	squares := make([]string, 0, len(g.Points))
+	latest := ""
+	for _, p := range g.Points {
+		squares = append(squares, telegramHealthSquare(p.Health, p.RequestCount))
+		if p.RequestCount > 0 {
+			latest = p.Health
+		}
 	}
-	line := fmt.Sprintf("%s  %dreq  %serr  cache %s  %s",
-		p.Time.Format("15:04"),
-		p.RequestCount,
-		formatTelegramPercent(p.ErrorRate),
-		formatTelegramPercent(p.CacheRate),
-		ttft,
-	)
-	if health := compactTelegramHealth(p.Health); health != "" {
-		line += "  " + health
-	}
-	return line
+	return strings.Join(squares, " ") + "\n" + telegramMonitorGroupLabel(g) + " · " + telegramHealthStatusLabel(latest)
 }
 
-func compactTelegramHealth(h string) string {
-	switch h {
-	case "healthy":
-		return "ok"
-	case "warning":
-		return "warn"
-	case "critical":
-		return "crit"
+func telegramMonitorGroupLabel(g telegramMonitorGroup) string {
+	platform := strings.TrimSpace(g.Platform)
+	name := strings.TrimSpace(g.GroupName)
+	switch {
+	case platform != "" && name != "":
+		return platform + " / " + name
+	case name != "":
+		return name
+	case platform != "":
+		return platform
 	default:
-		return ""
+		return "未命名分组"
 	}
 }
 
-func formatTelegramPercent(v float64) string {
-	return fmt.Sprintf("%.1f%%", v*100)
+func telegramHealthSquare(health string, requestCount int64) string {
+	if requestCount <= 0 {
+		return "⬜"
+	}
+	switch health {
+	case "healthy":
+		return "🟩"
+	case "warning":
+		return "🟨"
+	case "critical":
+		return "🟥"
+	default:
+		return "⬜"
+	}
+}
+
+func telegramHealthStatusLabel(health string) string {
+	switch health {
+	case "healthy":
+		return "正常"
+	case "warning":
+		return "延迟"
+	case "critical":
+		return "异常"
+	default:
+		return "无数据"
+	}
 }
 
 func formatTelegramCount(n int64) string {

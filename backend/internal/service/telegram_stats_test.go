@@ -80,9 +80,9 @@ func TestFormatTelegramStationStats(t *testing.T) {
 	require.Contains(t, text, "20")
 	require.Contains(t, text, "Token      1.23M")
 	require.Contains(t, text, "实际消耗   $12.3456")
-	require.Contains(t, text, "▸ claude / default")
-	require.Contains(t, text, "14:20  12req  0.8%err  cache 45.0%  320ms  ok")
-	require.Contains(t, text, "14:25  -")
+	require.Contains(t, text, "🟩 ⬜")
+	require.Contains(t, text, "claude / default · 正常")
+	require.NotContains(t, text, "12req")
 }
 
 func TestFormatTelegramStationStatsSoftFails(t *testing.T) {
@@ -96,6 +96,46 @@ func TestFormatTelegramStationStatsSoftFails(t *testing.T) {
 	require.Contains(t, text, "并发服务不可用")
 	require.Contains(t, text, "用量服务不可用")
 	require.Contains(t, text, "渠道监控未启用")
+}
+
+func TestFormatTelegramMonitorGroupColorBlocks(t *testing.T) {
+	text := formatTelegramMonitorGroup(telegramMonitorGroup{
+		Platform:  "claude",
+		GroupName: "外接稳定分组",
+		Points: []telegramMonitorPoint{
+			{RequestCount: 10, Health: "warning"},
+			{RequestCount: 10, Health: "warning"},
+			{RequestCount: 10, Health: "warning"},
+			{RequestCount: 10, Health: "critical"},
+			{RequestCount: 10, Health: "healthy"},
+			{RequestCount: 10, Health: "healthy"},
+			{RequestCount: 10, Health: "healthy"},
+			{RequestCount: 10, Health: "critical"},
+			{RequestCount: 10, Health: "healthy"},
+			{RequestCount: 10, Health: "healthy"},
+		},
+	})
+	require.Equal(t, "🟨 🟨 🟨 🟥 🟩 🟩 🟩 🟥 🟩 🟩\nclaude / 外接稳定分组 · 正常", text)
+
+	delayed := formatTelegramMonitorGroup(telegramMonitorGroup{
+		GroupName: "下游",
+		Points: []telegramMonitorPoint{
+			{RequestCount: 3, Health: "warning"},
+			{RequestCount: 0},
+		},
+	})
+	require.Equal(t, "🟨 ⬜\n下游 · 延迟", delayed)
+
+	empty := formatTelegramMonitorGroup(telegramMonitorGroup{GroupName: "空"})
+	require.Equal(t, "⬜\n空 · 无数据", empty)
+}
+
+func TestTelegramHealthSquare(t *testing.T) {
+	require.Equal(t, "🟩", telegramHealthSquare("healthy", 1))
+	require.Equal(t, "🟨", telegramHealthSquare("warning", 1))
+	require.Equal(t, "🟥", telegramHealthSquare("critical", 1))
+	require.Equal(t, "⬜", telegramHealthSquare("healthy", 0))
+	require.Equal(t, "⬜", telegramHealthSquare("unknown", 8))
 }
 
 func TestLastTelegramMonitorPointsKeepsLastTen(t *testing.T) {
