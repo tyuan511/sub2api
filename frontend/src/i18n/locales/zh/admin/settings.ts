@@ -45,7 +45,7 @@ export default {
         testFailed: '测试发送失败',
         unbind: '解除绑定',
         unbindFailed: '解除绑定失败',
-        boundAs: '已绑定 @{username}',
+        boundAs: "已绑定 {'@'}{username}",
         notBound: '尚未绑定。保存并启用机器人后生成链接，在 Telegram 中点击 Start 即可。',
         enableNotify: '启用通知',
         notifyNewTicket: '新消息',

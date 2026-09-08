@@ -45,7 +45,7 @@ export default {
         testFailed: 'Failed to send test',
         unbind: 'Unbind',
         unbindFailed: 'Failed to unbind',
-        boundAs: 'Bound as @{username}',
+        boundAs: "Bound as {'@'}{username}",
         notBound: 'Not bound yet. Save and enable the bot, then generate a link and tap Start in Telegram.',
         enableNotify: 'Enable notifications',
         notifyNewTicket: 'New messages',
