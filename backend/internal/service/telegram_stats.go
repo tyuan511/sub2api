@@ -367,11 +367,15 @@ func (s *SupportTelegramService) fillMonitorStats(ctx context.Context, stats *te
 		if name == "" {
 			name = fmt.Sprintf("#%d", *row.GroupID)
 		}
-		groups = append(groups, telegramMonitorGroup{
+		group := telegramMonitorGroup{
 			Platform:  row.Platform,
 			GroupName: name,
 			Points:    lastTelegramMonitorPoints(row.Buckets, telegramStatsLastBuckets),
-		})
+		}
+		if !telegramMonitorGroupHasTraffic(group) {
+			continue
+		}
+		groups = append(groups, group)
 	}
 	sort.Slice(groups, func(i, j int) bool {
 		if groups[i].Platform != groups[j].Platform {
@@ -441,12 +445,20 @@ func formatTelegramStationStats(stats telegramStationStats) string {
 	}
 
 	b.WriteString("\n【监控 90m】\n")
-	if stats.MonitorErr != "" && len(stats.MonitorGroups) == 0 {
-		fmt.Fprintf(&b, "%s\n", stats.MonitorErr)
-	} else if len(stats.MonitorGroups) == 0 {
-		b.WriteString("暂无数据\n")
+	visible := make([]telegramMonitorGroup, 0, len(stats.MonitorGroups))
+	for _, g := range stats.MonitorGroups {
+		if telegramMonitorGroupHasTraffic(g) {
+			visible = append(visible, g)
+		}
+	}
+	if len(visible) == 0 {
+		if stats.MonitorErr != "" {
+			fmt.Fprintf(&b, "%s\n", stats.MonitorErr)
+		} else {
+			b.WriteString("暂无数据\n")
+		}
 	} else {
-		for i, g := range stats.MonitorGroups {
+		for i, g := range visible {
 			if i > 0 {
 				b.WriteByte('\n')
 			}
@@ -463,6 +475,15 @@ func padTelegramLabel(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", pad)
+}
+
+func telegramMonitorGroupHasTraffic(g telegramMonitorGroup) bool {
+	for _, p := range g.Points {
+		if p.RequestCount > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func formatTelegramMonitorGroup(g telegramMonitorGroup) string {

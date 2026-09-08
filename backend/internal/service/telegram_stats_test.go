@@ -130,6 +130,21 @@ func TestFormatTelegramMonitorGroupColorBlocks(t *testing.T) {
 	require.Equal(t, "⬜\n空 · 无数据", empty)
 }
 
+func TestFormatTelegramStationStatsOmitsEmptyMonitorGroups(t *testing.T) {
+	text := formatTelegramStationStats(telegramStationStats{
+		CollectedAt: time.Date(2026, 4, 8, 15, 4, 0, 0, time.UTC),
+		MonitorGroups: []telegramMonitorGroup{
+			{GroupName: "空分组"},
+			{GroupName: "全白", Points: []telegramMonitorPoint{{RequestCount: 0}, {RequestCount: 0}}},
+			{Platform: "claude", GroupName: "有量", Points: []telegramMonitorPoint{{RequestCount: 4, Health: "healthy"}}},
+		},
+	})
+	require.Contains(t, text, "claude / 有量 · 正常")
+	require.NotContains(t, text, "空分组")
+	require.NotContains(t, text, "全白")
+	require.NotContains(t, text, " · 无数据")
+}
+
 func TestTelegramHealthSquare(t *testing.T) {
 	require.Equal(t, "🟩", telegramHealthSquare("healthy", 1))
 	require.Equal(t, "🟨", telegramHealthSquare("warning", 1))
