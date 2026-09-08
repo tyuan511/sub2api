@@ -783,6 +783,7 @@ import {
   type BatchImageStatus,
   type BatchImageSubmitItem,
 } from '@/api/batchImage'
+import { apiKeyBoundGroups } from '@/api/imageStudio'
 import type { ApiKey } from '@/types'
 import type { Column } from '@/components/common/types'
 
@@ -940,8 +941,8 @@ let activePromptPopoverTarget: HTMLElement | null = null
 const geminiApiKeys = computed(() =>
   apiKeys.value.filter((key) =>
     key.status === 'active' &&
-    key.group?.platform === 'gemini' &&
-    key.group?.allow_batch_image_generation === true,
+    apiKeyBoundGroups(key).some(group =>
+      group.platform === 'gemini' && group.allow_batch_image_generation === true),
   ),
 )
 

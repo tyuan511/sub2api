@@ -120,7 +120,7 @@ func (c *APIKeyRouteCoordinator) BuildPlan(apiKey *APIKey, eligible APIKeyRouteE
 	}
 	sort.SliceStable(routes, func(i, j int) bool { return routes[i].Priority < routes[j].Priority })
 	seen := make(map[int64]struct{}, len(routes))
-	var routePlatform, subscriptionType string
+	var subscriptionType string
 	for i, route := range routes {
 		if route.GroupID <= 0 || route.Priority != i {
 			return nil, fmt.Errorf("%w: priorities must be contiguous from zero", ErrInvalidAPIKeyRouteSet)
@@ -146,12 +146,8 @@ func (c *APIKeyRouteCoordinator) BuildPlan(apiKey *APIKey, eligible APIKeyRouteE
 			plan.Excluded = append(plan.Excluded, APIKeyRouteExclusion{GroupID: route.GroupID, Priority: route.Priority, Reason: "group_inactive"})
 			continue
 		}
-		if routePlatform == "" {
-			routePlatform = group.Platform
+		if subscriptionType == "" {
 			subscriptionType = group.SubscriptionType
-		} else if group.Platform != routePlatform {
-			plan.Excluded = append(plan.Excluded, APIKeyRouteExclusion{GroupID: route.GroupID, Priority: route.Priority, Reason: "platform_mismatch"})
-			continue
 		} else if group.SubscriptionType != subscriptionType {
 			plan.Excluded = append(plan.Excluded, APIKeyRouteExclusion{GroupID: route.GroupID, Priority: route.Priority, Reason: "billing_type_mismatch"})
 			continue

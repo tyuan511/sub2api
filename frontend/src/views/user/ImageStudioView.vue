@@ -87,7 +87,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { keysAPI } from '@/api/keys'
 import { userGroupsAPI } from '@/api/groups'
-import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, isValidImageSize, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
+import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, imageGroupForKey, imageModelsForKey, isValidImageSize, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
 import { useImageStudioStore, type StudioCreation } from '@/stores/imageStudio'
 import { useAppStore } from '@/stores/app'
 import type { ApiKey } from '@/types'
@@ -117,7 +117,8 @@ const groups = ref<ImageGenerationGroup[]>([])
 const rates = ref<Record<number, number> | null>(null)
 const selectedKeyId = ref(0)
 const selectedKey = computed(() => keys.value.find(key => key.id === selectedKeyId.value))
-const models = computed(() => groups.value.find(group => group.id === selectedKey.value?.group_id)?.image_models || [])
+const models = computed(() => selectedKey.value ? imageModelsForKey(selectedKey.value, groups.value) : [])
+const selectedImageGroup = computed(() => selectedKey.value ? imageGroupForKey(selectedKey.value, groups.value, model.value) : undefined)
 const keyOptions = computed<SelectOption[]>(() => [
   ...keys.value.map(key => ({ value: key.id, label: `${key.name} · ${key.group?.name}` })),
   { value: 'create', label: t('imageStudio.createKey'), disabled: !!loadError.value },
@@ -198,7 +199,7 @@ let disposed = false
 const canSubmit = computed(() => sizeValid.value && !!prompt.value.trim() && !!selectedKey.value && models.value.includes(model.value) && availableRatios.value.includes(ratio.value) && availableResolutions.value.includes(resolution.value) && storageAvailable.value && !loading.value && !editing.value && !addingReference.value && !studio.historyLoading && !loadError.value)
 const price = computed(() => {
   if (ratio.value === 'auto') return null
-  const group = selectedKey.value?.group
+  const group = selectedImageGroup.value
   if (!group || rates.value === null || group.peak_rate_enabled || !availableResolutions.value.includes(resolution.value)) return null
   let size: string
   try { size = buildImageRequest(model.value, '', ratio.value, count.value, resolution.value, customSize.value).size || '' }
@@ -232,7 +233,7 @@ async function loadAccess() {
     groups.value = availableGroups
     // Never fall back to the Key's embedded group: its permission flag alone
     // does not establish that an image model is actually configured.
-    keys.value = allKeys.map(key => ({ ...key, group: availableGroups.find(group => group.id === key.group_id) })).filter(canGenerateImages)
+    keys.value = allKeys.filter(key => canGenerateImages(key, availableGroups))
     createGroupId.value = groups.value[0]?.id || 0
     if (!keys.value.some(key => key.id === selectedKeyId.value)) selectedKeyId.value = keys.value[0]?.id || 0
   } catch (error) {
@@ -276,7 +277,7 @@ async function createKey() {
   try {
     const created = await keysAPI.create(keyName.value.trim(), createGroupId.value)
     const key = { ...created, group: groups.value.find(group => group.id === created.group_id) }
-    if (!canGenerateImages(key)) throw new Error(t('imageStudio.noKeysDescription'))
+    if (!canGenerateImages(key, groups.value)) throw new Error(t('imageStudio.noKeysDescription'))
     keys.value.unshift(key)
     selectedKeyId.value = key.id
     showCreate.value = false

@@ -102,92 +102,71 @@
       </Transition>
     </div>
 
-    <div v-if="modelValue.length" class="space-y-2" data-test="selected-route-groups">
+    <VueDraggable
+      v-if="selectedItems.length"
+      v-model="selectedItems"
+      :animation="200"
+      handle=".drag-handle"
+      filter=".no-drag"
+      :prevent-on-filter="true"
+      :disabled="!canReorder"
+      :delay="150"
+      :delay-on-touch-only="true"
+      ghost-class="route-ghost"
+      chosen-class="route-chosen"
+      drag-class="route-drag"
+      class="space-y-2"
+      data-test="selected-route-groups"
+      @update:model-value="onReorder"
+    >
       <div
-        v-for="(groupId, index) in modelValue"
-        :key="groupId"
-        class="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 sm:flex-nowrap dark:border-dark-600 dark:bg-dark-800"
-        :data-test="`selected-route-group-${groupId}`"
+        v-for="(item, index) in selectedItems"
+        :key="item.id"
+        class="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 transition-[box-shadow,border-color] sm:flex-nowrap dark:border-dark-600 dark:bg-dark-800"
+        :class="canReorder && 'hover:border-gray-300 hover:shadow-sm dark:hover:border-dark-500'"
+        :data-test="`selected-route-group-${item.id}`"
       >
+        <button
+          v-if="canReorder"
+          type="button"
+          class="drag-handle -ml-1 flex h-7 w-6 flex-none cursor-grab items-center justify-center rounded text-gray-300 hover:bg-white hover:text-gray-500 active:cursor-grabbing dark:text-dark-500 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+          :title="t('keys.dragToReorder')"
+          :aria-label="t('keys.dragToReorder')"
+          :data-test="`drag-route-${item.id}`"
+          @keydown.prevent.up="move(index, -1)"
+          @keydown.prevent.down="move(index, 1)"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+          </svg>
+        </button>
         <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
           {{ index + 1 }}
         </span>
         <div class="min-w-0 flex-1">
           <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-            {{ groupById.get(groupId)?.name || `#${groupId}` }}
+            {{ groupById.get(item.id)?.name || `#${item.id}` }}
           </div>
           <div class="text-xs text-gray-500 dark:text-gray-400">
             {{ index === 0 ? t('keys.routePrimaryGroup') : t('keys.routeFallbackGroup') }}
-            <template v-if="groupById.get(groupId)">
-              · {{ groupById.get(groupId)?.platform }}
-              · {{ t('keys.routeGroupRate', { rate: effectiveRate(groupById.get(groupId)!).toFixed(2) }) }}
+            <template v-if="groupById.get(item.id)">
+              · {{ groupById.get(item.id)?.platform }}
+              · {{ t('keys.routeGroupRate', { rate: effectiveRate(groupById.get(item.id)!).toFixed(2) }) }}
             </template>
-          </div>
-          <div
-            v-if="routeDetail(groupId)"
-            class="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400"
-            :data-test="`route-group-detail-${groupId}`"
-          >
-            <span v-if="routeDetail(groupId)?.current_rank">
-              {{ t('keys.routeCurrentRank', { rank: routeDetail(groupId)?.current_rank }) }}
-            </span>
-            <span v-if="routeDetail(groupId)?.normalized_effective_rate !== undefined">
-              {{ t('keys.routeEffectiveRate', { rate: routeDetail(groupId)!.normalized_effective_rate!.toFixed(2) }) }}
-            </span>
-            <span v-if="routeDetail(groupId)?.success_rate !== undefined">
-              {{ t('keys.routeSuccessRate', { rate: formatPercent(routeDetail(groupId)!.success_rate!) }) }}
-            </span>
-            <span v-if="routeDetail(groupId)?.ttft_ms">
-              {{ t('keys.routeTTFT', { value: Math.round(routeDetail(groupId)!.ttft_ms!) }) }}
-            </span>
-            <span v-if="routeDetail(groupId)?.duration_ms">
-              {{ t('keys.routeDuration', { value: Math.round(routeDetail(groupId)!.duration_ms!) }) }}
-            </span>
-            <span v-if="routeDetail(groupId)?.cache_hit_rate !== undefined">
-              {{ t('keys.routeCacheHit', { rate: formatPercent(routeDetail(groupId)!.cache_hit_rate!) }) }}
-            </span>
-            <span v-if="routeDetail(groupId)?.predicted_share !== undefined">
-              {{ t('keys.routePredictedShare', { rate: formatPercent(routeDetail(groupId)!.predicted_share!) }) }}
-            </span>
-            <span v-if="routeDetail(groupId)?.price_confidence">
-              {{ t(`keys.routeConfidence.${routeDetail(groupId)!.price_confidence}`) }}
-            </span>
           </div>
         </div>
         <button
           type="button"
-          class="rounded p-1 text-gray-400 hover:bg-white hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-dark-700 dark:hover:text-gray-200"
-          :disabled="index === 0"
-          :title="t('keys.moveGroupUp')"
-          :aria-label="t('keys.moveGroupUp')"
-          :data-test="`move-route-up-${groupId}`"
-          @click="move(index, -1)"
-        >
-          <Icon name="chevronUp" size="sm" />
-        </button>
-        <button
-          type="button"
-          class="rounded p-1 text-gray-400 hover:bg-white hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-dark-700 dark:hover:text-gray-200"
-          :disabled="index === modelValue.length - 1"
-          :title="t('keys.moveGroupDown')"
-          :aria-label="t('keys.moveGroupDown')"
-          :data-test="`move-route-down-${groupId}`"
-          @click="move(index, 1)"
-        >
-          <Icon name="chevronDown" size="sm" />
-        </button>
-        <button
-          type="button"
-          class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+          class="no-drag rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-300"
           :title="t('keys.removeGroup')"
           :aria-label="t('keys.removeGroup')"
-          :data-test="`remove-route-group-${groupId}`"
-          @click="remove(groupId)"
+          :data-test="`remove-route-group-${item.id}`"
+          @click="remove(item.id)"
         >
           <Icon name="x" size="sm" />
         </button>
       </div>
-    </div>
+    </VueDraggable>
 
     <p class="text-xs text-gray-500 dark:text-gray-400">
       {{ t('keys.routeGroupHint', { max: maxGroups }) }}
@@ -198,18 +177,17 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { VueDraggable } from 'vue-draggable-plus'
 import Icon from '@/components/icons/Icon.vue'
-import type { ApiKeyGroupRoute, Group } from '@/types'
+import type { Group } from '@/types'
 
 const props = withDefaults(defineProps<{
   modelValue: number[]
   groups: Group[]
   userGroupRates?: Record<number, number>
-  routeDetails?: ApiKeyGroupRoute[]
   maxGroups?: number
 }>(), {
   userGroupRates: () => ({}),
-  routeDetails: () => [],
   maxGroups: 8
 })
 
@@ -224,14 +202,24 @@ const containerRef = ref<HTMLElement | null>(null)
 const triggerRef = ref<HTMLButtonElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const highlightedIndex = ref(0)
+const selectedItems = ref<{ id: number }[]>([])
+const canReorder = computed(() => selectedItems.value.length > 1)
+
+watch(
+  () => props.modelValue,
+  (ids) => {
+    const current = selectedItems.value.map((item) => item.id)
+    if (current.length === ids.length && current.every((id, index) => id === ids[index])) return
+    selectedItems.value = ids.map((id) => ({ id }))
+  },
+  { immediate: true }
+)
 
 const groupById = computed(() => {
   const result = new Map<number, Group>()
   for (const group of props.groups) result.set(group.id, group)
   return result
 })
-
-const routeDetailById = computed(() => new Map(props.routeDetails.map((route) => [route.group_id, route])))
 
 const firstGroup = computed(() => groupById.value.get(props.modelValue[0]))
 
@@ -263,14 +251,6 @@ function effectiveRate(group: Group): number {
   return props.userGroupRates[group.id] ?? group.rate_multiplier
 }
 
-function routeDetail(groupId: number): ApiKeyGroupRoute | undefined {
-  return routeDetailById.value.get(groupId)
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`
-}
-
 function isSelected(groupId: number): boolean {
   return props.modelValue.includes(groupId)
 }
@@ -280,7 +260,6 @@ function disabledReason(group: Group): string {
   if (group.status !== 'active') return t('keys.routeGroupUnavailableReason')
   if (props.modelValue.length >= props.maxGroups) return t('keys.routeGroupLimitReached', { max: props.maxGroups })
   if (!firstGroup.value) return ''
-  if (group.platform !== firstGroup.value.platform) return t('keys.routeGroupPlatformMismatch')
   if (group.subscription_type !== firstGroup.value.subscription_type) return t('keys.routeGroupBillingMismatch')
   return ''
 }
@@ -361,12 +340,20 @@ function remove(groupId: number) {
   emit('update:modelValue', props.modelValue.filter((id) => id !== groupId))
 }
 
+function emitOrder(ids: number[]) {
+  emit('update:modelValue', ids)
+}
+
+function onReorder(items: { id: number }[]) {
+  emitOrder(items.map((item) => item.id))
+}
+
 function move(index: number, delta: -1 | 1) {
   const target = index + delta
-  if (target < 0 || target >= props.modelValue.length) return
-  const next = [...props.modelValue]
+  if (target < 0 || target >= selectedItems.value.length) return
+  const next = selectedItems.value.map((item) => item.id)
   ;[next[index], next[target]] = [next[target], next[index]]
-  emit('update:modelValue', next)
+  emitOrder(next)
 }
 
 function handleOutsideClick(event: MouseEvent) {
@@ -391,5 +378,19 @@ onUnmounted(() => document.removeEventListener('mousedown', handleOutsideClick))
 .route-dropdown-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+
+.route-ghost {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+.route-chosen {
+  border-color: rgb(99 102 241 / 0.7);
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.12);
+}
+
+.route-drag {
+  cursor: grabbing;
 }
 </style>

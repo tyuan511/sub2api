@@ -134,6 +134,9 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, routingModel); err != nil {
+			return err
+		}
 		if candidate.Group.Platform != service.PlatformGrok {
 			return fmt.Errorf("candidate group %d is not Grok", candidate.Group.ID)
 		}

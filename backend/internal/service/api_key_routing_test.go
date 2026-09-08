@@ -77,7 +77,7 @@ func (r *apiKeyRoutingGroupRepo) GetByID(_ context.Context, id int64) (*Group, e
 	return group, nil
 }
 
-func TestValidateAPIKeyRouteGroupsRequiresSamePlatformAndBillingType(t *testing.T) {
+func TestValidateAPIKeyRouteGroupsAllowsMixedPlatformsAndRequiresBillingType(t *testing.T) {
 	user := &User{ID: 1}
 	routes := []APIKeyGroupRoute{
 		{GroupID: 1, Priority: 0, Enabled: true},
@@ -88,8 +88,9 @@ func TestValidateAPIKeyRouteGroupsRequiresSamePlatformAndBillingType(t *testing.
 		1: {ID: 1, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeStandard},
 		2: {ID: 2, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
 	}}}
-	_, err := svc.validateAPIKeyRouteGroups(context.Background(), user, routes)
-	require.Equal(t, "API_KEY_ROUTE_PLATFORM_MISMATCH", infraerrors.Reason(err))
+	validated, err := svc.validateAPIKeyRouteGroups(context.Background(), user, routes)
+	require.NoError(t, err)
+	require.Len(t, validated, 2)
 
 	svc.groupRepo = &apiKeyRoutingGroupRepo{groups: map[int64]*Group{
 		1: {ID: 1, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeStandard},

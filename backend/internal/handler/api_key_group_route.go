@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
+
+var errAPIKeyRouteModelUnsupported = errors.New("candidate group does not support requested model")
 
 // apiKeyRouteRuntime owns the dependencies needed to activate a secondary
 // candidate. It is intentionally small so every protocol can share identical
@@ -27,6 +30,30 @@ type apiKeyRouteAdvanceError struct {
 
 type apiKeyRouteCandidateCheck func(*service.APIKey) error
 type apiKeyRouteOwnerCheck func(groupID int64) (bool, error)
+
+func rejectAPIKeyRouteUnsupportedModel(c *gin.Context, diag service.ModelAvailabilityDiagnoser, candidate *service.APIKey, model string) error {
+	if !apiKeyMultiGroupRoutingActive(c) || candidate == nil || candidate.Group == nil {
+		return nil
+	}
+	model = strings.TrimSpace(model)
+	if model == "" || diag == nil {
+		return nil
+	}
+	platform := effectiveAPIKeyPlatform(c, candidate)
+	if platform == "" {
+		platform = candidate.Group.Platform
+	}
+	groupID := candidate.Group.ID
+	ctx := context.Background()
+	if c != nil && c.Request != nil {
+		ctx = c.Request.Context()
+	}
+	diagnosis := diag.DiagnoseModelAvailabilityForPlatform(ctx, &groupID, model, platform)
+	if diagnosis.HasModelSupport {
+		return nil
+	}
+	return fmt.Errorf("%w: group %d model %s", errAPIKeyRouteModelUnsupported, groupID, model)
+}
 
 // activateAPIKeyRouteOwnedGroup resolves upstream state whose identity is
 // namespaced by physical group (for example Responses previous_response_id).
@@ -386,7 +413,8 @@ func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey
 		userRates = apiKey.User.GroupRates
 	}
 	projectedSnapshot := service.ProjectAPIKeyRoutingScoreSnapshot(state.Plan.Candidates, snapshot, userRates)
-	baselineRanked := service.RankAPIKeyRoutingCandidatesWithPolicy(state.Plan.Candidates, projectedSnapshot, selection.Policy)
+	eligibleGroups := apiKeyRoutingScoreEligibility(c, state.Plan.Candidates, candidateCheck, scope.ModelFamily, scope.EndpointKind)
+	baselineRanked := service.RankAPIKeyRoutingCandidatesWithEligibility(state.Plan.Candidates, projectedSnapshot, selection.Policy, eligibleGroups)
 	baselineRanked = applyAPIKeyRoutingCandidateCheck(c, baselineRanked, candidateCheck)
 	baselineRanked = applyAPIKeyRoutingBreakerEligibility(c, scope.ModelFamily, scope.EndpointKind, baselineRanked)
 	baselineRanked = applyAPIKeyRoutingRecoveryTrafficBudget(apiKey.ID, sessionHash, baselineRanked)
@@ -402,7 +430,7 @@ func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey
 		}
 	}
 	learning := service.ApplyDefaultAPIKeyRoutingLearning(strategyScope, apiKey.ID, userID, selection.ExperimentID, projectedSnapshot, eligible, time.Now())
-	ranked := service.RankAPIKeyRoutingCandidatesWithPolicy(state.Plan.Candidates, learning.Snapshot, selection.Policy)
+	ranked := service.RankAPIKeyRoutingCandidatesWithEligibility(state.Plan.Candidates, learning.Snapshot, selection.Policy, eligibleGroups)
 	ranked = applyAPIKeyRoutingBaselineEligibility(ranked, baselineRanked)
 	ranked = annotateAPIKeyRoutingLearning(ranked, baselineRanked, learning.Personalization.AppliedGroups)
 	ranked = service.DefaultAPIKeyRoutingOrderStabilizer().Stabilize(
@@ -430,7 +458,7 @@ func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey
 		shadowSnapshot = projectedSnapshot
 	}
 	if shadowSnapshot != nil {
-		shadowRanked = service.RankAPIKeyRoutingCandidatesWithPolicy(state.Plan.Candidates, shadowSnapshot, shadowPolicy)
+		shadowRanked = service.RankAPIKeyRoutingCandidatesWithEligibility(state.Plan.Candidates, shadowSnapshot, shadowPolicy, eligibleGroups)
 		shadowRanked = applyAPIKeyRoutingBaselineEligibility(shadowRanked, baselineRanked)
 	}
 	service.DefaultRoutingRuntimeMetrics().RecordPhaseLatency(service.RoutingLatencyPhaseSmartRanking, time.Since(rankingStarted))
@@ -495,14 +523,33 @@ func apiKeyRouteStickyScope(apiKey *service.APIKey, model, endpoint string) (str
 	return service.NormalizeAPIKeyRoutingModelFamily(platform, model), service.NormalizeAPIKeyRoutingEndpointKind(endpoint)
 }
 
+func apiKeyRoutingScoreEligibility(c *gin.Context, candidates []service.APIKeyRouteCandidate, candidateCheck apiKeyRouteCandidateCheck, modelFamily, endpointKind string) map[int64]bool {
+	eligible := make(map[int64]bool, len(candidates))
+	for _, candidate := range candidates {
+		apiKey, _, exists := middleware2.FindAPIKeyRouteGroup(c, candidate.GroupID)
+		if !exists {
+			continue
+		}
+		if candidateCheck != nil {
+			if err := candidateCheck(apiKey); err != nil {
+				continue
+			}
+		}
+		if c != nil && c.Request != nil {
+			if breaker, found := service.APIKeyRoutePreloadedBreaker(c.Request.Context(), modelFamily, endpointKind, candidate.GroupID); found && breaker.State == service.APIKeyRouteBreakerOpen {
+				continue
+			}
+		}
+		eligible[candidate.GroupID] = true
+	}
+	return eligible
+}
+
 func applyAPIKeyRoutingCandidateCheck(c *gin.Context, ranked []service.APIKeyRoutingCandidateScore, candidateCheck apiKeyRouteCandidateCheck) []service.APIKeyRoutingCandidateScore {
 	if candidateCheck == nil {
 		return ranked
 	}
 	for index := range ranked {
-		if !ranked[index].Eligible {
-			continue
-		}
 		candidate, _, exists := middleware2.FindAPIKeyRouteGroup(c, ranked[index].GroupID)
 		if !exists {
 			ranked[index].Eligible = false

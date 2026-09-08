@@ -47,6 +47,9 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil || candidate.Group.Platform != service.PlatformGrok {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, model); err != nil {
+			return err
+		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, model, routeEndpoint)
 		if healthErr != nil {
 			reqLog.Warn("grok_realtime.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
@@ -272,6 +275,9 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 	grokVoiceCandidateCheck := func(candidate *service.APIKey) error {
 		if candidate == nil || candidate.Group == nil || candidate.Group.Platform != service.PlatformGrok {
 			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, selectionModel); err != nil {
+			return err
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, selectionModel, routeEndpoint)
 		if healthErr != nil {

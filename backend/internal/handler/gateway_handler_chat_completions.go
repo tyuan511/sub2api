@@ -129,6 +129,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
 		if candidate.Group.ClaudeCodeOnly {
 			return fmt.Errorf("candidate group %d is restricted to Claude Code", candidate.Group.ID)
 		}

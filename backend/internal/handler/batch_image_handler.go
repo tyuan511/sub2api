@@ -59,6 +59,9 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 			if candidate == nil || candidate.Group == nil {
 				return service.ErrNoEligibleAPIKeyRoute
 			}
+			if err := rejectAPIKeyRouteUnsupportedModel(c, h.openAI.gatewayService, candidate, req.Model); err != nil {
+				return err
+			}
 			gid := candidate.Group.ID
 			candidateOwner := service.BatchImageOwner{UserID: candidate.UserID, APIKeyID: candidate.ID, GroupID: &gid}
 			if err := h.service.CheckRouteCandidate(c.Request.Context(), candidateOwner, req); err != nil {

@@ -270,6 +270,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
 		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
 			return fmt.Errorf("candidate group %d does not support model %s", candidate.Group.ID, reqModel)
 		}
@@ -1326,8 +1329,25 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		groupID = &apiKey.Group.ID
 		platform = apiKey.Group.Platform
 	}
-	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
+	forcedPlatform := ""
+	if value, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(value) != "" {
+		forcedPlatform = strings.TrimSpace(value)
 		platform = forcedPlatform
+	}
+	if groups := apiKeyRouteGroupsForModels(c, apiKey); len(groups) > 1 {
+		availableModels, listPlatform, custom := h.unionAdvertisedModelsForGroups(c.Request.Context(), groups, forcedPlatform)
+		if listPlatform == "" {
+			listPlatform = platform
+		}
+		if custom {
+			writeCustomModelsList(c, listPlatform, availableModels)
+			return
+		}
+		if len(availableModels) > 0 {
+			writeModelsList(c, listPlatform, availableModels)
+			return
+		}
+		platform = listPlatform
 	}
 
 	if platform == service.PlatformComposite {
@@ -1400,8 +1420,7 @@ func (h *GatewayHandler) CodexModels(c *gin.Context) {
 	if value, exists := middleware2.GetForcePlatformFromContext(c); exists {
 		forcedPlatform = strings.TrimSpace(value)
 	}
-	modelIDs := h.codexModelIDsForGroup(c.Request.Context(), apiKey.Group, forcedPlatform)
-	modelIDs = service.FilterCodexModelIDsForGroup(modelIDs, apiKey.Group)
+	modelIDs := h.unionCodexModelIDsForGroups(c.Request.Context(), apiKeyRouteGroupsForModels(c, apiKey), forcedPlatform)
 	body, err := h.gatewayService.BuildCodexModelsManifestForGroup(
 		c.Request.Context(),
 		apiKey.Group,
@@ -1457,6 +1476,124 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
 		return availableModels
 	}
 	return fallbackModels
+}
+
+func apiKeyRouteGroupsForModels(c *gin.Context, apiKey *service.APIKey) []*service.Group {
+	if c != nil {
+		if state, ok := middleware2.GetAPIKeyRouteState(c); ok && state != nil && state.Plan != nil && state.Plan.RoutingEnabled {
+			groups := make([]*service.Group, 0, len(state.Plan.Candidates))
+			seen := make(map[int64]struct{}, len(state.Plan.Candidates))
+			for _, candidate := range state.Plan.Candidates {
+				if candidate.Group == nil || candidate.Group.ID <= 0 {
+					continue
+				}
+				if _, exists := seen[candidate.Group.ID]; exists {
+					continue
+				}
+				seen[candidate.Group.ID] = struct{}{}
+				groups = append(groups, candidate.Group)
+			}
+			if len(groups) > 0 {
+				return groups
+			}
+		}
+	}
+	if apiKey != nil && apiKey.Group != nil {
+		return []*service.Group{apiKey.Group}
+	}
+	return nil
+}
+
+func (h *GatewayHandler) advertisedModelIDsForGroup(ctx context.Context, group *service.Group, platformOverride string) []string {
+	if h == nil || h.gatewayService == nil || group == nil {
+		return nil
+	}
+	groupID := &group.ID
+	platform := strings.TrimSpace(platformOverride)
+	if platform == "" {
+		platform = group.Platform
+	}
+	var availableModels []string
+	if platform == service.PlatformComposite {
+		availableModels = h.compositeAvailableModels(ctx, groupID)
+	} else {
+		availableModels = h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+	}
+	fallbackModels := defaultModelIDsForPlatform(platform)
+	if group.CustomModelsListEnabled() {
+		source := availableModels
+		if platform != service.PlatformComposite {
+			source = customModelsListSource(platform, availableModels, fallbackModels)
+		}
+		return filterModelsByCustomList(source, fallbackModels, group.ModelsListConfig.Models)
+	}
+	if len(availableModels) > 0 {
+		return availableModels
+	}
+	return fallbackModels
+}
+
+func (h *GatewayHandler) unionAdvertisedModelsForGroups(ctx context.Context, groups []*service.Group, platformOverride string) ([]string, string, bool) {
+	models := make([]string, 0)
+	seen := make(map[string]struct{})
+	platform := strings.TrimSpace(platformOverride)
+	custom := false
+	for _, group := range groups {
+		if group == nil {
+			continue
+		}
+		if platform == "" {
+			platform = group.Platform
+		}
+		if group.CustomModelsListEnabled() {
+			custom = true
+		}
+		for _, modelID := range h.advertisedModelIDsForGroup(ctx, group, platformOverride) {
+			modelID = strings.TrimSpace(modelID)
+			if modelID == "" {
+				continue
+			}
+			if _, exists := seen[modelID]; exists {
+				continue
+			}
+			seen[modelID] = struct{}{}
+			models = append(models, modelID)
+		}
+	}
+	return models, platform, custom
+}
+
+func (h *GatewayHandler) unionCodexModelIDsForGroups(ctx context.Context, groups []*service.Group, platformOverride string) []string {
+	if len(groups) == 0 {
+		return nil
+	}
+	if len(groups) == 1 {
+		return service.FilterCodexModelIDsForGroup(h.codexModelIDsForGroup(ctx, groups[0], platformOverride), groups[0])
+	}
+	ids := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, group := range groups {
+		for _, modelID := range service.FilterCodexModelIDsForGroup(h.codexModelIDsForGroup(ctx, group, platformOverride), group) {
+			modelID = strings.TrimSpace(modelID)
+			if modelID == "" {
+				continue
+			}
+			if _, exists := seen[modelID]; exists {
+				continue
+			}
+			seen[modelID] = struct{}{}
+			ids = append(ids, modelID)
+		}
+	}
+	return ids
+}
+
+func (h *GatewayHandler) RouteGroupSupportsModel(ctx context.Context, group *service.Group, model string) bool {
+	model = strings.TrimSpace(model)
+	if h == nil || group == nil || model == "" {
+		return false
+	}
+	return customModelsListAllowsModel(h.advertisedModelIDsForGroup(ctx, group, ""), model)
 }
 
 func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64) []string {

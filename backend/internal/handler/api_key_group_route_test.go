@@ -157,6 +157,75 @@ func TestAPIKeyRouteRuntimeEnsureInitialFiltersWithoutCountingSwitch(t *testing.
 	require.Equal(t, 1, state.SwitchCount)
 }
 
+type routeModelAvailabilityStub struct {
+	unsupported map[int64]struct{}
+}
+
+func (s routeModelAvailabilityStub) DiagnoseModelAvailabilityForPlatform(_ context.Context, groupID *int64, _ string, _ string) service.ModelAvailabilityDiagnosis {
+	if groupID != nil {
+		if _, skip := s.unsupported[*groupID]; skip {
+			return service.ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: false}
+		}
+	}
+	return service.ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: true}
+}
+
+func TestAPIKeyRouteRuntimeEnsureInitialSkipsGroupsWithoutRequestedModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	primaryID, secondaryID := int64(31), int64(32)
+	routes := []service.APIKeyGroupRoute{
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: secondaryID, Priority: 1, Enabled: true, Group: &service.Group{ID: secondaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+	}
+	apiKey := &service.APIKey{ID: 22, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 20}, RouteVersion: 5, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	diag := routeModelAvailabilityStub{unsupported: map[int64]struct{}{primaryID: {}}}
+	actual, _, changed, err := (apiKeyRouteRuntime{}).ensureInitial(c, func(candidate *service.APIKey) error {
+		return rejectAPIKeyRouteUnsupportedModel(c, diag, candidate, "gpt-4o")
+	})
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, secondaryID, actual.Group.ID)
+	state, ok := middleware2.GetAPIKeyRouteState(c)
+	require.True(t, ok)
+	require.Equal(t, secondaryID, state.InitialGroupID)
+	require.Zero(t, state.SwitchCount)
+}
+
+func TestRejectAPIKeyRouteUnsupportedModelSkipsOtherPlatforms(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	openaiID, grokID := int64(41), int64(42)
+	openai := &service.Group{ID: openaiID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}
+	grok := &service.Group{ID: grokID, Status: service.StatusActive, Platform: service.PlatformGrok, SubscriptionType: service.SubscriptionTypeStandard}
+	apiKey := &service.APIKey{
+		ID: 23, GroupID: &openaiID, Group: openai, User: &service.User{ID: 21}, RouteVersion: 6,
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: openaiID, Priority: 0, Enabled: true, Group: openai},
+			{GroupID: grokID, Priority: 1, Enabled: true, Group: grok},
+		},
+	}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: openaiID})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	diag := routeModelAvailabilityStub{unsupported: map[int64]struct{}{openaiID: {}}}
+	actual, _, changed, err := (apiKeyRouteRuntime{}).ensureInitial(c, func(candidate *service.APIKey) error {
+		return rejectAPIKeyRouteUnsupportedModel(c, diag, candidate, "company-grok")
+	})
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, grokID, actual.Group.ID)
+}
+
 func TestAPIKeyRouteRuntimeValidateInitialNeverMovesStateOwnedContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	primaryID, secondaryID := int64(27), int64(28)
@@ -479,6 +548,39 @@ func TestRecoveryTrafficBudgetKeepsRecoveredCheapRouteOnNewSessionSubset(t *test
 		{GroupID: recoveryGroupID, Eligible: true, Recovery: true, NormalizedRate: .7},
 	})
 	require.Equal(t, recoveryGroupID, prioritized[0].GroupID)
+}
+
+func TestActivateStickyIgnoresMissingGroupAndKeepsFailoverOrder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ids := []int64{61, 62, 63}
+	routes := make([]service.APIKeyGroupRoute, 0, len(ids))
+	for priority, id := range ids {
+		routes = append(routes, service.APIKeyGroupRoute{
+			GroupID: id, Priority: priority, Enabled: true,
+			Group: &service.Group{ID: id, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard},
+		})
+	}
+	apiKey := &service.APIKey{ID: 60, GroupID: &ids[1], Group: routes[1].Group, RouteVersion: 5, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{1, 2}, Index: 1, InitialGroupID: ids[1]})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	actual, _, activated, err := (apiKeyRouteRuntime{}).activateSticky(c, ids[0], nil)
+	require.NoError(t, err)
+	require.False(t, activated)
+	require.Nil(t, actual)
+
+	state, ok := middleware2.GetAPIKeyRouteState(c)
+	require.True(t, ok)
+	require.Equal(t, []int{1, 2}, state.Order)
+	require.Equal(t, 1, state.Index)
+
+	next, advanced := middleware2.AdvanceAPIKeyRoute(c)
+	require.True(t, advanced)
+	require.Equal(t, ids[2], *next.GroupID)
 }
 
 func TestActiveFallbackStickyDrainsUntilThatRouteFails(t *testing.T) {

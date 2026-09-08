@@ -78,7 +78,7 @@ func (s *APIKeyRoutingOrderStabilizer) Stabilize(
 		return ranked
 	}
 	if stable[0] == proposed[0] {
-		state.stableOrder = mergeRoutingOrder(stable, proposed)
+		state.stableOrder = followRoutingBackupOrder(stable[0], proposed)
 		state.transitionOrder = nil
 		return reorderRoutingScores(ranked, state.stableOrder)
 	}
@@ -167,6 +167,17 @@ func retainRoutingOrder(stable, proposed []int64) []int64 {
 }
 
 func mergeRoutingOrder(stable, proposed []int64) []int64 { return retainRoutingOrder(stable, proposed) }
+
+func followRoutingBackupOrder(primary int64, proposed []int64) []int64 {
+	order := make([]int64, 0, len(proposed))
+	order = append(order, primary)
+	for _, id := range proposed {
+		if id != primary {
+			order = append(order, id)
+		}
+	}
+	return order
+}
 
 func promoteOnePosition(order []int64, groupID int64) []int64 {
 	result := append([]int64(nil), order...)

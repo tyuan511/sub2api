@@ -141,6 +141,9 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, requestModel); err != nil {
+			return err
+		}
 		if !compositeTargetPlatformAllowed(c, candidate, requestModel, service.PlatformOpenAI) {
 			return fmt.Errorf("candidate group %d does not support image target", candidate.Group.ID)
 		}

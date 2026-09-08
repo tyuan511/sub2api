@@ -60,6 +60,27 @@ func TestRoutingOrderStabilizerBoundsNewSessionTrafficAndRankMovement(t *testing
 	require.Less(t, newTop, 150)
 }
 
+func TestRoutingOrderStabilizerUpdatesBackupOrderWhenPrimaryHolds(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	stabilizer := NewAPIKeyRoutingOrderStabilizer(10, time.Hour)
+	policy := APIKeyRoutingStabilityPolicy{MinimumScoreDifference: 0.05, MinimumResidenceSeconds: 300, MaxTrafficChangeBPS: 10000}
+	scope := APIKeyRoutingScoreScope{Platform: PlatformOpenAI, ModelFamily: "gpt-5", EndpointKind: "responses"}
+	initial := []APIKeyRoutingCandidateScore{
+		{GroupID: 1, Eligible: true, Score: 0.90},
+		{GroupID: 2, Eligible: true, Score: 0.80},
+		{GroupID: 3, Eligible: true, Score: 0.70},
+	}
+	require.Equal(t, []int64{1, 2, 3}, eligibleRoutingOrder(stabilizer.Stabilize(7, 1, scope, APIKeySmartPreferenceBalanced, "a", initial, policy, now)))
+
+	updated := []APIKeyRoutingCandidateScore{
+		{GroupID: 1, Eligible: true, Score: 0.90},
+		{GroupID: 3, Eligible: true, Score: 0.85},
+		{GroupID: 2, Eligible: true, Score: 0.60},
+	}
+	result := stabilizer.Stabilize(7, 1, scope, APIKeySmartPreferenceBalanced, "b", updated, policy, now.Add(30*time.Minute))
+	require.Equal(t, []int64{1, 3, 2}, eligibleRoutingOrder(result))
+}
+
 func TestRoutingOrderStabilizerIsRouteVersionIsolatedAndBounded(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	stabilizer := NewAPIKeyRoutingOrderStabilizer(2, time.Hour)

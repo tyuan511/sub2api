@@ -135,3 +135,101 @@ func TestLockAPIKeyRoutePreventsDetachedRequestFromChangingPhysicalGroup(t *test
 	require.True(t, ok)
 	require.Equal(t, int64(10), *stored.GroupID)
 }
+
+func TestActivateAPIKeyRouteForPlatformPinsMatchingMixedGroup(t *testing.T) {
+	openai := middlewareRouteGroup(10, service.StatusActive)
+	grok := middlewareRouteGroup(20, service.StatusActive)
+	grok.Platform = service.PlatformGrok
+	openaiID := openai.ID
+	key := &service.APIKey{
+		ID: 1, GroupID: &openaiID, Group: openai, RouteVersion: 7,
+		User: &service.User{ID: 2, Status: service.StatusActive},
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: 10, Priority: 0, Enabled: true, Group: openai},
+			{GroupID: 20, Priority: 1, Enabled: true, Group: grok},
+		},
+	}
+	routed, state, err := prepareInitialAPIKeyRoute(key, service.NewAPIKeyRouteCoordinator(true))
+	require.NoError(t, err)
+	require.Equal(t, int64(10), *routed.GroupID)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	c.Set(string(ContextKeyAPIKey), routed)
+	SetAPIKeyRouteState(c, state)
+
+	actual, ok := FilterAPIKeyRouteOrder(c, func(group *service.Group) bool {
+		return group != nil && group.Platform == service.PlatformGrok
+	})
+	require.True(t, ok)
+	require.Equal(t, int64(20), *actual.GroupID)
+	require.Zero(t, state.SwitchCount)
+	require.Equal(t, int64(20), state.InitialGroupID)
+	require.Equal(t, []int{1}, state.Order)
+}
+
+func TestFilterAPIKeyRouteOrderKeepsUserOrderAmongSupportingGroups(t *testing.T) {
+	grok := middlewareRouteGroup(10, service.StatusActive)
+	grok.Platform = service.PlatformGrok
+	first := middlewareRouteGroup(20, service.StatusActive)
+	second := middlewareRouteGroup(30, service.StatusActive)
+	grokID := grok.ID
+	key := &service.APIKey{
+		ID: 1, GroupID: &grokID, Group: grok, RouteVersion: 7,
+		User: &service.User{ID: 2, Status: service.StatusActive},
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: 10, Priority: 0, Enabled: true, Group: grok},
+			{GroupID: 20, Priority: 1, Enabled: true, Group: first},
+			{GroupID: 30, Priority: 2, Enabled: true, Group: second},
+		},
+	}
+	routed, state, err := prepareInitialAPIKeyRoute(key, service.NewAPIKeyRouteCoordinator(true))
+	require.NoError(t, err)
+	require.Equal(t, int64(10), *routed.GroupID)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	c.Set(string(ContextKeyAPIKey), routed)
+	SetAPIKeyRouteState(c, state)
+
+	actual, ok := FilterAPIKeyRouteOrder(c, func(group *service.Group) bool {
+		return group != nil && group.Platform == service.PlatformOpenAI
+	})
+	require.True(t, ok)
+	require.Equal(t, int64(20), *actual.GroupID)
+	require.Equal(t, []int{1, 2}, state.Order)
+	require.Zero(t, state.SwitchCount)
+}
+
+func TestFindAPIKeyRouteGroupIgnoresFilteredStickyTarget(t *testing.T) {
+	first := middlewareRouteGroup(10, service.StatusActive)
+	second := middlewareRouteGroup(20, service.StatusActive)
+	third := middlewareRouteGroup(30, service.StatusActive)
+	firstID := first.ID
+	key := &service.APIKey{
+		ID: 1, GroupID: &firstID, Group: first, RouteVersion: 7,
+		User: &service.User{ID: 2, Status: service.StatusActive},
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: 10, Priority: 0, Enabled: true, Group: first},
+			{GroupID: 20, Priority: 1, Enabled: true, Group: second},
+			{GroupID: 30, Priority: 2, Enabled: true, Group: third},
+		},
+	}
+	routed, state, err := prepareInitialAPIKeyRoute(key, service.NewAPIKeyRouteCoordinator(true))
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	c.Set(string(ContextKeyAPIKey), routed)
+	SetAPIKeyRouteState(c, state)
+	_, ok := FilterAPIKeyRouteOrder(c, func(group *service.Group) bool {
+		return group != nil && group.ID != 10
+	})
+	require.True(t, ok)
+
+	_, _, found := FindAPIKeyRouteGroup(c, 10)
+	require.False(t, found)
+	candidate, index, found := FindAPIKeyRouteGroup(c, 20)
+	require.True(t, found)
+	require.Equal(t, 1, index)
+	require.Equal(t, int64(20), *candidate.GroupID)
+	_, _, found = FindAPIKeyRouteGroup(c, 99)
+	require.False(t, found)
+}

@@ -149,6 +149,9 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
 		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
 			return fmt.Errorf("candidate group %d does not support model %s", candidate.Group.ID, reqModel)
 		}

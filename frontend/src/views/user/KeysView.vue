@@ -482,7 +482,22 @@
 
         <div v-if="routingEnabled">
           <div class="mb-1.5 flex items-center justify-between gap-3">
-            <label class="input-label mb-0">{{ t('keys.routeGroupsLabel') }}</label>
+            <div class="flex items-center">
+              <label class="input-label mb-0">{{ t('keys.routeGroupsLabel') }}</label>
+              <HelpTooltip trigger="click" width-class="w-80" data-test="route-groups-help">
+                <p class="font-medium">{{ t('keys.routeGroupsHelpTitle') }}</p>
+                <ul class="mt-1.5 list-disc space-y-1 pl-4">
+                  <li>{{ t('keys.routeGroupsHelpFailover') }}</li>
+                  <li>{{ t('keys.routeGroupsHelpModels') }}</li>
+                  <li>{{ t('keys.routeGroupsHelpBilling') }}</li>
+                </ul>
+                <p class="mt-2 font-medium">{{ t('keys.scheduleModeLabel') }}</p>
+                <ul class="mt-1.5 list-disc space-y-1 pl-4">
+                  <li>{{ t('keys.routeGroupsHelpSequential') }}</li>
+                  <li>{{ t('keys.routeGroupsHelpSmart') }}</li>
+                </ul>
+              </HelpTooltip>
+            </div>
             <span class="text-xs text-gray-500 dark:text-gray-400">
               {{ formData.group_routes.length }}/8
             </span>
@@ -491,7 +506,6 @@
             v-model="formData.group_routes"
             :groups="routeSelectableGroups"
             :user-group-rates="userGroupRates"
-            :route-details="showEditModal ? (selectedKey?.group_routes ?? []) : []"
             :max-groups="8"
             data-tour="key-form-group"
           />
@@ -546,70 +560,7 @@
         </div>
 
         <div v-if="hasMultipleRouteGroups && formData.schedule_mode === 'smart'" class="space-y-2">
-          <RoutingPreferenceSlider
-            v-model="formData.smart_balance_bps"
-            :min="0" :max="10000" :step="500" :default-value="5000"
-            :label="t('keys.smartPreferenceLabel')" :value-label="balanceLabel"
-            :description="t('keys.balanceRatio', { price: priceRatio, stability: stabilityRatio })"
-            :left-label="t('keys.sliderPrice')" :right-label="t('keys.sliderStability')"
-            :reset-label="t('keys.resetBalance')" data-test="smart-balance-slider"
-          >
-            <div class="mt-4 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 text-xs sm:grid-cols-4 dark:border-dark-700" data-test="routing-score-weights">
-              <div v-for="weight in scoreWeights" :key="weight.label" class="flex items-center justify-between gap-2 sm:block sm:text-center">
-                <span class="text-gray-500 dark:text-gray-400">{{ weight.label }}</span>
-                <span class="font-medium tabular-nums text-gray-800 sm:mt-1 sm:block dark:text-gray-200">{{ weight.value }}%</span>
-              </div>
-            </div>
-          </RoutingPreferenceSlider>
-          <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:border-blue-900/60 dark:bg-blue-900/20 dark:text-blue-200">
-            {{ t('keys.smartSchedulingDisclosure') }}
-            <div v-if="showEditModal" class="mt-1 font-medium" data-test="smart-strategy-version">
-              {{ selectedKey?.routing_policy
-                ? t('keys.smartStrategyVersion', {
-                    version: `${selectedKey.routing_policy.strategy_version}/${selectedKey.routing_policy.score_version}`,
-                    time: formatDateTime(selectedKey.routing_policy.updated_at)
-                  })
-                : t('keys.smartStrategyPending') }}
-            </div>
-          </div>
-          <div
-            v-if="showEditModal && selectedKey?.estimated_rate"
-            class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300"
-            data-test="smart-estimated-rate"
-          >
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <span class="font-medium">{{ t('keys.estimatedRateTitle') }}</span>
-              <span class="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                ×{{ selectedKey.estimated_rate.value.toFixed(2) }}
-                <span class="font-normal text-gray-500 dark:text-gray-400">
-                  (×{{ selectedKey.estimated_rate.low.toFixed(2) }}–×{{ selectedKey.estimated_rate.high.toFixed(2) }})
-                </span>
-              </span>
-            </div>
-            <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-gray-500 dark:text-gray-400">
-              <span v-if="selectedKey.estimated_rate.model_family">{{ selectedKey.estimated_rate.model_family }}</span>
-              <span>{{ t('keys.estimatedRateWindow', { window: selectedKey.estimated_rate.window }) }}</span>
-              <span>{{ t(`keys.routeConfidence.${selectedKey.estimated_rate.confidence}`) }}</span>
-              <span v-if="selectedKey.estimated_rate.cache_hit_rate !== undefined">
-                {{ t('keys.routeCacheHit', { rate: `${(selectedKey.estimated_rate.cache_hit_rate * 100).toFixed(1)}%` }) }}
-              </span>
-              <span v-if="selectedKey.estimated_rate.logical_input_tokens">
-                {{ t('keys.estimatedRateSamples', {
-                  input: selectedKey.estimated_rate.logical_input_tokens.toLocaleString(),
-                  output: (selectedKey.estimated_rate.output_tokens ?? 0).toLocaleString()
-                }) }}
-              </span>
-              <span v-if="selectedKey.estimated_rate.selection_source === 'blended'">
-                {{ t('keys.estimatedRateObservedShare', {
-                  samples: selectedKey.estimated_rate.selection_samples.toLocaleString(),
-                  effective: selectedKey.estimated_rate.selection_effective_n.toFixed(0),
-                  window: selectedKey.estimated_rate.selection_window
-                }) }}
-              </span>
-              <span v-else>{{ t('keys.estimatedRateModeledShare') }}</span>
-            </div>
-            <p class="mt-1 text-gray-500 dark:text-gray-400">{{ t('keys.estimatedRateDisclaimer') }}</p>
-          </div>
+          <RoutingPreferencePresets v-model="formData.smart_balance_bps" data-test="smart-balance-presets" />
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1236,6 +1187,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import DataTable from '@/components/common/DataTable.vue'
 	import Pagination from '@/components/common/Pagination.vue'
 	import BaseDialog from '@/components/common/BaseDialog.vue'
+	import HelpTooltip from '@/components/common/HelpTooltip.vue'
 	import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 	import EmptyState from '@/components/common/EmptyState.vue'
 	import Select from '@/components/common/Select.vue'
@@ -1244,7 +1196,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import ApiKeyGroupRouteSelector from '@/components/keys/ApiKeyGroupRouteSelector.vue'
-import RoutingPreferenceSlider from '@/components/keys/RoutingPreferenceSlider.vue'
+import RoutingPreferencePresets, { snapSmartBalanceBps } from '@/components/keys/RoutingPreferencePresets.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 	import type {
@@ -1499,18 +1451,10 @@ const scheduleModeOptions = computed(() => [
   }
 ])
 
-const stabilityRatio = computed(() => formData.value.smart_balance_bps / 100)
-const priceRatio = computed(() => 100 - stabilityRatio.value)
-const balancePreference = computed<ApiKeySmartPreference>(() =>
-  stabilityRatio.value < 50 ? 'price' : stabilityRatio.value > 50 ? 'speed' : 'balanced')
-const balanceLabel = computed(() => t(stabilityRatio.value === 50
-  ? 'keys.preferenceBalanced' : stabilityRatio.value < 50 ? 'keys.preferencePrice' : 'keys.preferenceSpeed'))
-const scoreWeights = computed(() => [
-  { label: t('keys.weightPrice'), value: Number(priceRatio.value.toFixed(2)) },
-  { label: t('keys.weightReliability'), value: Number((stabilityRatio.value * 0.5).toFixed(2)) },
-  { label: t('keys.weightTTFT'), value: Number((stabilityRatio.value * 0.25).toFixed(2)) },
-  { label: t('keys.weightSpeed'), value: Number((stabilityRatio.value * 0.25).toFixed(2)) }
-])
+const balancePreference = computed<ApiKeySmartPreference>(() => {
+  const stability = formData.value.smart_balance_bps / 100
+  return stability < 50 ? 'price' : stability > 50 ? 'speed' : 'balanced'
+})
 
 const selectScheduleMode = (mode: ApiKeyScheduleMode) => {
   formData.value.schedule_mode = mode
@@ -1738,7 +1682,7 @@ const editKey = async (key: ApiKey) => {
     name: key.name,
     group_routes: routeGroupIds,
     schedule_mode: key.schedule_mode || 'sequential',
-    smart_balance_bps: key.smart_balance_bps ?? (key.smart_preference === 'price' ? 1250 : key.smart_preference === 'speed' ? 8750 : 5000),
+    smart_balance_bps: snapSmartBalanceBps(key.smart_balance_bps ?? (key.smart_preference === 'price' ? 1250 : key.smart_preference === 'speed' ? 8750 : 5000)),
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',

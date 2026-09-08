@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { VueDraggable } from 'vue-draggable-plus'
 import type { Group } from '@/types'
 import ApiKeyGroupRouteSelector from '../ApiKeyGroupRouteSelector.vue'
 
@@ -53,7 +54,7 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(trigger.get('span').classes()).not.toContain('text-gray-400')
   })
 
-  it('limits additional choices to the first group platform and billing type', async () => {
+  it('limits additional choices to the first group billing type', async () => {
     const wrapper = mount(ApiKeyGroupRouteSelector, {
       props: {
         modelValue: [1],
@@ -69,7 +70,7 @@ describe('ApiKeyGroupRouteSelector', () => {
     await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
 
     expect(wrapper.get('[data-test="route-group-option-2"]').attributes('disabled')).toBeUndefined()
-    expect(wrapper.get('[data-test="route-group-option-3"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="route-group-option-3"]').attributes('disabled')).toBeUndefined()
     expect(wrapper.get('[data-test="route-group-option-4"]').attributes('disabled')).toBeDefined()
 
     await wrapper.get('[data-test="route-group-option-2"]').trigger('click')
@@ -102,12 +103,48 @@ describe('ApiKeyGroupRouteSelector', () => {
       }
     })
 
-    await wrapper.get('[data-test="move-route-up-2"]').trigger('click')
+    await wrapper.get('[data-test="drag-route-2"]').trigger('keydown', { key: 'ArrowUp' })
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[2, 1, 3]])
     expect(initial).toEqual([1, 2, 3])
 
     await wrapper.get('[data-test="remove-route-group-2"]').trigger('click')
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[1, 3]])
+  })
+
+  it('shows drag handles for multiple groups and reorders from drag updates', async () => {
+    const initial = [1, 2, 3]
+    const wrapper = mount(ApiKeyGroupRouteSelector, {
+      props: {
+        modelValue: initial,
+        groups: [makeGroup(1), makeGroup(2), makeGroup(3)]
+      }
+    })
+
+    expect(wrapper.get('[data-test="drag-route-1"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="drag-route-2"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="drag-route-2"]').trigger('keydown', { key: 'ArrowUp' })
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[2, 1, 3]])
+
+    wrapper.getComponent(VueDraggable).vm.$emit('update:modelValue', [
+      { id: 3 },
+      { id: 1 },
+      { id: 2 }
+    ])
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[3, 1, 2]])
+    expect(initial).toEqual([1, 2, 3])
+  })
+
+  it('hides drag handles when only one group is selected', () => {
+    const wrapper = mount(ApiKeyGroupRouteSelector, {
+      props: {
+        modelValue: [1],
+        groups: [makeGroup(1), makeGroup(2)]
+      }
+    })
+
+    expect(wrapper.find('[data-test="drag-route-1"]').exists()).toBe(false)
   })
 
   it('keeps a selected unavailable group removable but blocks adding another one', async () => {
@@ -146,33 +183,18 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(wrapper.get('[data-test="selected-route-group-1"]').classes()).toContain('flex-wrap')
   })
 
-  it('shows current smart-routing explanation for an existing binding', () => {
+  it('does not expose routing diagnostics on selected groups', () => {
     const wrapper = mount(ApiKeyGroupRouteSelector, {
       props: {
         modelValue: [1],
-        groups: [makeGroup(1)],
-        routeDetails: [{
-          group_id: 1,
-          priority: 0,
-          enabled: true,
-          current_rank: 1,
-          normalized_effective_rate: 0.75,
-          success_rate: 0.98,
-          ttft_ms: 120,
-          duration_ms: 800,
-          cache_hit_rate: 0.8,
-          predicted_share: 0.9,
-          price_confidence: 'high'
-        }]
+        groups: [makeGroup(1)]
       }
     })
 
-    const detail = wrapper.get('[data-test="route-group-detail-1"]').text()
-    expect(detail).toContain('keys.routeCurrentRank')
-    expect(detail).toContain('keys.routeEffectiveRate')
-    expect(detail).toContain('98.0%')
-    expect(detail).toContain('keys.routeTTFT')
-    expect(detail).toContain('keys.routeCacheHit')
-    expect(detail).toContain('keys.routeConfidence.high')
+    expect(wrapper.find('[data-test="route-group-detail-1"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('keys.routePrimaryGroup')
+    expect(wrapper.text()).toContain('keys.routeGroupRate')
+    expect(wrapper.text()).not.toContain('keys.routeCurrentRank')
+    expect(wrapper.text()).not.toContain('keys.routeConfidence.high')
   })
 })

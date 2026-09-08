@@ -142,6 +142,108 @@ func prepareInitialAPIKeyRoute(apiKey *service.APIKey, coordinator *service.APIK
 	return routed, state, nil
 }
 
+func APIKeyRouteRoutingEnabled(c *gin.Context) bool {
+	state, ok := GetAPIKeyRouteState(c)
+	return ok && !state.Locked && state.Plan.RoutingEnabled
+}
+
+func APIKeyRouteHasMixedPlatforms(c *gin.Context) bool {
+	state, ok := GetAPIKeyRouteState(c)
+	return ok && !state.Locked && state.Plan.RoutingEnabled && apiKeyRoutePlanHasMixedPlatforms(state.Plan)
+}
+
+func apiKeyRoutePlanHasMixedPlatforms(plan *service.APIKeyRoutePlan) bool {
+	if plan == nil || len(plan.Candidates) < 2 {
+		return false
+	}
+	first := ""
+	for _, candidate := range plan.Candidates {
+		if candidate.Group == nil {
+			continue
+		}
+		platform := candidate.Group.Platform
+		if first == "" {
+			first = platform
+			continue
+		}
+		if platform != first {
+			return true
+		}
+	}
+	return false
+}
+
+func apiKeyRouteIndexForPlatform(plan *service.APIKeyRoutePlan, platform string) int {
+	if plan == nil || strings.TrimSpace(platform) == "" {
+		return -1
+	}
+	composite := -1
+	for index, candidate := range plan.Candidates {
+		if candidate.Group == nil {
+			continue
+		}
+		if candidate.Group.Platform == platform {
+			return index
+		}
+		if composite < 0 && candidate.Group.Platform == service.PlatformComposite {
+			composite = index
+		}
+	}
+	return composite
+}
+
+// ActivateAPIKeyRouteForPlatform pins the request to the first matching
+// candidate before handler dispatch. Mixed-platform keys need this so
+// getGroupPlatform and protocol routing see the group that can serve the model.
+func ActivateAPIKeyRouteForPlatform(c *gin.Context, platform string) (*service.APIKey, bool) {
+	state, ok := GetAPIKeyRouteState(c)
+	if !ok || state.Locked || !state.Plan.RoutingEnabled || !apiKeyRoutePlanHasMixedPlatforms(state.Plan) {
+		return nil, false
+	}
+	index := apiKeyRouteIndexForPlatform(state.Plan, platform)
+	if index < 0 || index == state.Index {
+		return nil, false
+	}
+	return ActivateInitialAPIKeyRouteIndex(c, index)
+}
+
+func FilterAPIKeyRouteOrder(c *gin.Context, supports func(*service.Group) bool) (*service.APIKey, bool) {
+	state, ok := GetAPIKeyRouteState(c)
+	ensureAPIKeyRouteOrder(state)
+	if !ok || state.Locked || !state.Plan.RoutingEnabled || supports == nil || len(state.Order) == 0 {
+		return nil, false
+	}
+	filtered := make([]int, 0, len(state.Order))
+	for _, index := range state.Order {
+		if index < 0 || index >= state.Plan.Len() {
+			continue
+		}
+		group := state.Plan.Candidates[index].Group
+		if group != nil && supports(group) {
+			filtered = append(filtered, index)
+		}
+	}
+	if len(filtered) == 0 {
+		return nil, false
+	}
+	unchanged := len(filtered) == len(state.Order)
+	if unchanged {
+		for i, index := range filtered {
+			if index != state.Order[i] {
+				unchanged = false
+				break
+			}
+		}
+	}
+	if unchanged && filtered[0] == state.Index {
+		return nil, false
+	}
+	state.Order = filtered
+	state.Cursor = 0
+	state.SwitchCount = 0
+	return activateAPIKeyRouteIndex(c, filtered[0], true)
+}
+
 func SetAPIKeyRouteState(c *gin.Context, state *APIKeyRouteState) {
 	if c == nil || state == nil || state.Plan == nil {
 		return
@@ -191,14 +293,19 @@ func AdvanceAPIKeyRoute(c *gin.Context) (*service.APIKey, bool) {
 }
 
 // FindAPIKeyRouteGroup returns a request-local projection without changing the
-// active route. It is used to validate a sticky target before committing it.
+// active route. It only accepts groups still in this request's visit order, so
+// a stale sticky target that was removed or filtered out is ignored.
 func FindAPIKeyRouteGroup(c *gin.Context, groupID int64) (*service.APIKey, int, bool) {
 	state, ok := GetAPIKeyRouteState(c)
+	ensureAPIKeyRouteOrder(state)
 	if !ok || groupID <= 0 {
 		return nil, 0, false
 	}
-	for index, candidate := range state.Plan.Candidates {
-		if candidate.GroupID != groupID {
+	for _, index := range state.Order {
+		if index < 0 || index >= state.Plan.Len() {
+			continue
+		}
+		if state.Plan.Candidates[index].GroupID != groupID {
 			continue
 		}
 		apiKey, ok := state.Plan.APIKeyForCandidate(index)

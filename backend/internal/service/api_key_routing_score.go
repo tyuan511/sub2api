@@ -16,9 +16,9 @@ type APIKeyRoutingScoreWeights struct {
 }
 
 const (
-	apiKeyRoutingStabilitySuccessShare = 0.50
-	apiKeyRoutingStabilityTTFTShare    = 0.25
-	apiKeyRoutingStabilitySpeedShare   = 0.25
+	apiKeyRoutingStabilitySuccessShare = 0.80
+	apiKeyRoutingStabilityTTFTShare    = 0.20
+	apiKeyRoutingStabilitySpeedShare   = 0
 )
 
 func APIKeyRoutingWeights(preference string) APIKeyRoutingScoreWeights {
@@ -212,7 +212,7 @@ type APIKeyRoutingSelectionEvidence struct {
 
 // RankAPIKeyRoutingCandidates applies one explainable scoring model. The user
 // slider allocates weight between price (cache-adjusted rate) and stability
-// (success + TTFT + duration). Success rate is a score, not a hard gate.
+// (success + TTFT). Success rate is a score, not a hard gate.
 func RankAPIKeyRoutingCandidates(candidates []APIKeyRouteCandidate, snapshot *APIKeyRoutingScoreSnapshot, preference string, minimumSamples int64) []APIKeyRoutingCandidateScore {
 	policy := DefaultAPIKeyRoutingStrategyPolicy(preference)
 	if minimumSamples > 0 {
@@ -226,6 +226,10 @@ func RankAPIKeyRoutingCandidates(candidates []APIKeyRouteCandidate, snapshot *AP
 // route plan. Low success lowers the stability score instead of excluding a
 // group, so a globally degraded platform cannot make the key unusable.
 func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, snapshot *APIKeyRoutingScoreSnapshot, policy APIKeyRoutingStrategyPolicy) []APIKeyRoutingCandidateScore {
+	return RankAPIKeyRoutingCandidatesWithEligibility(candidates, snapshot, policy, nil)
+}
+
+func RankAPIKeyRoutingCandidatesWithEligibility(candidates []APIKeyRouteCandidate, snapshot *APIKeyRoutingScoreSnapshot, policy APIKeyRoutingStrategyPolicy, eligibleGroups map[int64]bool) []APIKeyRoutingCandidateScore {
 	if ValidateAPIKeyRoutingStrategyPolicy(policy) != nil {
 		policy = DefaultAPIKeyRoutingStrategyPolicy(policy.Preference)
 	}
@@ -244,7 +248,7 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 				observations[i].NormalizedRate = nonNegativeFiniteOr(candidate.Group.RateMultiplier, 1)
 			}
 		}
-		eligible[i] = true
+		eligible[i] = eligibleGroups == nil || eligibleGroups[candidate.GroupID]
 	}
 	dependencyCounts := make(map[string]int)
 	for _, observation := range observations {
@@ -308,6 +312,11 @@ func RankAPIKeyRoutingCandidatesWithPolicy(candidates []APIKeyRouteCandidate, sn
 			scoringSuccessRate = successRate
 		}
 		score.SmoothedSuccessRate = scoringSuccessRate
+		if !eligible[i] {
+			score.Eligible = false
+			result = append(result, score)
+			continue
+		}
 		shrunkSuccess := confidence*scoringSuccessRate + (1-confidence)*0.5
 		shrunkPrice := priceConfidence*priceScores[i] + (1-priceConfidence)*0.5
 		shrunkTTFT := confidence*ttftScores[i] + (1-confidence)*0.5

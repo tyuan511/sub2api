@@ -171,6 +171,29 @@ func TestProjectAPIKeyRoutingScoreSnapshotAppliesPeakMultiplierAtFixedInstant(t 
 	}
 }
 
+func TestRankAPIKeyRoutingCandidatesIgnoresIneligibleGroupsInMinMax(t *testing.T) {
+	candidates := []APIKeyRouteCandidate{{GroupID: 1}, {GroupID: 2}, {GroupID: 3}}
+	snapshot := &APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
+		1: {GroupID: 1, SuccessRequests: 90, FailedRequests: 10, NormalizedRate: 1, TTFTP50Ms: 200, CapacityScore: 1, Confidence: 1, PriceConfidence: 1, SmoothedSuccessRate: 0.9},
+		2: {GroupID: 2, SuccessRequests: 90, FailedRequests: 10, NormalizedRate: 1.2, TTFTP50Ms: 100, CapacityScore: 1, Confidence: 1, PriceConfidence: 1, SmoothedSuccessRate: 0.9},
+		3: {GroupID: 3, SuccessRequests: 90, FailedRequests: 10, NormalizedRate: 10, TTFTP50Ms: 50, CapacityScore: 1, Confidence: 1, PriceConfidence: 1, SmoothedSuccessRate: 0.9},
+	}}
+	policy := DefaultAPIKeyRoutingStrategyPolicy(APIKeySmartPreferencePrice)
+	withoutExcluded := RankAPIKeyRoutingCandidatesWithPolicy(candidates[:2], snapshot, policy)
+	withExcluded := RankAPIKeyRoutingCandidatesWithEligibility(candidates, snapshot, policy, map[int64]bool{1: true, 2: true})
+	if withoutExcluded[0].GroupID != withExcluded[0].GroupID {
+		t.Fatalf("ineligible high-price group flipped ranking: without=%d with=%d", withoutExcluded[0].GroupID, withExcluded[0].GroupID)
+	}
+	if withExcluded[0].GroupID != 1 {
+		t.Fatalf("price ranking first = %d, want cheaper eligible group 1", withExcluded[0].GroupID)
+	}
+	for _, score := range withExcluded {
+		if score.GroupID == 3 && score.Eligible {
+			t.Fatalf("excluded group 3 must not stay eligible: %+v", score)
+		}
+	}
+}
+
 func TestRankAPIKeyRoutingCandidatesEqualPriceScoresAreBest(t *testing.T) {
 	values := []APIKeyRoutingGroupObservation{{NormalizedRate: 1}, {NormalizedRate: 1}}
 	scores := inverseMinMaxEligible(values, []bool{true, true}, func(item APIKeyRoutingGroupObservation) float64 {

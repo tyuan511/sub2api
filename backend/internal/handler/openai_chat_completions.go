@@ -142,6 +142,9 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
 		if !openAICompatibleTextTargetAllowed(c, candidate, reqModel) {
 			return fmt.Errorf("candidate group %d does not support this endpoint target", candidate.Group.ID)
 		}

@@ -106,6 +106,9 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
 		if !compositeTargetPlatformAllowed(c, candidate, reqModel, service.PlatformOpenAI) {
 			return fmt.Errorf("candidate group %d does not support embeddings target", candidate.Group.ID)
 		}

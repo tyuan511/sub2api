@@ -249,6 +249,9 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
 		if !middleware.HasForcePlatform(c) && effectiveAPIKeyPlatform(c, candidate) != service.PlatformGemini {
 			return fmt.Errorf("candidate group %d is not Gemini-compatible", candidate.Group.ID)
 		}

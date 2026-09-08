@@ -616,6 +616,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
 		if !openAICompatibleTextTargetAllowed(c, candidate, reqModel) {
 			return fmt.Errorf("candidate group %d does not support this endpoint target", candidate.Group.ID)
 		}
@@ -1450,6 +1453,9 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	messagesCandidateCheck := func(candidate *service.APIKey) error {
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
 		}
 		if !allowOpenAICompatibleMessagesDispatch(c, candidate) {
 			return fmt.Errorf("candidate group %d does not allow messages dispatch", candidate.Group.ID)
@@ -2892,6 +2898,9 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		// run above and route health is meaningful only for an enabled route plan.
 		if !apiKeyMultiGroupRoutingActive(c) {
 			return nil
+		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
 		}
 		if !compositeTargetPlatformAllowed(c, candidate, reqModel, service.PlatformOpenAI, service.PlatformGrok) {
 			return fmt.Errorf("candidate group %d does not support Responses WebSocket target", candidate.Group.ID)

@@ -62,11 +62,13 @@ func TestAPIKeyRouteCoordinator_SequentialHardFiltersAndClonesActualGroup(t *tes
 	})
 	require.NoError(t, err)
 	require.Equal(t, int64(11), plan.RouteVersion)
-	require.Equal(t, []APIKeyRouteCandidate{{GroupID: 10, Priority: 0, Group: first}}, plan.Candidates)
+	require.Equal(t, []APIKeyRouteCandidate{
+		{GroupID: 10, Priority: 0, Group: first},
+		{GroupID: 40, Priority: 3, Group: wrongPlatform},
+	}, plan.Candidates)
 	require.Equal(t, []APIKeyRouteExclusion{
 		{GroupID: 20, Priority: 1, Reason: "model_unsupported"},
 		{GroupID: 30, Priority: 2, Reason: "group_inactive"},
-		{GroupID: 40, Priority: 3, Reason: "platform_mismatch"},
 	}, plan.Excluded)
 
 	actual, ok := plan.APIKeyForCandidate(0)

@@ -478,7 +478,7 @@ describe('user KeysView column settings', () => {
     const wrapper = await mountView(true)
     await getButtonByText(wrapper, 'Create API Key').trigger('click')
     expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="smart-balance-slider"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="smart-balance-presets"]').exists()).toBe(false)
     await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
     await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
     await nextTick()
@@ -524,10 +524,9 @@ describe('user KeysView column settings', () => {
     await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
     await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
     await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
-    await wrapper.get('[data-test="move-route-up-20"]').trigger('click')
+    await wrapper.get('[data-test="drag-route-20"]').trigger('keydown', { key: 'ArrowUp' })
     await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    expect(wrapper.get('[data-test="smart-balance-slider"] input').attributes('step')).toBe('500')
-    await wrapper.get('[data-test="smart-balance-slider"] input').setValue(3000)
+    await wrapper.get('[data-test="smart-balance-preset-2500"]').trigger('click')
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
 
@@ -540,12 +539,12 @@ describe('user KeysView column settings', () => {
       ],
       schedule_mode: 'smart',
       smart_preference: 'price',
-      smart_balance_bps: 3000,
+      smart_balance_bps: 2500,
     }))
     expect(createKeyWithRequest.mock.calls.at(-1)?.[0].routing_min_success_rate).toBeUndefined()
   })
 
-  it('defaults the price/stability slider to balanced and resets to 50/50', async () => {
+  it('defaults the smart preference to balanced', async () => {
     getAvailableGroups.mockResolvedValue([createGroup(10), createGroup(20)])
     const wrapper = await mountView(true)
     await getButtonByText(wrapper, 'Create API Key').trigger('click')
@@ -557,11 +556,9 @@ describe('user KeysView column settings', () => {
     }
     await selectTwoGroups()
     await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    const slider = () => wrapper.get('[data-test="smart-balance-slider"] input')
-    expect((slider().element as HTMLInputElement).value).toBe('5000')
-    await slider().setValue(3000)
-    await wrapper.get('[data-test="smart-balance-slider"] button').trigger('click')
-    expect((slider().element as HTMLInputElement).value).toBe('5000')
+    expect(wrapper.get('[data-test="smart-balance-preset-5000"]').classes()).toContain('border-primary-500')
+    await wrapper.get('[data-test="smart-balance-preset-0"]').trigger('click')
+    await wrapper.get('[data-test="smart-balance-preset-5000"]').trigger('click')
     await wrapper.get('[data-tour="key-form-name"]').setValue('default-balance-key')
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
@@ -570,7 +567,7 @@ describe('user KeysView column settings', () => {
     await nextTick()
     await selectTwoGroups()
     await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    expect((slider().element as HTMLInputElement).value).toBe('5000')
+    expect(wrapper.get('[data-test="smart-balance-preset-5000"]').classes()).toContain('border-primary-500')
   })
 
   it('shows controls only for multiple groups and does not submit hidden preferences', async () => {
@@ -579,7 +576,7 @@ describe('user KeysView column settings', () => {
     await getButtonByText(wrapper, 'Create API Key').trigger('click')
     const expectHidden = () => {
       expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="smart-balance-slider"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="smart-balance-presets"]').exists()).toBe(false)
     }
     expectHidden()
     await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
@@ -588,7 +585,7 @@ describe('user KeysView column settings', () => {
     await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
     expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(true)
     await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    await wrapper.get('[data-test="smart-balance-slider"] input').setValue(7350)
+    await wrapper.get('[data-test="smart-balance-preset-10000"]').trigger('click')
     await wrapper.get('[data-test="remove-route-group-20"]').trigger('click')
     expectHidden()
     await wrapper.get('[data-tour="key-form-name"]').setValue('fixed-group')
@@ -624,7 +621,7 @@ describe('user KeysView column settings', () => {
     const wrapper = await mountView(true)
     await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
     expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="smart-balance-slider"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="smart-balance-presets"]').exists()).toBe(false)
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
     const payload = updateKey.mock.calls.at(-1)?.[1]
@@ -634,10 +631,10 @@ describe('user KeysView column settings', () => {
   })
 
   it.each([
-    { preference: 'price', stored: null, expected: 1250 },
-    { preference: 'speed', stored: null, expected: 8750 },
+    { preference: 'price', stored: null, expected: 0 },
+    { preference: 'speed', stored: null, expected: 10000 },
     { preference: 'price', stored: 0, expected: 0 },
-    { preference: 'speed', stored: 7350, expected: 7350 },
+    { preference: 'speed', stored: 7350, expected: 5000 },
   ])('restores exact controls and compatible legacy preference $preference/$stored', async ({ preference, stored, expected }) => {
     const group = createGroup(10)
     const second = createGroup(20)
@@ -652,7 +649,7 @@ describe('user KeysView column settings', () => {
     const wrapper = await mountView(true)
     await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
     await nextTick()
-    expect((wrapper.get('[data-test="smart-balance-slider"] input').element as HTMLInputElement).value).toBe(String(expected))
+    expect(wrapper.get(`[data-test="smart-balance-preset-${expected}"]`).classes()).toContain('border-primary-500')
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
     expect(updateKey).toHaveBeenCalledWith(1, expect.objectContaining({

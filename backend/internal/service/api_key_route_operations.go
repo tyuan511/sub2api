@@ -154,21 +154,19 @@ func (s *APIKeyRouteOperationsService) Explain(ctx context.Context, apiKeyID int
 				userRates = apiKey.User.GroupRates
 			}
 			projected := ProjectAPIKeyRoutingScoreSnapshot(plan.Candidates, snapshot, userRates)
-			baselineRanked := RankAPIKeyRoutingCandidatesWithPolicy(plan.Candidates, projected, selection.Policy)
 			breakerByGroup := make(map[int64]string, len(plan.Candidates))
+			eligible := make(map[int64]bool, len(plan.Candidates))
 			for index, candidate := range plan.Candidates {
 				if index < len(breakerStates) {
 					breakerByGroup[candidate.GroupID] = breakerStates[index].State
 				}
-			}
-			eligible := make(map[int64]bool, len(baselineRanked))
-			for _, score := range baselineRanked {
-				if score.Eligible && breakerByGroup[score.GroupID] != APIKeyRouteBreakerOpen {
-					eligible[score.GroupID] = true
+				if breakerByGroup[candidate.GroupID] != APIKeyRouteBreakerOpen {
+					eligible[candidate.GroupID] = true
 				}
 			}
+			baselineRanked := RankAPIKeyRoutingCandidatesWithEligibility(plan.Candidates, projected, selection.Policy, eligible)
 			learning := ApplyDefaultAPIKeyRoutingLearning(strategyScope, apiKey.ID, userID, selection.ExperimentID, projected, eligible, time.Now())
-			ranked = RankAPIKeyRoutingCandidatesWithPolicy(plan.Candidates, learning.Snapshot, selection.Policy)
+			ranked = RankAPIKeyRoutingCandidatesWithEligibility(plan.Candidates, learning.Snapshot, selection.Policy, eligible)
 			ranked = preserveRoutingBaselineEligibility(ranked, baselineRanked)
 			ranked = annotateRoutingLearningScores(ranked, baselineRanked, learning.Personalization.AppliedGroups)
 			explanation.StrategyVersion = selection.Policy.Version

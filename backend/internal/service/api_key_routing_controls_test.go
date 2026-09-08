@@ -122,9 +122,9 @@ func TestAPIKeyRoutingControlsWeightsFollowPriceStabilitySlider(t *testing.T) {
 	}
 	weights := APIKeyRoutingBalanceWeights(3000)
 	require.InDelta(t, .7, weights.Price, 1e-12)
-	require.InDelta(t, .15, weights.Success, 1e-12)
-	require.InDelta(t, .075, weights.TTFT, 1e-12)
-	require.InDelta(t, .075, weights.Speed, 1e-12)
+	require.InDelta(t, .24, weights.Success, 1e-12)
+	require.InDelta(t, .06, weights.TTFT, 1e-12)
+	require.InDelta(t, 0, weights.Speed, 1e-12)
 	for preference, balance := range map[string]int{APIKeySmartPreferencePrice: 1250, APIKeySmartPreferenceSpeed: 8750, APIKeySmartPreferenceBalanced: 5000} {
 		old, actual := APIKeyRoutingWeights(preference), APIKeyRoutingBalanceWeights(balance)
 		require.InDelta(t, old.Price, actual.Price, 1e-12)
@@ -143,7 +143,7 @@ func TestAPIKeyRoutingControlsChangeActualRankingWithoutSuccessGate(t *testing.T
 	for _, test := range []struct {
 		balance int
 		first   int64
-	}{{0, 1}, {3000, 1}, {7000, 2}, {10000, 2}} {
+	}{{0, 1}, {3000, 1}, {9000, 2}, {10000, 2}} {
 		policy := ApplyAPIKeyRoutingControls(DefaultAPIKeyRoutingStrategyPolicy("balanced"), &APIKey{SmartBalanceBPS: &test.balance, RoutingMinSuccessRate: 85})
 		ranked := RankAPIKeyRoutingCandidatesWithPolicy(candidates, snapshot, policy)
 		require.True(t, ranked[0].Eligible)

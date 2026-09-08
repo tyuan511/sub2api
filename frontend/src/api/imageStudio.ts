@@ -58,11 +58,68 @@ export function isImageGroup(group: Group): boolean {
   return group.platform === 'openai' && group.status === 'active' && group.allow_image_generation === true
 }
 
-export function canGenerateImages(key: ApiKey): boolean {
-  return key.status === 'active' && !!key.key &&
-    (!key.expires_at || Date.parse(key.expires_at) > Date.now()) &&
-    (key.quota <= 0 || key.quota_used < key.quota) &&
-    !!key.group && isImageGroup(key.group)
+export function apiKeyBoundGroupIds(key: ApiKey): number[] {
+  const ids = new Set<number>()
+  if (key.group_id) ids.add(key.group_id)
+  for (const route of key.group_routes ?? []) {
+    if (route.enabled === false) continue
+    if (route.group_id) ids.add(route.group_id)
+    if (route.group?.id) ids.add(route.group.id)
+  }
+  if (key.group?.id) ids.add(key.group.id)
+  return [...ids]
+}
+
+export function apiKeyBoundGroups(key: ApiKey): Group[] {
+  const groups: Group[] = []
+  const seen = new Set<number>()
+  const add = (group?: Group | null) => {
+    if (!group || seen.has(group.id)) return
+    seen.add(group.id)
+    groups.push(group)
+  }
+  for (const route of key.group_routes ?? []) {
+    if (route.enabled === false) continue
+    add(route.group)
+  }
+  add(key.group)
+  return groups
+}
+
+export function canGenerateImages(key: ApiKey, imageGroups?: Pick<Group, 'id'>[]): boolean {
+  if (key.status !== 'active' || !key.key) return false
+  if (key.expires_at && Date.parse(key.expires_at) <= Date.now()) return false
+  if (key.quota > 0 && key.quota_used >= key.quota) return false
+  if (imageGroups) {
+    const allowed = new Set(imageGroups.map(group => group.id))
+    return apiKeyBoundGroupIds(key).some(id => allowed.has(id))
+  }
+  return apiKeyBoundGroups(key).some(isImageGroup)
+}
+
+export function imageModelsForKey(key: ApiKey, imageGroups: ImageGenerationGroup[]): string[] {
+  const bound = new Set(apiKeyBoundGroupIds(key))
+  const models: string[] = []
+  const seen = new Set<string>()
+  for (const group of imageGroups) {
+    if (!bound.has(group.id)) continue
+    for (const model of group.image_models) {
+      if (!isImageModel(model) || seen.has(model)) continue
+      seen.add(model)
+      models.push(model)
+    }
+  }
+  return models
+}
+
+export function imageGroupForKey(key: ApiKey, imageGroups: ImageGenerationGroup[], model?: string): ImageGenerationGroup | undefined {
+  const bound = new Set(apiKeyBoundGroupIds(key))
+  const matches = imageGroups.filter(group => bound.has(group.id))
+  if (model) {
+    const match = matches.find(group => group.image_models.includes(model))
+    if (match) return match
+  }
+  return matches[0]
 }
 
 // Keep this aligned with validateOpenAIImagesModel in the existing gateway.

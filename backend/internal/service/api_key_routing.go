@@ -194,17 +194,14 @@ func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *Use
 	}
 	validated := make([]APIKeyGroupRoute, len(routes))
 	copy(validated, routes)
-	var platform, subscriptionType string
+	var subscriptionType string
 	for i := range validated {
 		group, err := s.groupRepo.GetByID(ctx, validated[i].GroupID)
 		if err != nil {
 			return nil, fmt.Errorf("get group %d: %w", validated[i].GroupID, err)
 		}
 		if i == 0 {
-			platform = group.Platform
 			subscriptionType = group.SubscriptionType
-		} else if group.Platform != platform {
-			return nil, ErrAPIKeyRoutePlatform
 		} else if group.SubscriptionType != subscriptionType {
 			return nil, ErrAPIKeyRouteBilling
 		}
