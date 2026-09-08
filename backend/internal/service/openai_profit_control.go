@@ -137,6 +137,17 @@ func (s *OpenAIGatewayService) WithOpenAIRequestPricingContext(ctx context.Conte
 	return s.withOpenAIProfitControlGate(ctx, groupID), pricingAt
 }
 
+// RebindOpenAIRequestPricingContext installs the actual candidate group's
+// profit gate without changing the pricing instant frozen at request start.
+func (s *OpenAIGatewayService) RebindOpenAIRequestPricingContext(ctx context.Context, groupID *int64) (context.Context, time.Time) {
+	pricingAt, ok := openAIPricingAtFromContext(ctx)
+	if !ok {
+		pricingAt = timezone.Now()
+		ctx = context.WithValue(ctx, openAIPricingAtCtxKey{}, pricingAt)
+	}
+	return s.withOpenAIProfitControlGate(ctx, groupID), pricingAt
+}
+
 // WithOpenAIProfitControlSuppressed 标记本请求在利润门范围之外（独立图片/视频
 // 端点、Grok 媒体、count_tokens、live）。所有装门点（含 service 层防御性装门）
 // 都尊重该标记；它只关闭利润准入过滤，不影响定价上下文与计费。

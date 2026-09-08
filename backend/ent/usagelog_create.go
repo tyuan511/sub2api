@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"time"
@@ -237,6 +238,144 @@ func (_c *UsageLogCreate) SetSubscriptionID(v int64) *UsageLogCreate {
 func (_c *UsageLogCreate) SetNillableSubscriptionID(v *int64) *UsageLogCreate {
 	if v != nil {
 		_c.SetSubscriptionID(*v)
+	}
+	return _c
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (_c *UsageLogCreate) SetInitialGroupID(v int64) *UsageLogCreate {
+	_c.mutation.SetInitialGroupID(v)
+	return _c
+}
+
+// SetNillableInitialGroupID sets the "initial_group_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableInitialGroupID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetInitialGroupID(*v)
+	}
+	return _c
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (_c *UsageLogCreate) SetRouteVersion(v int64) *UsageLogCreate {
+	_c.mutation.SetRouteVersion(v)
+	return _c
+}
+
+// SetNillableRouteVersion sets the "route_version" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableRouteVersion(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetRouteVersion(*v)
+	}
+	return _c
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (_c *UsageLogCreate) SetScheduleMode(v string) *UsageLogCreate {
+	_c.mutation.SetScheduleMode(v)
+	return _c
+}
+
+// SetNillableScheduleMode sets the "schedule_mode" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableScheduleMode(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetScheduleMode(*v)
+	}
+	return _c
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (_c *UsageLogCreate) SetSmartPreference(v string) *UsageLogCreate {
+	_c.mutation.SetSmartPreference(v)
+	return _c
+}
+
+// SetNillableSmartPreference sets the "smart_preference" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableSmartPreference(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetSmartPreference(*v)
+	}
+	return _c
+}
+
+// SetGroupSwitchCount sets the "group_switch_count" field.
+func (_c *UsageLogCreate) SetGroupSwitchCount(v int) *UsageLogCreate {
+	_c.mutation.SetGroupSwitchCount(v)
+	return _c
+}
+
+// SetNillableGroupSwitchCount sets the "group_switch_count" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableGroupSwitchCount(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetGroupSwitchCount(*v)
+	}
+	return _c
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (_c *UsageLogCreate) SetRoutingDecisionID(v string) *UsageLogCreate {
+	_c.mutation.SetRoutingDecisionID(v)
+	return _c
+}
+
+// SetNillableRoutingDecisionID sets the "routing_decision_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableRoutingDecisionID(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetRoutingDecisionID(*v)
+	}
+	return _c
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (_c *UsageLogCreate) SetCacheColdDueToFailover(v bool) *UsageLogCreate {
+	_c.mutation.SetCacheColdDueToFailover(v)
+	return _c
+}
+
+// SetNillableCacheColdDueToFailover sets the "cache_cold_due_to_failover" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableCacheColdDueToFailover(v *bool) *UsageLogCreate {
+	if v != nil {
+		_c.SetCacheColdDueToFailover(*v)
+	}
+	return _c
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (_c *UsageLogCreate) SetActualUsage(v jsontext.Value) *UsageLogCreate {
+	_c.mutation.SetActualUsage(v)
+	return _c
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (_c *UsageLogCreate) SetBillableUsage(v jsontext.Value) *UsageLogCreate {
+	_c.mutation.SetBillableUsage(v)
+	return _c
+}
+
+// SetCacheCompensationTokens sets the "cache_compensation_tokens" field.
+func (_c *UsageLogCreate) SetCacheCompensationTokens(v int) *UsageLogCreate {
+	_c.mutation.SetCacheCompensationTokens(v)
+	return _c
+}
+
+// SetNillableCacheCompensationTokens sets the "cache_compensation_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableCacheCompensationTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetCacheCompensationTokens(*v)
+	}
+	return _c
+}
+
+// SetCacheCompensationReason sets the "cache_compensation_reason" field.
+func (_c *UsageLogCreate) SetCacheCompensationReason(v string) *UsageLogCreate {
+	_c.mutation.SetCacheCompensationReason(v)
+	return _c
+}
+
+// SetNillableCacheCompensationReason sets the "cache_compensation_reason" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableCacheCompensationReason(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetCacheCompensationReason(*v)
 	}
 	return _c
 }
@@ -745,6 +884,18 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultIsMonitor
 		_c.mutation.SetIsMonitor(v)
 	}
+	if _, ok := _c.mutation.GroupSwitchCount(); !ok {
+		v := usagelog.DefaultGroupSwitchCount
+		_c.mutation.SetGroupSwitchCount(v)
+	}
+	if _, ok := _c.mutation.CacheColdDueToFailover(); !ok {
+		v := usagelog.DefaultCacheColdDueToFailover
+		_c.mutation.SetCacheColdDueToFailover(v)
+	}
+	if _, ok := _c.mutation.CacheCompensationTokens(); !ok {
+		v := usagelog.DefaultCacheCompensationTokens
+		_c.mutation.SetCacheCompensationTokens(v)
+	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
 		v := usagelog.DefaultInputTokens
 		_c.mutation.SetInputTokens(v)
@@ -879,6 +1030,45 @@ func (_c *UsageLogCreate) check() error {
 	if v, ok := _c.mutation.BillingMode(); ok {
 		if err := usagelog.BillingModeValidator(v); err != nil {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.ScheduleMode(); ok {
+		if err := usagelog.ScheduleModeValidator(v); err != nil {
+			return &ValidationError{Name: "schedule_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.schedule_mode": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.SmartPreference(); ok {
+		if err := usagelog.SmartPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "smart_preference", err: fmt.Errorf(`ent: validator failed for field "UsageLog.smart_preference": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.GroupSwitchCount(); !ok {
+		return &ValidationError{Name: "group_switch_count", err: errors.New(`ent: missing required field "UsageLog.group_switch_count"`)}
+	}
+	if v, ok := _c.mutation.GroupSwitchCount(); ok {
+		if err := usagelog.GroupSwitchCountValidator(v); err != nil {
+			return &ValidationError{Name: "group_switch_count", err: fmt.Errorf(`ent: validator failed for field "UsageLog.group_switch_count": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.RoutingDecisionID(); ok {
+		if err := usagelog.RoutingDecisionIDValidator(v); err != nil {
+			return &ValidationError{Name: "routing_decision_id", err: fmt.Errorf(`ent: validator failed for field "UsageLog.routing_decision_id": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.CacheColdDueToFailover(); !ok {
+		return &ValidationError{Name: "cache_cold_due_to_failover", err: errors.New(`ent: missing required field "UsageLog.cache_cold_due_to_failover"`)}
+	}
+	if _, ok := _c.mutation.CacheCompensationTokens(); !ok {
+		return &ValidationError{Name: "cache_compensation_tokens", err: errors.New(`ent: missing required field "UsageLog.cache_compensation_tokens"`)}
+	}
+	if v, ok := _c.mutation.CacheCompensationTokens(); ok {
+		if err := usagelog.CacheCompensationTokensValidator(v); err != nil {
+			return &ValidationError{Name: "cache_compensation_tokens", err: fmt.Errorf(`ent: validator failed for field "UsageLog.cache_compensation_tokens": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.CacheCompensationReason(); ok {
+		if err := usagelog.CacheCompensationReasonValidator(v); err != nil {
+			return &ValidationError{Name: "cache_compensation_reason", err: fmt.Errorf(`ent: validator failed for field "UsageLog.cache_compensation_reason": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.InputTokens(); !ok {
@@ -1053,6 +1243,50 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.BillingMode(); ok {
 		_spec.SetField(usagelog.FieldBillingMode, field.TypeString, value)
 		_node.BillingMode = &value
+	}
+	if value, ok := _c.mutation.InitialGroupID(); ok {
+		_spec.SetField(usagelog.FieldInitialGroupID, field.TypeInt64, value)
+		_node.InitialGroupID = &value
+	}
+	if value, ok := _c.mutation.RouteVersion(); ok {
+		_spec.SetField(usagelog.FieldRouteVersion, field.TypeInt64, value)
+		_node.RouteVersion = &value
+	}
+	if value, ok := _c.mutation.ScheduleMode(); ok {
+		_spec.SetField(usagelog.FieldScheduleMode, field.TypeString, value)
+		_node.ScheduleMode = &value
+	}
+	if value, ok := _c.mutation.SmartPreference(); ok {
+		_spec.SetField(usagelog.FieldSmartPreference, field.TypeString, value)
+		_node.SmartPreference = &value
+	}
+	if value, ok := _c.mutation.GroupSwitchCount(); ok {
+		_spec.SetField(usagelog.FieldGroupSwitchCount, field.TypeInt, value)
+		_node.GroupSwitchCount = value
+	}
+	if value, ok := _c.mutation.RoutingDecisionID(); ok {
+		_spec.SetField(usagelog.FieldRoutingDecisionID, field.TypeString, value)
+		_node.RoutingDecisionID = &value
+	}
+	if value, ok := _c.mutation.CacheColdDueToFailover(); ok {
+		_spec.SetField(usagelog.FieldCacheColdDueToFailover, field.TypeBool, value)
+		_node.CacheColdDueToFailover = value
+	}
+	if value, ok := _c.mutation.ActualUsage(); ok {
+		_spec.SetField(usagelog.FieldActualUsage, field.TypeJSON, value)
+		_node.ActualUsage = value
+	}
+	if value, ok := _c.mutation.BillableUsage(); ok {
+		_spec.SetField(usagelog.FieldBillableUsage, field.TypeJSON, value)
+		_node.BillableUsage = value
+	}
+	if value, ok := _c.mutation.CacheCompensationTokens(); ok {
+		_spec.SetField(usagelog.FieldCacheCompensationTokens, field.TypeInt, value)
+		_node.CacheCompensationTokens = value
+	}
+	if value, ok := _c.mutation.CacheCompensationReason(); ok {
+		_spec.SetField(usagelog.FieldCacheCompensationReason, field.TypeString, value)
+		_node.CacheCompensationReason = &value
 	}
 	if value, ok := _c.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1610,6 +1844,210 @@ func (u *UsageLogUpsert) UpdateSubscriptionID() *UsageLogUpsert {
 // ClearSubscriptionID clears the value of the "subscription_id" field.
 func (u *UsageLogUpsert) ClearSubscriptionID() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldSubscriptionID)
+	return u
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (u *UsageLogUpsert) SetInitialGroupID(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldInitialGroupID, v)
+	return u
+}
+
+// UpdateInitialGroupID sets the "initial_group_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateInitialGroupID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldInitialGroupID)
+	return u
+}
+
+// AddInitialGroupID adds v to the "initial_group_id" field.
+func (u *UsageLogUpsert) AddInitialGroupID(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldInitialGroupID, v)
+	return u
+}
+
+// ClearInitialGroupID clears the value of the "initial_group_id" field.
+func (u *UsageLogUpsert) ClearInitialGroupID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldInitialGroupID)
+	return u
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (u *UsageLogUpsert) SetRouteVersion(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldRouteVersion, v)
+	return u
+}
+
+// UpdateRouteVersion sets the "route_version" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateRouteVersion() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldRouteVersion)
+	return u
+}
+
+// AddRouteVersion adds v to the "route_version" field.
+func (u *UsageLogUpsert) AddRouteVersion(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldRouteVersion, v)
+	return u
+}
+
+// ClearRouteVersion clears the value of the "route_version" field.
+func (u *UsageLogUpsert) ClearRouteVersion() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldRouteVersion)
+	return u
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (u *UsageLogUpsert) SetScheduleMode(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldScheduleMode, v)
+	return u
+}
+
+// UpdateScheduleMode sets the "schedule_mode" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateScheduleMode() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldScheduleMode)
+	return u
+}
+
+// ClearScheduleMode clears the value of the "schedule_mode" field.
+func (u *UsageLogUpsert) ClearScheduleMode() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldScheduleMode)
+	return u
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (u *UsageLogUpsert) SetSmartPreference(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldSmartPreference, v)
+	return u
+}
+
+// UpdateSmartPreference sets the "smart_preference" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateSmartPreference() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldSmartPreference)
+	return u
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (u *UsageLogUpsert) ClearSmartPreference() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldSmartPreference)
+	return u
+}
+
+// SetGroupSwitchCount sets the "group_switch_count" field.
+func (u *UsageLogUpsert) SetGroupSwitchCount(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldGroupSwitchCount, v)
+	return u
+}
+
+// UpdateGroupSwitchCount sets the "group_switch_count" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateGroupSwitchCount() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldGroupSwitchCount)
+	return u
+}
+
+// AddGroupSwitchCount adds v to the "group_switch_count" field.
+func (u *UsageLogUpsert) AddGroupSwitchCount(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldGroupSwitchCount, v)
+	return u
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (u *UsageLogUpsert) SetRoutingDecisionID(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldRoutingDecisionID, v)
+	return u
+}
+
+// UpdateRoutingDecisionID sets the "routing_decision_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateRoutingDecisionID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldRoutingDecisionID)
+	return u
+}
+
+// ClearRoutingDecisionID clears the value of the "routing_decision_id" field.
+func (u *UsageLogUpsert) ClearRoutingDecisionID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldRoutingDecisionID)
+	return u
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (u *UsageLogUpsert) SetCacheColdDueToFailover(v bool) *UsageLogUpsert {
+	u.Set(usagelog.FieldCacheColdDueToFailover, v)
+	return u
+}
+
+// UpdateCacheColdDueToFailover sets the "cache_cold_due_to_failover" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateCacheColdDueToFailover() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldCacheColdDueToFailover)
+	return u
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (u *UsageLogUpsert) SetActualUsage(v jsontext.Value) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualUsage, v)
+	return u
+}
+
+// UpdateActualUsage sets the "actual_usage" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualUsage() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualUsage)
+	return u
+}
+
+// ClearActualUsage clears the value of the "actual_usage" field.
+func (u *UsageLogUpsert) ClearActualUsage() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldActualUsage)
+	return u
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (u *UsageLogUpsert) SetBillableUsage(v jsontext.Value) *UsageLogUpsert {
+	u.Set(usagelog.FieldBillableUsage, v)
+	return u
+}
+
+// UpdateBillableUsage sets the "billable_usage" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateBillableUsage() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldBillableUsage)
+	return u
+}
+
+// ClearBillableUsage clears the value of the "billable_usage" field.
+func (u *UsageLogUpsert) ClearBillableUsage() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldBillableUsage)
+	return u
+}
+
+// SetCacheCompensationTokens sets the "cache_compensation_tokens" field.
+func (u *UsageLogUpsert) SetCacheCompensationTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldCacheCompensationTokens, v)
+	return u
+}
+
+// UpdateCacheCompensationTokens sets the "cache_compensation_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateCacheCompensationTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldCacheCompensationTokens)
+	return u
+}
+
+// AddCacheCompensationTokens adds v to the "cache_compensation_tokens" field.
+func (u *UsageLogUpsert) AddCacheCompensationTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldCacheCompensationTokens, v)
+	return u
+}
+
+// SetCacheCompensationReason sets the "cache_compensation_reason" field.
+func (u *UsageLogUpsert) SetCacheCompensationReason(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldCacheCompensationReason, v)
+	return u
+}
+
+// UpdateCacheCompensationReason sets the "cache_compensation_reason" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateCacheCompensationReason() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldCacheCompensationReason)
+	return u
+}
+
+// ClearCacheCompensationReason clears the value of the "cache_compensation_reason" field.
+func (u *UsageLogUpsert) ClearCacheCompensationReason() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldCacheCompensationReason)
 	return u
 }
 
@@ -2562,6 +3000,244 @@ func (u *UsageLogUpsertOne) UpdateSubscriptionID() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearSubscriptionID() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearSubscriptionID()
+	})
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (u *UsageLogUpsertOne) SetInitialGroupID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetInitialGroupID(v)
+	})
+}
+
+// AddInitialGroupID adds v to the "initial_group_id" field.
+func (u *UsageLogUpsertOne) AddInitialGroupID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddInitialGroupID(v)
+	})
+}
+
+// UpdateInitialGroupID sets the "initial_group_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateInitialGroupID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateInitialGroupID()
+	})
+}
+
+// ClearInitialGroupID clears the value of the "initial_group_id" field.
+func (u *UsageLogUpsertOne) ClearInitialGroupID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearInitialGroupID()
+	})
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (u *UsageLogUpsertOne) SetRouteVersion(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetRouteVersion(v)
+	})
+}
+
+// AddRouteVersion adds v to the "route_version" field.
+func (u *UsageLogUpsertOne) AddRouteVersion(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddRouteVersion(v)
+	})
+}
+
+// UpdateRouteVersion sets the "route_version" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateRouteVersion() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateRouteVersion()
+	})
+}
+
+// ClearRouteVersion clears the value of the "route_version" field.
+func (u *UsageLogUpsertOne) ClearRouteVersion() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearRouteVersion()
+	})
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (u *UsageLogUpsertOne) SetScheduleMode(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetScheduleMode(v)
+	})
+}
+
+// UpdateScheduleMode sets the "schedule_mode" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateScheduleMode() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateScheduleMode()
+	})
+}
+
+// ClearScheduleMode clears the value of the "schedule_mode" field.
+func (u *UsageLogUpsertOne) ClearScheduleMode() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearScheduleMode()
+	})
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (u *UsageLogUpsertOne) SetSmartPreference(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetSmartPreference(v)
+	})
+}
+
+// UpdateSmartPreference sets the "smart_preference" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateSmartPreference() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateSmartPreference()
+	})
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (u *UsageLogUpsertOne) ClearSmartPreference() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearSmartPreference()
+	})
+}
+
+// SetGroupSwitchCount sets the "group_switch_count" field.
+func (u *UsageLogUpsertOne) SetGroupSwitchCount(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetGroupSwitchCount(v)
+	})
+}
+
+// AddGroupSwitchCount adds v to the "group_switch_count" field.
+func (u *UsageLogUpsertOne) AddGroupSwitchCount(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddGroupSwitchCount(v)
+	})
+}
+
+// UpdateGroupSwitchCount sets the "group_switch_count" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateGroupSwitchCount() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateGroupSwitchCount()
+	})
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (u *UsageLogUpsertOne) SetRoutingDecisionID(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetRoutingDecisionID(v)
+	})
+}
+
+// UpdateRoutingDecisionID sets the "routing_decision_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateRoutingDecisionID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateRoutingDecisionID()
+	})
+}
+
+// ClearRoutingDecisionID clears the value of the "routing_decision_id" field.
+func (u *UsageLogUpsertOne) ClearRoutingDecisionID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearRoutingDecisionID()
+	})
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (u *UsageLogUpsertOne) SetCacheColdDueToFailover(v bool) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheColdDueToFailover(v)
+	})
+}
+
+// UpdateCacheColdDueToFailover sets the "cache_cold_due_to_failover" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateCacheColdDueToFailover() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheColdDueToFailover()
+	})
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (u *UsageLogUpsertOne) SetActualUsage(v jsontext.Value) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualUsage(v)
+	})
+}
+
+// UpdateActualUsage sets the "actual_usage" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualUsage() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualUsage()
+	})
+}
+
+// ClearActualUsage clears the value of the "actual_usage" field.
+func (u *UsageLogUpsertOne) ClearActualUsage() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearActualUsage()
+	})
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (u *UsageLogUpsertOne) SetBillableUsage(v jsontext.Value) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillableUsage(v)
+	})
+}
+
+// UpdateBillableUsage sets the "billable_usage" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateBillableUsage() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillableUsage()
+	})
+}
+
+// ClearBillableUsage clears the value of the "billable_usage" field.
+func (u *UsageLogUpsertOne) ClearBillableUsage() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBillableUsage()
+	})
+}
+
+// SetCacheCompensationTokens sets the "cache_compensation_tokens" field.
+func (u *UsageLogUpsertOne) SetCacheCompensationTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheCompensationTokens(v)
+	})
+}
+
+// AddCacheCompensationTokens adds v to the "cache_compensation_tokens" field.
+func (u *UsageLogUpsertOne) AddCacheCompensationTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddCacheCompensationTokens(v)
+	})
+}
+
+// UpdateCacheCompensationTokens sets the "cache_compensation_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateCacheCompensationTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheCompensationTokens()
+	})
+}
+
+// SetCacheCompensationReason sets the "cache_compensation_reason" field.
+func (u *UsageLogUpsertOne) SetCacheCompensationReason(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheCompensationReason(v)
+	})
+}
+
+// UpdateCacheCompensationReason sets the "cache_compensation_reason" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateCacheCompensationReason() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheCompensationReason()
+	})
+}
+
+// ClearCacheCompensationReason clears the value of the "cache_compensation_reason" field.
+func (u *UsageLogUpsertOne) ClearCacheCompensationReason() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearCacheCompensationReason()
 	})
 }
 
@@ -3774,6 +4450,244 @@ func (u *UsageLogUpsertBulk) UpdateSubscriptionID() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearSubscriptionID() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearSubscriptionID()
+	})
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (u *UsageLogUpsertBulk) SetInitialGroupID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetInitialGroupID(v)
+	})
+}
+
+// AddInitialGroupID adds v to the "initial_group_id" field.
+func (u *UsageLogUpsertBulk) AddInitialGroupID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddInitialGroupID(v)
+	})
+}
+
+// UpdateInitialGroupID sets the "initial_group_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateInitialGroupID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateInitialGroupID()
+	})
+}
+
+// ClearInitialGroupID clears the value of the "initial_group_id" field.
+func (u *UsageLogUpsertBulk) ClearInitialGroupID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearInitialGroupID()
+	})
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (u *UsageLogUpsertBulk) SetRouteVersion(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetRouteVersion(v)
+	})
+}
+
+// AddRouteVersion adds v to the "route_version" field.
+func (u *UsageLogUpsertBulk) AddRouteVersion(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddRouteVersion(v)
+	})
+}
+
+// UpdateRouteVersion sets the "route_version" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateRouteVersion() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateRouteVersion()
+	})
+}
+
+// ClearRouteVersion clears the value of the "route_version" field.
+func (u *UsageLogUpsertBulk) ClearRouteVersion() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearRouteVersion()
+	})
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (u *UsageLogUpsertBulk) SetScheduleMode(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetScheduleMode(v)
+	})
+}
+
+// UpdateScheduleMode sets the "schedule_mode" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateScheduleMode() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateScheduleMode()
+	})
+}
+
+// ClearScheduleMode clears the value of the "schedule_mode" field.
+func (u *UsageLogUpsertBulk) ClearScheduleMode() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearScheduleMode()
+	})
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (u *UsageLogUpsertBulk) SetSmartPreference(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetSmartPreference(v)
+	})
+}
+
+// UpdateSmartPreference sets the "smart_preference" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateSmartPreference() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateSmartPreference()
+	})
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (u *UsageLogUpsertBulk) ClearSmartPreference() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearSmartPreference()
+	})
+}
+
+// SetGroupSwitchCount sets the "group_switch_count" field.
+func (u *UsageLogUpsertBulk) SetGroupSwitchCount(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetGroupSwitchCount(v)
+	})
+}
+
+// AddGroupSwitchCount adds v to the "group_switch_count" field.
+func (u *UsageLogUpsertBulk) AddGroupSwitchCount(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddGroupSwitchCount(v)
+	})
+}
+
+// UpdateGroupSwitchCount sets the "group_switch_count" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateGroupSwitchCount() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateGroupSwitchCount()
+	})
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (u *UsageLogUpsertBulk) SetRoutingDecisionID(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetRoutingDecisionID(v)
+	})
+}
+
+// UpdateRoutingDecisionID sets the "routing_decision_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateRoutingDecisionID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateRoutingDecisionID()
+	})
+}
+
+// ClearRoutingDecisionID clears the value of the "routing_decision_id" field.
+func (u *UsageLogUpsertBulk) ClearRoutingDecisionID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearRoutingDecisionID()
+	})
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (u *UsageLogUpsertBulk) SetCacheColdDueToFailover(v bool) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheColdDueToFailover(v)
+	})
+}
+
+// UpdateCacheColdDueToFailover sets the "cache_cold_due_to_failover" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateCacheColdDueToFailover() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheColdDueToFailover()
+	})
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (u *UsageLogUpsertBulk) SetActualUsage(v jsontext.Value) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualUsage(v)
+	})
+}
+
+// UpdateActualUsage sets the "actual_usage" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualUsage() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualUsage()
+	})
+}
+
+// ClearActualUsage clears the value of the "actual_usage" field.
+func (u *UsageLogUpsertBulk) ClearActualUsage() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearActualUsage()
+	})
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (u *UsageLogUpsertBulk) SetBillableUsage(v jsontext.Value) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillableUsage(v)
+	})
+}
+
+// UpdateBillableUsage sets the "billable_usage" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateBillableUsage() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillableUsage()
+	})
+}
+
+// ClearBillableUsage clears the value of the "billable_usage" field.
+func (u *UsageLogUpsertBulk) ClearBillableUsage() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearBillableUsage()
+	})
+}
+
+// SetCacheCompensationTokens sets the "cache_compensation_tokens" field.
+func (u *UsageLogUpsertBulk) SetCacheCompensationTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheCompensationTokens(v)
+	})
+}
+
+// AddCacheCompensationTokens adds v to the "cache_compensation_tokens" field.
+func (u *UsageLogUpsertBulk) AddCacheCompensationTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddCacheCompensationTokens(v)
+	})
+}
+
+// UpdateCacheCompensationTokens sets the "cache_compensation_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateCacheCompensationTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheCompensationTokens()
+	})
+}
+
+// SetCacheCompensationReason sets the "cache_compensation_reason" field.
+func (u *UsageLogUpsertBulk) SetCacheCompensationReason(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetCacheCompensationReason(v)
+	})
+}
+
+// UpdateCacheCompensationReason sets the "cache_compensation_reason" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateCacheCompensationReason() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateCacheCompensationReason()
+	})
+}
+
+// ClearCacheCompensationReason clears the value of the "cache_compensation_reason" field.
+func (u *UsageLogUpsertBulk) ClearCacheCompensationReason() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearCacheCompensationReason()
 	})
 }
 

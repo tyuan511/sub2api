@@ -4,6 +4,7 @@ package ent
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"strings"
 	"time"
@@ -57,6 +58,28 @@ type UsageLog struct {
 	GroupID *int64 `json:"group_id,omitempty"`
 	// SubscriptionID holds the value of the "subscription_id" field.
 	SubscriptionID *int64 `json:"subscription_id,omitempty"`
+	// InitialGroupID holds the value of the "initial_group_id" field.
+	InitialGroupID *int64 `json:"initial_group_id,omitempty"`
+	// RouteVersion holds the value of the "route_version" field.
+	RouteVersion *int64 `json:"route_version,omitempty"`
+	// ScheduleMode holds the value of the "schedule_mode" field.
+	ScheduleMode *string `json:"schedule_mode,omitempty"`
+	// SmartPreference holds the value of the "smart_preference" field.
+	SmartPreference *string `json:"smart_preference,omitempty"`
+	// GroupSwitchCount holds the value of the "group_switch_count" field.
+	GroupSwitchCount int `json:"group_switch_count,omitempty"`
+	// RoutingDecisionID holds the value of the "routing_decision_id" field.
+	RoutingDecisionID *string `json:"routing_decision_id,omitempty"`
+	// CacheColdDueToFailover holds the value of the "cache_cold_due_to_failover" field.
+	CacheColdDueToFailover bool `json:"cache_cold_due_to_failover,omitempty"`
+	// ActualUsage holds the value of the "actual_usage" field.
+	ActualUsage jsontext.Value `json:"actual_usage,omitempty"`
+	// BillableUsage holds the value of the "billable_usage" field.
+	BillableUsage jsontext.Value `json:"billable_usage,omitempty"`
+	// CacheCompensationTokens holds the value of the "cache_compensation_tokens" field.
+	CacheCompensationTokens int `json:"cache_compensation_tokens,omitempty"`
+	// CacheCompensationReason holds the value of the "cache_compensation_reason" field.
+	CacheCompensationReason *string `json:"cache_compensation_reason,omitempty"`
 	// InputTokens holds the value of the "input_tokens" field.
 	InputTokens int `json:"input_tokens,omitempty"`
 	// OutputTokens holds the value of the "output_tokens" field.
@@ -204,15 +227,15 @@ func (*UsageLog) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case usagelog.FieldImageSizeBreakdown:
+		case usagelog.FieldActualUsage, usagelog.FieldBillableUsage, usagelog.FieldImageSizeBreakdown:
 			values[i] = new([]byte)
-		case usagelog.FieldUpstreamModelMismatch, usagelog.FieldIsMonitor, usagelog.FieldLongContextBillingApplied, usagelog.FieldStream, usagelog.FieldCacheTTLOverridden:
+		case usagelog.FieldUpstreamModelMismatch, usagelog.FieldIsMonitor, usagelog.FieldCacheColdDueToFailover, usagelog.FieldLongContextBillingApplied, usagelog.FieldStream, usagelog.FieldCacheTTLOverridden:
 			values[i] = new(sql.NullBool)
 		case usagelog.FieldInputCost, usagelog.FieldOutputCost, usagelog.FieldCacheCreationCost, usagelog.FieldCacheReadCost, usagelog.FieldTotalCost, usagelog.FieldActualCost, usagelog.FieldRateMultiplier, usagelog.FieldAccountRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldChannelMonitorID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount, usagelog.FieldVideoCount, usagelog.FieldVideoDurationSeconds:
+		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldChannelMonitorID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInitialGroupID, usagelog.FieldRouteVersion, usagelog.FieldGroupSwitchCount, usagelog.FieldCacheCompensationTokens, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount, usagelog.FieldVideoCount, usagelog.FieldVideoDurationSeconds:
 			values[i] = new(sql.NullInt64)
-		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldUpstreamResponseModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource, usagelog.FieldVideoResolution:
+		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldUpstreamResponseModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldScheduleMode, usagelog.FieldSmartPreference, usagelog.FieldRoutingDecisionID, usagelog.FieldCacheCompensationReason, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource, usagelog.FieldVideoResolution:
 			values[i] = new(sql.NullString)
 		case usagelog.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -351,6 +374,82 @@ func (_m *UsageLog) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.SubscriptionID = new(int64)
 				*_m.SubscriptionID = value.Int64
+			}
+		case usagelog.FieldInitialGroupID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field initial_group_id", values[i])
+			} else if value.Valid {
+				_m.InitialGroupID = new(int64)
+				*_m.InitialGroupID = value.Int64
+			}
+		case usagelog.FieldRouteVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field route_version", values[i])
+			} else if value.Valid {
+				_m.RouteVersion = new(int64)
+				*_m.RouteVersion = value.Int64
+			}
+		case usagelog.FieldScheduleMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field schedule_mode", values[i])
+			} else if value.Valid {
+				_m.ScheduleMode = new(string)
+				*_m.ScheduleMode = value.String
+			}
+		case usagelog.FieldSmartPreference:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field smart_preference", values[i])
+			} else if value.Valid {
+				_m.SmartPreference = new(string)
+				*_m.SmartPreference = value.String
+			}
+		case usagelog.FieldGroupSwitchCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field group_switch_count", values[i])
+			} else if value.Valid {
+				_m.GroupSwitchCount = int(value.Int64)
+			}
+		case usagelog.FieldRoutingDecisionID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field routing_decision_id", values[i])
+			} else if value.Valid {
+				_m.RoutingDecisionID = new(string)
+				*_m.RoutingDecisionID = value.String
+			}
+		case usagelog.FieldCacheColdDueToFailover:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_cold_due_to_failover", values[i])
+			} else if value.Valid {
+				_m.CacheColdDueToFailover = value.Bool
+			}
+		case usagelog.FieldActualUsage:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_usage", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ActualUsage); err != nil {
+					return fmt.Errorf("unmarshal field actual_usage: %w", err)
+				}
+			}
+		case usagelog.FieldBillableUsage:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field billable_usage", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.BillableUsage); err != nil {
+					return fmt.Errorf("unmarshal field billable_usage: %w", err)
+				}
+			}
+		case usagelog.FieldCacheCompensationTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_compensation_tokens", values[i])
+			} else if value.Valid {
+				_m.CacheCompensationTokens = int(value.Int64)
+			}
+		case usagelog.FieldCacheCompensationReason:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field cache_compensation_reason", values[i])
+			} else if value.Valid {
+				_m.CacheCompensationReason = new(string)
+				*_m.CacheCompensationReason = value.String
 			}
 		case usagelog.FieldInputTokens:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -693,6 +792,51 @@ func (_m *UsageLog) String() string {
 	if v := _m.SubscriptionID; v != nil {
 		builder.WriteString("subscription_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.InitialGroupID; v != nil {
+		builder.WriteString("initial_group_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RouteVersion; v != nil {
+		builder.WriteString("route_version=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.ScheduleMode; v != nil {
+		builder.WriteString("schedule_mode=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.SmartPreference; v != nil {
+		builder.WriteString("smart_preference=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("group_switch_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.GroupSwitchCount))
+	builder.WriteString(", ")
+	if v := _m.RoutingDecisionID; v != nil {
+		builder.WriteString("routing_decision_id=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("cache_cold_due_to_failover=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CacheColdDueToFailover))
+	builder.WriteString(", ")
+	builder.WriteString("actual_usage=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualUsage))
+	builder.WriteString(", ")
+	builder.WriteString("billable_usage=")
+	builder.WriteString(fmt.Sprintf("%v", _m.BillableUsage))
+	builder.WriteString(", ")
+	builder.WriteString("cache_compensation_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CacheCompensationTokens))
+	builder.WriteString(", ")
+	if v := _m.CacheCompensationReason; v != nil {
+		builder.WriteString("cache_compensation_reason=")
+		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
 	builder.WriteString("input_tokens=")

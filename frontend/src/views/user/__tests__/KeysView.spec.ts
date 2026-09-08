@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
-import type { ApiKey } from '@/types'
+import type { ApiKey, Group } from '@/types'
 import KeysView from '../KeysView.vue'
 
 const {
   listKeys,
+  createKeyWithRequest,
+  updateKey,
   getPublicSettings,
   getDashboardApiKeysUsage,
   getAvailableGroups,
@@ -18,6 +20,8 @@ const {
   nextStep,
 } = vi.hoisted(() => ({
   listKeys: vi.fn(),
+  createKeyWithRequest: vi.fn(),
+  updateKey: vi.fn(),
   getPublicSettings: vi.fn(),
   getDashboardApiKeysUsage: vi.fn(),
   getAvailableGroups: vi.fn(),
@@ -59,7 +63,8 @@ vi.mock('@/api', () => ({
   keysAPI: {
     list: listKeys,
     create: vi.fn(),
-    update: vi.fn(),
+    createWithRequest: createKeyWithRequest,
+    update: updateKey,
     delete: vi.fn(),
     toggleStatus: vi.fn(),
   },
@@ -111,6 +116,10 @@ const createApiKey = (): ApiKey => ({
   key: 'sk-test-key',
   name: 'test-key',
   group_id: null,
+  group_routes: [],
+  schedule_mode: 'sequential',
+  smart_preference: null,
+  route_version: 1,
   status: 'active',
   ip_whitelist: [],
   ip_blacklist: [],
@@ -135,6 +144,20 @@ const createApiKey = (): ApiKey => ({
   reset_1d_at: null,
   reset_7d_at: null,
 })
+
+const createGroup = (id: number, rate = 1): Group => ({
+  id,
+  name: `group-${id}`,
+  description: '',
+  platform: 'openai',
+  subscription_type: 'standard',
+  status: 'active',
+  rate_multiplier: rate,
+  peak_rate_enabled: false,
+  peak_start: '',
+  peak_end: '',
+  peak_rate_multiplier: 1,
+} as Group)
 
 const AppLayoutStub = {
   template: '<div><slot /></div>',
@@ -170,6 +193,7 @@ const DataTableStub = {
           <slot name="cell-id" :value="row.id" :row="row" />
         </div>
         <slot name="cell-name" :value="row.name" :row="row" />
+        <slot name="cell-group" :value="row.group" :row="row" />
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
         </div>
@@ -179,6 +203,7 @@ const DataTableStub = {
         >
           <slot name="cell-last_used_ip" :value="row.last_used_ip" :row="row" />
         </div>
+        <slot name="cell-actions" :value="row" :row="row" />
       </div>
       <slot name="empty" />
     </div>
@@ -215,7 +240,12 @@ const IconStub = {
   template: '<span data-test="icon">{{ name }}</span>',
 }
 
-const mountView = async () => {
+const BaseDialogStub = {
+  props: ['show'],
+  template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+}
+
+const mountView = async (renderDialogs = false) => {
   const wrapper = mount(KeysView, {
     global: {
       stubs: {
@@ -223,7 +253,7 @@ const mountView = async () => {
         TablePageLayout: TablePageLayoutStub,
         DataTable: DataTableStub,
         Pagination: PaginationStub,
-        BaseDialog: true,
+        BaseDialog: renderDialogs ? BaseDialogStub : true,
         ConfirmDialog: true,
         EmptyState: true,
         Select: SelectStub,
@@ -261,6 +291,8 @@ describe('user KeysView column settings', () => {
     localStorage.clear()
 
     listKeys.mockReset()
+    createKeyWithRequest.mockReset()
+    updateKey.mockReset()
     getPublicSettings.mockReset()
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
@@ -283,6 +315,8 @@ describe('user KeysView column settings', () => {
     getAvailableGroups.mockResolvedValue([])
     getUserGroupRates.mockResolvedValue({})
     isCurrentStep.mockReturnValue(false)
+    createKeyWithRequest.mockResolvedValue(createApiKey())
+    updateKey.mockResolvedValue(createApiKey())
   })
 
   it('uses the default API key columns with low-frequency columns hidden', async () => {
@@ -437,5 +471,223 @@ describe('user KeysView column settings', () => {
       },
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
+  })
+
+  it('keeps single-group keys free of routing controls while allowing the common selector', async () => {
+    getAvailableGroups.mockResolvedValue([createGroup(10), createGroup(20)])
+    const wrapper = await mountView(true)
+    await getButtonByText(wrapper, 'Create API Key').trigger('click')
+    expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="smart-balance-presets"]').exists()).toBe(false)
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-tour="key-form-name"]').setValue('legacy')
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    const payload = createKeyWithRequest.mock.calls.at(-1)?.[0]
+    expect(payload.group_id).toBe(10)
+    expect(payload.group_routes).toEqual([{ group_id: 10, priority: 0 }])
+    expect(payload.schedule_mode).toBeUndefined()
+    expect(payload.smart_preference).toBeUndefined()
+    expect(payload.routing_min_success_rate).toBeUndefined()
+  })
+
+  it('keeps multi-group controls available for every user', async () => {
+    const group = createGroup(10), second = createGroup(20)
+    getAvailableGroups.mockResolvedValue([group, second])
+    listKeys.mockResolvedValue({ items: [{ ...createApiKey(), group_id: 10, group,
+      group_routes: [{ group_id: 10, priority: 0, enabled: true, group }, { group_id: 20, priority: 1, enabled: true, group: second }],
+      schedule_mode: 'smart', smart_preference: 'price', smart_balance_bps: 3000, routing_min_success_rate: 95 }],
+      total: 1, page: 1, page_size: 20, pages: 1 })
+    const wrapper = await mountView(true)
+    expect(wrapper.get('[data-test="api-key-groups-1"]').text()).toContain('keys.scheduleSmart')
+    await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(true)
+    await wrapper.get('[data-tour="key-form-name"]').setValue('renamed')
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    const payload = updateKey.mock.calls.at(-1)?.[1]
+    expect(payload.name).toBe('renamed')
+    expect(payload.group_routes).toEqual([{ group_id: 10, priority: 0 }, { group_id: 20, priority: 1 }])
+    expect(payload.schedule_mode).toBe('smart')
+  })
+
+  it('creates an ordered smart route set with an explicit preference', async () => {
+    getAvailableGroups.mockResolvedValue([createGroup(10, 1.2), createGroup(20, 0.8)])
+    const wrapper = await mountView(true)
+
+    await getButtonByText(wrapper, 'Create API Key').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-tour="key-form-name"]').setValue('multi-route-key')
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
+    await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
+    await wrapper.get('[data-test="drag-route-20"]').trigger('keydown', { key: 'ArrowUp' })
+    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
+    await wrapper.get('[data-test="smart-balance-preset-2500"]').trigger('click')
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+
+    expect(createKeyWithRequest).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'multi-route-key',
+      group_id: 20,
+      group_routes: [
+        { group_id: 20, priority: 0 },
+        { group_id: 10, priority: 1 },
+      ],
+      schedule_mode: 'smart',
+      smart_preference: 'price',
+      smart_balance_bps: 2500,
+    }))
+    expect(createKeyWithRequest.mock.calls.at(-1)?.[0].routing_min_success_rate).toBeUndefined()
+  })
+
+  it('defaults the smart preference to balanced', async () => {
+    getAvailableGroups.mockResolvedValue([createGroup(10), createGroup(20)])
+    const wrapper = await mountView(true)
+    await getButtonByText(wrapper, 'Create API Key').trigger('click')
+    await nextTick()
+    const selectTwoGroups = async () => {
+      await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+      await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
+      await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
+    }
+    await selectTwoGroups()
+    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
+    expect(wrapper.get('[data-test="smart-balance-preset-5000"]').classes()).toContain('border-primary-500')
+    await wrapper.get('[data-test="smart-balance-preset-0"]').trigger('click')
+    await wrapper.get('[data-test="smart-balance-preset-5000"]').trigger('click')
+    await wrapper.get('[data-tour="key-form-name"]').setValue('default-balance-key')
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    expect(createKeyWithRequest).toHaveBeenCalledWith(expect.objectContaining({ smart_balance_bps: 5000 }))
+    await getButtonByText(wrapper, 'Create API Key').trigger('click')
+    await nextTick()
+    await selectTwoGroups()
+    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
+    expect(wrapper.get('[data-test="smart-balance-preset-5000"]').classes()).toContain('border-primary-500')
+  })
+
+  it('shows controls only for multiple groups and does not submit hidden preferences', async () => {
+    getAvailableGroups.mockResolvedValue([createGroup(10), createGroup(20)])
+    const wrapper = await mountView(true)
+    await getButtonByText(wrapper, 'Create API Key').trigger('click')
+    const expectHidden = () => {
+      expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="smart-balance-presets"]').exists()).toBe(false)
+    }
+    expectHidden()
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
+    expectHidden()
+    await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
+    expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(true)
+    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
+    await wrapper.get('[data-test="smart-balance-preset-10000"]').trigger('click')
+    await wrapper.get('[data-test="remove-route-group-20"]').trigger('click')
+    expectHidden()
+    await wrapper.get('[data-tour="key-form-name"]').setValue('fixed-group')
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    const payload = createKeyWithRequest.mock.calls.at(-1)?.[0]
+    expect(payload).toMatchObject({ group_routes: [{ group_id: 10, priority: 0 }] })
+    expect(payload.schedule_mode).toBeUndefined()
+    expect(payload.smart_preference).toBeUndefined()
+    expect(payload.smart_balance_bps).toBeUndefined()
+    expect(payload.routing_min_success_rate).toBeUndefined()
+  })
+
+  it.each([0, 1, 2])('shows the smart badge only for multiple enabled groups (count=%s)', async (count) => {
+    const groups = [createGroup(10), createGroup(20)].slice(0, count)
+    listKeys.mockResolvedValue({ items: [{ ...createApiKey(),
+      group_id: groups[0]?.id ?? null, group: groups[0] ?? null,
+      group_routes: groups.map((group, priority) => ({ group_id: group.id, priority, enabled: true, group })),
+      schedule_mode: 'smart' }], total: 1, page: 1, page_size: 20, pages: 1 })
+    const wrapper = await mountView()
+    const groupCell = wrapper.get('[data-test="api-key-groups-1"]')
+    expect(groupCell.text().includes('keys.scheduleSmart')).toBe(count > 1)
+    expect(groupCell.text().includes('keys.noGroup')).toBe(count === 0)
+  })
+
+  it('hides old single-group smart settings without overwriting its stored threshold', async () => {
+    const group = createGroup(10)
+    getAvailableGroups.mockResolvedValue([group])
+    listKeys.mockResolvedValue({ items: [{ ...createApiKey(), group_id: 10, group,
+      group_routes: [{ group_id: 10, priority: 0, enabled: true, group }],
+      schedule_mode: 'smart', smart_preference: 'price', smart_balance_bps: 3000, routing_min_success_rate: 95 }],
+      total: 1, page: 1, page_size: 20, pages: 1 })
+    const wrapper = await mountView(true)
+    await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
+    expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="smart-balance-presets"]').exists()).toBe(false)
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    const payload = updateKey.mock.calls.at(-1)?.[1]
+    expect(payload.schedule_mode).toBeUndefined()
+    expect(payload.smart_preference).toBeUndefined()
+    expect(payload.routing_min_success_rate).toBeUndefined()
+  })
+
+  it.each([
+    { preference: 'price', stored: null, expected: 0 },
+    { preference: 'speed', stored: null, expected: 10000 },
+    { preference: 'price', stored: 0, expected: 0 },
+    { preference: 'speed', stored: 7350, expected: 5000 },
+  ])('restores exact controls and compatible legacy preference $preference/$stored', async ({ preference, stored, expected }) => {
+    const group = createGroup(10)
+    const second = createGroup(20)
+    listKeys.mockResolvedValue({
+      items: [{ ...createApiKey(), group_id: 10, group,
+        group_routes: [{ group_id: 10, priority: 0, enabled: true, group }, { group_id: 20, priority: 1, enabled: true, group: second }],
+        schedule_mode: 'smart', smart_preference: preference, smart_balance_bps: stored,
+        route_version: 8 }],
+      total: 1, page: 1, page_size: 20, pages: 1,
+    })
+    getAvailableGroups.mockResolvedValue([group, second])
+    const wrapper = await mountView(true)
+    await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
+    await nextTick()
+    expect(wrapper.get(`[data-test="smart-balance-preset-${expected}"]`).classes()).toContain('border-primary-500')
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    expect(updateKey).toHaveBeenCalledWith(1, expect.objectContaining({
+      smart_balance_bps: expected, expected_route_version: 8,
+    }))
+    expect(updateKey.mock.calls.at(-1)?.[1].routing_min_success_rate).toBeUndefined()
+  })
+
+  it('uses route-version CAS and reloads after an edit conflict', async () => {
+    const group = createGroup(10)
+    listKeys.mockResolvedValue({
+      items: [{
+        ...createApiKey(),
+        group_id: group.id,
+        group,
+        group_routes: [{ group_id: group.id, priority: 0, enabled: true, group }],
+        route_version: 7,
+      }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    getAvailableGroups.mockResolvedValue([group])
+    updateKey.mockRejectedValue({ status: 409 })
+    const wrapper = await mountView(true)
+
+    await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
+    await nextTick()
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateKey).toHaveBeenCalledWith(1, expect.objectContaining({
+      group_id: 10,
+      group_routes: [{ group_id: 10, priority: 0 }],
+      expected_route_version: 7,
+    }))
+    expect(showError).toHaveBeenCalledWith('keys.routeConfigConflict')
+    expect(listKeys).toHaveBeenCalledTimes(2)
   })
 })

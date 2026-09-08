@@ -15,6 +15,16 @@ func SetOpenAIImageIntentHint(c *gin.Context, imageIntent bool) {
 	c.Set(openAIImageIntentHintContextKey, imageIntent)
 }
 
+// ClearOpenAIImageIntentHint restores the request-local hint to unknown. This
+// is required when a physical-group switch changes channel model mapping: the
+// next forward attempt must classify the newly mapped canonical request.
+func ClearOpenAIImageIntentHint(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	c.Set(openAIImageIntentHintContextKey, nil)
+}
+
 func getOpenAIImageIntentHint(c *gin.Context) (imageIntent bool, known bool) {
 	if c == nil || GetOpenAIClientTransport(c) != OpenAIClientTransportHTTP {
 		return false, false

@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"fmt"
+
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 
@@ -44,6 +46,42 @@ func (APIKey) Fields() []ent.Field {
 		field.Int64("group_id").
 			Optional().
 			Nillable(),
+		field.String("schedule_mode").
+			MaxLen(16).
+			Default("sequential").
+			Validate(func(value string) error {
+				if value != "sequential" && value != "smart" {
+					return fmt.Errorf("unsupported API key schedule mode %q", value)
+				}
+				return nil
+			}),
+		field.String("smart_preference").
+			MaxLen(16).
+			Optional().
+			Nillable().
+			Validate(func(value string) error {
+				switch value {
+				case "price", "speed", "balanced":
+					return nil
+				default:
+					return fmt.Errorf("unsupported API key smart preference %q", value)
+				}
+			}),
+		field.Int("smart_balance_bps").Optional().Nillable().Min(0).Max(10000),
+		field.Int("routing_min_success_rate").Default(80).Validate(func(value int) error {
+			if value < 50 || value > 95 || value%5 != 0 {
+				return fmt.Errorf("routing_min_success_rate must be 50 to 95 in steps of 5")
+			}
+			return nil
+		}),
+		field.Int64("routing_state_version").Default(1).Positive(),
+		field.Int64("route_version").
+			Default(1).
+			Positive(),
+		field.Int64("routing_dependency_version").
+			Default(1).
+			Positive().
+			Comment("Monotonic guard for group, access, subscription, pricing, and capability dependencies"),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),
@@ -129,6 +167,8 @@ func (APIKey) Edges() []ent.Edge {
 			Ref("api_keys").
 			Field("group_id").
 			Unique(),
+		edge.To("group_routes", APIKeyGroupRoute.Type),
+		edge.To("route_config_outbox_events", APIKeyRouteConfigOutbox.Type),
 		edge.To("usage_logs", UsageLog.Type),
 	}
 }

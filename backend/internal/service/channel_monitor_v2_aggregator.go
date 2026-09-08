@@ -147,6 +147,11 @@ func (s *ChannelMonitorV2Aggregator) kick() {
 }
 
 func (s *ChannelMonitorV2Aggregator) loop() {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			logger.LegacyPrintf("service.channel_monitor_v2", "aggregator worker panic: %v", recovered)
+		}
+	}()
 	for {
 		interval := time.Minute
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -170,7 +175,7 @@ func (s *ChannelMonitorV2Aggregator) loop() {
 			}
 		}
 		cancel()
-		s.runOnce()
+		s.runOnceSafely()
 		// Hard gate: never compress bootstrap to multi-Hz ticks. Soft gate: on
 		// repeated failures raise the wait floor (exponential backoff).
 		s.mu.Lock()
@@ -183,6 +188,17 @@ func (s *ChannelMonitorV2Aggregator) loop() {
 			return
 		}
 	}
+}
+
+// runOnceSafely prevents one aggregation batch from terminating the worker.
+// The next scheduled tick can retry after the underlying dependency recovers.
+func (s *ChannelMonitorV2Aggregator) runOnceSafely() {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			logger.LegacyPrintf("service.channel_monitor_v2", "aggregator batch panic: %v", recovered)
+		}
+	}()
+	s.runOnce()
 }
 
 func (s *ChannelMonitorV2Aggregator) passiveAggregationAllowed(ctx context.Context) bool {

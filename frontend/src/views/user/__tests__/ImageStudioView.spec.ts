@@ -354,6 +354,23 @@ describe('image studio user flow', () => {
     expect(wrapper.find('.model-error').exists()).toBe(false)
     wrapper.unmount()
   })
+  it('keeps a multi-group key when a fallback group can generate images', async () => {
+    const fallback = { ...imageGroup, id: 5, name: 'Image fallback', image_models: ['gpt-image-2'] }
+    mocks.groups.mockResolvedValue([fallback])
+    mocks.list.mockResolvedValue({ items: [{
+      ...imageKey, id: 11, name: 'Multi key', group_id: 9,
+      group: { ...imageGroup, id: 9, name: 'Text primary', allow_image_generation: false },
+      group_routes: [
+        { group_id: 9, priority: 0, enabled: true, group: { ...imageGroup, id: 9, allow_image_generation: false } },
+        { group_id: 5, priority: 1, enabled: true, group: fallback },
+      ],
+    }], pages: 1 })
+    const wrapper = render()
+    await flushPromises()
+    expect(wrapper.getComponent(Select).props('options').map(option => option.value)).toEqual([11, 'create'])
+    expect(wrapper.get('button[aria-label="Image Key"]').text()).toContain('Multi key')
+    wrapper.unmount()
+  })
   it('leaves only the create action when all existing Keys belong to text-only groups', async () => {
     mocks.groups.mockResolvedValue([])
     const wrapper = render()

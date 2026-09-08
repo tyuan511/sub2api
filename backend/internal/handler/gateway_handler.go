@@ -44,6 +44,7 @@ type GatewayHandler struct {
 	geminiCompatService       *service.GeminiMessagesCompatService
 	antigravityGatewayService *service.AntigravityGatewayService
 	userService               *service.UserService
+	subscriptionService       *service.SubscriptionService
 	billingCacheService       *service.BillingCacheService
 	usageService              *service.UsageService
 	apiKeyService             *service.APIKeyService
@@ -66,6 +67,7 @@ func NewGatewayHandler(
 	geminiCompatService *service.GeminiMessagesCompatService,
 	antigravityGatewayService *service.AntigravityGatewayService,
 	userService *service.UserService,
+	subscriptionService *service.SubscriptionService,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
 	usageService *service.UsageService,
@@ -102,6 +104,7 @@ func NewGatewayHandler(
 		geminiCompatService:       geminiCompatService,
 		antigravityGatewayService: antigravityGatewayService,
 		userService:               userService,
+		subscriptionService:       subscriptionService,
 		billingCacheService:       billingCacheService,
 		usageService:              usageService,
 		apiKeyService:             apiKeyService,
@@ -186,8 +189,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+	// Group-specific mapping is resolved after the actual initial route.
+	var channelMapping service.ChannelMappingResult
 
 	// 设置 max_tokens=1 + haiku 探测请求标识到 context 中
 	// 必须在 SetClaudeCodeClientContext 之前设置，因为 ClaudeCodeValidator 需要读取此标识进行绕过判断
@@ -252,17 +255,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
-	// 2. 【新增】Wait后二次检查余额/订阅
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
-		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.handleStreamingAwareError(c, status, code, message, streamStarted)
-		return
-	}
-
 	// 设置请求所属分组 ID（用于渠道级功能判断，如 WebSearch 模拟）
 	parsedReq.GroupID = apiKey.GroupID
 
@@ -273,6 +265,97 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		APIKeyID:  apiKey.ID,
 	}
 	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
+	routeEndpoint := c.Request.URL.Path
+	gatewayCandidateCheck := func(candidate *service.APIKey) error {
+		if candidate == nil || candidate.Group == nil {
+			return service.ErrNoEligibleAPIKeyRoute
+		}
+		if err := rejectAPIKeyRouteUnsupportedModel(c, h.gatewayService, candidate, reqModel); err != nil {
+			return err
+		}
+		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
+			return fmt.Errorf("candidate group %d does not support model %s", candidate.Group.ID, reqModel)
+		}
+		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
+		if healthErr != nil {
+			reqLog.Warn("gateway.api_key_group_health_read_failed", zap.Int64("candidate_group_id", candidate.Group.ID), zap.Error(healthErr))
+			return nil
+		}
+		if !allowed {
+			return fmt.Errorf("candidate group %d breaker is %s", candidate.Group.ID, state)
+		}
+		return nil
+	}
+	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, reqModel, c.Request.URL.Path)
+	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash)
+	routeStateDegraded := stickyErr != nil
+	if stickyErr != nil {
+		reqLog.Warn("gateway.api_key_group_route_state_degraded", zap.String("reason", "sticky_read_failed"), zap.Error(stickyErr))
+	}
+	stickyRouteSelected := apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID
+	if apiKeyMultiGroupRoutingActive(c) && stickyErr == nil && stickyGroupID > 0 && (apiKey.GroupID == nil || *apiKey.GroupID != stickyGroupID) {
+		stickyAPIKey, stickySubscription, activated, activateErr := h.apiKeyRouteRuntime().activateSticky(c, stickyGroupID, gatewayCandidateCheck)
+		if activateErr != nil {
+			middleware2.MarkAPIKeyRouteStickySelected(c)
+			middleware2.MarkAPIKeyRouteStickyBroken(c)
+			reqLog.Warn("gateway.api_key_group_sticky_ignored", zap.Int64("sticky_group_id", stickyGroupID), zap.Error(activateErr))
+		} else if activated {
+			stickyRouteSelected = true
+			apiKey = stickyAPIKey
+			subscription = stickySubscription
+			parsedReq.GroupID = apiKey.GroupID
+			reqLog.Info("gateway.api_key_group_sticky_hit", zap.Int64("sticky_group_id", stickyGroupID))
+		}
+	}
+	if stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickySelected(c)
+	}
+	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
+		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, c.Request.URL.Path, sessionHash, gatewayCandidateCheck)
+		if smartErr != nil {
+			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
+			return
+		}
+		if len(ranked) > 0 {
+			apiKey = smartAPIKey
+			subscription = smartSubscription
+			parsedReq.GroupID = apiKey.GroupID
+			state, _ := middleware2.GetAPIKeyRouteState(c)
+			reqLog.Info("gateway.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
+		}
+	}
+
+	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, gatewayCandidateCheck)
+	if err != nil {
+		if isAPIKeyRouteAdvanceBillingError(err) {
+			status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(err))
+			if retryAfter > 0 {
+				c.Header("Retry-After", strconv.Itoa(retryAfter))
+			}
+			h.handleStreamingAwareError(c, status, code, message, streamStarted)
+			return
+		}
+		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
+		return
+	}
+	if initialRouteChanged && stickyRouteSelected {
+		middleware2.MarkAPIKeyRouteStickyBroken(c)
+	}
+	parsedReq.GroupID = apiKey.GroupID
+	reqLog = reqLog.With(zap.Any("actual_group_id", apiKey.GroupID), zap.Int64("route_version", apiKey.RouteVersion))
+	channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
+
+	// Billing is evaluated after sticky/smart initial-group selection so only the
+	// actual group's RPM and financial constraints are counted.
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(err))
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.handleStreamingAwareError(c, status, code, message, streamStarted)
+		return
+	}
 
 	// [DEBUG-STICKY] 打印会话 hash 生成结果
 	reqLog.Info("sticky.session_hash_generated",
@@ -318,7 +401,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	hasBoundSession := sessionKey != "" && sessionBoundAccountID > 0
 
 	if platform == service.PlatformGemini {
-		fs := NewFailoverState(h.maxAccountSwitchesGemini, hasBoundSession)
+		fs := NewFailoverStateForRequest(c, h.maxAccountSwitchesGemini, hasBoundSession)
 
 		// 单账号分组提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
 		// 避免单账号分组收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
@@ -562,6 +645,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 			}
 
+			if apiKeyMultiGroupRoutingActive(c) && apiKey.GroupID != nil {
+				if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, reqModel, c.Request.URL.Path, true); observeErr != nil {
+					reqLog.Warn("gateway.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+				}
+				_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash, *apiKey.GroupID)
+			}
+
 			// 捕获请求信息（用于异步记录，避免在 goroutine 中访问 gin.Context）
 			userAgent := c.GetHeader("User-Agent")
 			clientIP := ip.GetClientIP(c)
@@ -586,7 +676,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 			// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 			// ForceCacheBilling 提前拍成标量，避免 worker 闭包保活 failover 状态里的响应体。
-			forceCacheBilling := fs.ForceCacheBilling
+			forceCacheBilling := fs.ForceCacheBilling || service.IsForceCacheBilling(c.Request.Context())
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
 			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
@@ -629,6 +719,33 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		fallbackGroupID = apiKey.Group.FallbackGroupIDOnInvalidRequest
 	}
 	fallbackUsed := false
+	advanceGatewayRoute := func(routeErr error) (bool, error) {
+		if state, observeErr := observeAPIKeyRouteFailure(c, currentAPIKey, reqModel, routeEndpoint, routeErr, h.gatewayService.RecordAPIKeyRouteFailure); observeErr != nil {
+			reqLog.Warn("gateway.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+		}
+		if !apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput(c, routeErr) {
+			return false, nil
+		}
+		nextAPIKey, nextSubscription, advanced, err := h.apiKeyRouteRuntime().advance(c, reqModel, routeEndpoint, gatewayCandidateCheck)
+		if !advanced {
+			return false, err
+		}
+		currentAPIKey = nextAPIKey
+		currentSubscription = nextSubscription
+		parsedReq.GroupID = nextAPIKey.GroupID
+		channelMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), nextAPIKey.GroupID, reqModel)
+		fallbackGroupID = nil
+		if nextAPIKey.Group != nil {
+			fallbackGroupID = nextAPIKey.Group.FallbackGroupIDOnInvalidRequest
+		}
+		sessionBoundAccountID = 0
+		if sessionKey != "" {
+			sessionBoundAccountID, _ = h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), nextAPIKey.GroupID, sessionKey)
+		}
+		hasBoundSession = sessionKey != "" && sessionBoundAccountID > 0
+		reqLog.Info("gateway.api_key_group_route_switched", zap.Int64p("actual_group_id", nextAPIKey.GroupID))
+		return true, nil
+	}
 
 	// 单账号分组提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
 	// 避免单账号分组收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
@@ -655,9 +772,24 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}()
 
 	for {
-		fs := NewFailoverState(h.maxAccountSwitches, hasBoundSession)
+		if apiKeyMultiGroupRoutingActive(c) && currentAPIKey.GroupID != nil {
+			allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), currentAPIKey.ID, currentAPIKey.RouteVersion, *currentAPIKey.GroupID, reqModel, routeEndpoint)
+			if healthErr != nil {
+				reqLog.Warn("gateway.api_key_group_health_read_failed", zap.Error(healthErr))
+			} else if !allowed {
+				if advanced, advanceErr := advanceGatewayRoute(nil); advanced {
+					continue
+				} else if advanceErr != nil {
+					reqLog.Warn("gateway.api_key_group_routes_exhausted", zap.String("breaker_state", state), zap.Error(advanceErr))
+				}
+				h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No eligible candidate groups", streamStarted)
+				return
+			}
+		}
+		fs := NewFailoverStateForRequest(c, h.maxAccountSwitches, hasBoundSession)
 		retryWithFallback := false
 
+	accountLoop:
 		for {
 			attemptParsedReq, err := parsedReq.CloneForBody(body)
 			if err != nil {
@@ -675,6 +807,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), currentAPIKey.GroupID, sessionKey, reqModel, fs.FailedAccountIDs, parsedReq.MetadataUserID, subject.UserID)
 			if err != nil {
 				if len(fs.FailedAccountIDs) == 0 {
+					if advanced, advanceErr := advanceGatewayRoute(err); advanced {
+						retryWithFallback = true
+						break accountLoop
+					} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+						status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+						if retryAfter > 0 {
+							c.Header("Retry-After", strconv.Itoa(retryAfter))
+						}
+						h.handleStreamingAwareError(c, status, code, message, streamStarted)
+						return
+					}
 					cls := classifyNoAccountErrorFromGin(c, h.gatewayService, currentAPIKey, reqModel, reqModel, platform)
 					if !cls.ModelNotFound {
 						markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -704,6 +847,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					failoverClientGone(c)
 					return
 				default: // FailoverExhausted
+					if advanced, advanceErr := advanceGatewayRoute(apiKeyRouteFailureCause(fs.LastFailoverErr, err)); advanced {
+						retryWithFallback = true
+						break accountLoop
+					} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+						status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+						if retryAfter > 0 {
+							c.Header("Retry-After", strconv.Itoa(retryAfter))
+						}
+						h.handleStreamingAwareError(c, status, code, message, streamStarted)
+						return
+					}
 					if fs.LastFailoverErr != nil {
 						h.handleFailoverExhausted(c, fs.LastFailoverErr, platform, streamStarted)
 					} else {
@@ -962,7 +1116,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 				// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 				// ForceCacheBilling 提前拍成标量，避免 worker 闭包保活 failover 状态里的响应体。
-				forceCacheBilling := fs.ForceCacheBilling
+				forceCacheBilling := fs.ForceCacheBilling || service.IsForceCacheBilling(c.Request.Context())
 				quotaPlatform := service.QuotaPlatform(c.Request.Context(), currentAPIKey)
 				sessionID := service.ExtractClientSessionID(c)
 				h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
@@ -1071,6 +1225,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						delete(sessionSlotAccounts, account.ID)
 						continue
 					case FailoverExhausted:
+						if advanced, advanceErr := advanceGatewayRoute(failoverErr); advanced {
+							retryWithFallback = true
+							break accountLoop
+						} else if advanceErr != nil && isAPIKeyRouteAdvanceBillingError(advanceErr) {
+							status, code, message, retryAfter := billingErrorDetails(errors.Unwrap(advanceErr))
+							if retryAfter > 0 {
+								c.Header("Retry-After", strconv.Itoa(retryAfter))
+							}
+							h.handleStreamingAwareError(c, status, code, message, streamStarted)
+							return
+						}
 						h.handleFailoverExhausted(c, fs.LastFailoverErr, account.Platform, streamStarted)
 						return
 					case FailoverCanceled:
@@ -1132,6 +1297,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					reqLog.Warn("gateway.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 				}
 			}
+			if apiKeyMultiGroupRoutingActive(c) && currentAPIKey.GroupID != nil {
+				if state, observeErr := h.gatewayService.RecordAPIKeyRouteResult(c.Request.Context(), currentAPIKey.ID, currentAPIKey.RouteVersion, *currentAPIKey.GroupID, reqModel, routeEndpoint, true); observeErr != nil {
+					reqLog.Warn("gateway.api_key_group_health_record_failed", zap.String("state", state), zap.Error(observeErr))
+				}
+				_ = h.gatewayService.BindAPIKeyGroupSticky(c.Request.Context(), currentAPIKey.ID, currentAPIKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash, *currentAPIKey.GroupID)
+			}
 
 			submitForwardUsage(result)
 			// 转发成功，会话槽保持既有空闲超时语义
@@ -1158,8 +1329,25 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		groupID = &apiKey.Group.ID
 		platform = apiKey.Group.Platform
 	}
-	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
+	forcedPlatform := ""
+	if value, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(value) != "" {
+		forcedPlatform = strings.TrimSpace(value)
 		platform = forcedPlatform
+	}
+	if groups := apiKeyRouteGroupsForModels(c, apiKey); len(groups) > 1 {
+		availableModels, listPlatform, custom := h.unionAdvertisedModelsForGroups(c.Request.Context(), groups, forcedPlatform)
+		if listPlatform == "" {
+			listPlatform = platform
+		}
+		if custom {
+			writeCustomModelsList(c, listPlatform, availableModels)
+			return
+		}
+		if len(availableModels) > 0 {
+			writeModelsList(c, listPlatform, availableModels)
+			return
+		}
+		platform = listPlatform
 	}
 
 	if platform == service.PlatformComposite {
@@ -1232,8 +1420,7 @@ func (h *GatewayHandler) CodexModels(c *gin.Context) {
 	if value, exists := middleware2.GetForcePlatformFromContext(c); exists {
 		forcedPlatform = strings.TrimSpace(value)
 	}
-	modelIDs := h.codexModelIDsForGroup(c.Request.Context(), apiKey.Group, forcedPlatform)
-	modelIDs = service.FilterCodexModelIDsForGroup(modelIDs, apiKey.Group)
+	modelIDs := h.unionCodexModelIDsForGroups(c.Request.Context(), apiKeyRouteGroupsForModels(c, apiKey), forcedPlatform)
 	body, err := h.gatewayService.BuildCodexModelsManifestForGroup(
 		c.Request.Context(),
 		apiKey.Group,
@@ -1289,6 +1476,124 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
 		return availableModels
 	}
 	return fallbackModels
+}
+
+func apiKeyRouteGroupsForModels(c *gin.Context, apiKey *service.APIKey) []*service.Group {
+	if c != nil {
+		if state, ok := middleware2.GetAPIKeyRouteState(c); ok && state != nil && state.Plan != nil && state.Plan.RoutingEnabled {
+			groups := make([]*service.Group, 0, len(state.Plan.Candidates))
+			seen := make(map[int64]struct{}, len(state.Plan.Candidates))
+			for _, candidate := range state.Plan.Candidates {
+				if candidate.Group == nil || candidate.Group.ID <= 0 {
+					continue
+				}
+				if _, exists := seen[candidate.Group.ID]; exists {
+					continue
+				}
+				seen[candidate.Group.ID] = struct{}{}
+				groups = append(groups, candidate.Group)
+			}
+			if len(groups) > 0 {
+				return groups
+			}
+		}
+	}
+	if apiKey != nil && apiKey.Group != nil {
+		return []*service.Group{apiKey.Group}
+	}
+	return nil
+}
+
+func (h *GatewayHandler) advertisedModelIDsForGroup(ctx context.Context, group *service.Group, platformOverride string) []string {
+	if h == nil || h.gatewayService == nil || group == nil {
+		return nil
+	}
+	groupID := &group.ID
+	platform := strings.TrimSpace(platformOverride)
+	if platform == "" {
+		platform = group.Platform
+	}
+	var availableModels []string
+	if platform == service.PlatformComposite {
+		availableModels = h.compositeAvailableModels(ctx, groupID)
+	} else {
+		availableModels = h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+	}
+	fallbackModels := defaultModelIDsForPlatform(platform)
+	if group.CustomModelsListEnabled() {
+		source := availableModels
+		if platform != service.PlatformComposite {
+			source = customModelsListSource(platform, availableModels, fallbackModels)
+		}
+		return filterModelsByCustomList(source, fallbackModels, group.ModelsListConfig.Models)
+	}
+	if len(availableModels) > 0 {
+		return availableModels
+	}
+	return fallbackModels
+}
+
+func (h *GatewayHandler) unionAdvertisedModelsForGroups(ctx context.Context, groups []*service.Group, platformOverride string) ([]string, string, bool) {
+	models := make([]string, 0)
+	seen := make(map[string]struct{})
+	platform := strings.TrimSpace(platformOverride)
+	custom := false
+	for _, group := range groups {
+		if group == nil {
+			continue
+		}
+		if platform == "" {
+			platform = group.Platform
+		}
+		if group.CustomModelsListEnabled() {
+			custom = true
+		}
+		for _, modelID := range h.advertisedModelIDsForGroup(ctx, group, platformOverride) {
+			modelID = strings.TrimSpace(modelID)
+			if modelID == "" {
+				continue
+			}
+			if _, exists := seen[modelID]; exists {
+				continue
+			}
+			seen[modelID] = struct{}{}
+			models = append(models, modelID)
+		}
+	}
+	return models, platform, custom
+}
+
+func (h *GatewayHandler) unionCodexModelIDsForGroups(ctx context.Context, groups []*service.Group, platformOverride string) []string {
+	if len(groups) == 0 {
+		return nil
+	}
+	if len(groups) == 1 {
+		return service.FilterCodexModelIDsForGroup(h.codexModelIDsForGroup(ctx, groups[0], platformOverride), groups[0])
+	}
+	ids := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, group := range groups {
+		for _, modelID := range service.FilterCodexModelIDsForGroup(h.codexModelIDsForGroup(ctx, group, platformOverride), group) {
+			modelID = strings.TrimSpace(modelID)
+			if modelID == "" {
+				continue
+			}
+			if _, exists := seen[modelID]; exists {
+				continue
+			}
+			seen[modelID] = struct{}{}
+			ids = append(ids, modelID)
+		}
+	}
+	return ids
+}
+
+func (h *GatewayHandler) RouteGroupSupportsModel(ctx context.Context, group *service.Group, model string) bool {
+	model = strings.TrimSpace(model)
+	if h == nil || group == nil || model == "" {
+		return false
+	}
+	return customModelsListAllowsModel(h.advertisedModelIDsForGroup(ctx, group, ""), model)
 }
 
 func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64) []string {

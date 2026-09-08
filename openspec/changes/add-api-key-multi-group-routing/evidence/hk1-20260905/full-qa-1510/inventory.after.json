@@ -1,0 +1,464 @@
+{
+  "groups": [
+    {
+      "id": 37,
+      "name": "gpt-010",
+      "platform": "openai",
+      "status": "active",
+      "subscription_type": "standard",
+      "rate_multiplier": 0.1,
+      "is_exclusive": false,
+      "allow_image_generation": false,
+      "allow_messages_dispatch": false,
+      "allow_live": false,
+      "require_oauth_only": false,
+      "models_list_config": {
+        "enabled": false,
+        "models": [
+          "gpt-5.6-sol",
+          "gpt-5.6",
+          "gpt-5.6-terra",
+          "gpt-5.6-luna",
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark",
+          "codex-auto-review",
+          "gpt-5.2",
+          "gpt-image-1",
+          "gpt-image-1.5",
+          "gpt-image-2"
+        ]
+      }
+    },
+    {
+      "id": 38,
+      "name": "gpt-015",
+      "platform": "openai",
+      "status": "active",
+      "subscription_type": "standard",
+      "rate_multiplier": 0.15,
+      "is_exclusive": false,
+      "allow_image_generation": false,
+      "allow_messages_dispatch": false,
+      "allow_live": false,
+      "require_oauth_only": false,
+      "models_list_config": {
+        "enabled": false,
+        "models": [
+          "gpt-5.6-sol",
+          "gpt-5.6",
+          "gpt-5.6-terra",
+          "gpt-5.6-luna",
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark",
+          "codex-auto-review",
+          "gpt-5.2",
+          "gpt-image-1",
+          "gpt-image-1.5",
+          "gpt-image-2"
+        ]
+      }
+    },
+    {
+      "id": 39,
+      "name": "gpt-020",
+      "platform": "openai",
+      "status": "active",
+      "subscription_type": "standard",
+      "rate_multiplier": 0.2,
+      "is_exclusive": false,
+      "allow_image_generation": false,
+      "allow_messages_dispatch": false,
+      "allow_live": false,
+      "require_oauth_only": false,
+      "models_list_config": {
+        "enabled": false,
+        "models": [
+          "gpt-5.6-sol",
+          "gpt-5.6",
+          "gpt-5.6-terra",
+          "gpt-5.6-luna",
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark",
+          "codex-auto-review",
+          "gpt-5.2",
+          "gpt-image-1",
+          "gpt-image-1.5",
+          "gpt-image-2"
+        ]
+      }
+    },
+    {
+      "id": 40,
+      "name": "gpt-008",
+      "platform": "openai",
+      "status": "active",
+      "subscription_type": "standard",
+      "rate_multiplier": 0.08,
+      "is_exclusive": false,
+      "allow_image_generation": false,
+      "allow_messages_dispatch": false,
+      "allow_live": false,
+      "require_oauth_only": false,
+      "models_list_config": {
+        "enabled": false,
+        "models": [
+          "gpt-5.6-sol",
+          "gpt-5.6",
+          "gpt-5.6-terra",
+          "gpt-5.6-luna",
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark",
+          "codex-auto-review",
+          "gpt-5.2",
+          "gpt-image-1",
+          "gpt-image-1.5",
+          "gpt-image-2"
+        ]
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "id": 246,
+      "name": "mdkj-008",
+      "platform": "openai",
+      "type": "apikey",
+      "status": "active",
+      "schedulable": true,
+      "concurrency": 100,
+      "priority": 1,
+      "group_ids": [
+        40
+      ],
+      "rate_multiplier": 1,
+      "configured_model_names": [
+        "codex-auto-review",
+        "gpt-5.5",
+        "gpt-5.6",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-6-astra"
+      ]
+    },
+    {
+      "id": 245,
+      "name": "mdkj-max",
+      "platform": "openai",
+      "type": "apikey",
+      "status": "active",
+      "schedulable": true,
+      "concurrency": 100,
+      "priority": 1,
+      "group_ids": [
+        39
+      ],
+      "rate_multiplier": 1,
+      "configured_model_names": [
+        "codex-auto-review",
+        "gpt-5.4",
+        "gpt-5.5",
+        "gpt-5.6",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra"
+      ]
+    },
+    {
+      "id": 243,
+      "name": "mdkj-plus",
+      "platform": "openai",
+      "type": "apikey",
+      "status": "active",
+      "schedulable": true,
+      "concurrency": 100,
+      "priority": 1,
+      "group_ids": [
+        37
+      ],
+      "rate_multiplier": 1,
+      "configured_model_names": []
+    },
+    {
+      "id": 244,
+      "name": "mdkj-pro",
+      "platform": "openai",
+      "type": "apikey",
+      "status": "active",
+      "schedulable": true,
+      "concurrency": 100,
+      "priority": 1,
+      "group_ids": [
+        38
+      ],
+      "rate_multiplier": 1,
+      "configured_model_names": [
+        "codex-auto-review",
+        "gpt-5.4",
+        "gpt-5.5",
+        "gpt-5.6",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": 36,
+      "username": "",
+      "role": "user",
+      "status": "disabled",
+      "concurrency": 64,
+      "allowed_groups": null
+    },
+    {
+      "id": 1,
+      "username": "",
+      "role": "admin",
+      "status": "active",
+      "concurrency": 10000,
+      "allowed_groups": null
+    }
+  ],
+  "rollout": {
+    "user_ids": [
+      1
+    ]
+  },
+  "tables": [
+    "account_groups",
+    "routing_attempts",
+    "usage_logs",
+    "user_allowed_groups"
+  ],
+  "runtime": {
+    "plans": 7,
+    "candidate_count_buckets": {
+      "0": 0,
+      "1": 3,
+      "2": 4,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0
+    },
+    "excluded_candidates": 0,
+    "group_switches": 1,
+    "sticky_breaks": 1,
+    "sticky_cache_hits": 0,
+    "sticky_cache_misses": 2,
+    "sticky_cache_errors": 0,
+    "sticky_binds": 0,
+    "breaker_closed": 3,
+    "breaker_open": 0,
+    "breaker_half_open": 0,
+    "breaker_recovering": 0,
+    "half_open_probes": 0,
+    "redis_degraded": 0,
+    "score_snapshot_hits": 0,
+    "score_snapshot_misses": 2,
+    "score_age_samples": 0,
+    "score_age_average_ms": 0,
+    "score_age_max_ms": 0,
+    "phase_latency": {
+      "auth_lookup": {
+        "samples": 5,
+        "p50_ms": 10,
+        "p95_ms": 10,
+        "p99_ms": 10,
+        "max_ms": 5.885624
+      },
+      "plan_build": {
+        "samples": 7,
+        "p50_ms": 0.005,
+        "p95_ms": 0.005,
+        "p99_ms": 0.005,
+        "max_ms": 0.004649
+      },
+      "smart_ranking": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      },
+      "state_read": {
+        "samples": 2,
+        "p50_ms": 0.25,
+        "p95_ms": 0.25,
+        "p99_ms": 0.25,
+        "max_ms": 0.130695
+      },
+      "state_write": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "background_queries": {
+      "queries": 144,
+      "failures": 0,
+      "scanned_rows": 1208,
+      "average_duration_ms": 5.364318680555556,
+      "max_duration_ms": 189.216139
+    },
+    "personalization": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "model_prediction": {
+      "attempts": 0,
+      "applications": 0,
+      "fallbacks": {
+        "calibration": 0,
+        "data_quality": 0,
+        "drift": 0,
+        "low_samples": 0,
+        "missing": 0,
+        "missing_features": 0,
+        "non_finite": 0,
+        "out_of_range": 0,
+        "schema": 0,
+        "stale": 0,
+        "timeout": 0
+      },
+      "last_calibration_error": 0,
+      "inference_latency": {
+        "samples": 0,
+        "p50_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0,
+        "max_ms": 0
+      }
+    },
+    "fact_recorder": {
+      "Queued": 6,
+      "Persisted": 6,
+      "StreamFallbacks": 0,
+      "DroppedSamples": 0,
+      "DroppedCritical": 0,
+      "Invalid": 0
+    }
+  },
+  "key_configs": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "group_id": 37,
+      "status": "active",
+      "schedule_mode": "sequential",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 6
+    },
+    {
+      "id": 65,
+      "user_id": 36,
+      "group_id": 29,
+      "status": "inactive",
+      "schedule_mode": "sequential",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 1
+    },
+    {
+      "id": 66,
+      "user_id": 36,
+      "group_id": 29,
+      "status": "inactive",
+      "schedule_mode": "sequential",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 1
+    },
+    {
+      "id": 67,
+      "user_id": 36,
+      "group_id": 29,
+      "status": "inactive",
+      "schedule_mode": "smart",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 1
+    },
+    {
+      "id": 68,
+      "user_id": 36,
+      "group_id": 35,
+      "status": "inactive",
+      "schedule_mode": "sequential",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 1
+    },
+    {
+      "id": 69,
+      "user_id": 36,
+      "group_id": 35,
+      "status": "inactive",
+      "schedule_mode": "sequential",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 1
+    },
+    {
+      "id": 70,
+      "user_id": 36,
+      "group_id": 35,
+      "status": "inactive",
+      "schedule_mode": "sequential",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 1
+    },
+    {
+      "id": 71,
+      "user_id": 36,
+      "group_id": 24,
+      "status": "inactive",
+      "schedule_mode": "sequential",
+      "smart_balance_bps": null,
+      "threshold": 50,
+      "route_version": 1
+    }
+  ],
+  "runtime_controls": {
+    "GATEWAY_API_KEY_ROUTING_OPTIMIZATION_ENABLED": "false",
+    "GATEWAY_API_KEY_MULTI_GROUP_ROUTING_ENABLED": "true",
+    "GATEWAY_API_KEY_ROUTING_PERSONALIZATION_ENABLED": "false",
+    "GATEWAY_API_KEY_ROUTING_EXPLORATION_ENABLED": "false",
+    "GATEWAY_API_KEY_ROUTING_MODEL_PREDICTION_ENABLED": "false"
+  }
+}
+

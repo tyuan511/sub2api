@@ -34,6 +34,20 @@ type APIKey struct {
 	Name string `json:"name,omitempty"`
 	// GroupID holds the value of the "group_id" field.
 	GroupID *int64 `json:"group_id,omitempty"`
+	// ScheduleMode holds the value of the "schedule_mode" field.
+	ScheduleMode string `json:"schedule_mode,omitempty"`
+	// SmartPreference holds the value of the "smart_preference" field.
+	SmartPreference *string `json:"smart_preference,omitempty"`
+	// SmartBalanceBps holds the value of the "smart_balance_bps" field.
+	SmartBalanceBps *int `json:"smart_balance_bps,omitempty"`
+	// RoutingMinSuccessRate holds the value of the "routing_min_success_rate" field.
+	RoutingMinSuccessRate int `json:"routing_min_success_rate,omitempty"`
+	// RoutingStateVersion holds the value of the "routing_state_version" field.
+	RoutingStateVersion int64 `json:"routing_state_version,omitempty"`
+	// RouteVersion holds the value of the "route_version" field.
+	RouteVersion int64 `json:"route_version,omitempty"`
+	// Monotonic guard for group, access, subscription, pricing, and capability dependencies
+	RoutingDependencyVersion int64 `json:"routing_dependency_version,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// Last usage time of this API key
@@ -78,11 +92,15 @@ type APIKeyEdges struct {
 	User *User `json:"user,omitempty"`
 	// Group holds the value of the group edge.
 	Group *Group `json:"group,omitempty"`
+	// GroupRoutes holds the value of the group_routes edge.
+	GroupRoutes []*APIKeyGroupRoute `json:"group_routes,omitempty"`
+	// RouteConfigOutboxEvents holds the value of the route_config_outbox_events edge.
+	RouteConfigOutboxEvents []*APIKeyRouteConfigOutbox `json:"route_config_outbox_events,omitempty"`
 	// UsageLogs holds the value of the usage_logs edge.
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [5]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -107,10 +125,28 @@ func (e APIKeyEdges) GroupOrErr() (*Group, error) {
 	return nil, &NotLoadedError{edge: "group"}
 }
 
+// GroupRoutesOrErr returns the GroupRoutes value or an error if the edge
+// was not loaded in eager-loading.
+func (e APIKeyEdges) GroupRoutesOrErr() ([]*APIKeyGroupRoute, error) {
+	if e.loadedTypes[2] {
+		return e.GroupRoutes, nil
+	}
+	return nil, &NotLoadedError{edge: "group_routes"}
+}
+
+// RouteConfigOutboxEventsOrErr returns the RouteConfigOutboxEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e APIKeyEdges) RouteConfigOutboxEventsOrErr() ([]*APIKeyRouteConfigOutbox, error) {
+	if e.loadedTypes[3] {
+		return e.RouteConfigOutboxEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "route_config_outbox_events"}
+}
+
 // UsageLogsOrErr returns the UsageLogs value or an error if the edge
 // was not loaded in eager-loading.
 func (e APIKeyEdges) UsageLogsOrErr() ([]*UsageLog, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[4] {
 		return e.UsageLogs, nil
 	}
 	return nil, &NotLoadedError{edge: "usage_logs"}
@@ -125,9 +161,9 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case apikey.FieldQuota, apikey.FieldQuotaUsed, apikey.FieldRateLimit5h, apikey.FieldRateLimit1d, apikey.FieldRateLimit7d, apikey.FieldUsage5h, apikey.FieldUsage1d, apikey.FieldUsage7d:
 			values[i] = new(sql.NullFloat64)
-		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID:
+		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID, apikey.FieldSmartBalanceBps, apikey.FieldRoutingMinSuccessRate, apikey.FieldRoutingStateVersion, apikey.FieldRouteVersion, apikey.FieldRoutingDependencyVersion:
 			values[i] = new(sql.NullInt64)
-		case apikey.FieldKey, apikey.FieldName, apikey.FieldStatus:
+		case apikey.FieldKey, apikey.FieldName, apikey.FieldScheduleMode, apikey.FieldSmartPreference, apikey.FieldStatus:
 			values[i] = new(sql.NullString)
 		case apikey.FieldCreatedAt, apikey.FieldUpdatedAt, apikey.FieldDeletedAt, apikey.FieldLastUsedAt, apikey.FieldExpiresAt, apikey.FieldWindow5hStart, apikey.FieldWindow1dStart, apikey.FieldWindow7dStart:
 			values[i] = new(sql.NullTime)
@@ -195,6 +231,50 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.GroupID = new(int64)
 				*_m.GroupID = value.Int64
+			}
+		case apikey.FieldScheduleMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field schedule_mode", values[i])
+			} else if value.Valid {
+				_m.ScheduleMode = value.String
+			}
+		case apikey.FieldSmartPreference:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field smart_preference", values[i])
+			} else if value.Valid {
+				_m.SmartPreference = new(string)
+				*_m.SmartPreference = value.String
+			}
+		case apikey.FieldSmartBalanceBps:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field smart_balance_bps", values[i])
+			} else if value.Valid {
+				_m.SmartBalanceBps = new(int)
+				*_m.SmartBalanceBps = int(value.Int64)
+			}
+		case apikey.FieldRoutingMinSuccessRate:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field routing_min_success_rate", values[i])
+			} else if value.Valid {
+				_m.RoutingMinSuccessRate = int(value.Int64)
+			}
+		case apikey.FieldRoutingStateVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field routing_state_version", values[i])
+			} else if value.Valid {
+				_m.RoutingStateVersion = value.Int64
+			}
+		case apikey.FieldRouteVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field route_version", values[i])
+			} else if value.Valid {
+				_m.RouteVersion = value.Int64
+			}
+		case apikey.FieldRoutingDependencyVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field routing_dependency_version", values[i])
+			} else if value.Valid {
+				_m.RoutingDependencyVersion = value.Int64
 			}
 		case apikey.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -324,6 +404,16 @@ func (_m *APIKey) QueryGroup() *GroupQuery {
 	return NewAPIKeyClient(_m.config).QueryGroup(_m)
 }
 
+// QueryGroupRoutes queries the "group_routes" edge of the APIKey entity.
+func (_m *APIKey) QueryGroupRoutes() *APIKeyGroupRouteQuery {
+	return NewAPIKeyClient(_m.config).QueryGroupRoutes(_m)
+}
+
+// QueryRouteConfigOutboxEvents queries the "route_config_outbox_events" edge of the APIKey entity.
+func (_m *APIKey) QueryRouteConfigOutboxEvents() *APIKeyRouteConfigOutboxQuery {
+	return NewAPIKeyClient(_m.config).QueryRouteConfigOutboxEvents(_m)
+}
+
 // QueryUsageLogs queries the "usage_logs" edge of the APIKey entity.
 func (_m *APIKey) QueryUsageLogs() *UsageLogQuery {
 	return NewAPIKeyClient(_m.config).QueryUsageLogs(_m)
@@ -376,6 +466,31 @@ func (_m *APIKey) String() string {
 		builder.WriteString("group_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("schedule_mode=")
+	builder.WriteString(_m.ScheduleMode)
+	builder.WriteString(", ")
+	if v := _m.SmartPreference; v != nil {
+		builder.WriteString("smart_preference=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.SmartBalanceBps; v != nil {
+		builder.WriteString("smart_balance_bps=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("routing_min_success_rate=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RoutingMinSuccessRate))
+	builder.WriteString(", ")
+	builder.WriteString("routing_state_version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RoutingStateVersion))
+	builder.WriteString(", ")
+	builder.WriteString("route_version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RouteVersion))
+	builder.WriteString(", ")
+	builder.WriteString("routing_dependency_version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RoutingDependencyVersion))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)

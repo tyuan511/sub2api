@@ -1,0 +1,33 @@
+{
+  "scenario": "disabled-single",
+  "requests": 1000,
+  "successes": 1000,
+  "failures": 0,
+  "success_rate": 1,
+  "wall_time_ms": 6089.086839,
+  "completed_rps": 164.22823757334166,
+  "successful_rps": 164.22823757334166,
+  "latency_ms": {
+    "samples": 1000,
+    "p50_ms": 183.792822,
+    "p95_ms": 288.898677,
+    "p99_ms": 367.090861,
+    "max_ms": 528.449286
+  },
+  "ttft_ms": {
+    "samples": 1000,
+    "p50_ms": 180.151381,
+    "p95_ms": 285.728209,
+    "p99_ms": 366.702994,
+    "max_ms": 526.293363
+  },
+  "tokens": {
+    "usage_samples": 1000,
+    "input_tokens": 1024000,
+    "output_tokens": 8000,
+    "total_tokens": 1032000,
+    "input_tokens_per_second": 168169.71527510186,
+    "output_tokens_per_second": 1313.8259005867333,
+    "total_tokens_per_second": 169483.5411756886
+  }
+}

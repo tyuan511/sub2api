@@ -11,13 +11,17 @@ const props = withDefaults(defineProps<{
 })
 
 const show = ref(false)
+const placement = ref<'above' | 'below'>('above')
 const triggerRef = useTemplateRef<HTMLElement>('trigger')
 const tooltipRef = useTemplateRef<HTMLElement>('tooltip')
 const tooltipStyle = ref({ top: '0px', left: '0px' })
 
 function openTooltip() {
   show.value = true
-  nextTick(updatePosition)
+  nextTick(() => {
+    updatePosition()
+    requestAnimationFrame(updatePosition)
+  })
 }
 
 function closeTooltip() {
@@ -78,12 +82,19 @@ function onViewportChange() {
 
 function updatePosition() {
   const el = triggerRef.value
+  const tip = tooltipRef.value
   if (!el) return
   // position:fixed is viewport-relative; getBoundingClientRect() already is.
   // Adding scrollY/scrollX pins the tooltip to the original screen position.
   const rect = el.getBoundingClientRect()
+  const gap = 8
+  const tipHeight = tip?.offsetHeight ?? 0
+  const spaceAbove = rect.top
+  const spaceBelow = window.innerHeight - rect.bottom
+  const preferBelow = tipHeight > 0 && spaceAbove < tipHeight + gap && spaceBelow > spaceAbove
+  placement.value = preferBelow ? 'below' : 'above'
   tooltipStyle.value = {
-    top: `${rect.top}px`,
+    top: preferBelow ? `${rect.bottom + gap}px` : `${Math.max(gap, rect.top - gap)}px`,
     left: `${rect.left + rect.width / 2}px`,
   }
 }
@@ -136,10 +147,13 @@ onBeforeUnmount(() => {
         v-show="show"
         role="tooltip"
         :class="[
-          'fixed z-[99999] -translate-x-1/2 -translate-y-full rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 selection:bg-primary-200 selection:text-gray-900 before:absolute before:inset-x-0 before:top-full before:h-3 dark:bg-gray-800 dark:selection:bg-primary-200 dark:selection:text-gray-900',
+          'fixed z-[99999] max-h-[min(16rem,calc(100vh-2rem))] -translate-x-1/2 overflow-y-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 selection:bg-primary-200 selection:text-gray-900 dark:bg-gray-800 dark:selection:bg-primary-200 dark:selection:text-gray-900',
+          placement === 'above'
+            ? '-translate-y-full before:absolute before:inset-x-0 before:top-full before:h-3'
+            : 'before:absolute before:inset-x-0 before:bottom-full before:h-3',
           props.widthClass,
         ]"
-        :style="{ top: `calc(${tooltipStyle.top} - 8px)`, left: tooltipStyle.left }"
+        :style="{ top: tooltipStyle.top, left: tooltipStyle.left }"
         @mouseleave="onTooltipLeave"
       >
         <button
@@ -154,7 +168,10 @@ onBeforeUnmount(() => {
           </svg>
         </button>
         <slot>{{ content }}</slot>
-        <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+        <div
+          class="absolute left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800"
+          :class="placement === 'above' ? '-bottom-1' : '-top-1'"
+        ></div>
       </div>
     </Teleport>
   </div>

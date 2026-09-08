@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,4 +39,20 @@ func TestOpenAISubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {
 
 	require.Equal(t, "openai-client-request-123", gotClientRequestID)
 	require.Equal(t, "openai-request-456", gotRequestID)
+}
+
+func TestUsageRecordContextCopiesLegacyForceCacheBillingState(t *testing.T) {
+	parent := service.WithAPIKeyRoutingUsageContext(context.Background(), service.APIKeyRoutingUsageContext{
+		DecisionID: "decision-detached", APIKeyID: 7, RouteVersion: 3,
+		InitialGroupID: 10, EffectiveGroupID: 20,
+		ScheduleMode: service.APIKeyScheduleModeSequential,
+		StickyBroken: true, SwitchCount: 1,
+	})
+	parent = service.WithForceCacheBilling(parent)
+
+	detached := usageRecordContext(parent, context.Background())
+	require.True(t, service.IsForceCacheBilling(detached))
+	meta, ok := service.APIKeyRoutingUsageContextFromContext(detached)
+	require.True(t, ok)
+	require.True(t, meta.StickyBroken)
 }

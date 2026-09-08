@@ -107,6 +107,7 @@ func newOpenAIResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPUp
 	handler := NewOpenAIGatewayHandler(
 		gatewayService,
 		concurrencyService,
+		nil,
 		billingService,
 		service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
 		nil,

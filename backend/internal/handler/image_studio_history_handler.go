@@ -136,10 +136,6 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 		imageTaskError(c, service.ErrImageTaskForbidden)
 		return
 	}
-	if key.Group == nil || key.Group.Platform != service.PlatformOpenAI || !service.GroupAllowsImageGeneration(key.Group) {
-		imageTaskError(c, service.ErrImageTaskForbidden)
-		return
-	}
 	body, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
 	if err != nil {
 		imageTaskJSONError(c, 400, "invalid_request_error", "无法读取生图请求")
@@ -165,6 +161,16 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 			imageTaskJSONError(c, 400, "invalid_request_error", "参考图不能超过 10 MB")
 			return
 		}
+	}
+	routed, routeErr := h.async.activateImageStudioRoute(c, key, parsed.Model, body)
+	if routeErr != nil {
+		imageTaskJSONError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
+		return
+	}
+	key = routed
+	if key == nil || key.Group == nil || key.Group.Platform != service.PlatformOpenAI || !service.GroupAllowsImageGeneration(key.Group) {
+		imageTaskJSONError(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
+		return
 	}
 	if !h.async.checkSecurityAuditBeforeSubmit(c, key, service.PlatformOpenAI, body) {
 		return

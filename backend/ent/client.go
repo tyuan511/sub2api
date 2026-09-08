@@ -22,6 +22,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -44,6 +46,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingattempt"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -72,6 +77,10 @@ type Client struct {
 	Schema *migrate.Schema
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// APIKeyGroupRoute is the client for interacting with the APIKeyGroupRoute builders.
+	APIKeyGroupRoute *APIKeyGroupRouteClient
+	// APIKeyRouteConfigOutbox is the client for interacting with the APIKeyRouteConfigOutbox builders.
+	APIKeyRouteConfigOutbox *APIKeyRouteConfigOutboxClient
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
@@ -128,6 +137,12 @@ type Client struct {
 	Proxy *ProxyClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
 	RedeemCode *RedeemCodeClient
+	// RoutingArtifactVersion is the client for interacting with the RoutingArtifactVersion builders.
+	RoutingArtifactVersion *RoutingArtifactVersionClient
+	// RoutingAttempt is the client for interacting with the RoutingAttempt builders.
+	RoutingAttempt *RoutingAttemptClient
+	// RoutingExperiment is the client for interacting with the RoutingExperiment builders.
+	RoutingExperiment *RoutingExperimentClient
 	// SecuritySecret is the client for interacting with the SecuritySecret builders.
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
@@ -174,6 +189,8 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.APIKey = NewAPIKeyClient(c.config)
+	c.APIKeyGroupRoute = NewAPIKeyGroupRouteClient(c.config)
+	c.APIKeyRouteConfigOutbox = NewAPIKeyRouteConfigOutboxClient(c.config)
 	c.Account = NewAccountClient(c.config)
 	c.AccountGroup = NewAccountGroupClient(c.config)
 	c.AccountProxy = NewAccountProxyClient(c.config)
@@ -202,6 +219,9 @@ func (c *Client) init() {
 	c.PromoCodeUsage = NewPromoCodeUsageClient(c.config)
 	c.Proxy = NewProxyClient(c.config)
 	c.RedeemCode = NewRedeemCodeClient(c.config)
+	c.RoutingArtifactVersion = NewRoutingArtifactVersionClient(c.config)
+	c.RoutingAttempt = NewRoutingAttemptClient(c.config)
+	c.RoutingExperiment = NewRoutingExperimentClient(c.config)
 	c.SecuritySecret = NewSecuritySecretClient(c.config)
 	c.Setting = NewSettingClient(c.config)
 	c.SubscriptionPlan = NewSubscriptionPlanClient(c.config)
@@ -312,6 +332,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:                           ctx,
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
+		APIKeyGroupRoute:              NewAPIKeyGroupRouteClient(cfg),
+		APIKeyRouteConfigOutbox:       NewAPIKeyRouteConfigOutboxClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		AccountProxy:                  NewAccountProxyClient(cfg),
@@ -340,6 +362,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		RoutingArtifactVersion:        NewRoutingArtifactVersionClient(cfg),
+		RoutingAttempt:                NewRoutingAttemptClient(cfg),
+		RoutingExperiment:             NewRoutingExperimentClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -377,6 +402,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:                           ctx,
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
+		APIKeyGroupRoute:              NewAPIKeyGroupRouteClient(cfg),
+		APIKeyRouteConfigOutbox:       NewAPIKeyRouteConfigOutboxClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		AccountProxy:                  NewAccountProxyClient(cfg),
@@ -405,6 +432,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		RoutingArtifactVersion:        NewRoutingArtifactVersionClient(cfg),
+		RoutingAttempt:                NewRoutingAttemptClient(cfg),
+		RoutingExperiment:             NewRoutingExperimentClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -451,14 +481,16 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.Account, c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding,
-		c.Announcement, c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel,
-		c.BatchImageEvent, c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.APIKey, c.APIKeyGroupRoute, c.APIKeyRouteConfigOutbox, c.Account,
+		c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RoutingArtifactVersion,
+		c.RoutingAttempt, c.RoutingExperiment, c.SecuritySecret, c.Setting,
 		c.SubscriptionPlan, c.SupportNotificationOutbox, c.SupportTicket,
 		c.SupportTicketAttachment, c.SupportTicketMessage, c.SupportTicketRead,
 		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
@@ -473,14 +505,16 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.Account, c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding,
-		c.Announcement, c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel,
-		c.BatchImageEvent, c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.APIKey, c.APIKeyGroupRoute, c.APIKeyRouteConfigOutbox, c.Account,
+		c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.RoutingArtifactVersion,
+		c.RoutingAttempt, c.RoutingExperiment, c.SecuritySecret, c.Setting,
 		c.SubscriptionPlan, c.SupportNotificationOutbox, c.SupportTicket,
 		c.SupportTicketAttachment, c.SupportTicketMessage, c.SupportTicketRead,
 		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
@@ -496,6 +530,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *APIKeyMutation:
 		return c.APIKey.mutate(ctx, m)
+	case *APIKeyGroupRouteMutation:
+		return c.APIKeyGroupRoute.mutate(ctx, m)
+	case *APIKeyRouteConfigOutboxMutation:
+		return c.APIKeyRouteConfigOutbox.mutate(ctx, m)
 	case *AccountMutation:
 		return c.Account.mutate(ctx, m)
 	case *AccountGroupMutation:
@@ -552,6 +590,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Proxy.mutate(ctx, m)
 	case *RedeemCodeMutation:
 		return c.RedeemCode.mutate(ctx, m)
+	case *RoutingArtifactVersionMutation:
+		return c.RoutingArtifactVersion.mutate(ctx, m)
+	case *RoutingAttemptMutation:
+		return c.RoutingAttempt.mutate(ctx, m)
+	case *RoutingExperimentMutation:
+		return c.RoutingExperiment.mutate(ctx, m)
 	case *SecuritySecretMutation:
 		return c.SecuritySecret.mutate(ctx, m)
 	case *SettingMutation:
@@ -731,6 +775,38 @@ func (c *APIKeyClient) QueryGroup(_m *APIKey) *GroupQuery {
 	return query
 }
 
+// QueryGroupRoutes queries the group_routes edge of a APIKey.
+func (c *APIKeyClient) QueryGroupRoutes(_m *APIKey) *APIKeyGroupRouteQuery {
+	query := (&APIKeyGroupRouteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, id),
+			sqlgraph.To(apikeygrouproute.Table, apikeygrouproute.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.GroupRoutesTable, apikey.GroupRoutesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRouteConfigOutboxEvents queries the route_config_outbox_events edge of a APIKey.
+func (c *APIKeyClient) QueryRouteConfigOutboxEvents(_m *APIKey) *APIKeyRouteConfigOutboxQuery {
+	query := (&APIKeyRouteConfigOutboxClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, id),
+			sqlgraph.To(apikeyrouteconfigoutbox.Table, apikeyrouteconfigoutbox.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.RouteConfigOutboxEventsTable, apikey.RouteConfigOutboxEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUsageLogs queries the usage_logs edge of a APIKey.
 func (c *APIKeyClient) QueryUsageLogs(_m *APIKey) *UsageLogQuery {
 	query := (&UsageLogClient{config: c.config}).Query()
@@ -771,6 +847,320 @@ func (c *APIKeyClient) mutate(ctx context.Context, m *APIKeyMutation) (Value, er
 		return (&APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown APIKey mutation op: %q", m.Op())
+	}
+}
+
+// APIKeyGroupRouteClient is a client for the APIKeyGroupRoute schema.
+type APIKeyGroupRouteClient struct {
+	config
+}
+
+// NewAPIKeyGroupRouteClient returns a client for the APIKeyGroupRoute from the given config.
+func NewAPIKeyGroupRouteClient(c config) *APIKeyGroupRouteClient {
+	return &APIKeyGroupRouteClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `apikeygrouproute.Hooks(f(g(h())))`.
+func (c *APIKeyGroupRouteClient) Use(hooks ...Hook) {
+	c.hooks.APIKeyGroupRoute = append(c.hooks.APIKeyGroupRoute, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `apikeygrouproute.Intercept(f(g(h())))`.
+func (c *APIKeyGroupRouteClient) Intercept(interceptors ...Interceptor) {
+	c.inters.APIKeyGroupRoute = append(c.inters.APIKeyGroupRoute, interceptors...)
+}
+
+// Create returns a builder for creating a APIKeyGroupRoute entity.
+func (c *APIKeyGroupRouteClient) Create() *APIKeyGroupRouteCreate {
+	mutation := newAPIKeyGroupRouteMutation(c.config, OpCreate)
+	return &APIKeyGroupRouteCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of APIKeyGroupRoute entities.
+func (c *APIKeyGroupRouteClient) CreateBulk(builders ...*APIKeyGroupRouteCreate) *APIKeyGroupRouteCreateBulk {
+	return &APIKeyGroupRouteCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *APIKeyGroupRouteClient) MapCreateBulk(slice any, setFunc func(*APIKeyGroupRouteCreate, int)) *APIKeyGroupRouteCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &APIKeyGroupRouteCreateBulk{err: fmt.Errorf("calling to APIKeyGroupRouteClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*APIKeyGroupRouteCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &APIKeyGroupRouteCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for APIKeyGroupRoute.
+func (c *APIKeyGroupRouteClient) Update() *APIKeyGroupRouteUpdate {
+	mutation := newAPIKeyGroupRouteMutation(c.config, OpUpdate)
+	return &APIKeyGroupRouteUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *APIKeyGroupRouteClient) UpdateOne(_m *APIKeyGroupRoute) *APIKeyGroupRouteUpdateOne {
+	mutation := newAPIKeyGroupRouteMutation(c.config, OpUpdateOne, withAPIKeyGroupRoute(_m))
+	return &APIKeyGroupRouteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *APIKeyGroupRouteClient) UpdateOneID(id int64) *APIKeyGroupRouteUpdateOne {
+	mutation := newAPIKeyGroupRouteMutation(c.config, OpUpdateOne, withAPIKeyGroupRouteID(id))
+	return &APIKeyGroupRouteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for APIKeyGroupRoute.
+func (c *APIKeyGroupRouteClient) Delete() *APIKeyGroupRouteDelete {
+	mutation := newAPIKeyGroupRouteMutation(c.config, OpDelete)
+	return &APIKeyGroupRouteDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *APIKeyGroupRouteClient) DeleteOne(_m *APIKeyGroupRoute) *APIKeyGroupRouteDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *APIKeyGroupRouteClient) DeleteOneID(id int64) *APIKeyGroupRouteDeleteOne {
+	builder := c.Delete().Where(apikeygrouproute.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &APIKeyGroupRouteDeleteOne{builder}
+}
+
+// Query returns a query builder for APIKeyGroupRoute.
+func (c *APIKeyGroupRouteClient) Query() *APIKeyGroupRouteQuery {
+	return &APIKeyGroupRouteQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAPIKeyGroupRoute},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a APIKeyGroupRoute entity by its id.
+func (c *APIKeyGroupRouteClient) Get(ctx context.Context, id int64) (*APIKeyGroupRoute, error) {
+	return c.Query().Where(apikeygrouproute.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *APIKeyGroupRouteClient) GetX(ctx context.Context, id int64) *APIKeyGroupRoute {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAPIKey queries the api_key edge of a APIKeyGroupRoute.
+func (c *APIKeyGroupRouteClient) QueryAPIKey(_m *APIKeyGroupRoute) *APIKeyQuery {
+	query := (&APIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeygrouproute.Table, apikeygrouproute.FieldID, id),
+			sqlgraph.To(apikey.Table, apikey.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeygrouproute.APIKeyTable, apikeygrouproute.APIKeyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroup queries the group edge of a APIKeyGroupRoute.
+func (c *APIKeyGroupRouteClient) QueryGroup(_m *APIKeyGroupRoute) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeygrouproute.Table, apikeygrouproute.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeygrouproute.GroupTable, apikeygrouproute.GroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *APIKeyGroupRouteClient) Hooks() []Hook {
+	return c.hooks.APIKeyGroupRoute
+}
+
+// Interceptors returns the client interceptors.
+func (c *APIKeyGroupRouteClient) Interceptors() []Interceptor {
+	return c.inters.APIKeyGroupRoute
+}
+
+func (c *APIKeyGroupRouteClient) mutate(ctx context.Context, m *APIKeyGroupRouteMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&APIKeyGroupRouteCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&APIKeyGroupRouteUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&APIKeyGroupRouteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&APIKeyGroupRouteDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown APIKeyGroupRoute mutation op: %q", m.Op())
+	}
+}
+
+// APIKeyRouteConfigOutboxClient is a client for the APIKeyRouteConfigOutbox schema.
+type APIKeyRouteConfigOutboxClient struct {
+	config
+}
+
+// NewAPIKeyRouteConfigOutboxClient returns a client for the APIKeyRouteConfigOutbox from the given config.
+func NewAPIKeyRouteConfigOutboxClient(c config) *APIKeyRouteConfigOutboxClient {
+	return &APIKeyRouteConfigOutboxClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `apikeyrouteconfigoutbox.Hooks(f(g(h())))`.
+func (c *APIKeyRouteConfigOutboxClient) Use(hooks ...Hook) {
+	c.hooks.APIKeyRouteConfigOutbox = append(c.hooks.APIKeyRouteConfigOutbox, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `apikeyrouteconfigoutbox.Intercept(f(g(h())))`.
+func (c *APIKeyRouteConfigOutboxClient) Intercept(interceptors ...Interceptor) {
+	c.inters.APIKeyRouteConfigOutbox = append(c.inters.APIKeyRouteConfigOutbox, interceptors...)
+}
+
+// Create returns a builder for creating a APIKeyRouteConfigOutbox entity.
+func (c *APIKeyRouteConfigOutboxClient) Create() *APIKeyRouteConfigOutboxCreate {
+	mutation := newAPIKeyRouteConfigOutboxMutation(c.config, OpCreate)
+	return &APIKeyRouteConfigOutboxCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of APIKeyRouteConfigOutbox entities.
+func (c *APIKeyRouteConfigOutboxClient) CreateBulk(builders ...*APIKeyRouteConfigOutboxCreate) *APIKeyRouteConfigOutboxCreateBulk {
+	return &APIKeyRouteConfigOutboxCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *APIKeyRouteConfigOutboxClient) MapCreateBulk(slice any, setFunc func(*APIKeyRouteConfigOutboxCreate, int)) *APIKeyRouteConfigOutboxCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &APIKeyRouteConfigOutboxCreateBulk{err: fmt.Errorf("calling to APIKeyRouteConfigOutboxClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*APIKeyRouteConfigOutboxCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &APIKeyRouteConfigOutboxCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for APIKeyRouteConfigOutbox.
+func (c *APIKeyRouteConfigOutboxClient) Update() *APIKeyRouteConfigOutboxUpdate {
+	mutation := newAPIKeyRouteConfigOutboxMutation(c.config, OpUpdate)
+	return &APIKeyRouteConfigOutboxUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *APIKeyRouteConfigOutboxClient) UpdateOne(_m *APIKeyRouteConfigOutbox) *APIKeyRouteConfigOutboxUpdateOne {
+	mutation := newAPIKeyRouteConfigOutboxMutation(c.config, OpUpdateOne, withAPIKeyRouteConfigOutbox(_m))
+	return &APIKeyRouteConfigOutboxUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *APIKeyRouteConfigOutboxClient) UpdateOneID(id int64) *APIKeyRouteConfigOutboxUpdateOne {
+	mutation := newAPIKeyRouteConfigOutboxMutation(c.config, OpUpdateOne, withAPIKeyRouteConfigOutboxID(id))
+	return &APIKeyRouteConfigOutboxUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for APIKeyRouteConfigOutbox.
+func (c *APIKeyRouteConfigOutboxClient) Delete() *APIKeyRouteConfigOutboxDelete {
+	mutation := newAPIKeyRouteConfigOutboxMutation(c.config, OpDelete)
+	return &APIKeyRouteConfigOutboxDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *APIKeyRouteConfigOutboxClient) DeleteOne(_m *APIKeyRouteConfigOutbox) *APIKeyRouteConfigOutboxDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *APIKeyRouteConfigOutboxClient) DeleteOneID(id int64) *APIKeyRouteConfigOutboxDeleteOne {
+	builder := c.Delete().Where(apikeyrouteconfigoutbox.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &APIKeyRouteConfigOutboxDeleteOne{builder}
+}
+
+// Query returns a query builder for APIKeyRouteConfigOutbox.
+func (c *APIKeyRouteConfigOutboxClient) Query() *APIKeyRouteConfigOutboxQuery {
+	return &APIKeyRouteConfigOutboxQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAPIKeyRouteConfigOutbox},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a APIKeyRouteConfigOutbox entity by its id.
+func (c *APIKeyRouteConfigOutboxClient) Get(ctx context.Context, id int64) (*APIKeyRouteConfigOutbox, error) {
+	return c.Query().Where(apikeyrouteconfigoutbox.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *APIKeyRouteConfigOutboxClient) GetX(ctx context.Context, id int64) *APIKeyRouteConfigOutbox {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAPIKey queries the api_key edge of a APIKeyRouteConfigOutbox.
+func (c *APIKeyRouteConfigOutboxClient) QueryAPIKey(_m *APIKeyRouteConfigOutbox) *APIKeyQuery {
+	query := (&APIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyrouteconfigoutbox.Table, apikeyrouteconfigoutbox.FieldID, id),
+			sqlgraph.To(apikey.Table, apikey.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyrouteconfigoutbox.APIKeyTable, apikeyrouteconfigoutbox.APIKeyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *APIKeyRouteConfigOutboxClient) Hooks() []Hook {
+	return c.hooks.APIKeyRouteConfigOutbox
+}
+
+// Interceptors returns the client interceptors.
+func (c *APIKeyRouteConfigOutboxClient) Interceptors() []Interceptor {
+	return c.inters.APIKeyRouteConfigOutbox
+}
+
+func (c *APIKeyRouteConfigOutboxClient) mutate(ctx context.Context, m *APIKeyRouteConfigOutboxMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&APIKeyRouteConfigOutboxCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&APIKeyRouteConfigOutboxUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&APIKeyRouteConfigOutboxUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&APIKeyRouteConfigOutboxDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown APIKeyRouteConfigOutbox mutation op: %q", m.Op())
 	}
 }
 
@@ -3481,6 +3871,22 @@ func (c *GroupClient) QueryAPIKeys(_m *Group) *APIKeyQuery {
 	return query
 }
 
+// QueryAPIKeyGroupRoutes queries the api_key_group_routes edge of a Group.
+func (c *GroupClient) QueryAPIKeyGroupRoutes(_m *Group) *APIKeyGroupRouteQuery {
+	query := (&APIKeyGroupRouteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(apikeygrouproute.Table, apikeygrouproute.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.APIKeyGroupRoutesTable, group.APIKeyGroupRoutesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryRedeemCodes queries the redeem_codes edge of a Group.
 func (c *GroupClient) QueryRedeemCodes(_m *Group) *RedeemCodeQuery {
 	query := (&RedeemCodeClient{config: c.config}).Query()
@@ -5176,6 +5582,437 @@ func (c *RedeemCodeClient) mutate(ctx context.Context, m *RedeemCodeMutation) (V
 	}
 }
 
+// RoutingArtifactVersionClient is a client for the RoutingArtifactVersion schema.
+type RoutingArtifactVersionClient struct {
+	config
+}
+
+// NewRoutingArtifactVersionClient returns a client for the RoutingArtifactVersion from the given config.
+func NewRoutingArtifactVersionClient(c config) *RoutingArtifactVersionClient {
+	return &RoutingArtifactVersionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `routingartifactversion.Hooks(f(g(h())))`.
+func (c *RoutingArtifactVersionClient) Use(hooks ...Hook) {
+	c.hooks.RoutingArtifactVersion = append(c.hooks.RoutingArtifactVersion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `routingartifactversion.Intercept(f(g(h())))`.
+func (c *RoutingArtifactVersionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RoutingArtifactVersion = append(c.inters.RoutingArtifactVersion, interceptors...)
+}
+
+// Create returns a builder for creating a RoutingArtifactVersion entity.
+func (c *RoutingArtifactVersionClient) Create() *RoutingArtifactVersionCreate {
+	mutation := newRoutingArtifactVersionMutation(c.config, OpCreate)
+	return &RoutingArtifactVersionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RoutingArtifactVersion entities.
+func (c *RoutingArtifactVersionClient) CreateBulk(builders ...*RoutingArtifactVersionCreate) *RoutingArtifactVersionCreateBulk {
+	return &RoutingArtifactVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RoutingArtifactVersionClient) MapCreateBulk(slice any, setFunc func(*RoutingArtifactVersionCreate, int)) *RoutingArtifactVersionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RoutingArtifactVersionCreateBulk{err: fmt.Errorf("calling to RoutingArtifactVersionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RoutingArtifactVersionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RoutingArtifactVersionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RoutingArtifactVersion.
+func (c *RoutingArtifactVersionClient) Update() *RoutingArtifactVersionUpdate {
+	mutation := newRoutingArtifactVersionMutation(c.config, OpUpdate)
+	return &RoutingArtifactVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RoutingArtifactVersionClient) UpdateOne(_m *RoutingArtifactVersion) *RoutingArtifactVersionUpdateOne {
+	mutation := newRoutingArtifactVersionMutation(c.config, OpUpdateOne, withRoutingArtifactVersion(_m))
+	return &RoutingArtifactVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RoutingArtifactVersionClient) UpdateOneID(id int64) *RoutingArtifactVersionUpdateOne {
+	mutation := newRoutingArtifactVersionMutation(c.config, OpUpdateOne, withRoutingArtifactVersionID(id))
+	return &RoutingArtifactVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RoutingArtifactVersion.
+func (c *RoutingArtifactVersionClient) Delete() *RoutingArtifactVersionDelete {
+	mutation := newRoutingArtifactVersionMutation(c.config, OpDelete)
+	return &RoutingArtifactVersionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RoutingArtifactVersionClient) DeleteOne(_m *RoutingArtifactVersion) *RoutingArtifactVersionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RoutingArtifactVersionClient) DeleteOneID(id int64) *RoutingArtifactVersionDeleteOne {
+	builder := c.Delete().Where(routingartifactversion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RoutingArtifactVersionDeleteOne{builder}
+}
+
+// Query returns a query builder for RoutingArtifactVersion.
+func (c *RoutingArtifactVersionClient) Query() *RoutingArtifactVersionQuery {
+	return &RoutingArtifactVersionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRoutingArtifactVersion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RoutingArtifactVersion entity by its id.
+func (c *RoutingArtifactVersionClient) Get(ctx context.Context, id int64) (*RoutingArtifactVersion, error) {
+	return c.Query().Where(routingartifactversion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RoutingArtifactVersionClient) GetX(ctx context.Context, id int64) *RoutingArtifactVersion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryCreator queries the creator edge of a RoutingArtifactVersion.
+func (c *RoutingArtifactVersionClient) QueryCreator(_m *RoutingArtifactVersion) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(routingartifactversion.Table, routingartifactversion.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, routingartifactversion.CreatorTable, routingartifactversion.CreatorColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RoutingArtifactVersionClient) Hooks() []Hook {
+	return c.hooks.RoutingArtifactVersion
+}
+
+// Interceptors returns the client interceptors.
+func (c *RoutingArtifactVersionClient) Interceptors() []Interceptor {
+	return c.inters.RoutingArtifactVersion
+}
+
+func (c *RoutingArtifactVersionClient) mutate(ctx context.Context, m *RoutingArtifactVersionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RoutingArtifactVersionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RoutingArtifactVersionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RoutingArtifactVersionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RoutingArtifactVersionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RoutingArtifactVersion mutation op: %q", m.Op())
+	}
+}
+
+// RoutingAttemptClient is a client for the RoutingAttempt schema.
+type RoutingAttemptClient struct {
+	config
+}
+
+// NewRoutingAttemptClient returns a client for the RoutingAttempt from the given config.
+func NewRoutingAttemptClient(c config) *RoutingAttemptClient {
+	return &RoutingAttemptClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `routingattempt.Hooks(f(g(h())))`.
+func (c *RoutingAttemptClient) Use(hooks ...Hook) {
+	c.hooks.RoutingAttempt = append(c.hooks.RoutingAttempt, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `routingattempt.Intercept(f(g(h())))`.
+func (c *RoutingAttemptClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RoutingAttempt = append(c.inters.RoutingAttempt, interceptors...)
+}
+
+// Create returns a builder for creating a RoutingAttempt entity.
+func (c *RoutingAttemptClient) Create() *RoutingAttemptCreate {
+	mutation := newRoutingAttemptMutation(c.config, OpCreate)
+	return &RoutingAttemptCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RoutingAttempt entities.
+func (c *RoutingAttemptClient) CreateBulk(builders ...*RoutingAttemptCreate) *RoutingAttemptCreateBulk {
+	return &RoutingAttemptCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RoutingAttemptClient) MapCreateBulk(slice any, setFunc func(*RoutingAttemptCreate, int)) *RoutingAttemptCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RoutingAttemptCreateBulk{err: fmt.Errorf("calling to RoutingAttemptClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RoutingAttemptCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RoutingAttemptCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RoutingAttempt.
+func (c *RoutingAttemptClient) Update() *RoutingAttemptUpdate {
+	mutation := newRoutingAttemptMutation(c.config, OpUpdate)
+	return &RoutingAttemptUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RoutingAttemptClient) UpdateOne(_m *RoutingAttempt) *RoutingAttemptUpdateOne {
+	mutation := newRoutingAttemptMutation(c.config, OpUpdateOne, withRoutingAttempt(_m))
+	return &RoutingAttemptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RoutingAttemptClient) UpdateOneID(id int64) *RoutingAttemptUpdateOne {
+	mutation := newRoutingAttemptMutation(c.config, OpUpdateOne, withRoutingAttemptID(id))
+	return &RoutingAttemptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RoutingAttempt.
+func (c *RoutingAttemptClient) Delete() *RoutingAttemptDelete {
+	mutation := newRoutingAttemptMutation(c.config, OpDelete)
+	return &RoutingAttemptDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RoutingAttemptClient) DeleteOne(_m *RoutingAttempt) *RoutingAttemptDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RoutingAttemptClient) DeleteOneID(id int64) *RoutingAttemptDeleteOne {
+	builder := c.Delete().Where(routingattempt.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RoutingAttemptDeleteOne{builder}
+}
+
+// Query returns a query builder for RoutingAttempt.
+func (c *RoutingAttemptClient) Query() *RoutingAttemptQuery {
+	return &RoutingAttemptQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRoutingAttempt},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RoutingAttempt entity by its id.
+func (c *RoutingAttemptClient) Get(ctx context.Context, id int64) (*RoutingAttempt, error) {
+	return c.Query().Where(routingattempt.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RoutingAttemptClient) GetX(ctx context.Context, id int64) *RoutingAttempt {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *RoutingAttemptClient) Hooks() []Hook {
+	return c.hooks.RoutingAttempt
+}
+
+// Interceptors returns the client interceptors.
+func (c *RoutingAttemptClient) Interceptors() []Interceptor {
+	return c.inters.RoutingAttempt
+}
+
+func (c *RoutingAttemptClient) mutate(ctx context.Context, m *RoutingAttemptMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RoutingAttemptCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RoutingAttemptUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RoutingAttemptUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RoutingAttemptDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RoutingAttempt mutation op: %q", m.Op())
+	}
+}
+
+// RoutingExperimentClient is a client for the RoutingExperiment schema.
+type RoutingExperimentClient struct {
+	config
+}
+
+// NewRoutingExperimentClient returns a client for the RoutingExperiment from the given config.
+func NewRoutingExperimentClient(c config) *RoutingExperimentClient {
+	return &RoutingExperimentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `routingexperiment.Hooks(f(g(h())))`.
+func (c *RoutingExperimentClient) Use(hooks ...Hook) {
+	c.hooks.RoutingExperiment = append(c.hooks.RoutingExperiment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `routingexperiment.Intercept(f(g(h())))`.
+func (c *RoutingExperimentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RoutingExperiment = append(c.inters.RoutingExperiment, interceptors...)
+}
+
+// Create returns a builder for creating a RoutingExperiment entity.
+func (c *RoutingExperimentClient) Create() *RoutingExperimentCreate {
+	mutation := newRoutingExperimentMutation(c.config, OpCreate)
+	return &RoutingExperimentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RoutingExperiment entities.
+func (c *RoutingExperimentClient) CreateBulk(builders ...*RoutingExperimentCreate) *RoutingExperimentCreateBulk {
+	return &RoutingExperimentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RoutingExperimentClient) MapCreateBulk(slice any, setFunc func(*RoutingExperimentCreate, int)) *RoutingExperimentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RoutingExperimentCreateBulk{err: fmt.Errorf("calling to RoutingExperimentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RoutingExperimentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RoutingExperimentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RoutingExperiment.
+func (c *RoutingExperimentClient) Update() *RoutingExperimentUpdate {
+	mutation := newRoutingExperimentMutation(c.config, OpUpdate)
+	return &RoutingExperimentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RoutingExperimentClient) UpdateOne(_m *RoutingExperiment) *RoutingExperimentUpdateOne {
+	mutation := newRoutingExperimentMutation(c.config, OpUpdateOne, withRoutingExperiment(_m))
+	return &RoutingExperimentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RoutingExperimentClient) UpdateOneID(id int64) *RoutingExperimentUpdateOne {
+	mutation := newRoutingExperimentMutation(c.config, OpUpdateOne, withRoutingExperimentID(id))
+	return &RoutingExperimentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RoutingExperiment.
+func (c *RoutingExperimentClient) Delete() *RoutingExperimentDelete {
+	mutation := newRoutingExperimentMutation(c.config, OpDelete)
+	return &RoutingExperimentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RoutingExperimentClient) DeleteOne(_m *RoutingExperiment) *RoutingExperimentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RoutingExperimentClient) DeleteOneID(id int64) *RoutingExperimentDeleteOne {
+	builder := c.Delete().Where(routingexperiment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RoutingExperimentDeleteOne{builder}
+}
+
+// Query returns a query builder for RoutingExperiment.
+func (c *RoutingExperimentClient) Query() *RoutingExperimentQuery {
+	return &RoutingExperimentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRoutingExperiment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RoutingExperiment entity by its id.
+func (c *RoutingExperimentClient) Get(ctx context.Context, id int64) (*RoutingExperiment, error) {
+	return c.Query().Where(routingexperiment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RoutingExperimentClient) GetX(ctx context.Context, id int64) *RoutingExperiment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryApprover queries the approver edge of a RoutingExperiment.
+func (c *RoutingExperimentClient) QueryApprover(_m *RoutingExperiment) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(routingexperiment.Table, routingexperiment.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, routingexperiment.ApproverTable, routingexperiment.ApproverColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RoutingExperimentClient) Hooks() []Hook {
+	return c.hooks.RoutingExperiment
+}
+
+// Interceptors returns the client interceptors.
+func (c *RoutingExperimentClient) Interceptors() []Interceptor {
+	return c.inters.RoutingExperiment
+}
+
+func (c *RoutingExperimentClient) mutate(ctx context.Context, m *RoutingExperimentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RoutingExperimentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RoutingExperimentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RoutingExperimentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RoutingExperimentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RoutingExperiment mutation op: %q", m.Op())
+	}
+}
+
 // SecuritySecretClient is a client for the SecuritySecret schema.
 type SecuritySecretClient struct {
 	config
@@ -6827,6 +7664,38 @@ func (c *UserClient) GetX(ctx context.Context, id int64) *User {
 	return obj
 }
 
+// QueryRoutingArtifactVersions queries the routing_artifact_versions edge of a User.
+func (c *UserClient) QueryRoutingArtifactVersions(_m *User) *RoutingArtifactVersionQuery {
+	query := (&RoutingArtifactVersionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(routingartifactversion.Table, routingartifactversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.RoutingArtifactVersionsTable, user.RoutingArtifactVersionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRoutingExperiments queries the routing_experiments edge of a User.
+func (c *UserClient) QueryRoutingExperiments(_m *User) *RoutingExperimentQuery {
+	query := (&RoutingExperimentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(routingexperiment.Table, routingexperiment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.RoutingExperimentsTable, user.RoutingExperimentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAPIKeys queries the api_keys edge of a User.
 func (c *UserClient) QueryAPIKeys(_m *User) *APIKeyQuery {
 	query := (&APIKeyClient{config: c.config}).Query()
@@ -7863,32 +8732,34 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, Account, AccountGroup, AccountProxy, AdminTelegramBinding, Announcement,
-		AnnouncementRead, AuthIdentity, AuthIdentityChannel, BatchImageEvent,
-		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		APIKey, APIKeyGroupRoute, APIKeyRouteConfigOutbox, Account, AccountGroup,
+		AccountProxy, AdminTelegramBinding, Announcement, AnnouncementRead,
+		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
+		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, SupportNotificationOutbox, SupportTicket,
-		SupportTicketAttachment, SupportTicketMessage, SupportTicketRead,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Hook
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, RoutingArtifactVersion,
+		RoutingAttempt, RoutingExperiment, SecuritySecret, Setting, SubscriptionPlan,
+		SupportNotificationOutbox, SupportTicket, SupportTicketAttachment,
+		SupportTicketMessage, SupportTicketRead, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
-		APIKey, Account, AccountGroup, AccountProxy, AdminTelegramBinding, Announcement,
-		AnnouncementRead, AuthIdentity, AuthIdentityChannel, BatchImageEvent,
-		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		APIKey, APIKeyGroupRoute, APIKeyRouteConfigOutbox, Account, AccountGroup,
+		AccountProxy, AdminTelegramBinding, Announcement, AnnouncementRead,
+		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
+		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, SupportNotificationOutbox, SupportTicket,
-		SupportTicketAttachment, SupportTicketMessage, SupportTicketRead,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Interceptor
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, RoutingArtifactVersion,
+		RoutingAttempt, RoutingExperiment, SecuritySecret, Setting, SubscriptionPlan,
+		SupportNotificationOutbox, SupportTicket, SupportTicketAttachment,
+		SupportTicketMessage, SupportTicketRead, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

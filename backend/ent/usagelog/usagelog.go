@@ -48,6 +48,28 @@ const (
 	FieldGroupID = "group_id"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
 	FieldSubscriptionID = "subscription_id"
+	// FieldInitialGroupID holds the string denoting the initial_group_id field in the database.
+	FieldInitialGroupID = "initial_group_id"
+	// FieldRouteVersion holds the string denoting the route_version field in the database.
+	FieldRouteVersion = "route_version"
+	// FieldScheduleMode holds the string denoting the schedule_mode field in the database.
+	FieldScheduleMode = "schedule_mode"
+	// FieldSmartPreference holds the string denoting the smart_preference field in the database.
+	FieldSmartPreference = "smart_preference"
+	// FieldGroupSwitchCount holds the string denoting the group_switch_count field in the database.
+	FieldGroupSwitchCount = "group_switch_count"
+	// FieldRoutingDecisionID holds the string denoting the routing_decision_id field in the database.
+	FieldRoutingDecisionID = "routing_decision_id"
+	// FieldCacheColdDueToFailover holds the string denoting the cache_cold_due_to_failover field in the database.
+	FieldCacheColdDueToFailover = "cache_cold_due_to_failover"
+	// FieldActualUsage holds the string denoting the actual_usage field in the database.
+	FieldActualUsage = "actual_usage"
+	// FieldBillableUsage holds the string denoting the billable_usage field in the database.
+	FieldBillableUsage = "billable_usage"
+	// FieldCacheCompensationTokens holds the string denoting the cache_compensation_tokens field in the database.
+	FieldCacheCompensationTokens = "cache_compensation_tokens"
+	// FieldCacheCompensationReason holds the string denoting the cache_compensation_reason field in the database.
+	FieldCacheCompensationReason = "cache_compensation_reason"
 	// FieldInputTokens holds the string denoting the input_tokens field in the database.
 	FieldInputTokens = "input_tokens"
 	// FieldOutputTokens holds the string denoting the output_tokens field in the database.
@@ -181,6 +203,17 @@ var Columns = []string{
 	FieldBillingMode,
 	FieldGroupID,
 	FieldSubscriptionID,
+	FieldInitialGroupID,
+	FieldRouteVersion,
+	FieldScheduleMode,
+	FieldSmartPreference,
+	FieldGroupSwitchCount,
+	FieldRoutingDecisionID,
+	FieldCacheColdDueToFailover,
+	FieldActualUsage,
+	FieldBillableUsage,
+	FieldCacheCompensationTokens,
+	FieldCacheCompensationReason,
 	FieldInputTokens,
 	FieldOutputTokens,
 	FieldCacheCreationTokens,
@@ -244,6 +277,24 @@ var (
 	BillingTierValidator func(string) error
 	// BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
 	BillingModeValidator func(string) error
+	// ScheduleModeValidator is a validator for the "schedule_mode" field. It is called by the builders before save.
+	ScheduleModeValidator func(string) error
+	// SmartPreferenceValidator is a validator for the "smart_preference" field. It is called by the builders before save.
+	SmartPreferenceValidator func(string) error
+	// DefaultGroupSwitchCount holds the default value on creation for the "group_switch_count" field.
+	DefaultGroupSwitchCount int
+	// GroupSwitchCountValidator is a validator for the "group_switch_count" field. It is called by the builders before save.
+	GroupSwitchCountValidator func(int) error
+	// RoutingDecisionIDValidator is a validator for the "routing_decision_id" field. It is called by the builders before save.
+	RoutingDecisionIDValidator func(string) error
+	// DefaultCacheColdDueToFailover holds the default value on creation for the "cache_cold_due_to_failover" field.
+	DefaultCacheColdDueToFailover bool
+	// DefaultCacheCompensationTokens holds the default value on creation for the "cache_compensation_tokens" field.
+	DefaultCacheCompensationTokens int
+	// CacheCompensationTokensValidator is a validator for the "cache_compensation_tokens" field. It is called by the builders before save.
+	CacheCompensationTokensValidator func(int) error
+	// CacheCompensationReasonValidator is a validator for the "cache_compensation_reason" field. It is called by the builders before save.
+	CacheCompensationReasonValidator func(string) error
 	// DefaultInputTokens holds the default value on creation for the "input_tokens" field.
 	DefaultInputTokens int
 	// DefaultOutputTokens holds the default value on creation for the "output_tokens" field.
@@ -391,6 +442,51 @@ func ByGroupID(opts ...sql.OrderTermOption) OrderOption {
 // BySubscriptionID orders the results by the subscription_id field.
 func BySubscriptionID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubscriptionID, opts...).ToFunc()
+}
+
+// ByInitialGroupID orders the results by the initial_group_id field.
+func ByInitialGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldInitialGroupID, opts...).ToFunc()
+}
+
+// ByRouteVersion orders the results by the route_version field.
+func ByRouteVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRouteVersion, opts...).ToFunc()
+}
+
+// ByScheduleMode orders the results by the schedule_mode field.
+func ByScheduleMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldScheduleMode, opts...).ToFunc()
+}
+
+// BySmartPreference orders the results by the smart_preference field.
+func BySmartPreference(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSmartPreference, opts...).ToFunc()
+}
+
+// ByGroupSwitchCount orders the results by the group_switch_count field.
+func ByGroupSwitchCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGroupSwitchCount, opts...).ToFunc()
+}
+
+// ByRoutingDecisionID orders the results by the routing_decision_id field.
+func ByRoutingDecisionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoutingDecisionID, opts...).ToFunc()
+}
+
+// ByCacheColdDueToFailover orders the results by the cache_cold_due_to_failover field.
+func ByCacheColdDueToFailover(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheColdDueToFailover, opts...).ToFunc()
+}
+
+// ByCacheCompensationTokens orders the results by the cache_compensation_tokens field.
+func ByCacheCompensationTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheCompensationTokens, opts...).ToFunc()
+}
+
+// ByCacheCompensationReason orders the results by the cache_compensation_reason field.
+func ByCacheCompensationReason(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCacheCompensationReason, opts...).ToFunc()
 }
 
 // ByInputTokens orders the results by the input_tokens field.

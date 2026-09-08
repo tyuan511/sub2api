@@ -192,7 +192,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		CacheReadTokens:     result.Usage.CacheReadInputTokens,
 		ImageOutputTokens:   result.Usage.ImageOutputTokens,
 	}
-
 	// Get rate multiplier
 	multiplier := 1.0
 	if s.cfg != nil {
@@ -467,6 +466,21 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if subscription != nil {
 		usageLog.SubscriptionID = &subscription.ID
 	}
+	ApplyAPIKeyRoutingUsage(ctx, usageLog, RoutingTokenUsage{
+		InputTokens:         actualInputTokens,
+		OutputTokens:        result.Usage.OutputTokens,
+		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:     result.Usage.CacheReadInputTokens,
+		ImageInputTokens:    result.Usage.ImageInputTokens,
+		ImageOutputTokens:   result.Usage.ImageOutputTokens,
+	}, RoutingTokenUsage{
+		InputTokens:         tokens.InputTokens,
+		OutputTokens:        result.Usage.OutputTokens,
+		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:     tokens.CacheReadTokens,
+		ImageInputTokens:    result.Usage.ImageInputTokens,
+		ImageOutputTokens:   result.Usage.ImageOutputTokens,
+	})
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
@@ -478,6 +492,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+		EmitAPIKeyRoutingUsageFact(ctx, usageLog, false)
 		logger.LegacyPrintf("service.openai_gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)
 		return nil
@@ -493,6 +508,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	billingErr := func() error {
 		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 			Cost:                  cost,
+			AccountCost:           cost,
 			User:                  user,
 			APIKey:                apiKey,
 			Account:               account,
@@ -509,9 +525,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if billingErr != nil {
 		usageLog.ActualCost = 0
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+		EmitAPIKeyRoutingUsageFact(ctx, usageLog, true)
 		return billingErr
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+	EmitAPIKeyRoutingUsageFact(ctx, usageLog, false)
 
 	return nil
 }

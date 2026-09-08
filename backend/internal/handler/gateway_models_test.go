@@ -338,6 +338,71 @@ func codexReasoningEffortsForTest(levels []codexReasoningLevelForTest) []string 
 	return efforts
 }
 
+func TestRouteGroupSupportsModelUsesAdvertisedMappingNotPrefix(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	openaiID, grokID := int64(91), int64(92)
+	h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{
+		byGroup: map[int64][]service.Account{
+			openaiID: {{
+				ID: 1, Platform: service.PlatformOpenAI,
+				Credentials: map[string]any{"model_mapping": map[string]any{"company-chat": "gpt-5"}},
+			}},
+			grokID: {{
+				ID: 2, Platform: service.PlatformGrok,
+				Credentials: map[string]any{"model_mapping": map[string]any{"company-grok": "grok-4.5"}},
+			}},
+		},
+	})
+	openai := &service.Group{ID: openaiID, Platform: service.PlatformOpenAI}
+	grok := &service.Group{ID: grokID, Platform: service.PlatformGrok}
+	require.True(t, h.RouteGroupSupportsModel(context.Background(), openai, "company-chat"))
+	require.False(t, h.RouteGroupSupportsModel(context.Background(), openai, "company-grok"))
+	require.True(t, h.RouteGroupSupportsModel(context.Background(), grok, "company-grok"))
+	require.False(t, h.RouteGroupSupportsModel(context.Background(), grok, "gpt-5"))
+}
+
+func TestGatewayModels_MultiGroupUnionsMappedModels(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	primaryID, secondaryID := int64(81), int64(82)
+	primary := &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}
+	secondary := &service.Group{ID: secondaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}
+	apiKey := &service.APIKey{
+		ID: 9, GroupID: &primaryID, Group: primary, RouteVersion: 1,
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: primaryID, Priority: 0, Enabled: true, Group: primary},
+			{GroupID: secondaryID, Priority: 1, Enabled: true, Group: secondary},
+		},
+	}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+
+	h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{
+		byGroup: map[int64][]service.Account{
+			primaryID: {{
+				ID: 1, Platform: service.PlatformOpenAI,
+				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5": "gpt-5"}},
+			}},
+			secondaryID: {{
+				ID: 2, Platform: service.PlatformOpenAI,
+				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-4o": "gpt-4o"}},
+			}},
+		},
+	})
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.ElementsMatch(t, []string{"gpt-5", "gpt-4o"}, modelIDsForTest(got.Data))
+}
+
 func TestGatewayModels_GeminiGroupFallsBackToGeminiModels(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

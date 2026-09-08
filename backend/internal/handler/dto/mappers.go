@@ -82,34 +82,53 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		return nil
 	}
 	out := &APIKey{
-		ID:                 k.ID,
-		UserID:             k.UserID,
-		Key:                k.Key,
-		Name:               k.Name,
-		GroupID:            k.GroupID,
-		Status:             k.Status,
-		IPWhitelist:        k.IPWhitelist,
-		IPBlacklist:        k.IPBlacklist,
-		LastUsedAt:         k.LastUsedAt,
-		LastUsedIP:         k.LastUsedIP,
-		Quota:              k.Quota,
-		QuotaUsed:          k.QuotaUsed,
-		ExpiresAt:          k.ExpiresAt,
-		CreatedAt:          k.CreatedAt,
-		UpdatedAt:          k.UpdatedAt,
-		CurrentConcurrency: k.CurrentConcurrency,
-		RateLimit5h:        k.RateLimit5h,
-		RateLimit1d:        k.RateLimit1d,
-		RateLimit7d:        k.RateLimit7d,
-		Usage5h:            k.EffectiveUsage5h(),
-		Usage1d:            k.EffectiveUsage1d(),
-		Usage7d:            k.EffectiveUsage7d(),
-		Window5hStart:      k.Window5hStart,
-		Window1dStart:      k.Window1dStart,
-		Window7dStart:      k.Window7dStart,
-		User:               UserFromServiceShallow(k.User),
-		Group:              GroupFromServiceShallow(k.Group),
+		ID:                    k.ID,
+		UserID:                k.UserID,
+		Key:                   k.Key,
+		Name:                  k.Name,
+		GroupID:               k.GroupID,
+		ScheduleMode:          k.ScheduleMode,
+		SmartPreference:       k.SmartPreference,
+		SmartBalanceBPS:       k.SmartBalanceBPS,
+		RoutingMinSuccessRate: k.RoutingMinSuccessRate,
+		RoutingStateVersion:   k.RoutingStateVersion,
+		RouteVersion:          k.RouteVersion,
+		Status:                k.Status,
+		IPWhitelist:           k.IPWhitelist,
+		IPBlacklist:           k.IPBlacklist,
+		LastUsedAt:            k.LastUsedAt,
+		LastUsedIP:            k.LastUsedIP,
+		Quota:                 k.Quota,
+		QuotaUsed:             k.QuotaUsed,
+		ExpiresAt:             k.ExpiresAt,
+		CreatedAt:             k.CreatedAt,
+		UpdatedAt:             k.UpdatedAt,
+		CurrentConcurrency:    k.CurrentConcurrency,
+		RateLimit5h:           k.RateLimit5h,
+		RateLimit1d:           k.RateLimit1d,
+		RateLimit7d:           k.RateLimit7d,
+		Usage5h:               k.EffectiveUsage5h(),
+		Usage1d:               k.EffectiveUsage1d(),
+		Usage7d:               k.EffectiveUsage7d(),
+		Window5hStart:         k.Window5hStart,
+		Window1dStart:         k.Window1dStart,
+		Window7dStart:         k.Window7dStart,
+		User:                  UserFromServiceShallow(k.User),
+		Group:                 GroupFromServiceShallow(k.Group),
 	}
+	if out.ScheduleMode == "" {
+		out.ScheduleMode = service.APIKeyScheduleModeSequential
+	}
+	out.GroupRoutes = make([]APIKeyGroupRoute, 0, len(k.GroupRoutes))
+	for _, route := range k.GroupRoutes {
+		out.GroupRoutes = append(out.GroupRoutes, APIKeyGroupRoute{
+			GroupID:  route.GroupID,
+			Priority: route.Priority,
+			Enabled:  route.Enabled,
+			Group:    GroupFromServiceShallow(route.Group),
+		})
+	}
+	decorateAPIKeyRoutingExplanation(k, out)
 	if k.Window5hStart != nil && !service.IsWindowExpired(k.Window5hStart, service.RateLimitWindow5h) {
 		t := k.Window5hStart.Add(service.RateLimitWindow5h)
 		out.Reset5hAt = &t
@@ -123,6 +142,111 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		out.Reset7dAt = &t
 	}
 	return out
+}
+
+func decorateAPIKeyRoutingExplanation(key *service.APIKey, out *APIKey) {
+	if key == nil || out == nil || key.ScheduleMode != service.APIKeyScheduleModeSmart || key.SmartPreference == nil || len(key.GroupRoutes) == 0 {
+		return
+	}
+	platform := ""
+	for _, route := range key.GroupRoutes {
+		if route.Group != nil {
+			platform = route.Group.Platform
+			break
+		}
+	}
+	snapshot, ok := service.DefaultAPIKeyRoutingScoreStore().LatestForPlatform(platform)
+	if !ok {
+		return
+	}
+	out.RoutingPolicy = &APIKeyRoutingPolicy{
+		StrategyVersion: snapshot.StrategyVersion, ScoreVersion: snapshot.Version,
+		FeatureVersion: snapshot.FeatureVersion, UpdatedAt: snapshot.GeneratedAt,
+	}
+	candidates := make([]service.APIKeyRouteCandidate, 0, len(key.GroupRoutes))
+	for _, route := range key.GroupRoutes {
+		candidates = append(candidates, service.APIKeyRouteCandidate{GroupID: route.GroupID, Priority: route.Priority, Group: route.Group})
+	}
+	var userRates map[int64]float64
+	if key.User != nil {
+		userRates = key.User.GroupRates
+	}
+	projectedSnapshot := service.ProjectAPIKeyRoutingScoreSnapshot(candidates, snapshot, userRates)
+	policy := service.ApplyAPIKeyRoutingControls(service.DefaultAPIKeyRoutingStrategyPolicy(*key.SmartPreference), key)
+	ranked := service.RankAPIKeyRoutingCandidatesWithPolicy(candidates, projectedSnapshot, policy)
+	byGroup := make(map[int64]service.APIKeyRoutingCandidateScore, len(ranked))
+	for _, score := range ranked {
+		byGroup[score.GroupID] = score
+	}
+	for i := range out.GroupRoutes {
+		route := &out.GroupRoutes[i]
+		score, exists := byGroup[route.GroupID]
+		if !exists {
+			continue
+		}
+		for rank, item := range ranked {
+			if item.GroupID == route.GroupID {
+				value := rank + 1
+				route.CurrentRank = &value
+				break
+			}
+		}
+		rate := score.NormalizedRate
+		success, totalScore := score.SuccessRate, score.Score
+		route.NormalizedEffectiveRate, route.SuccessRate, route.Score = &rate, &success, &totalScore
+		route.ScoreBreakdown = &score.Breakdown
+		route.PriceConfidence = routingConfidenceLabel(score.PriceConfidence)
+		if score.Eligible {
+			route.Health = "healthy"
+		} else {
+			route.Health = "circuit_open"
+		}
+		if route.Group != nil {
+			currentRate := route.Group.RateMultiplier
+			if userRate, overridden := userRates[route.GroupID]; overridden {
+				currentRate = userRate
+			}
+			route.CurrentRate = &currentRate
+		}
+		ttft, duration, capacity := score.TTFTMS, score.DurationMS, score.CapacityScore
+		route.TTFTMS, route.DurationMS, route.CapacityScore = &ttft, &duration, &capacity
+		if observation, found := snapshot.Groups[route.GroupID]; found {
+			cacheHit := observation.CacheHitRate
+			route.CacheHitRate = &cacheHit
+			route.PriceWindow = observation.ObservationWindow
+			route.LogicalInputTokens = observation.LogicalInputTokens
+			route.OutputTokens = observation.ActualOutputTokens
+		}
+	}
+	selectionEvidence, _ := service.APIKeyRoutingSelectionEvidenceForSnapshot(key, projectedSnapshot)
+	if estimate, found := service.EstimateAPIKeyRoutingRateWithSelectionEvidence(ranked, projectedSnapshot, selectionEvidence, time.Now().UTC()); found {
+		out.EstimatedRate = &APIKeyEstimatedRate{
+			Value: estimate.Value, Low: estimate.Low, High: estimate.High,
+			Reference: "full_cache_1x", Window: estimate.Window, Confidence: routingConfidenceLabel(estimate.Confidence), UpdatedAt: snapshot.GeneratedAt,
+			ModelFamily: snapshot.ModelFamily, CacheHitRate: estimate.CacheHitRate,
+			LogicalInputTokens: estimate.LogicalInputTokens, OutputTokens: estimate.OutputTokens,
+			SelectionSource: estimate.SelectionSource, SelectionWindow: estimate.SelectionWindow,
+			SelectionSamples: estimate.SelectionSamples, SelectionEffectiveN: estimate.SelectionEffectiveN,
+			Guaranteed: false, Settlement: "actual_routed_group",
+		}
+		for i := range out.GroupRoutes {
+			if share, exists := estimate.PredictedGroupShare[out.GroupRoutes[i].GroupID]; exists {
+				value := share
+				out.GroupRoutes[i].PredictedShare = &value
+			}
+		}
+	}
+}
+
+func routingConfidenceLabel(confidence float64) string {
+	switch {
+	case confidence >= 0.8:
+		return "high"
+	case confidence >= 0.4:
+		return "medium"
+	default:
+		return "low"
+	}
 }
 
 func GroupFromServiceShallow(g *service.Group) *Group {

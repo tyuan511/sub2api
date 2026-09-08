@@ -35,6 +35,17 @@ var usageLogInsertArgTypes = [...]string{
 	"boolean",     // upstream_model_mismatch
 	"bigint",      // group_id
 	"bigint",      // subscription_id
+	"bigint",      // initial_group_id
+	"bigint",      // route_version
+	"text",        // schedule_mode
+	"text",        // smart_preference
+	"integer",     // group_switch_count
+	"text",        // routing_decision_id
+	"boolean",     // cache_cold_due_to_failover
+	"jsonb",       // actual_usage
+	"jsonb",       // billable_usage
+	"integer",     // cache_compensation_tokens
+	"text",        // cache_compensation_reason
 	"integer",     // input_tokens
 	"integer",     // output_tokens
 	"integer",     // cache_creation_tokens
@@ -327,6 +338,17 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			upstream_model_mismatch,
 			group_id,
 			subscription_id,
+			initial_group_id,
+			route_version,
+			schedule_mode,
+			smart_preference,
+			group_switch_count,
+			routing_decision_id,
+			cache_cold_due_to_failover,
+			actual_usage,
+			billable_usage,
+			cache_compensation_tokens,
+			cache_compensation_reason,
 			input_tokens,
 			output_tokens,
 			cache_creation_tokens,
@@ -380,11 +402,13 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			created_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9,
-			$10, $11,
-			$12, $13, $14, $15,
-			$16, $17, $18, $19,
-			$20, $21, $22, $23, $24, $25,
-			$26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62
+			$10, $11, $12, $13, $14, $15, $16, $17, $18,
+			$19, $20, $21, $22, $23, $24, $25, $26, $27,
+			$28, $29, $30, $31, $32, $33, $34, $35, $36,
+			$37, $38, $39, $40, $41, $42, $43, $44, $45,
+			$46, $47, $48, $49, $50, $51, $52, $53, $54,
+			$55, $56, $57, $58, $59, $60, $61, $62, $63,
+			$64, $65, $66, $67, $68, $69, $70, $71, $72, $73
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 		RETURNING id, created_at
@@ -787,6 +811,17 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			upstream_model_mismatch,
 			group_id,
 			subscription_id,
+			initial_group_id,
+			route_version,
+			schedule_mode,
+			smart_preference,
+			group_switch_count,
+			routing_decision_id,
+			cache_cold_due_to_failover,
+			actual_usage,
+			billable_usage,
+			cache_compensation_tokens,
+			cache_compensation_reason,
 			input_tokens,
 			output_tokens,
 			cache_creation_tokens,
@@ -840,9 +875,9 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			created_at
 		) AS (VALUES `)
 
-	// Each batch row prepends the synthetic input_index before the 60
+	// Each batch row prepends the synthetic input_index before the usage-log
 	// usage-log column values.
-	args := make([]any, 0, len(keys)*61)
+	args := make([]any, 0, len(keys)*(len(usageLogInsertArgTypes)+1))
 	argPos := 1
 	for idx, key := range keys {
 		if idx > 0 {
@@ -882,6 +917,17 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				upstream_model_mismatch,
 				group_id,
 				subscription_id,
+				initial_group_id,
+				route_version,
+				schedule_mode,
+				smart_preference,
+				group_switch_count,
+				routing_decision_id,
+				cache_cold_due_to_failover,
+				actual_usage,
+				billable_usage,
+				cache_compensation_tokens,
+				cache_compensation_reason,
 				input_tokens,
 				output_tokens,
 				cache_creation_tokens,
@@ -946,6 +992,17 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				upstream_model_mismatch,
 				group_id,
 				subscription_id,
+				initial_group_id,
+				route_version,
+				schedule_mode,
+				smart_preference,
+				group_switch_count,
+				routing_decision_id,
+				cache_cold_due_to_failover,
+				actual_usage,
+				billable_usage,
+				cache_compensation_tokens,
+				cache_compensation_reason,
 				input_tokens,
 				output_tokens,
 				cache_creation_tokens,
@@ -1050,6 +1107,17 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_model_mismatch,
 			group_id,
 			subscription_id,
+			initial_group_id,
+			route_version,
+			schedule_mode,
+			smart_preference,
+			group_switch_count,
+			routing_decision_id,
+			cache_cold_due_to_failover,
+			actual_usage,
+			billable_usage,
+			cache_compensation_tokens,
+			cache_compensation_reason,
 			input_tokens,
 			output_tokens,
 			cache_creation_tokens,
@@ -1103,7 +1171,7 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			created_at
 		) AS (VALUES `)
 
-	args := make([]any, 0, len(preparedList)*60)
+	args := make([]any, 0, len(preparedList)*len(usageLogInsertArgTypes))
 	argPos := 1
 	for idx, prepared := range preparedList {
 		if idx > 0 {
@@ -1140,6 +1208,17 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_model_mismatch,
 			group_id,
 			subscription_id,
+			initial_group_id,
+			route_version,
+			schedule_mode,
+			smart_preference,
+			group_switch_count,
+			routing_decision_id,
+			cache_cold_due_to_failover,
+			actual_usage,
+			billable_usage,
+			cache_compensation_tokens,
+			cache_compensation_reason,
 			input_tokens,
 			output_tokens,
 			cache_creation_tokens,
@@ -1204,6 +1283,17 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_model_mismatch,
 			group_id,
 			subscription_id,
+			initial_group_id,
+			route_version,
+			schedule_mode,
+			smart_preference,
+			group_switch_count,
+			routing_decision_id,
+			cache_cold_due_to_failover,
+			actual_usage,
+			billable_usage,
+			cache_compensation_tokens,
+			cache_compensation_reason,
 			input_tokens,
 			output_tokens,
 			cache_creation_tokens,
@@ -1276,6 +1366,17 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			upstream_model_mismatch,
 			group_id,
 			subscription_id,
+			initial_group_id,
+			route_version,
+			schedule_mode,
+			smart_preference,
+			group_switch_count,
+			routing_decision_id,
+			cache_cold_due_to_failover,
+			actual_usage,
+			billable_usage,
+			cache_compensation_tokens,
+			cache_compensation_reason,
 			input_tokens,
 			output_tokens,
 			cache_creation_tokens,
@@ -1329,11 +1430,13 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			created_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9,
-			$10, $11,
-			$12, $13, $14, $15,
-			$16, $17, $18, $19,
-			$20, $21, $22, $23, $24, $25,
-			$26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62
+			$10, $11, $12, $13, $14, $15, $16, $17, $18,
+			$19, $20, $21, $22, $23, $24, $25, $26, $27,
+			$28, $29, $30, $31, $32, $33, $34, $35, $36,
+			$37, $38, $39, $40, $41, $42, $43, $44, $45,
+			$46, $47, $48, $49, $50, $51, $52, $53, $54,
+			$55, $56, $57, $58, $59, $60, $61, $62, $63,
+			$64, $65, $66, $67, $68, $69, $70, $71, $72, $73
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 	`, prepared.args...)
@@ -1355,6 +1458,14 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 
 	groupID := nullInt64(log.GroupID)
 	subscriptionID := nullInt64(log.SubscriptionID)
+	initialGroupID := nullInt64(log.InitialGroupID)
+	routeVersion := nullInt64(log.RouteVersion)
+	scheduleMode := nullString(log.ScheduleMode)
+	smartPreference := nullString(log.SmartPreference)
+	routingDecisionID := nullString(log.RoutingDecisionID)
+	actualUsage := nullRawJSON(log.ActualUsage)
+	billableUsage := nullRawJSON(log.BillableUsage)
+	cacheCompensationReason := nullString(log.CacheCompensationReason)
 	duration := nullInt(log.DurationMs)
 	firstToken := nullInt(log.FirstTokenMs)
 	userAgent := nullString(log.UserAgent)
@@ -1407,6 +1518,17 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			upstreamModelMismatch,
 			groupID,
 			subscriptionID,
+			initialGroupID,
+			routeVersion,
+			scheduleMode,
+			smartPreference,
+			log.GroupSwitchCount,
+			routingDecisionID,
+			log.CacheColdDueToFailover,
+			actualUsage,
+			billableUsage,
+			log.CacheCompensationTokens,
+			cacheCompensationReason,
 			log.InputTokens,
 			log.OutputTokens,
 			log.CacheCreationTokens,
@@ -1460,6 +1582,13 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			createdAt,
 		},
 	}
+}
+
+func nullRawJSON(value json.RawMessage) any {
+	if len(value) == 0 {
+		return nil
+	}
+	return []byte(value)
 }
 
 func usageLogBatchKey(requestID string, apiKeyID int64) string {

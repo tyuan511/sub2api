@@ -1,0 +1,170 @@
+{
+  "key_id": 70,
+  "warm": [
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 22.94275164604187
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 18.962551839649677
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.811236575245857
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.966591261327267
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.282283537089825
+    }
+  ],
+  "failures": [
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 25.004261173307896
+    },
+    {
+      "status": 200,
+      "bytes": 411,
+      "done": true,
+      "error": false,
+      "latency_ms": 24.17823113501072
+    },
+    {
+      "status": 200,
+      "bytes": 422,
+      "done": true,
+      "error": false,
+      "latency_ms": 26.41055081039667
+    },
+    {
+      "status": 200,
+      "bytes": 422,
+      "done": true,
+      "error": false,
+      "latency_ms": 24.550218135118484
+    },
+    {
+      "status": 200,
+      "bytes": 422,
+      "done": true,
+      "error": false,
+      "latency_ms": 25.205418467521667
+    }
+  ],
+  "at_50_percent": {
+    "api_key_id": 70,
+    "route_version": 1,
+    "platform": "openai",
+    "model_family": "gpt-4o",
+    "endpoint_kind": "chat_completions",
+    "schedule_mode": "sequential",
+    "sequential_fallback": false,
+    "candidates": [
+      {
+        "group_id": 35,
+        "configured_priority": 0,
+        "effective_rank": 0,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 5,
+          "failures": 5,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      },
+      {
+        "group_id": 36,
+        "configured_priority": 1,
+        "effective_rank": 1,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 5,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      }
+    ]
+  },
+  "sixth_failure": {
+    "status": 200,
+    "bytes": 427,
+    "done": true,
+    "error": false,
+    "latency_ms": 23.595006205141544
+  },
+  "below_50_percent": {
+    "api_key_id": 70,
+    "route_version": 1,
+    "platform": "openai",
+    "model_family": "gpt-4o",
+    "endpoint_kind": "chat_completions",
+    "schedule_mode": "sequential",
+    "sequential_fallback": false,
+    "candidates": [
+      {
+        "group_id": 35,
+        "configured_priority": 0,
+        "effective_rank": 0,
+        "admitted": false,
+        "exclusion_reason": "breaker_open",
+        "breaker": {
+          "state": "OPEN",
+          "successes": 5,
+          "failures": 6,
+          "recovery_successes": 0,
+          "recovery_admissions": 0,
+          "opened_at_unix_ms": 1788567242198
+        }
+      },
+      {
+        "group_id": 36,
+        "configured_priority": 1,
+        "effective_rank": 1,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 6,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      }
+    ]
+  },
+  "cooldown_request": {
+    "status": 200,
+    "bytes": 416,
+    "done": true,
+    "error": false,
+    "latency_ms": 14.229276217520237
+  },
+  "cooldown_upstream": {
+    "g7": 1
+  }
+}

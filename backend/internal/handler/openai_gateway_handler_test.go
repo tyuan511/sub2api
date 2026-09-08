@@ -2224,6 +2224,7 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 	h := NewOpenAIGatewayHandler(
 		gatewaySvc,
 		service.NewConcurrencyService(nil),
+		nil,
 		billingCacheSvc,
 		service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
 		nil,
@@ -2325,6 +2326,7 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 			h := NewOpenAIGatewayHandler(
 				gatewaySvc,
 				service.NewConcurrencyService(nil),
+				nil,
 				billingCacheSvc,
 				service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
 				nil,
@@ -2407,6 +2409,7 @@ func TestOpenAIResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t 
 	h := NewOpenAIGatewayHandler(
 		gatewaySvc,
 		service.NewConcurrencyService(nil),
+		nil,
 		billingCacheSvc,
 		service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
 		nil,

@@ -49,6 +49,7 @@ func ProvideAdminHandlers(
 	complianceHandler *admin.ComplianceHandler,
 	auditLogHandler *admin.AuditLogHandler,
 	supportHandler *admin.SupportHandler,
+	routingOptimizationHandler *admin.RoutingOptimizationHandler,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
 ) *AdminHandlers {
@@ -93,6 +94,7 @@ func ProvideAdminHandlers(
 		Compliance:             complianceHandler,
 		AuditLog:               auditLogHandler,
 		Support:                supportHandler,
+		RoutingOptimization:    routingOptimizationHandler,
 	}
 }
 
@@ -102,6 +104,7 @@ func ProvideGatewayHandler(
 	geminiCompatService *service.GeminiMessagesCompatService,
 	antigravityGatewayService *service.AntigravityGatewayService,
 	userService *service.UserService,
+	subscriptionService *service.SubscriptionService,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
 	usageService *service.UsageService,
@@ -115,7 +118,7 @@ func ProvideGatewayHandler(
 	coordinator *securityaudit.Coordinator,
 ) *GatewayHandler {
 	h := NewGatewayHandler(gatewayService, openAIGatewayService, geminiCompatService, antigravityGatewayService,
-		userService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool,
+		userService, subscriptionService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool,
 		errorPassthroughService, contentModerationService, userMsgQueueService, cfg, settingService)
 	h.securityAuditCoordinator = coordinator
 	return h
@@ -125,6 +128,7 @@ func ProvideOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
 	pluginManager *service.PluginManager,
 	concurrencyService *service.ConcurrencyService,
+	subscriptionService *service.SubscriptionService,
 	billingCacheService *service.BillingCacheService,
 	apiKeyService *service.APIKeyService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
@@ -136,7 +140,7 @@ func ProvideOpenAIGatewayHandler(
 	coordinator *securityaudit.Coordinator,
 ) *OpenAIGatewayHandler {
 	gatewayService.SetPluginManager(pluginManager)
-	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, billingCacheService, apiKeyService,
+	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, subscriptionService, billingCacheService, apiKeyService,
 		usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, cfg)
 	h.securityAuditCoordinator = coordinator
 	h.grokMediaEligibilityProber = grokQuotaService
@@ -294,6 +298,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewComplianceHandler,
 	admin.NewAuditLogHandler,
 	admin.NewSupportHandler,
+	admin.NewRoutingOptimizationHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

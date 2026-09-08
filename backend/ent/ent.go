@@ -19,6 +19,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
@@ -41,6 +43,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingattempt"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -119,6 +124,8 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			apikey.Table:                        apikey.ValidColumn,
+			apikeygrouproute.Table:              apikeygrouproute.ValidColumn,
+			apikeyrouteconfigoutbox.Table:       apikeyrouteconfigoutbox.ValidColumn,
 			account.Table:                       account.ValidColumn,
 			accountgroup.Table:                  accountgroup.ValidColumn,
 			accountproxy.Table:                  accountproxy.ValidColumn,
@@ -147,6 +154,9 @@ func checkColumn(t, c string) error {
 			promocodeusage.Table:                promocodeusage.ValidColumn,
 			proxy.Table:                         proxy.ValidColumn,
 			redeemcode.Table:                    redeemcode.ValidColumn,
+			routingartifactversion.Table:        routingartifactversion.ValidColumn,
+			routingattempt.Table:                routingattempt.ValidColumn,
+			routingexperiment.Table:             routingexperiment.ValidColumn,
 			securitysecret.Table:                securitysecret.ValidColumn,
 			setting.Table:                       setting.ValidColumn,
 			subscriptionplan.Table:              subscriptionplan.ValidColumn,

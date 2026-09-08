@@ -129,6 +129,33 @@ func TestAsyncImageHandlerSubmitAndPoll(t *testing.T) {
 
 // When object storage is not configured the feature is fully disabled: the
 // endpoints must return 404 without creating a task or writing to Redis.
+func TestActivateImageStudioRouteSwitchesToImageCapableGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	textID, imageID := int64(1), int64(2)
+	text := &service.Group{ID: textID, Status: service.StatusActive, Platform: service.PlatformOpenAI, AllowImageGeneration: false}
+	image := &service.Group{ID: imageID, Status: service.StatusActive, Platform: service.PlatformOpenAI, AllowImageGeneration: true}
+	key := &service.APIKey{
+		ID: 9, UserID: 7, GroupID: &textID, Group: text, RouteVersion: 3,
+		GroupRoutes: []service.APIKeyGroupRoute{
+			{GroupID: textID, Priority: 0, Enabled: true, Group: text},
+			{GroupID: imageID, Priority: 1, Enabled: true, Group: image},
+		},
+	}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(key, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/studio/generations", strings.NewReader(`{"model":"gpt-image-2","prompt":"cat"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: textID})
+	c.Set(string(middleware2.ContextKeyAPIKey), key)
+
+	h := &AsyncImageHandler{openAI: &OpenAIGatewayHandler{}}
+	got, err := h.activateImageStudioRoute(c, key, "gpt-image-2", []byte(`{"model":"gpt-image-2","prompt":"cat"}`))
+	require.NoError(t, err)
+	require.Equal(t, imageID, got.Group.ID)
+	require.True(t, service.GroupAllowsImageGeneration(got.Group))
+}
+
 func TestAsyncImageHandlerDisabledReturns404(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := &asyncImageMemoryStore{tasks: make(map[string]*service.ImageTaskRecord)}

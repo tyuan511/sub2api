@@ -135,11 +135,13 @@ func TestAdminService_GetGroupRateMultipliers(t *testing.T) {
 func TestAdminService_ClearGroupRateMultipliers(t *testing.T) {
 	t.Run("deletes by group ID", func(t *testing.T) {
 		repo := &userGroupRateRepoStubForGroupRate{}
-		svc := &adminServiceImpl{userGroupRateRepo: repo}
+		invalidator := &authCacheInvalidatorStub{}
+		svc := &adminServiceImpl{userGroupRateRepo: repo, authCacheInvalidator: invalidator}
 
 		err := svc.ClearGroupRateMultipliers(context.Background(), 42)
 		require.NoError(t, err)
 		require.Equal(t, []int64{42}, repo.deletedGroupIDs)
+		require.Equal(t, []int64{42}, invalidator.groupIDs)
 	})
 
 	t.Run("returns nil when repo is nil", func(t *testing.T) {
@@ -164,7 +166,8 @@ func TestAdminService_ClearGroupRateMultipliers(t *testing.T) {
 func TestAdminService_BatchSetGroupRateMultipliers(t *testing.T) {
 	t.Run("syncs entries to repo", func(t *testing.T) {
 		repo := &userGroupRateRepoStubForGroupRate{}
-		svc := &adminServiceImpl{userGroupRateRepo: repo}
+		invalidator := &authCacheInvalidatorStub{}
+		svc := &adminServiceImpl{userGroupRateRepo: repo, authCacheInvalidator: invalidator}
 
 		entries := []GroupRateMultiplierInput{
 			{UserID: 1, RateMultiplier: 1.5},
@@ -174,6 +177,7 @@ func TestAdminService_BatchSetGroupRateMultipliers(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(10), repo.syncedGroupID)
 		require.Equal(t, entries, repo.syncedEntries)
+		require.Equal(t, []int64{10}, invalidator.groupIDs)
 	})
 
 	t.Run("returns nil when repo is nil", func(t *testing.T) {

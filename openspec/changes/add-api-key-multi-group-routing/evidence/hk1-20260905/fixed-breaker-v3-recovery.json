@@ -1,0 +1,310 @@
+{
+  "probe": {
+    "status": 200,
+    "bytes": 416,
+    "done": true,
+    "error": false,
+    "latency_ms": 16.629342921078205
+  },
+  "probe_upstream": {
+    "g6": 1
+  },
+  "after_probe": {
+    "api_key_id": 70,
+    "route_version": 1,
+    "platform": "openai",
+    "model_family": "gpt-4o",
+    "endpoint_kind": "chat_completions",
+    "schedule_mode": "sequential",
+    "sequential_fallback": false,
+    "candidates": [
+      {
+        "group_id": 35,
+        "configured_priority": 0,
+        "effective_rank": 0,
+        "admitted": true,
+        "breaker": {
+          "state": "RECOVERING",
+          "successes": 1,
+          "failures": 0,
+          "recovery_successes": 1,
+          "recovery_admissions": 0,
+          "opened_at_unix_ms": 1788567242198
+        }
+      },
+      {
+        "group_id": 36,
+        "configured_priority": 1,
+        "effective_rank": 1,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 7,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      }
+    ]
+  },
+  "new_sessions": [
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.63489793241024
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.989560633897781
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.946653507649899
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 13.802004978060722
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.90061467140913
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.87572118639946
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 16.339448280632496
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.506678096950054
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.084362588822842
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 16.008056700229645
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.066943898797035
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.388483181595802
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.24138993024826
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.278771355748177
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.206403866410255
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.355272218585014
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.94045089930296
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.953265897929668
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.786098316311836
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 16.166022047400475
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 18.619396723806858
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.540602453052998
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 16.269676387310028
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.441753901541233
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 17.789408564567566
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.859519898891449
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 14.700491912662983
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.530279837548733
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 16.34826511144638
+    },
+    {
+      "status": 200,
+      "bytes": 416,
+      "done": true,
+      "error": false,
+      "latency_ms": 15.50194714218378
+    }
+  ],
+  "after_ramp": {
+    "api_key_id": 70,
+    "route_version": 1,
+    "platform": "openai",
+    "model_family": "gpt-4o",
+    "endpoint_kind": "chat_completions",
+    "schedule_mode": "sequential",
+    "sequential_fallback": false,
+    "candidates": [
+      {
+        "group_id": 35,
+        "configured_priority": 0,
+        "effective_rank": 0,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 11,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0,
+          "opened_at_unix_ms": 1788567242198
+        }
+      },
+      {
+        "group_id": 36,
+        "configured_priority": 1,
+        "effective_rank": 1,
+        "admitted": true,
+        "breaker": {
+          "state": "CLOSED",
+          "successes": 17,
+          "failures": 0,
+          "recovery_successes": 0,
+          "recovery_admissions": 0
+        }
+      }
+    ]
+  },
+  "old_sticky": {
+    "status": 200,
+    "bytes": 427,
+    "done": true,
+    "error": false,
+    "latency_ms": 13.396544381976128
+  },
+  "old_sticky_upstream": {
+    "g7": 1
+  }
+}

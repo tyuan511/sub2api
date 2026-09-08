@@ -140,6 +140,51 @@ func SubscriptionID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldSubscriptionID, v))
 }
 
+// InitialGroupID applies equality check predicate on the "initial_group_id" field. It's identical to InitialGroupIDEQ.
+func InitialGroupID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldInitialGroupID, v))
+}
+
+// RouteVersion applies equality check predicate on the "route_version" field. It's identical to RouteVersionEQ.
+func RouteVersion(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldRouteVersion, v))
+}
+
+// ScheduleMode applies equality check predicate on the "schedule_mode" field. It's identical to ScheduleModeEQ.
+func ScheduleMode(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldScheduleMode, v))
+}
+
+// SmartPreference applies equality check predicate on the "smart_preference" field. It's identical to SmartPreferenceEQ.
+func SmartPreference(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldSmartPreference, v))
+}
+
+// GroupSwitchCount applies equality check predicate on the "group_switch_count" field. It's identical to GroupSwitchCountEQ.
+func GroupSwitchCount(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldGroupSwitchCount, v))
+}
+
+// RoutingDecisionID applies equality check predicate on the "routing_decision_id" field. It's identical to RoutingDecisionIDEQ.
+func RoutingDecisionID(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldRoutingDecisionID, v))
+}
+
+// CacheColdDueToFailover applies equality check predicate on the "cache_cold_due_to_failover" field. It's identical to CacheColdDueToFailoverEQ.
+func CacheColdDueToFailover(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCacheColdDueToFailover, v))
+}
+
+// CacheCompensationTokens applies equality check predicate on the "cache_compensation_tokens" field. It's identical to CacheCompensationTokensEQ.
+func CacheCompensationTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCacheCompensationTokens, v))
+}
+
+// CacheCompensationReason applies equality check predicate on the "cache_compensation_reason" field. It's identical to CacheCompensationReasonEQ.
+func CacheCompensationReason(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCacheCompensationReason, v))
+}
+
 // InputTokens applies equality check predicate on the "input_tokens" field. It's identical to InputTokensEQ.
 func InputTokens(v int) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldInputTokens, v))
@@ -1143,6 +1188,516 @@ func SubscriptionIDIsNil() predicate.UsageLog {
 // SubscriptionIDNotNil applies the NotNil predicate on the "subscription_id" field.
 func SubscriptionIDNotNil() predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNotNull(FieldSubscriptionID))
+}
+
+// InitialGroupIDEQ applies the EQ predicate on the "initial_group_id" field.
+func InitialGroupIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldInitialGroupID, v))
+}
+
+// InitialGroupIDNEQ applies the NEQ predicate on the "initial_group_id" field.
+func InitialGroupIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldInitialGroupID, v))
+}
+
+// InitialGroupIDIn applies the In predicate on the "initial_group_id" field.
+func InitialGroupIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldInitialGroupID, vs...))
+}
+
+// InitialGroupIDNotIn applies the NotIn predicate on the "initial_group_id" field.
+func InitialGroupIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldInitialGroupID, vs...))
+}
+
+// InitialGroupIDGT applies the GT predicate on the "initial_group_id" field.
+func InitialGroupIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldInitialGroupID, v))
+}
+
+// InitialGroupIDGTE applies the GTE predicate on the "initial_group_id" field.
+func InitialGroupIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldInitialGroupID, v))
+}
+
+// InitialGroupIDLT applies the LT predicate on the "initial_group_id" field.
+func InitialGroupIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldInitialGroupID, v))
+}
+
+// InitialGroupIDLTE applies the LTE predicate on the "initial_group_id" field.
+func InitialGroupIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldInitialGroupID, v))
+}
+
+// InitialGroupIDIsNil applies the IsNil predicate on the "initial_group_id" field.
+func InitialGroupIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldInitialGroupID))
+}
+
+// InitialGroupIDNotNil applies the NotNil predicate on the "initial_group_id" field.
+func InitialGroupIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldInitialGroupID))
+}
+
+// RouteVersionEQ applies the EQ predicate on the "route_version" field.
+func RouteVersionEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldRouteVersion, v))
+}
+
+// RouteVersionNEQ applies the NEQ predicate on the "route_version" field.
+func RouteVersionNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldRouteVersion, v))
+}
+
+// RouteVersionIn applies the In predicate on the "route_version" field.
+func RouteVersionIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldRouteVersion, vs...))
+}
+
+// RouteVersionNotIn applies the NotIn predicate on the "route_version" field.
+func RouteVersionNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldRouteVersion, vs...))
+}
+
+// RouteVersionGT applies the GT predicate on the "route_version" field.
+func RouteVersionGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldRouteVersion, v))
+}
+
+// RouteVersionGTE applies the GTE predicate on the "route_version" field.
+func RouteVersionGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldRouteVersion, v))
+}
+
+// RouteVersionLT applies the LT predicate on the "route_version" field.
+func RouteVersionLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldRouteVersion, v))
+}
+
+// RouteVersionLTE applies the LTE predicate on the "route_version" field.
+func RouteVersionLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldRouteVersion, v))
+}
+
+// RouteVersionIsNil applies the IsNil predicate on the "route_version" field.
+func RouteVersionIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldRouteVersion))
+}
+
+// RouteVersionNotNil applies the NotNil predicate on the "route_version" field.
+func RouteVersionNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldRouteVersion))
+}
+
+// ScheduleModeEQ applies the EQ predicate on the "schedule_mode" field.
+func ScheduleModeEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldScheduleMode, v))
+}
+
+// ScheduleModeNEQ applies the NEQ predicate on the "schedule_mode" field.
+func ScheduleModeNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldScheduleMode, v))
+}
+
+// ScheduleModeIn applies the In predicate on the "schedule_mode" field.
+func ScheduleModeIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldScheduleMode, vs...))
+}
+
+// ScheduleModeNotIn applies the NotIn predicate on the "schedule_mode" field.
+func ScheduleModeNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldScheduleMode, vs...))
+}
+
+// ScheduleModeGT applies the GT predicate on the "schedule_mode" field.
+func ScheduleModeGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldScheduleMode, v))
+}
+
+// ScheduleModeGTE applies the GTE predicate on the "schedule_mode" field.
+func ScheduleModeGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldScheduleMode, v))
+}
+
+// ScheduleModeLT applies the LT predicate on the "schedule_mode" field.
+func ScheduleModeLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldScheduleMode, v))
+}
+
+// ScheduleModeLTE applies the LTE predicate on the "schedule_mode" field.
+func ScheduleModeLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldScheduleMode, v))
+}
+
+// ScheduleModeContains applies the Contains predicate on the "schedule_mode" field.
+func ScheduleModeContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldScheduleMode, v))
+}
+
+// ScheduleModeHasPrefix applies the HasPrefix predicate on the "schedule_mode" field.
+func ScheduleModeHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldScheduleMode, v))
+}
+
+// ScheduleModeHasSuffix applies the HasSuffix predicate on the "schedule_mode" field.
+func ScheduleModeHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldScheduleMode, v))
+}
+
+// ScheduleModeIsNil applies the IsNil predicate on the "schedule_mode" field.
+func ScheduleModeIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldScheduleMode))
+}
+
+// ScheduleModeNotNil applies the NotNil predicate on the "schedule_mode" field.
+func ScheduleModeNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldScheduleMode))
+}
+
+// ScheduleModeEqualFold applies the EqualFold predicate on the "schedule_mode" field.
+func ScheduleModeEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldScheduleMode, v))
+}
+
+// ScheduleModeContainsFold applies the ContainsFold predicate on the "schedule_mode" field.
+func ScheduleModeContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldScheduleMode, v))
+}
+
+// SmartPreferenceEQ applies the EQ predicate on the "smart_preference" field.
+func SmartPreferenceEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldSmartPreference, v))
+}
+
+// SmartPreferenceNEQ applies the NEQ predicate on the "smart_preference" field.
+func SmartPreferenceNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldSmartPreference, v))
+}
+
+// SmartPreferenceIn applies the In predicate on the "smart_preference" field.
+func SmartPreferenceIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldSmartPreference, vs...))
+}
+
+// SmartPreferenceNotIn applies the NotIn predicate on the "smart_preference" field.
+func SmartPreferenceNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldSmartPreference, vs...))
+}
+
+// SmartPreferenceGT applies the GT predicate on the "smart_preference" field.
+func SmartPreferenceGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldSmartPreference, v))
+}
+
+// SmartPreferenceGTE applies the GTE predicate on the "smart_preference" field.
+func SmartPreferenceGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldSmartPreference, v))
+}
+
+// SmartPreferenceLT applies the LT predicate on the "smart_preference" field.
+func SmartPreferenceLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldSmartPreference, v))
+}
+
+// SmartPreferenceLTE applies the LTE predicate on the "smart_preference" field.
+func SmartPreferenceLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldSmartPreference, v))
+}
+
+// SmartPreferenceContains applies the Contains predicate on the "smart_preference" field.
+func SmartPreferenceContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldSmartPreference, v))
+}
+
+// SmartPreferenceHasPrefix applies the HasPrefix predicate on the "smart_preference" field.
+func SmartPreferenceHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldSmartPreference, v))
+}
+
+// SmartPreferenceHasSuffix applies the HasSuffix predicate on the "smart_preference" field.
+func SmartPreferenceHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldSmartPreference, v))
+}
+
+// SmartPreferenceIsNil applies the IsNil predicate on the "smart_preference" field.
+func SmartPreferenceIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldSmartPreference))
+}
+
+// SmartPreferenceNotNil applies the NotNil predicate on the "smart_preference" field.
+func SmartPreferenceNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldSmartPreference))
+}
+
+// SmartPreferenceEqualFold applies the EqualFold predicate on the "smart_preference" field.
+func SmartPreferenceEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldSmartPreference, v))
+}
+
+// SmartPreferenceContainsFold applies the ContainsFold predicate on the "smart_preference" field.
+func SmartPreferenceContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldSmartPreference, v))
+}
+
+// GroupSwitchCountEQ applies the EQ predicate on the "group_switch_count" field.
+func GroupSwitchCountEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldGroupSwitchCount, v))
+}
+
+// GroupSwitchCountNEQ applies the NEQ predicate on the "group_switch_count" field.
+func GroupSwitchCountNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldGroupSwitchCount, v))
+}
+
+// GroupSwitchCountIn applies the In predicate on the "group_switch_count" field.
+func GroupSwitchCountIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldGroupSwitchCount, vs...))
+}
+
+// GroupSwitchCountNotIn applies the NotIn predicate on the "group_switch_count" field.
+func GroupSwitchCountNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldGroupSwitchCount, vs...))
+}
+
+// GroupSwitchCountGT applies the GT predicate on the "group_switch_count" field.
+func GroupSwitchCountGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldGroupSwitchCount, v))
+}
+
+// GroupSwitchCountGTE applies the GTE predicate on the "group_switch_count" field.
+func GroupSwitchCountGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldGroupSwitchCount, v))
+}
+
+// GroupSwitchCountLT applies the LT predicate on the "group_switch_count" field.
+func GroupSwitchCountLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldGroupSwitchCount, v))
+}
+
+// GroupSwitchCountLTE applies the LTE predicate on the "group_switch_count" field.
+func GroupSwitchCountLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldGroupSwitchCount, v))
+}
+
+// RoutingDecisionIDEQ applies the EQ predicate on the "routing_decision_id" field.
+func RoutingDecisionIDEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDNEQ applies the NEQ predicate on the "routing_decision_id" field.
+func RoutingDecisionIDNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDIn applies the In predicate on the "routing_decision_id" field.
+func RoutingDecisionIDIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldRoutingDecisionID, vs...))
+}
+
+// RoutingDecisionIDNotIn applies the NotIn predicate on the "routing_decision_id" field.
+func RoutingDecisionIDNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldRoutingDecisionID, vs...))
+}
+
+// RoutingDecisionIDGT applies the GT predicate on the "routing_decision_id" field.
+func RoutingDecisionIDGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDGTE applies the GTE predicate on the "routing_decision_id" field.
+func RoutingDecisionIDGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDLT applies the LT predicate on the "routing_decision_id" field.
+func RoutingDecisionIDLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDLTE applies the LTE predicate on the "routing_decision_id" field.
+func RoutingDecisionIDLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDContains applies the Contains predicate on the "routing_decision_id" field.
+func RoutingDecisionIDContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDHasPrefix applies the HasPrefix predicate on the "routing_decision_id" field.
+func RoutingDecisionIDHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDHasSuffix applies the HasSuffix predicate on the "routing_decision_id" field.
+func RoutingDecisionIDHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDIsNil applies the IsNil predicate on the "routing_decision_id" field.
+func RoutingDecisionIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldRoutingDecisionID))
+}
+
+// RoutingDecisionIDNotNil applies the NotNil predicate on the "routing_decision_id" field.
+func RoutingDecisionIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldRoutingDecisionID))
+}
+
+// RoutingDecisionIDEqualFold applies the EqualFold predicate on the "routing_decision_id" field.
+func RoutingDecisionIDEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldRoutingDecisionID, v))
+}
+
+// RoutingDecisionIDContainsFold applies the ContainsFold predicate on the "routing_decision_id" field.
+func RoutingDecisionIDContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldRoutingDecisionID, v))
+}
+
+// CacheColdDueToFailoverEQ applies the EQ predicate on the "cache_cold_due_to_failover" field.
+func CacheColdDueToFailoverEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCacheColdDueToFailover, v))
+}
+
+// CacheColdDueToFailoverNEQ applies the NEQ predicate on the "cache_cold_due_to_failover" field.
+func CacheColdDueToFailoverNEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldCacheColdDueToFailover, v))
+}
+
+// ActualUsageIsNil applies the IsNil predicate on the "actual_usage" field.
+func ActualUsageIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldActualUsage))
+}
+
+// ActualUsageNotNil applies the NotNil predicate on the "actual_usage" field.
+func ActualUsageNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldActualUsage))
+}
+
+// BillableUsageIsNil applies the IsNil predicate on the "billable_usage" field.
+func BillableUsageIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldBillableUsage))
+}
+
+// BillableUsageNotNil applies the NotNil predicate on the "billable_usage" field.
+func BillableUsageNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldBillableUsage))
+}
+
+// CacheCompensationTokensEQ applies the EQ predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCacheCompensationTokens, v))
+}
+
+// CacheCompensationTokensNEQ applies the NEQ predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldCacheCompensationTokens, v))
+}
+
+// CacheCompensationTokensIn applies the In predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldCacheCompensationTokens, vs...))
+}
+
+// CacheCompensationTokensNotIn applies the NotIn predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldCacheCompensationTokens, vs...))
+}
+
+// CacheCompensationTokensGT applies the GT predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldCacheCompensationTokens, v))
+}
+
+// CacheCompensationTokensGTE applies the GTE predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldCacheCompensationTokens, v))
+}
+
+// CacheCompensationTokensLT applies the LT predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldCacheCompensationTokens, v))
+}
+
+// CacheCompensationTokensLTE applies the LTE predicate on the "cache_compensation_tokens" field.
+func CacheCompensationTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldCacheCompensationTokens, v))
+}
+
+// CacheCompensationReasonEQ applies the EQ predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonNEQ applies the NEQ predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonNEQ(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonIn applies the In predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldCacheCompensationReason, vs...))
+}
+
+// CacheCompensationReasonNotIn applies the NotIn predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonNotIn(vs ...string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldCacheCompensationReason, vs...))
+}
+
+// CacheCompensationReasonGT applies the GT predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonGT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonGTE applies the GTE predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonGTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonLT applies the LT predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonLT(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonLTE applies the LTE predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonLTE(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonContains applies the Contains predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonContains(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContains(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonHasPrefix applies the HasPrefix predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonHasPrefix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasPrefix(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonHasSuffix applies the HasSuffix predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonHasSuffix(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldHasSuffix(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonIsNil applies the IsNil predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldCacheCompensationReason))
+}
+
+// CacheCompensationReasonNotNil applies the NotNil predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldCacheCompensationReason))
+}
+
+// CacheCompensationReasonEqualFold applies the EqualFold predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonEqualFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEqualFold(FieldCacheCompensationReason, v))
+}
+
+// CacheCompensationReasonContainsFold applies the ContainsFold predicate on the "cache_compensation_reason" field.
+func CacheCompensationReasonContainsFold(v string) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldContainsFold(FieldCacheCompensationReason, v))
 }
 
 // InputTokensEQ applies the EQ predicate on the "input_tokens" field.

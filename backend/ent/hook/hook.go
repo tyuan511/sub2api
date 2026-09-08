@@ -21,6 +21,30 @@ func (f APIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyMutation", m)
 }
 
+// The APIKeyGroupRouteFunc type is an adapter to allow the use of ordinary
+// function as APIKeyGroupRoute mutator.
+type APIKeyGroupRouteFunc func(context.Context, *ent.APIKeyGroupRouteMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f APIKeyGroupRouteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.APIKeyGroupRouteMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyGroupRouteMutation", m)
+}
+
+// The APIKeyRouteConfigOutboxFunc type is an adapter to allow the use of ordinary
+// function as APIKeyRouteConfigOutbox mutator.
+type APIKeyRouteConfigOutboxFunc func(context.Context, *ent.APIKeyRouteConfigOutboxMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f APIKeyRouteConfigOutboxFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.APIKeyRouteConfigOutboxMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyRouteConfigOutboxMutation", m)
+}
+
 // The AccountFunc type is an adapter to allow the use of ordinary
 // function as Account mutator.
 type AccountFunc func(context.Context, *ent.AccountMutation) (ent.Value, error)
@@ -355,6 +379,42 @@ func (f RedeemCodeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RedeemCodeMutation", m)
+}
+
+// The RoutingArtifactVersionFunc type is an adapter to allow the use of ordinary
+// function as RoutingArtifactVersion mutator.
+type RoutingArtifactVersionFunc func(context.Context, *ent.RoutingArtifactVersionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RoutingArtifactVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RoutingArtifactVersionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RoutingArtifactVersionMutation", m)
+}
+
+// The RoutingAttemptFunc type is an adapter to allow the use of ordinary
+// function as RoutingAttempt mutator.
+type RoutingAttemptFunc func(context.Context, *ent.RoutingAttemptMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RoutingAttemptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RoutingAttemptMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RoutingAttemptMutation", m)
+}
+
+// The RoutingExperimentFunc type is an adapter to allow the use of ordinary
+// function as RoutingExperiment mutator.
+type RoutingExperimentFunc func(context.Context, *ent.RoutingExperimentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RoutingExperimentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RoutingExperimentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RoutingExperimentMutation", m)
 }
 
 // The SecuritySecretFunc type is an adapter to allow the use of ordinary

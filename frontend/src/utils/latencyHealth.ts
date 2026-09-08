@@ -18,6 +18,17 @@ export const DURATION_THRESHOLDS_MS = {
   critical: 300_000,
 } as const
 
+/**
+ * Rate health bands used by the monitor cards for higher-is-better metrics.
+ * The 80/50 boundaries match the monitor score legend, while the extra 20
+ * point gives the card the same four-level hierarchy as usage latency.
+ */
+export const RATE_THRESHOLDS_PERCENT = {
+  warn: 80,
+  slow: 50,
+  critical: 20,
+} as const
+
 interface Thresholds {
   warn: number
   slow: number
@@ -36,6 +47,15 @@ export const firstTokenSeverity = (ms: number): LatencySeverity =>
 
 export const durationSeverity = (ms: number): LatencySeverity =>
   classify(ms, DURATION_THRESHOLDS_MS)
+
+/** Classify a higher-is-better percentage into the shared health palette. */
+export const rateSeverity = (percent: number | null | undefined): LatencySeverity | null => {
+  if (percent == null || !Number.isFinite(percent)) return null
+  if (percent < RATE_THRESHOLDS_PERCENT.critical) return 'critical'
+  if (percent < RATE_THRESHOLDS_PERCENT.slow) return 'slow'
+  if (percent < RATE_THRESHOLDS_PERCENT.warn) return 'warn'
+  return 'good'
+}
 
 export const LATENCY_TEXT_CLASSES: Record<LatencySeverity, string> = {
   good: 'text-emerald-600 dark:text-emerald-400',

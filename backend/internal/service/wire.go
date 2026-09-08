@@ -727,6 +727,7 @@ func ProvideOpsService(
 	systemLogSink *OpsSystemLogSink,
 	settingService *SettingService,
 	authCacheInvalidationWorker *AuthCacheInvalidationWorker,
+	apiKeyRouteConfigOutboxWorker *APIKeyRouteConfigOutboxWorker,
 	apiKeyService *APIKeyService,
 ) *OpsService {
 	svc := NewOpsService(
@@ -749,6 +750,7 @@ func ProvideOpsService(
 		settingService.WarmOpenAIQuotaAutoPauseSettings(context.Background())
 	}
 	svc.authCacheInvalidationWorker = authCacheInvalidationWorker
+	svc.apiKeyRouteConfigOutboxWorker = apiKeyRouteConfigOutboxWorker
 	svc.apiKeyService = apiKeyService
 	svc.StartRuntimeSettingsRefresh(context.Background())
 	return svc
@@ -834,7 +836,9 @@ var ProviderSet = wire.NewSet(
 	ProvideAPIKeyService,
 	ProvideAPIKeyAuthCacheInvalidator,
 	ProvideAuthCacheInvalidationWorker,
+	ProvideAPIKeyRouteConfigOutboxWorker,
 	NewGroupService,
+	NewAPIKeyRouteOperationsService,
 	NewCompositeRouteResolver,
 	NewAccountService,
 	NewProxyService,
@@ -943,6 +947,7 @@ var ProviderSet = wire.NewSet(
 	NewChannelService,
 	wire.Bind(new(ChannelCacheInvalidator), new(*ChannelService)),
 	NewModelPricingResolver,
+	NewRoutingArtifactManager,
 	NewModelPlazaService,
 	NewContentModerationService,
 	NewAffiliateService,
@@ -959,6 +964,10 @@ var ProviderSet = wire.NewSet(
 	NewChannelMonitorQuotaFetcher,
 	ProvideChannelMonitorV2Service,
 	ProvideChannelMonitorV2Aggregator,
+	ProvideRoutingScoreBuilder,
+	ProvideRoutingStrategyRuntime,
+	ProvideRoutingCanaryMonitor,
+	ProvideRoutingFactRecorder,
 	NewChannelMonitorRequestTemplateService,
 	ProvideUserPlatformQuotaUsageFlusher,
 )
@@ -1081,4 +1090,63 @@ func ProvideChannelMonitorV2Aggregator(repo ChannelMonitorV2Repository, db *sql.
 	}
 	aggregator.Start()
 	return aggregator
+}
+
+// ProvideRoutingScoreBuilder starts the single-active shared score builder only
+// when multi-group routing is enabled. A cache implementation without the
+// versioned score contract leaves the builder inert and smart requests safely
+// fall back to user order.
+func ProvideRoutingScoreBuilder(source APIKeyRoutingScoreObservationSource, cache GatewayCache, lockCache LeaderLockCache, backgroundDB RoutingBackgroundDatabase, billing *BillingService, resolver *ModelPricingResolver, cfg *config.Config) *RoutingScoreBuilder {
+	scoreCache, _ := cache.(APIKeyRoutingScoreCache)
+	var lockDB *sql.DB
+	if backgroundDB != nil {
+		lockDB = backgroundDB.SQLDB()
+	}
+	builder := NewRoutingScoreBuilder(source, scoreCache, DefaultAPIKeyRoutingScoreStore(), lockCache, lockDB)
+	builder.SetCurrentPricing(billing, resolver)
+	if scoreCache != nil {
+		builder.Start()
+	}
+	return builder
+}
+
+func ProvideRoutingFactRecorder(repo RoutingOptimizationRepository, stream RoutingFactStream, cfg *config.Config) *RoutingFactRecorder {
+	sampleRate := 0.0
+	if cfg != nil && cfg.Gateway.APIKeyRoutingOptimizationEnabled {
+		sampleRate = 0.01
+		if cfg.Gateway.APIKeyRoutingFactSampleRate > 0 && cfg.Gateway.APIKeyRoutingFactSampleRate <= 1 {
+			sampleRate = cfg.Gateway.APIKeyRoutingFactSampleRate
+		}
+	}
+	recorder := NewRoutingFactRecorder(repo, stream, sampleRate)
+	// Failed attempts feed baseline success rates even with learning/experiments
+	// disabled. Only ordinary decision sampling follows the optimization switch.
+	recorder.Start()
+	return recorder
+}
+
+func ProvideRoutingStrategyRuntime(cache RoutingArtifactCache, cfg *config.Config) *RoutingStrategyRuntime {
+	enabled := cfg != nil && cfg.Gateway.APIKeyRoutingOptimizationEnabled
+	runtime := NewRoutingStrategyRuntime(cache, enabled)
+	if enabled {
+		runtime.learning = NewRoutingLearningRuntime(
+			cache,
+			cfg.Gateway.APIKeyRoutingPersonalizationEnabled,
+			cfg.Gateway.APIKeyRoutingModelPredictionEnabled,
+		)
+	}
+	SetDefaultRoutingLearningRuntime(runtime.learning)
+	SetDefaultRoutingStrategyRuntime(runtime)
+	if enabled {
+		runtime.Start()
+	}
+	return runtime
+}
+
+func ProvideRoutingCanaryMonitor(repo RoutingOptimizationRepository, manager *RoutingArtifactManager, cfg *config.Config) *RoutingCanaryMonitor {
+	monitor := NewRoutingCanaryMonitor(repo, manager)
+	if cfg != nil && cfg.Gateway.APIKeyRoutingOptimizationEnabled {
+		monitor.Start()
+	}
+	return monitor
 }

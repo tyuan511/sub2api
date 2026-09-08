@@ -65,6 +65,10 @@ const (
 	FieldTotalRecharged = "total_recharged"
 	// FieldRpmLimit holds the string denoting the rpm_limit field in the database.
 	FieldRpmLimit = "rpm_limit"
+	// EdgeRoutingArtifactVersions holds the string denoting the routing_artifact_versions edge name in mutations.
+	EdgeRoutingArtifactVersions = "routing_artifact_versions"
+	// EdgeRoutingExperiments holds the string denoting the routing_experiments edge name in mutations.
+	EdgeRoutingExperiments = "routing_experiments"
 	// EdgeAPIKeys holds the string denoting the api_keys edge name in mutations.
 	EdgeAPIKeys = "api_keys"
 	// EdgeRedeemCodes holds the string denoting the redeem_codes edge name in mutations.
@@ -95,6 +99,20 @@ const (
 	EdgeUserAllowedGroups = "user_allowed_groups"
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// RoutingArtifactVersionsTable is the table that holds the routing_artifact_versions relation/edge.
+	RoutingArtifactVersionsTable = "routing_artifact_versions"
+	// RoutingArtifactVersionsInverseTable is the table name for the RoutingArtifactVersion entity.
+	// It exists in this package in order to avoid circular dependency with the "routingartifactversion" package.
+	RoutingArtifactVersionsInverseTable = "routing_artifact_versions"
+	// RoutingArtifactVersionsColumn is the table column denoting the routing_artifact_versions relation/edge.
+	RoutingArtifactVersionsColumn = "created_by"
+	// RoutingExperimentsTable is the table that holds the routing_experiments relation/edge.
+	RoutingExperimentsTable = "routing_experiments"
+	// RoutingExperimentsInverseTable is the table name for the RoutingExperiment entity.
+	// It exists in this package in order to avoid circular dependency with the "routingexperiment" package.
+	RoutingExperimentsInverseTable = "routing_experiments"
+	// RoutingExperimentsColumn is the table column denoting the routing_experiments relation/edge.
+	RoutingExperimentsColumn = "approved_by"
 	// APIKeysTable is the table that holds the api_keys relation/edge.
 	APIKeysTable = "api_keys"
 	// APIKeysInverseTable is the table name for the APIKey entity.
@@ -430,6 +448,34 @@ func ByRpmLimit(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRpmLimit, opts...).ToFunc()
 }
 
+// ByRoutingArtifactVersionsCount orders the results by routing_artifact_versions count.
+func ByRoutingArtifactVersionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRoutingArtifactVersionsStep(), opts...)
+	}
+}
+
+// ByRoutingArtifactVersions orders the results by routing_artifact_versions terms.
+func ByRoutingArtifactVersions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRoutingArtifactVersionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByRoutingExperimentsCount orders the results by routing_experiments count.
+func ByRoutingExperimentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRoutingExperimentsStep(), opts...)
+	}
+}
+
+// ByRoutingExperiments orders the results by routing_experiments terms.
+func ByRoutingExperiments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRoutingExperimentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAPIKeysCount orders the results by api_keys count.
 func ByAPIKeysCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -624,6 +670,20 @@ func ByUserAllowedGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newUserAllowedGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
+}
+func newRoutingArtifactVersionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RoutingArtifactVersionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RoutingArtifactVersionsTable, RoutingArtifactVersionsColumn),
+	)
+}
+func newRoutingExperimentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RoutingExperimentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RoutingExperimentsTable, RoutingExperimentsColumn),
+	)
 }
 func newAPIKeysStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(

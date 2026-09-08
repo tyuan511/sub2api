@@ -2,6 +2,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"time"
 
 	"entgo.io/ent"
@@ -81,6 +82,17 @@ func (UsageLog) Fields() []ent.Field {
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),
+		field.Int64("initial_group_id").Optional().Nillable(),
+		field.Int64("route_version").Optional().Nillable(),
+		field.String("schedule_mode").MaxLen(16).Optional().Nillable(),
+		field.String("smart_preference").MaxLen(16).Optional().Nillable(),
+		field.Int("group_switch_count").Default(0).Min(0),
+		field.String("routing_decision_id").MaxLen(64).Optional().Nillable(),
+		field.Bool("cache_cold_due_to_failover").Default(false),
+		field.JSON("actual_usage", json.RawMessage{}).Optional().SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.JSON("billable_usage", json.RawMessage{}).Optional().SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.Int("cache_compensation_tokens").Default(0).Min(0),
+		field.String("cache_compensation_reason").MaxLen(64).Optional().Nillable(),
 
 		// Token 计数字段
 		field.Int("input_tokens").

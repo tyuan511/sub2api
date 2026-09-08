@@ -1,0 +1,25 @@
+{
+  "seq": 7,
+  "time": "2026-09-05T07:26:12.345723+00:00",
+  "endpoint": "admin/accounts/243/test",
+  "model": "gpt-5.6-sol",
+  "reserve_usd": 1.0,
+  "status": 200,
+  "note": "Existing admin test workflow; server fixes prompt to hi and does not expose output cap. Reader cancels at 128 text characters or 15 seconds.",
+  "latency_ms": 1060.6,
+  "events": [
+    {
+      "type": "test_start",
+      "model": "gpt-5.6-sol"
+    },
+    {
+      "type": "content",
+      "text": "Hi! What can I help you work on?"
+    },
+    {
+      "type": "test_complete",
+      "success": true
+    }
+  ],
+  "cancel_reason": null
+}

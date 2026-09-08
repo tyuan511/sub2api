@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buildImageRequest, canGenerateImages, generateImages, isImageGroup, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask } from '../imageStudio'
+import { buildImageRequest, canGenerateImages, generateImages, imageModelsForKey, isImageGroup, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask, type ImageGenerationGroup } from '../imageStudio'
 import type { ApiKey, Group } from '@/types'
 
 const api = vi.hoisted(() => ({ get: vi.fn() }))
@@ -78,6 +78,25 @@ describe('image studio gateway contract', () => {
     expect(canGenerateImages({ ...key, status: 'inactive' })).toBe(false)
     expect(canGenerateImages({ ...key, expires_at: '2000-01-01' })).toBe(false)
     expect(canGenerateImages({ ...key, quota: 2, quota_used: 2 })).toBe(false)
+  })
+  it('accepts a multi-group key when any bound group can generate images', () => {
+    const imageCatalog = [{ id: 2, image_models: ['gpt-image-2'] }]
+    const multi = {
+      ...key,
+      group_id: 1,
+      group: { ...group, id: 1, allow_image_generation: false },
+      group_routes: [
+        { group_id: 1, priority: 0, enabled: true, group: { ...group, id: 1, allow_image_generation: false } },
+        { group_id: 2, priority: 1, enabled: true, group: { ...group, id: 2 } },
+      ],
+    } as ApiKey
+    expect(canGenerateImages(multi)).toBe(true)
+    expect(canGenerateImages(multi, imageCatalog)).toBe(true)
+    expect(canGenerateImages({ ...multi, group_routes: [multi.group_routes![0]] }, imageCatalog)).toBe(false)
+    expect(imageModelsForKey(multi, [
+      { ...group, id: 1, image_models: ['gpt-5'] },
+      { ...group, id: 2, image_models: ['gpt-image-2', 'gpt-image-1.5'] },
+    ] as ImageGenerationGroup[])).toEqual(['gpt-image-2', 'gpt-image-1.5'])
   })
   it('loads authorized image groups before any Key is selected', async () => {
     const supported = { ...group, image_models: ['gpt-image-2'] }

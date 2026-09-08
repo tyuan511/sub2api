@@ -22,6 +22,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/routingartifactversion"
+	"github.com/Wei-Shaw/sub2api/ent/routingexperiment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
@@ -33,25 +35,27 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx                       *QueryContext
-	order                     []user.OrderOption
-	inters                    []Interceptor
-	predicates                []predicate.User
-	withAPIKeys               *APIKeyQuery
-	withRedeemCodes           *RedeemCodeQuery
-	withSubscriptions         *UserSubscriptionQuery
-	withAssignedSubscriptions *UserSubscriptionQuery
-	withAnnouncementReads     *AnnouncementReadQuery
-	withAllowedGroups         *GroupQuery
-	withUsageLogs             *UsageLogQuery
-	withAttributeValues       *UserAttributeValueQuery
-	withPromoCodeUsages       *PromoCodeUsageQuery
-	withPaymentOrders         *PaymentOrderQuery
-	withAuthIdentities        *AuthIdentityQuery
-	withPendingAuthSessions   *PendingAuthSessionQuery
-	withPlatformQuotas        *UserPlatformQuotaQuery
-	withUserAllowedGroups     *UserAllowedGroupQuery
-	modifiers                 []func(*sql.Selector)
+	ctx                         *QueryContext
+	order                       []user.OrderOption
+	inters                      []Interceptor
+	predicates                  []predicate.User
+	withRoutingArtifactVersions *RoutingArtifactVersionQuery
+	withRoutingExperiments      *RoutingExperimentQuery
+	withAPIKeys                 *APIKeyQuery
+	withRedeemCodes             *RedeemCodeQuery
+	withSubscriptions           *UserSubscriptionQuery
+	withAssignedSubscriptions   *UserSubscriptionQuery
+	withAnnouncementReads       *AnnouncementReadQuery
+	withAllowedGroups           *GroupQuery
+	withUsageLogs               *UsageLogQuery
+	withAttributeValues         *UserAttributeValueQuery
+	withPromoCodeUsages         *PromoCodeUsageQuery
+	withPaymentOrders           *PaymentOrderQuery
+	withAuthIdentities          *AuthIdentityQuery
+	withPendingAuthSessions     *PendingAuthSessionQuery
+	withPlatformQuotas          *UserPlatformQuotaQuery
+	withUserAllowedGroups       *UserAllowedGroupQuery
+	modifiers                   []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -86,6 +90,50 @@ func (_q *UserQuery) Unique(unique bool) *UserQuery {
 func (_q *UserQuery) Order(o ...user.OrderOption) *UserQuery {
 	_q.order = append(_q.order, o...)
 	return _q
+}
+
+// QueryRoutingArtifactVersions chains the current query on the "routing_artifact_versions" edge.
+func (_q *UserQuery) QueryRoutingArtifactVersions() *RoutingArtifactVersionQuery {
+	query := (&RoutingArtifactVersionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(routingartifactversion.Table, routingartifactversion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.RoutingArtifactVersionsTable, user.RoutingArtifactVersionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRoutingExperiments chains the current query on the "routing_experiments" edge.
+func (_q *UserQuery) QueryRoutingExperiments() *RoutingExperimentQuery {
+	query := (&RoutingExperimentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(routingexperiment.Table, routingexperiment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.RoutingExperimentsTable, user.RoutingExperimentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // QueryAPIKeys chains the current query on the "api_keys" edge.
@@ -583,29 +631,53 @@ func (_q *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:                    _q.config,
-		ctx:                       _q.ctx.Clone(),
-		order:                     append([]user.OrderOption{}, _q.order...),
-		inters:                    append([]Interceptor{}, _q.inters...),
-		predicates:                append([]predicate.User{}, _q.predicates...),
-		withAPIKeys:               _q.withAPIKeys.Clone(),
-		withRedeemCodes:           _q.withRedeemCodes.Clone(),
-		withSubscriptions:         _q.withSubscriptions.Clone(),
-		withAssignedSubscriptions: _q.withAssignedSubscriptions.Clone(),
-		withAnnouncementReads:     _q.withAnnouncementReads.Clone(),
-		withAllowedGroups:         _q.withAllowedGroups.Clone(),
-		withUsageLogs:             _q.withUsageLogs.Clone(),
-		withAttributeValues:       _q.withAttributeValues.Clone(),
-		withPromoCodeUsages:       _q.withPromoCodeUsages.Clone(),
-		withPaymentOrders:         _q.withPaymentOrders.Clone(),
-		withAuthIdentities:        _q.withAuthIdentities.Clone(),
-		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
-		withPlatformQuotas:        _q.withPlatformQuotas.Clone(),
-		withUserAllowedGroups:     _q.withUserAllowedGroups.Clone(),
+		config:                      _q.config,
+		ctx:                         _q.ctx.Clone(),
+		order:                       append([]user.OrderOption{}, _q.order...),
+		inters:                      append([]Interceptor{}, _q.inters...),
+		predicates:                  append([]predicate.User{}, _q.predicates...),
+		withRoutingArtifactVersions: _q.withRoutingArtifactVersions.Clone(),
+		withRoutingExperiments:      _q.withRoutingExperiments.Clone(),
+		withAPIKeys:                 _q.withAPIKeys.Clone(),
+		withRedeemCodes:             _q.withRedeemCodes.Clone(),
+		withSubscriptions:           _q.withSubscriptions.Clone(),
+		withAssignedSubscriptions:   _q.withAssignedSubscriptions.Clone(),
+		withAnnouncementReads:       _q.withAnnouncementReads.Clone(),
+		withAllowedGroups:           _q.withAllowedGroups.Clone(),
+		withUsageLogs:               _q.withUsageLogs.Clone(),
+		withAttributeValues:         _q.withAttributeValues.Clone(),
+		withPromoCodeUsages:         _q.withPromoCodeUsages.Clone(),
+		withPaymentOrders:           _q.withPaymentOrders.Clone(),
+		withAuthIdentities:          _q.withAuthIdentities.Clone(),
+		withPendingAuthSessions:     _q.withPendingAuthSessions.Clone(),
+		withPlatformQuotas:          _q.withPlatformQuotas.Clone(),
+		withUserAllowedGroups:       _q.withUserAllowedGroups.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithRoutingArtifactVersions tells the query-builder to eager-load the nodes that are connected to
+// the "routing_artifact_versions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithRoutingArtifactVersions(opts ...func(*RoutingArtifactVersionQuery)) *UserQuery {
+	query := (&RoutingArtifactVersionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRoutingArtifactVersions = query
+	return _q
+}
+
+// WithRoutingExperiments tells the query-builder to eager-load the nodes that are connected to
+// the "routing_experiments" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithRoutingExperiments(opts ...func(*RoutingExperimentQuery)) *UserQuery {
+	query := (&RoutingExperimentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRoutingExperiments = query
+	return _q
 }
 
 // WithAPIKeys tells the query-builder to eager-load the nodes that are connected to
@@ -840,7 +912,9 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [14]bool{
+		loadedTypes = [16]bool{
+			_q.withRoutingArtifactVersions != nil,
+			_q.withRoutingExperiments != nil,
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
@@ -877,6 +951,24 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	}
 	if len(nodes) == 0 {
 		return nodes, nil
+	}
+	if query := _q.withRoutingArtifactVersions; query != nil {
+		if err := _q.loadRoutingArtifactVersions(ctx, query, nodes,
+			func(n *User) { n.Edges.RoutingArtifactVersions = []*RoutingArtifactVersion{} },
+			func(n *User, e *RoutingArtifactVersion) {
+				n.Edges.RoutingArtifactVersions = append(n.Edges.RoutingArtifactVersions, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRoutingExperiments; query != nil {
+		if err := _q.loadRoutingExperiments(ctx, query, nodes,
+			func(n *User) { n.Edges.RoutingExperiments = []*RoutingExperiment{} },
+			func(n *User, e *RoutingExperiment) {
+				n.Edges.RoutingExperiments = append(n.Edges.RoutingExperiments, e)
+			}); err != nil {
+			return nil, err
+		}
 	}
 	if query := _q.withAPIKeys; query != nil {
 		if err := _q.loadAPIKeys(ctx, query, nodes,
@@ -983,6 +1075,72 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	return nodes, nil
 }
 
+func (_q *UserQuery) loadRoutingArtifactVersions(ctx context.Context, query *RoutingArtifactVersionQuery, nodes []*User, init func(*User), assign func(*User, *RoutingArtifactVersion)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(routingartifactversion.FieldCreatedBy)
+	}
+	query.Where(predicate.RoutingArtifactVersion(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.RoutingArtifactVersionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.CreatedBy
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "created_by" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "created_by" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadRoutingExperiments(ctx context.Context, query *RoutingExperimentQuery, nodes []*User, init func(*User), assign func(*User, *RoutingExperiment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(routingexperiment.FieldApprovedBy)
+	}
+	query.Where(predicate.RoutingExperiment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.RoutingExperimentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ApprovedBy
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "approved_by" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "approved_by" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 func (_q *UserQuery) loadAPIKeys(ctx context.Context, query *APIKeyQuery, nodes []*User, init func(*User), assign func(*User, *APIKey)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[int64]*User)

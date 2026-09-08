@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -1019,8 +1020,17 @@ func TestOpenAIGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	sink := &routingFactCaptureSink{}
+	SetDefaultRoutingFactSink(sink)
+	defer SetDefaultRoutingFactSink(nil)
+	groupID := int64(48)
+	ctx := WithAPIKeyRoutingUsageContext(context.Background(), APIKeyRoutingUsageContext{
+		DecisionID: "decision-billing-fail", APIKeyID: 10048, RouteVersion: 2,
+		InitialGroupID: groupID, EffectiveGroupID: groupID, Platform: PlatformOpenAI,
+		ScheduleMode: APIKeyScheduleModeSequential,
+	})
 
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+	err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
 			RequestID: "resp_billing_fail",
 			Usage: OpenAIUsage{
@@ -1030,7 +1040,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *
 			Model:    "gpt-5.1",
 			Duration: time.Second,
 		},
-		APIKey:  &APIKey{ID: 10048},
+		APIKey:  &APIKey{ID: 10048, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 1.1}},
 		User:    &User{ID: 20048},
 		Account: &Account{ID: 30048},
 	})
@@ -1045,6 +1055,10 @@ func TestOpenAIGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *
 	require.Greater(t, usageRepo.lastLog.OutputCost, 0.0)
 	require.Greater(t, usageRepo.lastLog.TotalCost, 0.0)
 	require.Zero(t, usageRepo.lastLog.ActualCost)
+	require.NotNil(t, sink.fact)
+	require.Equal(t, RoutingFactOutcomePartialBilling, *sink.fact.OutcomeCategory)
+	require.Equal(t, RoutingEventPriorityCritical, sink.fact.EventPriority)
+	require.Zero(t, *sink.fact.BilledCost)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_UpdatesAPIKeyQuotaWhenConfigured(t *testing.T) {
@@ -1180,6 +1194,42 @@ func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillingDisabledWhenGrou
 	require.InDelta(t, (expectedInput+expectedOutput)*1.1, usageRepo.lastLog.ActualCost, 1e-10)
 	require.False(t, usageRepo.lastLog.LongContextBillingApplied)
 	require.Equal(t, 1, userRepo.deductCalls)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_GroupFailoverDoesNotCompensate(t *testing.T) {
+	// Product decision: cross-group failover never rewrites user billing as
+	// cache compensation. Intra-group ForceCacheBilling is a separate path.
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	groupID := int64(41)
+	ctx := WithAPIKeyRoutingUsageContext(context.Background(), APIKeyRoutingUsageContext{
+		DecisionID: "decision-compensation", APIKeyID: 141, RouteVersion: 2,
+		InitialGroupID: 40, EffectiveGroupID: groupID, Platform: PlatformOpenAI,
+		ScheduleMode: APIKeyScheduleModeSequential, StickyBroken: true, SwitchCount: 1,
+	})
+
+	err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_group_compensation", Model: "gpt-5.1",
+			Usage: OpenAIUsage{InputTokens: 1000, OutputTokens: 20}, Duration: time.Second,
+		},
+		APIKey: &APIKey{ID: 141, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI, RateMultiplier: 1}},
+		User:   &User{ID: 241}, Account: &Account{ID: 341, Platform: PlatformOpenAI},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, 1000, usageRepo.lastLog.InputTokens)
+	require.Zero(t, usageRepo.lastLog.CacheReadTokens)
+	require.Zero(t, usageRepo.lastLog.CacheCompensationTokens)
+
+	var actual, billable RoutingTokenUsage
+	require.NoError(t, json.Unmarshal(usageRepo.lastLog.ActualUsage, &actual))
+	require.NoError(t, json.Unmarshal(usageRepo.lastLog.BillableUsage, &billable))
+	require.Equal(t, 1000, actual.InputTokens)
+	require.Zero(t, actual.CacheReadTokens)
+	require.Equal(t, actual.InputTokens, billable.InputTokens)
+	require.Equal(t, actual.CacheReadTokens, billable.CacheReadTokens)
+
 }
 
 // swapInOpenAILadderCatalog 给测试服务换上带 above_272k 阶梯字段的目录：

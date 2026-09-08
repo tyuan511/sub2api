@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -13,10 +14,13 @@ import (
 )
 
 const (
-	apiKeyRateLimitKeyPrefix   = "apikey:ratelimit:"
-	apiKeyRateLimitDuration    = 24 * time.Hour
-	apiKeyAuthCachePrefix      = "apikey:auth:"
-	authCacheInvalidateChannel = "auth:cache:invalidate"
+	apiKeyRateLimitKeyPrefix      = "apikey:ratelimit:"
+	apiKeyRateLimitDuration       = 24 * time.Hour
+	apiKeyAuthCachePrefix         = "apikey:auth:"
+	apiKeyRouteVersionPrefix      = "apikey:route_version:"
+	apiKeyDependencyVersionPrefix = "apikey:route_dependency_version:"
+	authCacheInvalidateChannel    = "auth:cache:invalidate"
+	routeConfigInvalidateChannel  = "route:config:invalidate"
 )
 
 // apiKeyRateLimitKey generates the Redis key for API key creation rate limiting.
@@ -26,6 +30,14 @@ func apiKeyRateLimitKey(userID int64) string {
 
 func apiKeyAuthCacheKey(key string) string {
 	return fmt.Sprintf("%s%s", apiKeyAuthCachePrefix, key)
+}
+
+func apiKeyRouteVersionKey(apiKeyID int64) string {
+	return fmt.Sprintf("%s{%d}", apiKeyRouteVersionPrefix, apiKeyID)
+}
+
+func apiKeyDependencyVersionKey(apiKeyID int64) string {
+	return fmt.Sprintf("%s{%d}", apiKeyDependencyVersionPrefix, apiKeyID)
 }
 
 type apiKeyCache struct {
@@ -94,9 +106,59 @@ func (c *apiKeyCache) DeleteAuthCache(ctx context.Context, key string) error {
 	return c.rdb.Del(ctx, apiKeyAuthCacheKey(key)).Err()
 }
 
+var setAPIKeyRoutingGuardsScript = redis.NewScript(`
+local current_route = tonumber(redis.call('GET', KEYS[1]) or '0')
+local requested_route = tonumber(ARGV[1])
+local current_dependency = tonumber(redis.call('GET', KEYS[2]) or '0')
+local requested_dependency = tonumber(ARGV[2])
+if requested_route > current_route then
+  redis.call('SET', KEYS[1], requested_route, 'PX', ARGV[3])
+else
+  redis.call('PEXPIRE', KEYS[1], ARGV[3])
+end
+if requested_dependency > current_dependency then
+  redis.call('SET', KEYS[2], requested_dependency, 'PX', ARGV[3])
+else
+  redis.call('PEXPIRE', KEYS[2], ARGV[3])
+end
+return {math.max(current_route, requested_route), math.max(current_dependency, requested_dependency)}
+`)
+
+func (c *apiKeyCache) GetAPIKeyRoutingGuards(ctx context.Context, apiKeyID int64) (service.APIKeyRoutingGuards, error) {
+	values, err := c.rdb.MGet(ctx, apiKeyRouteVersionKey(apiKeyID), apiKeyDependencyVersionKey(apiKeyID)).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return service.APIKeyRoutingGuards{}, err
+	}
+	guards := service.APIKeyRoutingGuards{}
+	if len(values) > 0 && values[0] != nil {
+		guards.RouteVersion, _ = strconv.ParseInt(fmt.Sprint(values[0]), 10, 64)
+	}
+	if len(values) > 1 && values[1] != nil {
+		guards.DependencyVersion, _ = strconv.ParseInt(fmt.Sprint(values[1]), 10, 64)
+	}
+	return guards, nil
+}
+
+func (c *apiKeyCache) SetAPIKeyRoutingGuards(ctx context.Context, apiKeyID, routeVersion, dependencyVersion int64, ttl time.Duration) error {
+	if apiKeyID <= 0 || routeVersion <= 0 || dependencyVersion <= 0 || ttl <= 0 {
+		return errors.New("invalid API key routing guards")
+	}
+	return setAPIKeyRoutingGuardsScript.Run(ctx, c.rdb,
+		[]string{apiKeyRouteVersionKey(apiKeyID), apiKeyDependencyVersionKey(apiKeyID)},
+		routeVersion, dependencyVersion, ttl.Milliseconds()).Err()
+}
+
 // PublishAuthCacheInvalidation publishes a cache invalidation message to all instances
 func (c *apiKeyCache) PublishAuthCacheInvalidation(ctx context.Context, cacheKey string) error {
 	return c.rdb.Publish(ctx, authCacheInvalidateChannel, cacheKey).Err()
+}
+
+func (c *apiKeyCache) PublishAPIKeyRouteConfigInvalidation(ctx context.Context, message service.APIKeyRouteConfigInvalidationMessage) error {
+	payload, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	return c.rdb.Publish(ctx, routeConfigInvalidateChannel, payload).Err()
 }
 
 // SubscribeAuthCacheInvalidation subscribes to cache invalidation messages

@@ -4,11 +4,13 @@ package ent
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
@@ -359,6 +361,232 @@ func (_u *UsageLogUpdate) SetNillableSubscriptionID(v *int64) *UsageLogUpdate {
 // ClearSubscriptionID clears the value of the "subscription_id" field.
 func (_u *UsageLogUpdate) ClearSubscriptionID() *UsageLogUpdate {
 	_u.mutation.ClearSubscriptionID()
+	return _u
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (_u *UsageLogUpdate) SetInitialGroupID(v int64) *UsageLogUpdate {
+	_u.mutation.ResetInitialGroupID()
+	_u.mutation.SetInitialGroupID(v)
+	return _u
+}
+
+// SetNillableInitialGroupID sets the "initial_group_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableInitialGroupID(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetInitialGroupID(*v)
+	}
+	return _u
+}
+
+// AddInitialGroupID adds value to the "initial_group_id" field.
+func (_u *UsageLogUpdate) AddInitialGroupID(v int64) *UsageLogUpdate {
+	_u.mutation.AddInitialGroupID(v)
+	return _u
+}
+
+// ClearInitialGroupID clears the value of the "initial_group_id" field.
+func (_u *UsageLogUpdate) ClearInitialGroupID() *UsageLogUpdate {
+	_u.mutation.ClearInitialGroupID()
+	return _u
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (_u *UsageLogUpdate) SetRouteVersion(v int64) *UsageLogUpdate {
+	_u.mutation.ResetRouteVersion()
+	_u.mutation.SetRouteVersion(v)
+	return _u
+}
+
+// SetNillableRouteVersion sets the "route_version" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableRouteVersion(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetRouteVersion(*v)
+	}
+	return _u
+}
+
+// AddRouteVersion adds value to the "route_version" field.
+func (_u *UsageLogUpdate) AddRouteVersion(v int64) *UsageLogUpdate {
+	_u.mutation.AddRouteVersion(v)
+	return _u
+}
+
+// ClearRouteVersion clears the value of the "route_version" field.
+func (_u *UsageLogUpdate) ClearRouteVersion() *UsageLogUpdate {
+	_u.mutation.ClearRouteVersion()
+	return _u
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (_u *UsageLogUpdate) SetScheduleMode(v string) *UsageLogUpdate {
+	_u.mutation.SetScheduleMode(v)
+	return _u
+}
+
+// SetNillableScheduleMode sets the "schedule_mode" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableScheduleMode(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetScheduleMode(*v)
+	}
+	return _u
+}
+
+// ClearScheduleMode clears the value of the "schedule_mode" field.
+func (_u *UsageLogUpdate) ClearScheduleMode() *UsageLogUpdate {
+	_u.mutation.ClearScheduleMode()
+	return _u
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (_u *UsageLogUpdate) SetSmartPreference(v string) *UsageLogUpdate {
+	_u.mutation.SetSmartPreference(v)
+	return _u
+}
+
+// SetNillableSmartPreference sets the "smart_preference" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableSmartPreference(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetSmartPreference(*v)
+	}
+	return _u
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (_u *UsageLogUpdate) ClearSmartPreference() *UsageLogUpdate {
+	_u.mutation.ClearSmartPreference()
+	return _u
+}
+
+// SetGroupSwitchCount sets the "group_switch_count" field.
+func (_u *UsageLogUpdate) SetGroupSwitchCount(v int) *UsageLogUpdate {
+	_u.mutation.ResetGroupSwitchCount()
+	_u.mutation.SetGroupSwitchCount(v)
+	return _u
+}
+
+// SetNillableGroupSwitchCount sets the "group_switch_count" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableGroupSwitchCount(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetGroupSwitchCount(*v)
+	}
+	return _u
+}
+
+// AddGroupSwitchCount adds value to the "group_switch_count" field.
+func (_u *UsageLogUpdate) AddGroupSwitchCount(v int) *UsageLogUpdate {
+	_u.mutation.AddGroupSwitchCount(v)
+	return _u
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (_u *UsageLogUpdate) SetRoutingDecisionID(v string) *UsageLogUpdate {
+	_u.mutation.SetRoutingDecisionID(v)
+	return _u
+}
+
+// SetNillableRoutingDecisionID sets the "routing_decision_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableRoutingDecisionID(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetRoutingDecisionID(*v)
+	}
+	return _u
+}
+
+// ClearRoutingDecisionID clears the value of the "routing_decision_id" field.
+func (_u *UsageLogUpdate) ClearRoutingDecisionID() *UsageLogUpdate {
+	_u.mutation.ClearRoutingDecisionID()
+	return _u
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (_u *UsageLogUpdate) SetCacheColdDueToFailover(v bool) *UsageLogUpdate {
+	_u.mutation.SetCacheColdDueToFailover(v)
+	return _u
+}
+
+// SetNillableCacheColdDueToFailover sets the "cache_cold_due_to_failover" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableCacheColdDueToFailover(v *bool) *UsageLogUpdate {
+	if v != nil {
+		_u.SetCacheColdDueToFailover(*v)
+	}
+	return _u
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (_u *UsageLogUpdate) SetActualUsage(v jsontext.Value) *UsageLogUpdate {
+	_u.mutation.SetActualUsage(v)
+	return _u
+}
+
+// AppendActualUsage appends value to the "actual_usage" field.
+func (_u *UsageLogUpdate) AppendActualUsage(v jsontext.Value) *UsageLogUpdate {
+	_u.mutation.AppendActualUsage(v)
+	return _u
+}
+
+// ClearActualUsage clears the value of the "actual_usage" field.
+func (_u *UsageLogUpdate) ClearActualUsage() *UsageLogUpdate {
+	_u.mutation.ClearActualUsage()
+	return _u
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (_u *UsageLogUpdate) SetBillableUsage(v jsontext.Value) *UsageLogUpdate {
+	_u.mutation.SetBillableUsage(v)
+	return _u
+}
+
+// AppendBillableUsage appends value to the "billable_usage" field.
+func (_u *UsageLogUpdate) AppendBillableUsage(v jsontext.Value) *UsageLogUpdate {
+	_u.mutation.AppendBillableUsage(v)
+	return _u
+}
+
+// ClearBillableUsage clears the value of the "billable_usage" field.
+func (_u *UsageLogUpdate) ClearBillableUsage() *UsageLogUpdate {
+	_u.mutation.ClearBillableUsage()
+	return _u
+}
+
+// SetCacheCompensationTokens sets the "cache_compensation_tokens" field.
+func (_u *UsageLogUpdate) SetCacheCompensationTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetCacheCompensationTokens()
+	_u.mutation.SetCacheCompensationTokens(v)
+	return _u
+}
+
+// SetNillableCacheCompensationTokens sets the "cache_compensation_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableCacheCompensationTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetCacheCompensationTokens(*v)
+	}
+	return _u
+}
+
+// AddCacheCompensationTokens adds value to the "cache_compensation_tokens" field.
+func (_u *UsageLogUpdate) AddCacheCompensationTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddCacheCompensationTokens(v)
+	return _u
+}
+
+// SetCacheCompensationReason sets the "cache_compensation_reason" field.
+func (_u *UsageLogUpdate) SetCacheCompensationReason(v string) *UsageLogUpdate {
+	_u.mutation.SetCacheCompensationReason(v)
+	return _u
+}
+
+// SetNillableCacheCompensationReason sets the "cache_compensation_reason" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableCacheCompensationReason(v *string) *UsageLogUpdate {
+	if v != nil {
+		_u.SetCacheCompensationReason(*v)
+	}
+	return _u
+}
+
+// ClearCacheCompensationReason clears the value of the "cache_compensation_reason" field.
+func (_u *UsageLogUpdate) ClearCacheCompensationReason() *UsageLogUpdate {
+	_u.mutation.ClearCacheCompensationReason()
 	return _u
 }
 
@@ -1129,6 +1357,36 @@ func (_u *UsageLogUpdate) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ScheduleMode(); ok {
+		if err := usagelog.ScheduleModeValidator(v); err != nil {
+			return &ValidationError{Name: "schedule_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.schedule_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SmartPreference(); ok {
+		if err := usagelog.SmartPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "smart_preference", err: fmt.Errorf(`ent: validator failed for field "UsageLog.smart_preference": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.GroupSwitchCount(); ok {
+		if err := usagelog.GroupSwitchCountValidator(v); err != nil {
+			return &ValidationError{Name: "group_switch_count", err: fmt.Errorf(`ent: validator failed for field "UsageLog.group_switch_count": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingDecisionID(); ok {
+		if err := usagelog.RoutingDecisionIDValidator(v); err != nil {
+			return &ValidationError{Name: "routing_decision_id", err: fmt.Errorf(`ent: validator failed for field "UsageLog.routing_decision_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CacheCompensationTokens(); ok {
+		if err := usagelog.CacheCompensationTokensValidator(v); err != nil {
+			return &ValidationError{Name: "cache_compensation_tokens", err: fmt.Errorf(`ent: validator failed for field "UsageLog.cache_compensation_tokens": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CacheCompensationReason(); ok {
+		if err := usagelog.CacheCompensationReasonValidator(v); err != nil {
+			return &ValidationError{Name: "cache_compensation_reason", err: fmt.Errorf(`ent: validator failed for field "UsageLog.cache_compensation_reason": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -1250,6 +1508,85 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.InitialGroupID(); ok {
+		_spec.SetField(usagelog.FieldInitialGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedInitialGroupID(); ok {
+		_spec.AddField(usagelog.FieldInitialGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.InitialGroupIDCleared() {
+		_spec.ClearField(usagelog.FieldInitialGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.RouteVersion(); ok {
+		_spec.SetField(usagelog.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRouteVersion(); ok {
+		_spec.AddField(usagelog.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if _u.mutation.RouteVersionCleared() {
+		_spec.ClearField(usagelog.FieldRouteVersion, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ScheduleMode(); ok {
+		_spec.SetField(usagelog.FieldScheduleMode, field.TypeString, value)
+	}
+	if _u.mutation.ScheduleModeCleared() {
+		_spec.ClearField(usagelog.FieldScheduleMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.SmartPreference(); ok {
+		_spec.SetField(usagelog.FieldSmartPreference, field.TypeString, value)
+	}
+	if _u.mutation.SmartPreferenceCleared() {
+		_spec.ClearField(usagelog.FieldSmartPreference, field.TypeString)
+	}
+	if value, ok := _u.mutation.GroupSwitchCount(); ok {
+		_spec.SetField(usagelog.FieldGroupSwitchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedGroupSwitchCount(); ok {
+		_spec.AddField(usagelog.FieldGroupSwitchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RoutingDecisionID(); ok {
+		_spec.SetField(usagelog.FieldRoutingDecisionID, field.TypeString, value)
+	}
+	if _u.mutation.RoutingDecisionIDCleared() {
+		_spec.ClearField(usagelog.FieldRoutingDecisionID, field.TypeString)
+	}
+	if value, ok := _u.mutation.CacheColdDueToFailover(); ok {
+		_spec.SetField(usagelog.FieldCacheColdDueToFailover, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ActualUsage(); ok {
+		_spec.SetField(usagelog.FieldActualUsage, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedActualUsage(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, usagelog.FieldActualUsage, value)
+		})
+	}
+	if _u.mutation.ActualUsageCleared() {
+		_spec.ClearField(usagelog.FieldActualUsage, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.BillableUsage(); ok {
+		_spec.SetField(usagelog.FieldBillableUsage, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedBillableUsage(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, usagelog.FieldBillableUsage, value)
+		})
+	}
+	if _u.mutation.BillableUsageCleared() {
+		_spec.ClearField(usagelog.FieldBillableUsage, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.CacheCompensationTokens(); ok {
+		_spec.SetField(usagelog.FieldCacheCompensationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedCacheCompensationTokens(); ok {
+		_spec.AddField(usagelog.FieldCacheCompensationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CacheCompensationReason(); ok {
+		_spec.SetField(usagelog.FieldCacheCompensationReason, field.TypeString, value)
+	}
+	if _u.mutation.CacheCompensationReasonCleared() {
+		_spec.ClearField(usagelog.FieldCacheCompensationReason, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)
@@ -1932,6 +2269,232 @@ func (_u *UsageLogUpdateOne) SetNillableSubscriptionID(v *int64) *UsageLogUpdate
 // ClearSubscriptionID clears the value of the "subscription_id" field.
 func (_u *UsageLogUpdateOne) ClearSubscriptionID() *UsageLogUpdateOne {
 	_u.mutation.ClearSubscriptionID()
+	return _u
+}
+
+// SetInitialGroupID sets the "initial_group_id" field.
+func (_u *UsageLogUpdateOne) SetInitialGroupID(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetInitialGroupID()
+	_u.mutation.SetInitialGroupID(v)
+	return _u
+}
+
+// SetNillableInitialGroupID sets the "initial_group_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableInitialGroupID(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetInitialGroupID(*v)
+	}
+	return _u
+}
+
+// AddInitialGroupID adds value to the "initial_group_id" field.
+func (_u *UsageLogUpdateOne) AddInitialGroupID(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddInitialGroupID(v)
+	return _u
+}
+
+// ClearInitialGroupID clears the value of the "initial_group_id" field.
+func (_u *UsageLogUpdateOne) ClearInitialGroupID() *UsageLogUpdateOne {
+	_u.mutation.ClearInitialGroupID()
+	return _u
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (_u *UsageLogUpdateOne) SetRouteVersion(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetRouteVersion()
+	_u.mutation.SetRouteVersion(v)
+	return _u
+}
+
+// SetNillableRouteVersion sets the "route_version" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableRouteVersion(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetRouteVersion(*v)
+	}
+	return _u
+}
+
+// AddRouteVersion adds value to the "route_version" field.
+func (_u *UsageLogUpdateOne) AddRouteVersion(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddRouteVersion(v)
+	return _u
+}
+
+// ClearRouteVersion clears the value of the "route_version" field.
+func (_u *UsageLogUpdateOne) ClearRouteVersion() *UsageLogUpdateOne {
+	_u.mutation.ClearRouteVersion()
+	return _u
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (_u *UsageLogUpdateOne) SetScheduleMode(v string) *UsageLogUpdateOne {
+	_u.mutation.SetScheduleMode(v)
+	return _u
+}
+
+// SetNillableScheduleMode sets the "schedule_mode" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableScheduleMode(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetScheduleMode(*v)
+	}
+	return _u
+}
+
+// ClearScheduleMode clears the value of the "schedule_mode" field.
+func (_u *UsageLogUpdateOne) ClearScheduleMode() *UsageLogUpdateOne {
+	_u.mutation.ClearScheduleMode()
+	return _u
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (_u *UsageLogUpdateOne) SetSmartPreference(v string) *UsageLogUpdateOne {
+	_u.mutation.SetSmartPreference(v)
+	return _u
+}
+
+// SetNillableSmartPreference sets the "smart_preference" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableSmartPreference(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetSmartPreference(*v)
+	}
+	return _u
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (_u *UsageLogUpdateOne) ClearSmartPreference() *UsageLogUpdateOne {
+	_u.mutation.ClearSmartPreference()
+	return _u
+}
+
+// SetGroupSwitchCount sets the "group_switch_count" field.
+func (_u *UsageLogUpdateOne) SetGroupSwitchCount(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetGroupSwitchCount()
+	_u.mutation.SetGroupSwitchCount(v)
+	return _u
+}
+
+// SetNillableGroupSwitchCount sets the "group_switch_count" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableGroupSwitchCount(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetGroupSwitchCount(*v)
+	}
+	return _u
+}
+
+// AddGroupSwitchCount adds value to the "group_switch_count" field.
+func (_u *UsageLogUpdateOne) AddGroupSwitchCount(v int) *UsageLogUpdateOne {
+	_u.mutation.AddGroupSwitchCount(v)
+	return _u
+}
+
+// SetRoutingDecisionID sets the "routing_decision_id" field.
+func (_u *UsageLogUpdateOne) SetRoutingDecisionID(v string) *UsageLogUpdateOne {
+	_u.mutation.SetRoutingDecisionID(v)
+	return _u
+}
+
+// SetNillableRoutingDecisionID sets the "routing_decision_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableRoutingDecisionID(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetRoutingDecisionID(*v)
+	}
+	return _u
+}
+
+// ClearRoutingDecisionID clears the value of the "routing_decision_id" field.
+func (_u *UsageLogUpdateOne) ClearRoutingDecisionID() *UsageLogUpdateOne {
+	_u.mutation.ClearRoutingDecisionID()
+	return _u
+}
+
+// SetCacheColdDueToFailover sets the "cache_cold_due_to_failover" field.
+func (_u *UsageLogUpdateOne) SetCacheColdDueToFailover(v bool) *UsageLogUpdateOne {
+	_u.mutation.SetCacheColdDueToFailover(v)
+	return _u
+}
+
+// SetNillableCacheColdDueToFailover sets the "cache_cold_due_to_failover" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableCacheColdDueToFailover(v *bool) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetCacheColdDueToFailover(*v)
+	}
+	return _u
+}
+
+// SetActualUsage sets the "actual_usage" field.
+func (_u *UsageLogUpdateOne) SetActualUsage(v jsontext.Value) *UsageLogUpdateOne {
+	_u.mutation.SetActualUsage(v)
+	return _u
+}
+
+// AppendActualUsage appends value to the "actual_usage" field.
+func (_u *UsageLogUpdateOne) AppendActualUsage(v jsontext.Value) *UsageLogUpdateOne {
+	_u.mutation.AppendActualUsage(v)
+	return _u
+}
+
+// ClearActualUsage clears the value of the "actual_usage" field.
+func (_u *UsageLogUpdateOne) ClearActualUsage() *UsageLogUpdateOne {
+	_u.mutation.ClearActualUsage()
+	return _u
+}
+
+// SetBillableUsage sets the "billable_usage" field.
+func (_u *UsageLogUpdateOne) SetBillableUsage(v jsontext.Value) *UsageLogUpdateOne {
+	_u.mutation.SetBillableUsage(v)
+	return _u
+}
+
+// AppendBillableUsage appends value to the "billable_usage" field.
+func (_u *UsageLogUpdateOne) AppendBillableUsage(v jsontext.Value) *UsageLogUpdateOne {
+	_u.mutation.AppendBillableUsage(v)
+	return _u
+}
+
+// ClearBillableUsage clears the value of the "billable_usage" field.
+func (_u *UsageLogUpdateOne) ClearBillableUsage() *UsageLogUpdateOne {
+	_u.mutation.ClearBillableUsage()
+	return _u
+}
+
+// SetCacheCompensationTokens sets the "cache_compensation_tokens" field.
+func (_u *UsageLogUpdateOne) SetCacheCompensationTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetCacheCompensationTokens()
+	_u.mutation.SetCacheCompensationTokens(v)
+	return _u
+}
+
+// SetNillableCacheCompensationTokens sets the "cache_compensation_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableCacheCompensationTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetCacheCompensationTokens(*v)
+	}
+	return _u
+}
+
+// AddCacheCompensationTokens adds value to the "cache_compensation_tokens" field.
+func (_u *UsageLogUpdateOne) AddCacheCompensationTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddCacheCompensationTokens(v)
+	return _u
+}
+
+// SetCacheCompensationReason sets the "cache_compensation_reason" field.
+func (_u *UsageLogUpdateOne) SetCacheCompensationReason(v string) *UsageLogUpdateOne {
+	_u.mutation.SetCacheCompensationReason(v)
+	return _u
+}
+
+// SetNillableCacheCompensationReason sets the "cache_compensation_reason" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableCacheCompensationReason(v *string) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetCacheCompensationReason(*v)
+	}
+	return _u
+}
+
+// ClearCacheCompensationReason clears the value of the "cache_compensation_reason" field.
+func (_u *UsageLogUpdateOne) ClearCacheCompensationReason() *UsageLogUpdateOne {
+	_u.mutation.ClearCacheCompensationReason()
 	return _u
 }
 
@@ -2715,6 +3278,36 @@ func (_u *UsageLogUpdateOne) check() error {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ScheduleMode(); ok {
+		if err := usagelog.ScheduleModeValidator(v); err != nil {
+			return &ValidationError{Name: "schedule_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.schedule_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SmartPreference(); ok {
+		if err := usagelog.SmartPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "smart_preference", err: fmt.Errorf(`ent: validator failed for field "UsageLog.smart_preference": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.GroupSwitchCount(); ok {
+		if err := usagelog.GroupSwitchCountValidator(v); err != nil {
+			return &ValidationError{Name: "group_switch_count", err: fmt.Errorf(`ent: validator failed for field "UsageLog.group_switch_count": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingDecisionID(); ok {
+		if err := usagelog.RoutingDecisionIDValidator(v); err != nil {
+			return &ValidationError{Name: "routing_decision_id", err: fmt.Errorf(`ent: validator failed for field "UsageLog.routing_decision_id": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CacheCompensationTokens(); ok {
+		if err := usagelog.CacheCompensationTokensValidator(v); err != nil {
+			return &ValidationError{Name: "cache_compensation_tokens", err: fmt.Errorf(`ent: validator failed for field "UsageLog.cache_compensation_tokens": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CacheCompensationReason(); ok {
+		if err := usagelog.CacheCompensationReasonValidator(v); err != nil {
+			return &ValidationError{Name: "cache_compensation_reason", err: fmt.Errorf(`ent: validator failed for field "UsageLog.cache_compensation_reason": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.UserAgent(); ok {
 		if err := usagelog.UserAgentValidator(v); err != nil {
 			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
@@ -2853,6 +3446,85 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if _u.mutation.BillingModeCleared() {
 		_spec.ClearField(usagelog.FieldBillingMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.InitialGroupID(); ok {
+		_spec.SetField(usagelog.FieldInitialGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedInitialGroupID(); ok {
+		_spec.AddField(usagelog.FieldInitialGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.InitialGroupIDCleared() {
+		_spec.ClearField(usagelog.FieldInitialGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.RouteVersion(); ok {
+		_spec.SetField(usagelog.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRouteVersion(); ok {
+		_spec.AddField(usagelog.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if _u.mutation.RouteVersionCleared() {
+		_spec.ClearField(usagelog.FieldRouteVersion, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ScheduleMode(); ok {
+		_spec.SetField(usagelog.FieldScheduleMode, field.TypeString, value)
+	}
+	if _u.mutation.ScheduleModeCleared() {
+		_spec.ClearField(usagelog.FieldScheduleMode, field.TypeString)
+	}
+	if value, ok := _u.mutation.SmartPreference(); ok {
+		_spec.SetField(usagelog.FieldSmartPreference, field.TypeString, value)
+	}
+	if _u.mutation.SmartPreferenceCleared() {
+		_spec.ClearField(usagelog.FieldSmartPreference, field.TypeString)
+	}
+	if value, ok := _u.mutation.GroupSwitchCount(); ok {
+		_spec.SetField(usagelog.FieldGroupSwitchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedGroupSwitchCount(); ok {
+		_spec.AddField(usagelog.FieldGroupSwitchCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RoutingDecisionID(); ok {
+		_spec.SetField(usagelog.FieldRoutingDecisionID, field.TypeString, value)
+	}
+	if _u.mutation.RoutingDecisionIDCleared() {
+		_spec.ClearField(usagelog.FieldRoutingDecisionID, field.TypeString)
+	}
+	if value, ok := _u.mutation.CacheColdDueToFailover(); ok {
+		_spec.SetField(usagelog.FieldCacheColdDueToFailover, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ActualUsage(); ok {
+		_spec.SetField(usagelog.FieldActualUsage, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedActualUsage(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, usagelog.FieldActualUsage, value)
+		})
+	}
+	if _u.mutation.ActualUsageCleared() {
+		_spec.ClearField(usagelog.FieldActualUsage, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.BillableUsage(); ok {
+		_spec.SetField(usagelog.FieldBillableUsage, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedBillableUsage(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, usagelog.FieldBillableUsage, value)
+		})
+	}
+	if _u.mutation.BillableUsageCleared() {
+		_spec.ClearField(usagelog.FieldBillableUsage, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.CacheCompensationTokens(); ok {
+		_spec.SetField(usagelog.FieldCacheCompensationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedCacheCompensationTokens(); ok {
+		_spec.AddField(usagelog.FieldCacheCompensationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CacheCompensationReason(); ok {
+		_spec.SetField(usagelog.FieldCacheCompensationReason, field.TypeString, value)
+	}
+	if _u.mutation.CacheCompensationReasonCleared() {
+		_spec.ClearField(usagelog.FieldCacheCompensationReason, field.TypeString)
 	}
 	if value, ok := _u.mutation.InputTokens(); ok {
 		_spec.SetField(usagelog.FieldInputTokens, field.TypeInt, value)

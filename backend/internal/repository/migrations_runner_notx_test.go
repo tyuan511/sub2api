@@ -11,6 +11,12 @@ import (
 )
 
 func TestValidateMigrationExecutionMode(t *testing.T) {
+	t.Run("事务迁移注释中的CONCURRENTLY不触发误判", func(t *testing.T) {
+		nonTx, err := validateMigrationExecutionMode("241_api_key_routing_optimization_foundation.sql", "-- CREATE INDEX CONCURRENTLY is created by a later migration\nALTER TABLE api_keys ADD COLUMN route_version BIGINT;")
+		require.False(t, nonTx)
+		require.NoError(t, err)
+	})
+
 	t.Run("事务迁移包含CONCURRENTLY会被拒绝", func(t *testing.T) {
 		nonTx, err := validateMigrationExecutionMode("001_add_idx.sql", "CREATE INDEX CONCURRENTLY idx_a ON t(a);")
 		require.False(t, nonTx)
@@ -224,6 +230,112 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_effective_requested_model
     ON usage_logs ((COALESCE(NULLIF(BTRIM(requested_model), ''), model)), created_at DESC, id DESC);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_effective_upstream_model_created
     ON usage_logs ((COALESCE(NULLIF(BTRIM(upstream_model), ''), model)), created_at DESC, id DESC);
+`)},
+	}
+
+	err = applyMigrationsFS(context.Background(), db, fsys)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyMigrationsFS_NonTransactionalMigration_RoutingDecisionIndexDropsInvalidIndexBeforeRetry(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	prepareMigrationsBootstrapExpectations(mock)
+	mock.ExpectQuery("SELECT checksum FROM schema_migrations WHERE filename = \\$1").
+		WithArgs(usageLogsRoutingDecisionIndexMigration).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT EXISTS \\(").
+		WithArgs(usageLogsRoutingDecisionIndex).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectExec("DROP INDEX CONCURRENTLY IF EXISTS idx_usage_logs_routing_decision").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_routing_decision").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("INSERT INTO schema_migrations \\(filename, checksum\\) VALUES \\(\\$1, \\$2\\)").
+		WithArgs(usageLogsRoutingDecisionIndexMigration, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("SELECT pg_advisory_unlock\\(\\$1\\)").
+		WithArgs(migrationsAdvisoryLockID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	fsys := fstest.MapFS{
+		usageLogsRoutingDecisionIndexMigration: &fstest.MapFile{Data: []byte(`
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_usage_logs_routing_decision
+    ON usage_logs (routing_decision_id) WHERE routing_decision_id IS NOT NULL;
+`)},
+	}
+
+	err = applyMigrationsFS(context.Background(), db, fsys)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyMigrationsFS_NonTransactionalMigration_RoutingActivationIndexDropsInvalidIndexBeforeRetry(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	prepareMigrationsBootstrapExpectations(mock)
+	mock.ExpectQuery("SELECT checksum FROM schema_migrations WHERE filename = \\$1").
+		WithArgs(apiKeyRoutingActivationIndexMigration).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT EXISTS \\(").
+		WithArgs(apiKeyRoutingActivationIndex).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectExec("DROP INDEX CONCURRENTLY IF EXISTS idx_api_key_group_routes_enabled_api_key").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_api_key_group_routes_enabled_api_key").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("INSERT INTO schema_migrations \\(filename, checksum\\) VALUES \\(\\$1, \\$2\\)").
+		WithArgs(apiKeyRoutingActivationIndexMigration, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("SELECT pg_advisory_unlock\\(\\$1\\)").
+		WithArgs(migrationsAdvisoryLockID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	fsys := fstest.MapFS{
+		apiKeyRoutingActivationIndexMigration: &fstest.MapFile{Data: []byte(`
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_api_key_group_routes_enabled_api_key
+    ON api_key_group_routes (api_key_id)
+    WHERE enabled;
+`)},
+	}
+
+	err = applyMigrationsFS(context.Background(), db, fsys)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyMigrationsFS_NonTransactionalMigration_RoutingAttemptsIndexDropsInvalidIndexBeforeRetry(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	prepareMigrationsBootstrapExpectations(mock)
+	mock.ExpectQuery("SELECT checksum FROM schema_migrations WHERE filename = \\$1").
+		WithArgs(routingAttemptsOccurredAtIndexMigration).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT EXISTS \\(").
+		WithArgs(routingAttemptsOccurredAtIndex).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectExec("DROP INDEX CONCURRENTLY IF EXISTS idx_routing_attempts_occurred_at_id").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_routing_attempts_occurred_at_id").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("INSERT INTO schema_migrations \\(filename, checksum\\) VALUES \\(\\$1, \\$2\\)").
+		WithArgs(routingAttemptsOccurredAtIndexMigration, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("SELECT pg_advisory_unlock\\(\\$1\\)").
+		WithArgs(migrationsAdvisoryLockID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	fsys := fstest.MapFS{
+		routingAttemptsOccurredAtIndexMigration: &fstest.MapFile{Data: []byte(`
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_routing_attempts_occurred_at_id
+    ON routing_attempts (occurred_at, id);
 `)},
 	}
 

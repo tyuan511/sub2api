@@ -403,6 +403,8 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, first.ID, second.ID)
+		require.False(t, first.IdempotentReplay)
+		require.True(t, second.IdempotentReplay)
 		require.Equal(t, "original-session", batchImageDerefString(repo.jobs[first.ID].SessionID))
 		require.Len(t, gemini.submits, 1)
 		require.Equal(t, []string{first.ID}, queue.enqueued)
@@ -429,6 +431,19 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		body, err := json.Marshal(got)
 		require.NoError(t, err)
 		requireBatchImagePublicJSONHasNoInternals(t, string(body))
+		require.NotContains(t, string(body), "actual_group")
+		require.NotContains(t, string(body), "idempotent_replay")
+	})
+
+	t.Run("public mapping keeps actual group as hidden routing metadata", func(t *testing.T) {
+		groupID := int64(77)
+		got := BatchImageJobToPublic(&BatchImageJob{BatchID: "imgbatch_group", GroupID: &groupID})
+		require.NotNil(t, got.ActualGroupID)
+		require.Equal(t, groupID, *got.ActualGroupID)
+
+		body, err := json.Marshal(got)
+		require.NoError(t, err)
+		require.NotContains(t, string(body), "group_id")
 	})
 }
 

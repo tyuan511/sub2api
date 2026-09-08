@@ -13,6 +13,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -117,6 +119,151 @@ func (_u *APIKeyUpdate) SetNillableGroupID(v *int64) *APIKeyUpdate {
 // ClearGroupID clears the value of the "group_id" field.
 func (_u *APIKeyUpdate) ClearGroupID() *APIKeyUpdate {
 	_u.mutation.ClearGroupID()
+	return _u
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (_u *APIKeyUpdate) SetScheduleMode(v string) *APIKeyUpdate {
+	_u.mutation.SetScheduleMode(v)
+	return _u
+}
+
+// SetNillableScheduleMode sets the "schedule_mode" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableScheduleMode(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetScheduleMode(*v)
+	}
+	return _u
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (_u *APIKeyUpdate) SetSmartPreference(v string) *APIKeyUpdate {
+	_u.mutation.SetSmartPreference(v)
+	return _u
+}
+
+// SetNillableSmartPreference sets the "smart_preference" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableSmartPreference(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetSmartPreference(*v)
+	}
+	return _u
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (_u *APIKeyUpdate) ClearSmartPreference() *APIKeyUpdate {
+	_u.mutation.ClearSmartPreference()
+	return _u
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (_u *APIKeyUpdate) SetSmartBalanceBps(v int) *APIKeyUpdate {
+	_u.mutation.ResetSmartBalanceBps()
+	_u.mutation.SetSmartBalanceBps(v)
+	return _u
+}
+
+// SetNillableSmartBalanceBps sets the "smart_balance_bps" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableSmartBalanceBps(v *int) *APIKeyUpdate {
+	if v != nil {
+		_u.SetSmartBalanceBps(*v)
+	}
+	return _u
+}
+
+// AddSmartBalanceBps adds value to the "smart_balance_bps" field.
+func (_u *APIKeyUpdate) AddSmartBalanceBps(v int) *APIKeyUpdate {
+	_u.mutation.AddSmartBalanceBps(v)
+	return _u
+}
+
+// ClearSmartBalanceBps clears the value of the "smart_balance_bps" field.
+func (_u *APIKeyUpdate) ClearSmartBalanceBps() *APIKeyUpdate {
+	_u.mutation.ClearSmartBalanceBps()
+	return _u
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (_u *APIKeyUpdate) SetRoutingMinSuccessRate(v int) *APIKeyUpdate {
+	_u.mutation.ResetRoutingMinSuccessRate()
+	_u.mutation.SetRoutingMinSuccessRate(v)
+	return _u
+}
+
+// SetNillableRoutingMinSuccessRate sets the "routing_min_success_rate" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableRoutingMinSuccessRate(v *int) *APIKeyUpdate {
+	if v != nil {
+		_u.SetRoutingMinSuccessRate(*v)
+	}
+	return _u
+}
+
+// AddRoutingMinSuccessRate adds value to the "routing_min_success_rate" field.
+func (_u *APIKeyUpdate) AddRoutingMinSuccessRate(v int) *APIKeyUpdate {
+	_u.mutation.AddRoutingMinSuccessRate(v)
+	return _u
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (_u *APIKeyUpdate) SetRoutingStateVersion(v int64) *APIKeyUpdate {
+	_u.mutation.ResetRoutingStateVersion()
+	_u.mutation.SetRoutingStateVersion(v)
+	return _u
+}
+
+// SetNillableRoutingStateVersion sets the "routing_state_version" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableRoutingStateVersion(v *int64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetRoutingStateVersion(*v)
+	}
+	return _u
+}
+
+// AddRoutingStateVersion adds value to the "routing_state_version" field.
+func (_u *APIKeyUpdate) AddRoutingStateVersion(v int64) *APIKeyUpdate {
+	_u.mutation.AddRoutingStateVersion(v)
+	return _u
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (_u *APIKeyUpdate) SetRouteVersion(v int64) *APIKeyUpdate {
+	_u.mutation.ResetRouteVersion()
+	_u.mutation.SetRouteVersion(v)
+	return _u
+}
+
+// SetNillableRouteVersion sets the "route_version" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableRouteVersion(v *int64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetRouteVersion(*v)
+	}
+	return _u
+}
+
+// AddRouteVersion adds value to the "route_version" field.
+func (_u *APIKeyUpdate) AddRouteVersion(v int64) *APIKeyUpdate {
+	_u.mutation.AddRouteVersion(v)
+	return _u
+}
+
+// SetRoutingDependencyVersion sets the "routing_dependency_version" field.
+func (_u *APIKeyUpdate) SetRoutingDependencyVersion(v int64) *APIKeyUpdate {
+	_u.mutation.ResetRoutingDependencyVersion()
+	_u.mutation.SetRoutingDependencyVersion(v)
+	return _u
+}
+
+// SetNillableRoutingDependencyVersion sets the "routing_dependency_version" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableRoutingDependencyVersion(v *int64) *APIKeyUpdate {
+	if v != nil {
+		_u.SetRoutingDependencyVersion(*v)
+	}
+	return _u
+}
+
+// AddRoutingDependencyVersion adds value to the "routing_dependency_version" field.
+func (_u *APIKeyUpdate) AddRoutingDependencyVersion(v int64) *APIKeyUpdate {
+	_u.mutation.AddRoutingDependencyVersion(v)
 	return _u
 }
 
@@ -448,6 +595,36 @@ func (_u *APIKeyUpdate) SetGroup(v *Group) *APIKeyUpdate {
 	return _u.SetGroupID(v.ID)
 }
 
+// AddGroupRouteIDs adds the "group_routes" edge to the APIKeyGroupRoute entity by IDs.
+func (_u *APIKeyUpdate) AddGroupRouteIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.AddGroupRouteIDs(ids...)
+	return _u
+}
+
+// AddGroupRoutes adds the "group_routes" edges to the APIKeyGroupRoute entity.
+func (_u *APIKeyUpdate) AddGroupRoutes(v ...*APIKeyGroupRoute) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupRouteIDs(ids...)
+}
+
+// AddRouteConfigOutboxEventIDs adds the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity by IDs.
+func (_u *APIKeyUpdate) AddRouteConfigOutboxEventIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.AddRouteConfigOutboxEventIDs(ids...)
+	return _u
+}
+
+// AddRouteConfigOutboxEvents adds the "route_config_outbox_events" edges to the APIKeyRouteConfigOutbox entity.
+func (_u *APIKeyUpdate) AddRouteConfigOutboxEvents(v ...*APIKeyRouteConfigOutbox) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRouteConfigOutboxEventIDs(ids...)
+}
+
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
 func (_u *APIKeyUpdate) AddUsageLogIDs(ids ...int64) *APIKeyUpdate {
 	_u.mutation.AddUsageLogIDs(ids...)
@@ -478,6 +655,48 @@ func (_u *APIKeyUpdate) ClearUser() *APIKeyUpdate {
 func (_u *APIKeyUpdate) ClearGroup() *APIKeyUpdate {
 	_u.mutation.ClearGroup()
 	return _u
+}
+
+// ClearGroupRoutes clears all "group_routes" edges to the APIKeyGroupRoute entity.
+func (_u *APIKeyUpdate) ClearGroupRoutes() *APIKeyUpdate {
+	_u.mutation.ClearGroupRoutes()
+	return _u
+}
+
+// RemoveGroupRouteIDs removes the "group_routes" edge to APIKeyGroupRoute entities by IDs.
+func (_u *APIKeyUpdate) RemoveGroupRouteIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.RemoveGroupRouteIDs(ids...)
+	return _u
+}
+
+// RemoveGroupRoutes removes "group_routes" edges to APIKeyGroupRoute entities.
+func (_u *APIKeyUpdate) RemoveGroupRoutes(v ...*APIKeyGroupRoute) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupRouteIDs(ids...)
+}
+
+// ClearRouteConfigOutboxEvents clears all "route_config_outbox_events" edges to the APIKeyRouteConfigOutbox entity.
+func (_u *APIKeyUpdate) ClearRouteConfigOutboxEvents() *APIKeyUpdate {
+	_u.mutation.ClearRouteConfigOutboxEvents()
+	return _u
+}
+
+// RemoveRouteConfigOutboxEventIDs removes the "route_config_outbox_events" edge to APIKeyRouteConfigOutbox entities by IDs.
+func (_u *APIKeyUpdate) RemoveRouteConfigOutboxEventIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.RemoveRouteConfigOutboxEventIDs(ids...)
+	return _u
+}
+
+// RemoveRouteConfigOutboxEvents removes "route_config_outbox_events" edges to APIKeyRouteConfigOutbox entities.
+func (_u *APIKeyUpdate) RemoveRouteConfigOutboxEvents(v ...*APIKeyRouteConfigOutbox) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRouteConfigOutboxEventIDs(ids...)
 }
 
 // ClearUsageLogs clears all "usage_logs" edges to the UsageLog entity.
@@ -555,6 +774,41 @@ func (_u *APIKeyUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ScheduleMode(); ok {
+		if err := apikey.ScheduleModeValidator(v); err != nil {
+			return &ValidationError{Name: "schedule_mode", err: fmt.Errorf(`ent: validator failed for field "APIKey.schedule_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SmartPreference(); ok {
+		if err := apikey.SmartPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "smart_preference", err: fmt.Errorf(`ent: validator failed for field "APIKey.smart_preference": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SmartBalanceBps(); ok {
+		if err := apikey.SmartBalanceBpsValidator(v); err != nil {
+			return &ValidationError{Name: "smart_balance_bps", err: fmt.Errorf(`ent: validator failed for field "APIKey.smart_balance_bps": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingMinSuccessRate(); ok {
+		if err := apikey.RoutingMinSuccessRateValidator(v); err != nil {
+			return &ValidationError{Name: "routing_min_success_rate", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_min_success_rate": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingStateVersion(); ok {
+		if err := apikey.RoutingStateVersionValidator(v); err != nil {
+			return &ValidationError{Name: "routing_state_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_state_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RouteVersion(); ok {
+		if err := apikey.RouteVersionValidator(v); err != nil {
+			return &ValidationError{Name: "route_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.route_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingDependencyVersion(); ok {
+		if err := apikey.RoutingDependencyVersionValidator(v); err != nil {
+			return &ValidationError{Name: "routing_dependency_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_dependency_version": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
@@ -592,6 +846,48 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ScheduleMode(); ok {
+		_spec.SetField(apikey.FieldScheduleMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SmartPreference(); ok {
+		_spec.SetField(apikey.FieldSmartPreference, field.TypeString, value)
+	}
+	if _u.mutation.SmartPreferenceCleared() {
+		_spec.ClearField(apikey.FieldSmartPreference, field.TypeString)
+	}
+	if value, ok := _u.mutation.SmartBalanceBps(); ok {
+		_spec.SetField(apikey.FieldSmartBalanceBps, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSmartBalanceBps(); ok {
+		_spec.AddField(apikey.FieldSmartBalanceBps, field.TypeInt, value)
+	}
+	if _u.mutation.SmartBalanceBpsCleared() {
+		_spec.ClearField(apikey.FieldSmartBalanceBps, field.TypeInt)
+	}
+	if value, ok := _u.mutation.RoutingMinSuccessRate(); ok {
+		_spec.SetField(apikey.FieldRoutingMinSuccessRate, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingMinSuccessRate(); ok {
+		_spec.AddField(apikey.FieldRoutingMinSuccessRate, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RoutingStateVersion(); ok {
+		_spec.SetField(apikey.FieldRoutingStateVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingStateVersion(); ok {
+		_spec.AddField(apikey.FieldRoutingStateVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RouteVersion(); ok {
+		_spec.SetField(apikey.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRouteVersion(); ok {
+		_spec.AddField(apikey.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RoutingDependencyVersion(); ok {
+		_spec.SetField(apikey.FieldRoutingDependencyVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingDependencyVersion(); ok {
+		_spec.AddField(apikey.FieldRoutingDependencyVersion, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -754,6 +1050,96 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.GroupRoutesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupRoutesTable,
+			Columns: []string{apikey.GroupRoutesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeygrouproute.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupRoutesIDs(); len(nodes) > 0 && !_u.mutation.GroupRoutesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupRoutesTable,
+			Columns: []string{apikey.GroupRoutesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeygrouproute.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupRoutesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupRoutesTable,
+			Columns: []string{apikey.GroupRoutesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeygrouproute.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RouteConfigOutboxEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.RouteConfigOutboxEventsTable,
+			Columns: []string{apikey.RouteConfigOutboxEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyrouteconfigoutbox.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRouteConfigOutboxEventsIDs(); len(nodes) > 0 && !_u.mutation.RouteConfigOutboxEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.RouteConfigOutboxEventsTable,
+			Columns: []string{apikey.RouteConfigOutboxEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyrouteconfigoutbox.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RouteConfigOutboxEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.RouteConfigOutboxEventsTable,
+			Columns: []string{apikey.RouteConfigOutboxEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyrouteconfigoutbox.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.UsageLogsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -904,6 +1290,151 @@ func (_u *APIKeyUpdateOne) SetNillableGroupID(v *int64) *APIKeyUpdateOne {
 // ClearGroupID clears the value of the "group_id" field.
 func (_u *APIKeyUpdateOne) ClearGroupID() *APIKeyUpdateOne {
 	_u.mutation.ClearGroupID()
+	return _u
+}
+
+// SetScheduleMode sets the "schedule_mode" field.
+func (_u *APIKeyUpdateOne) SetScheduleMode(v string) *APIKeyUpdateOne {
+	_u.mutation.SetScheduleMode(v)
+	return _u
+}
+
+// SetNillableScheduleMode sets the "schedule_mode" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableScheduleMode(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetScheduleMode(*v)
+	}
+	return _u
+}
+
+// SetSmartPreference sets the "smart_preference" field.
+func (_u *APIKeyUpdateOne) SetSmartPreference(v string) *APIKeyUpdateOne {
+	_u.mutation.SetSmartPreference(v)
+	return _u
+}
+
+// SetNillableSmartPreference sets the "smart_preference" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableSmartPreference(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetSmartPreference(*v)
+	}
+	return _u
+}
+
+// ClearSmartPreference clears the value of the "smart_preference" field.
+func (_u *APIKeyUpdateOne) ClearSmartPreference() *APIKeyUpdateOne {
+	_u.mutation.ClearSmartPreference()
+	return _u
+}
+
+// SetSmartBalanceBps sets the "smart_balance_bps" field.
+func (_u *APIKeyUpdateOne) SetSmartBalanceBps(v int) *APIKeyUpdateOne {
+	_u.mutation.ResetSmartBalanceBps()
+	_u.mutation.SetSmartBalanceBps(v)
+	return _u
+}
+
+// SetNillableSmartBalanceBps sets the "smart_balance_bps" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableSmartBalanceBps(v *int) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetSmartBalanceBps(*v)
+	}
+	return _u
+}
+
+// AddSmartBalanceBps adds value to the "smart_balance_bps" field.
+func (_u *APIKeyUpdateOne) AddSmartBalanceBps(v int) *APIKeyUpdateOne {
+	_u.mutation.AddSmartBalanceBps(v)
+	return _u
+}
+
+// ClearSmartBalanceBps clears the value of the "smart_balance_bps" field.
+func (_u *APIKeyUpdateOne) ClearSmartBalanceBps() *APIKeyUpdateOne {
+	_u.mutation.ClearSmartBalanceBps()
+	return _u
+}
+
+// SetRoutingMinSuccessRate sets the "routing_min_success_rate" field.
+func (_u *APIKeyUpdateOne) SetRoutingMinSuccessRate(v int) *APIKeyUpdateOne {
+	_u.mutation.ResetRoutingMinSuccessRate()
+	_u.mutation.SetRoutingMinSuccessRate(v)
+	return _u
+}
+
+// SetNillableRoutingMinSuccessRate sets the "routing_min_success_rate" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableRoutingMinSuccessRate(v *int) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetRoutingMinSuccessRate(*v)
+	}
+	return _u
+}
+
+// AddRoutingMinSuccessRate adds value to the "routing_min_success_rate" field.
+func (_u *APIKeyUpdateOne) AddRoutingMinSuccessRate(v int) *APIKeyUpdateOne {
+	_u.mutation.AddRoutingMinSuccessRate(v)
+	return _u
+}
+
+// SetRoutingStateVersion sets the "routing_state_version" field.
+func (_u *APIKeyUpdateOne) SetRoutingStateVersion(v int64) *APIKeyUpdateOne {
+	_u.mutation.ResetRoutingStateVersion()
+	_u.mutation.SetRoutingStateVersion(v)
+	return _u
+}
+
+// SetNillableRoutingStateVersion sets the "routing_state_version" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableRoutingStateVersion(v *int64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetRoutingStateVersion(*v)
+	}
+	return _u
+}
+
+// AddRoutingStateVersion adds value to the "routing_state_version" field.
+func (_u *APIKeyUpdateOne) AddRoutingStateVersion(v int64) *APIKeyUpdateOne {
+	_u.mutation.AddRoutingStateVersion(v)
+	return _u
+}
+
+// SetRouteVersion sets the "route_version" field.
+func (_u *APIKeyUpdateOne) SetRouteVersion(v int64) *APIKeyUpdateOne {
+	_u.mutation.ResetRouteVersion()
+	_u.mutation.SetRouteVersion(v)
+	return _u
+}
+
+// SetNillableRouteVersion sets the "route_version" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableRouteVersion(v *int64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetRouteVersion(*v)
+	}
+	return _u
+}
+
+// AddRouteVersion adds value to the "route_version" field.
+func (_u *APIKeyUpdateOne) AddRouteVersion(v int64) *APIKeyUpdateOne {
+	_u.mutation.AddRouteVersion(v)
+	return _u
+}
+
+// SetRoutingDependencyVersion sets the "routing_dependency_version" field.
+func (_u *APIKeyUpdateOne) SetRoutingDependencyVersion(v int64) *APIKeyUpdateOne {
+	_u.mutation.ResetRoutingDependencyVersion()
+	_u.mutation.SetRoutingDependencyVersion(v)
+	return _u
+}
+
+// SetNillableRoutingDependencyVersion sets the "routing_dependency_version" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableRoutingDependencyVersion(v *int64) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetRoutingDependencyVersion(*v)
+	}
+	return _u
+}
+
+// AddRoutingDependencyVersion adds value to the "routing_dependency_version" field.
+func (_u *APIKeyUpdateOne) AddRoutingDependencyVersion(v int64) *APIKeyUpdateOne {
+	_u.mutation.AddRoutingDependencyVersion(v)
 	return _u
 }
 
@@ -1235,6 +1766,36 @@ func (_u *APIKeyUpdateOne) SetGroup(v *Group) *APIKeyUpdateOne {
 	return _u.SetGroupID(v.ID)
 }
 
+// AddGroupRouteIDs adds the "group_routes" edge to the APIKeyGroupRoute entity by IDs.
+func (_u *APIKeyUpdateOne) AddGroupRouteIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.AddGroupRouteIDs(ids...)
+	return _u
+}
+
+// AddGroupRoutes adds the "group_routes" edges to the APIKeyGroupRoute entity.
+func (_u *APIKeyUpdateOne) AddGroupRoutes(v ...*APIKeyGroupRoute) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupRouteIDs(ids...)
+}
+
+// AddRouteConfigOutboxEventIDs adds the "route_config_outbox_events" edge to the APIKeyRouteConfigOutbox entity by IDs.
+func (_u *APIKeyUpdateOne) AddRouteConfigOutboxEventIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.AddRouteConfigOutboxEventIDs(ids...)
+	return _u
+}
+
+// AddRouteConfigOutboxEvents adds the "route_config_outbox_events" edges to the APIKeyRouteConfigOutbox entity.
+func (_u *APIKeyUpdateOne) AddRouteConfigOutboxEvents(v ...*APIKeyRouteConfigOutbox) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRouteConfigOutboxEventIDs(ids...)
+}
+
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
 func (_u *APIKeyUpdateOne) AddUsageLogIDs(ids ...int64) *APIKeyUpdateOne {
 	_u.mutation.AddUsageLogIDs(ids...)
@@ -1265,6 +1826,48 @@ func (_u *APIKeyUpdateOne) ClearUser() *APIKeyUpdateOne {
 func (_u *APIKeyUpdateOne) ClearGroup() *APIKeyUpdateOne {
 	_u.mutation.ClearGroup()
 	return _u
+}
+
+// ClearGroupRoutes clears all "group_routes" edges to the APIKeyGroupRoute entity.
+func (_u *APIKeyUpdateOne) ClearGroupRoutes() *APIKeyUpdateOne {
+	_u.mutation.ClearGroupRoutes()
+	return _u
+}
+
+// RemoveGroupRouteIDs removes the "group_routes" edge to APIKeyGroupRoute entities by IDs.
+func (_u *APIKeyUpdateOne) RemoveGroupRouteIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.RemoveGroupRouteIDs(ids...)
+	return _u
+}
+
+// RemoveGroupRoutes removes "group_routes" edges to APIKeyGroupRoute entities.
+func (_u *APIKeyUpdateOne) RemoveGroupRoutes(v ...*APIKeyGroupRoute) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupRouteIDs(ids...)
+}
+
+// ClearRouteConfigOutboxEvents clears all "route_config_outbox_events" edges to the APIKeyRouteConfigOutbox entity.
+func (_u *APIKeyUpdateOne) ClearRouteConfigOutboxEvents() *APIKeyUpdateOne {
+	_u.mutation.ClearRouteConfigOutboxEvents()
+	return _u
+}
+
+// RemoveRouteConfigOutboxEventIDs removes the "route_config_outbox_events" edge to APIKeyRouteConfigOutbox entities by IDs.
+func (_u *APIKeyUpdateOne) RemoveRouteConfigOutboxEventIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.RemoveRouteConfigOutboxEventIDs(ids...)
+	return _u
+}
+
+// RemoveRouteConfigOutboxEvents removes "route_config_outbox_events" edges to APIKeyRouteConfigOutbox entities.
+func (_u *APIKeyUpdateOne) RemoveRouteConfigOutboxEvents(v ...*APIKeyRouteConfigOutbox) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRouteConfigOutboxEventIDs(ids...)
 }
 
 // ClearUsageLogs clears all "usage_logs" edges to the UsageLog entity.
@@ -1355,6 +1958,41 @@ func (_u *APIKeyUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ScheduleMode(); ok {
+		if err := apikey.ScheduleModeValidator(v); err != nil {
+			return &ValidationError{Name: "schedule_mode", err: fmt.Errorf(`ent: validator failed for field "APIKey.schedule_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SmartPreference(); ok {
+		if err := apikey.SmartPreferenceValidator(v); err != nil {
+			return &ValidationError{Name: "smart_preference", err: fmt.Errorf(`ent: validator failed for field "APIKey.smart_preference": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SmartBalanceBps(); ok {
+		if err := apikey.SmartBalanceBpsValidator(v); err != nil {
+			return &ValidationError{Name: "smart_balance_bps", err: fmt.Errorf(`ent: validator failed for field "APIKey.smart_balance_bps": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingMinSuccessRate(); ok {
+		if err := apikey.RoutingMinSuccessRateValidator(v); err != nil {
+			return &ValidationError{Name: "routing_min_success_rate", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_min_success_rate": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingStateVersion(); ok {
+		if err := apikey.RoutingStateVersionValidator(v); err != nil {
+			return &ValidationError{Name: "routing_state_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_state_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RouteVersion(); ok {
+		if err := apikey.RouteVersionValidator(v); err != nil {
+			return &ValidationError{Name: "route_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.route_version": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RoutingDependencyVersion(); ok {
+		if err := apikey.RoutingDependencyVersionValidator(v); err != nil {
+			return &ValidationError{Name: "routing_dependency_version", err: fmt.Errorf(`ent: validator failed for field "APIKey.routing_dependency_version": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
@@ -1409,6 +2047,48 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ScheduleMode(); ok {
+		_spec.SetField(apikey.FieldScheduleMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SmartPreference(); ok {
+		_spec.SetField(apikey.FieldSmartPreference, field.TypeString, value)
+	}
+	if _u.mutation.SmartPreferenceCleared() {
+		_spec.ClearField(apikey.FieldSmartPreference, field.TypeString)
+	}
+	if value, ok := _u.mutation.SmartBalanceBps(); ok {
+		_spec.SetField(apikey.FieldSmartBalanceBps, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSmartBalanceBps(); ok {
+		_spec.AddField(apikey.FieldSmartBalanceBps, field.TypeInt, value)
+	}
+	if _u.mutation.SmartBalanceBpsCleared() {
+		_spec.ClearField(apikey.FieldSmartBalanceBps, field.TypeInt)
+	}
+	if value, ok := _u.mutation.RoutingMinSuccessRate(); ok {
+		_spec.SetField(apikey.FieldRoutingMinSuccessRate, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingMinSuccessRate(); ok {
+		_spec.AddField(apikey.FieldRoutingMinSuccessRate, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RoutingStateVersion(); ok {
+		_spec.SetField(apikey.FieldRoutingStateVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingStateVersion(); ok {
+		_spec.AddField(apikey.FieldRoutingStateVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RouteVersion(); ok {
+		_spec.SetField(apikey.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRouteVersion(); ok {
+		_spec.AddField(apikey.FieldRouteVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RoutingDependencyVersion(); ok {
+		_spec.SetField(apikey.FieldRoutingDependencyVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRoutingDependencyVersion(); ok {
+		_spec.AddField(apikey.FieldRoutingDependencyVersion, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -1564,6 +2244,96 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupRoutesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupRoutesTable,
+			Columns: []string{apikey.GroupRoutesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeygrouproute.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupRoutesIDs(); len(nodes) > 0 && !_u.mutation.GroupRoutesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupRoutesTable,
+			Columns: []string{apikey.GroupRoutesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeygrouproute.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupRoutesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupRoutesTable,
+			Columns: []string{apikey.GroupRoutesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeygrouproute.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RouteConfigOutboxEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.RouteConfigOutboxEventsTable,
+			Columns: []string{apikey.RouteConfigOutboxEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyrouteconfigoutbox.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRouteConfigOutboxEventsIDs(); len(nodes) > 0 && !_u.mutation.RouteConfigOutboxEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.RouteConfigOutboxEventsTable,
+			Columns: []string{apikey.RouteConfigOutboxEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyrouteconfigoutbox.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RouteConfigOutboxEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.RouteConfigOutboxEventsTable,
+			Columns: []string{apikey.RouteConfigOutboxEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyrouteconfigoutbox.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -64,6 +64,12 @@ const usageLogsEffectiveRequestedModelIndex = "idx_usage_logs_effective_requeste
 const usageLogsEffectiveUpstreamModelIndex = "idx_usage_logs_effective_upstream_model_created"
 const usageLogsUpstreamRequestIDIndexMigration = "233_add_usage_log_upstream_request_id_index_notx.sql"
 const usageLogsUpstreamRequestIDIndex = "idx_usage_logs_upstream_request_id"
+const usageLogsRoutingDecisionIndexMigration = "250_api_key_routing_usage_decision_index_notx.sql"
+const usageLogsRoutingDecisionIndex = "idx_usage_logs_routing_decision"
+const apiKeyRoutingActivationIndexMigration = "251_api_key_routing_activation_index_notx.sql"
+const apiKeyRoutingActivationIndex = "idx_api_key_group_routes_enabled_api_key"
+const routingAttemptsOccurredAtIndexMigration = "253_api_key_routing_attempts_occurred_at_index_notx.sql"
+const routingAttemptsOccurredAtIndex = "idx_routing_attempts_occurred_at_id"
 
 type migrationChecksumCompatibilityRule struct {
 	fileChecksum       string
@@ -75,6 +81,12 @@ type migrationChecksumCompatibilityRule struct {
 // 规则必须同时匹配「迁移名 + 数据库 checksum + 当前文件 checksum」且两者都落在该迁移的已知版本集合内才会放行，
 // 避免放宽全局校验，也允许将误改的历史 migration 回滚为已发布版本而不要求人工修 checksum。
 var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibilityRule{
+	// Routing foundations were made online-safe before first production use.
+	// Databases that recorded the preflight versions can continue past the
+	// edited transactional text; the follow-up migration is idempotent.
+	"240_api_key_multi_group_routing.sql":                     newMigrationChecksumCompatibilityRule("7fbebc4009f4583e070ed967169d75b7674aaf942d4a6eab7fe90cbbdaf5ae3a", "0e6662921272af013df9a0fc0024c989e264200a9f1faaf9bf13ea79f6a85ba5"),
+	"241_api_key_routing_optimization_foundation.sql":         newMigrationChecksumCompatibilityRule("a7a20c42c5eda8cdcde85a357ee85a391c6617ca4b952e8d91736dd5bd1a1c03", "15cd77844d01864debad359ac040e87e9d67698a3cab04d969799810aab6aa8f"),
+	"248_api_key_routing_controls.sql":                        newMigrationChecksumCompatibilityRule("186d8e48bf64dbec4339caa6c95d803feafd720cba7030400fd0e3211b8e77d7", "ffda0c7e29a6528ff67f540ade039619a32270a846d459e7a89e0a06a33ab399"),
 	"054_drop_legacy_cache_columns.sql":                       newMigrationChecksumCompatibilityRule("82de761156e03876653e7a6a4eee883cd927847036f779b0b9f34c42a8af7a7d", "182c193f3359946cf094090cd9e57d5c3fd9abaffbc1e8fc378646b8a6fa12b4"),
 	"061_add_usage_log_request_type.sql":                      newMigrationChecksumCompatibilityRule("66207e7aa5dd0429c2e2c0fabdaf79783ff157fa0af2e81adff2ee03790ec65c", "08a248652cbab7cfde147fc6ef8cda464f2477674e20b718312faa252e0481c0", "222b4a09c797c22e5922b6b172327c824f5463aaa8760e4f621bc5c22e2be0f3"),
 	"109_auth_identity_compat_backfill.sql":                   newMigrationChecksumCompatibilityRule("0580b4602d85435edf9aca1633db580bb3932f26517f75134106f80275ec2ace", "551e498aa5616d2d91096e9d72cf9fb36e418ee22eacc557f8811cadbc9e20ee"),
@@ -309,6 +321,12 @@ func prepareNonTransactionalMigration(ctx context.Context, db migrationConnectio
 		return nil
 	case usageLogsUpstreamRequestIDIndexMigration:
 		return dropInvalidIndexIfPresent(ctx, db, usageLogsUpstreamRequestIDIndex)
+	case usageLogsRoutingDecisionIndexMigration:
+		return dropInvalidIndexIfPresent(ctx, db, usageLogsRoutingDecisionIndex)
+	case apiKeyRoutingActivationIndexMigration:
+		return dropInvalidIndexIfPresent(ctx, db, apiKeyRoutingActivationIndex)
+	case routingAttemptsOccurredAtIndexMigration:
+		return dropInvalidIndexIfPresent(ctx, db, routingAttemptsOccurredAtIndex)
 	default:
 		return nil
 	}
@@ -498,7 +516,10 @@ func isMigrationChecksumCompatible(name, dbChecksum, fileChecksum string) bool {
 
 func validateMigrationExecutionMode(name, content string) (bool, error) {
 	normalizedName := strings.ToLower(strings.TrimSpace(name))
-	upperContent := strings.ToUpper(content)
+	// Ignore line comments when checking transactional migrations. A prose
+	// reference to CONCURRENTLY must not make an otherwise transactional
+	// migration look like it contains a concurrent index statement.
+	upperContent := strings.ToUpper(stripSQLLineComment(content))
 	nonTx := strings.HasSuffix(normalizedName, nonTransactionalMigrationSuffix)
 
 	if !nonTx {

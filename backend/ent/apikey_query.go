@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeygrouproute"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -23,14 +25,16 @@ import (
 // APIKeyQuery is the builder for querying APIKey entities.
 type APIKeyQuery struct {
 	config
-	ctx           *QueryContext
-	order         []apikey.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.APIKey
-	withUser      *UserQuery
-	withGroup     *GroupQuery
-	withUsageLogs *UsageLogQuery
-	modifiers     []func(*sql.Selector)
+	ctx                         *QueryContext
+	order                       []apikey.OrderOption
+	inters                      []Interceptor
+	predicates                  []predicate.APIKey
+	withUser                    *UserQuery
+	withGroup                   *GroupQuery
+	withGroupRoutes             *APIKeyGroupRouteQuery
+	withRouteConfigOutboxEvents *APIKeyRouteConfigOutboxQuery
+	withUsageLogs               *UsageLogQuery
+	modifiers                   []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -104,6 +108,50 @@ func (_q *APIKeyQuery) QueryGroup() *GroupQuery {
 			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
 			sqlgraph.To(group.Table, group.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, apikey.GroupTable, apikey.GroupColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupRoutes chains the current query on the "group_routes" edge.
+func (_q *APIKeyQuery) QueryGroupRoutes() *APIKeyGroupRouteQuery {
+	query := (&APIKeyGroupRouteClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
+			sqlgraph.To(apikeygrouproute.Table, apikeygrouproute.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.GroupRoutesTable, apikey.GroupRoutesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRouteConfigOutboxEvents chains the current query on the "route_config_outbox_events" edge.
+func (_q *APIKeyQuery) QueryRouteConfigOutboxEvents() *APIKeyRouteConfigOutboxQuery {
+	query := (&APIKeyRouteConfigOutboxClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
+			sqlgraph.To(apikeyrouteconfigoutbox.Table, apikeyrouteconfigoutbox.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.RouteConfigOutboxEventsTable, apikey.RouteConfigOutboxEventsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -320,14 +368,16 @@ func (_q *APIKeyQuery) Clone() *APIKeyQuery {
 		return nil
 	}
 	return &APIKeyQuery{
-		config:        _q.config,
-		ctx:           _q.ctx.Clone(),
-		order:         append([]apikey.OrderOption{}, _q.order...),
-		inters:        append([]Interceptor{}, _q.inters...),
-		predicates:    append([]predicate.APIKey{}, _q.predicates...),
-		withUser:      _q.withUser.Clone(),
-		withGroup:     _q.withGroup.Clone(),
-		withUsageLogs: _q.withUsageLogs.Clone(),
+		config:                      _q.config,
+		ctx:                         _q.ctx.Clone(),
+		order:                       append([]apikey.OrderOption{}, _q.order...),
+		inters:                      append([]Interceptor{}, _q.inters...),
+		predicates:                  append([]predicate.APIKey{}, _q.predicates...),
+		withUser:                    _q.withUser.Clone(),
+		withGroup:                   _q.withGroup.Clone(),
+		withGroupRoutes:             _q.withGroupRoutes.Clone(),
+		withRouteConfigOutboxEvents: _q.withRouteConfigOutboxEvents.Clone(),
+		withUsageLogs:               _q.withUsageLogs.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -353,6 +403,28 @@ func (_q *APIKeyQuery) WithGroup(opts ...func(*GroupQuery)) *APIKeyQuery {
 		opt(query)
 	}
 	_q.withGroup = query
+	return _q
+}
+
+// WithGroupRoutes tells the query-builder to eager-load the nodes that are connected to
+// the "group_routes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *APIKeyQuery) WithGroupRoutes(opts ...func(*APIKeyGroupRouteQuery)) *APIKeyQuery {
+	query := (&APIKeyGroupRouteClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupRoutes = query
+	return _q
+}
+
+// WithRouteConfigOutboxEvents tells the query-builder to eager-load the nodes that are connected to
+// the "route_config_outbox_events" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *APIKeyQuery) WithRouteConfigOutboxEvents(opts ...func(*APIKeyRouteConfigOutboxQuery)) *APIKeyQuery {
+	query := (&APIKeyRouteConfigOutboxClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRouteConfigOutboxEvents = query
 	return _q
 }
 
@@ -445,9 +517,11 @@ func (_q *APIKeyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*APIKe
 	var (
 		nodes       = []*APIKey{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [5]bool{
 			_q.withUser != nil,
 			_q.withGroup != nil,
+			_q.withGroupRoutes != nil,
+			_q.withRouteConfigOutboxEvents != nil,
 			_q.withUsageLogs != nil,
 		}
 	)
@@ -481,6 +555,22 @@ func (_q *APIKeyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*APIKe
 	if query := _q.withGroup; query != nil {
 		if err := _q.loadGroup(ctx, query, nodes, nil,
 			func(n *APIKey, e *Group) { n.Edges.Group = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupRoutes; query != nil {
+		if err := _q.loadGroupRoutes(ctx, query, nodes,
+			func(n *APIKey) { n.Edges.GroupRoutes = []*APIKeyGroupRoute{} },
+			func(n *APIKey, e *APIKeyGroupRoute) { n.Edges.GroupRoutes = append(n.Edges.GroupRoutes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRouteConfigOutboxEvents; query != nil {
+		if err := _q.loadRouteConfigOutboxEvents(ctx, query, nodes,
+			func(n *APIKey) { n.Edges.RouteConfigOutboxEvents = []*APIKeyRouteConfigOutbox{} },
+			func(n *APIKey, e *APIKeyRouteConfigOutbox) {
+				n.Edges.RouteConfigOutboxEvents = append(n.Edges.RouteConfigOutboxEvents, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -552,6 +642,66 @@ func (_q *APIKeyQuery) loadGroup(ctx context.Context, query *GroupQuery, nodes [
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *APIKeyQuery) loadGroupRoutes(ctx context.Context, query *APIKeyGroupRouteQuery, nodes []*APIKey, init func(*APIKey), assign func(*APIKey, *APIKeyGroupRoute)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*APIKey)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(apikeygrouproute.FieldAPIKeyID)
+	}
+	query.Where(predicate.APIKeyGroupRoute(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(apikey.GroupRoutesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.APIKeyID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "api_key_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *APIKeyQuery) loadRouteConfigOutboxEvents(ctx context.Context, query *APIKeyRouteConfigOutboxQuery, nodes []*APIKey, init func(*APIKey), assign func(*APIKey, *APIKeyRouteConfigOutbox)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*APIKey)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(apikeyrouteconfigoutbox.FieldAPIKeyID)
+	}
+	query.Where(predicate.APIKeyRouteConfigOutbox(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(apikey.RouteConfigOutboxEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.APIKeyID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "api_key_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { keysAPI } from '@/api/keys'
+import { apiKeyBoundGroups } from '@/api/imageStudio'
 import { useAuthStore } from '@/stores/auth'
 import type { ApiKey } from '@/types'
 
@@ -10,11 +11,8 @@ let pendingLoad: Promise<boolean> | null = null
 const pageSize = 100
 
 function keyAllowsBatchImage(key: ApiKey): boolean {
-  return (
-    key.status === 'active' &&
-    key.group?.platform === 'gemini' &&
-    key.group?.allow_batch_image_generation === true
-  )
+  return key.status === 'active' && apiKeyBoundGroups(key).some(group =>
+    group.platform === 'gemini' && group.allow_batch_image_generation === true)
 }
 
 async function loadBatchImageAccess(force = false): Promise<boolean> {
