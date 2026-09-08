@@ -228,7 +228,13 @@ const showTelegram = ref(false)
 const telegramSaving = ref(false)
 const telegramConfig = ref<TelegramConfig>()
 const binding = ref<TelegramBinding>()
-const telegramForm = reactive({ enabled: false, bot_token: '', webhook_base_url: '' })
+const telegramForm = reactive({
+  enabled: false,
+  bot_token: '',
+  webhook_base_url: '',
+  stats_cron_enabled: false,
+  stats_cron: '',
+})
 
 function revokeImages() {
   closeImagePreview()
@@ -468,6 +474,8 @@ async function openTelegram() {
     binding.value = await getTelegramBinding()
     telegramForm.enabled = telegramConfig.value.enabled
     telegramForm.webhook_base_url = telegramConfig.value.webhook_base_url
+    telegramForm.stats_cron_enabled = telegramConfig.value.stats_cron_enabled
+    telegramForm.stats_cron = telegramConfig.value.stats_cron
   } catch (error: any) {
     appStore.showError(error?.message || '加载 Telegram 配置失败')
   }

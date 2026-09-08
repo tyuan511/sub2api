@@ -293,7 +293,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		return nil, err
 	}
 	supportService := service.NewSupportService(client, redisClient, supportAttachmentStore)
-	supportTelegramService := service.ProvideSupportTelegramService(client, redisClient, supportService, settingRepository, secretEncryptor)
+	supportTelegramService := service.ProvideSupportTelegramService(client, redisClient, supportService, settingRepository, secretEncryptor, opsService, channelMonitorV2Service, dashboardService)
 	supportHandler := admin.NewSupportHandler(supportService, supportTelegramService)
 	routingBackgroundDB, err := repository.ProvideRoutingBackgroundDB(configConfig)
 	if err != nil {

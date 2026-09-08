@@ -109,17 +109,21 @@ type SupportRealtimeEvent struct {
 }
 
 type TelegramConfigView struct {
-	Enabled        bool   `json:"enabled"`
-	BotUsername    string `json:"bot_username"`
-	TokenSet       bool   `json:"token_set"`
-	WebhookSet     bool   `json:"webhook_set"`
-	WebhookBaseURL string `json:"webhook_base_url"`
+	Enabled          bool   `json:"enabled"`
+	BotUsername      string `json:"bot_username"`
+	TokenSet         bool   `json:"token_set"`
+	WebhookSet       bool   `json:"webhook_set"`
+	WebhookBaseURL   string `json:"webhook_base_url"`
+	StatsCronEnabled bool   `json:"stats_cron_enabled"`
+	StatsCron        string `json:"stats_cron"`
 }
 
 type TelegramConfigInput struct {
-	Enabled        bool   `json:"enabled"`
-	BotToken       string `json:"bot_token"`
-	WebhookBaseURL string `json:"webhook_base_url"`
+	Enabled          bool   `json:"enabled"`
+	BotToken         string `json:"bot_token"`
+	WebhookBaseURL   string `json:"webhook_base_url"`
+	StatsCronEnabled bool   `json:"stats_cron_enabled"`
+	StatsCron        string `json:"stats_cron"`
 }
 
 type TelegramBindingView struct {
