@@ -163,7 +163,7 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[]])
   })
 
-  it('supports keyboard selection, escape, and responsive wrapped controls', async () => {
+  it('supports keyboard selection and escape', async () => {
     const wrapper = mount(ApiKeyGroupRouteSelector, {
       props: {
         modelValue: [1],
@@ -180,20 +180,25 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[1, 2]])
     await search.trigger('keydown', { key: 'Escape' })
     expect(wrapper.get('[data-test="route-group-trigger"]').attributes('aria-expanded')).toBe('false')
-    expect(wrapper.get('[data-test="selected-route-group-1"]').classes()).toContain('flex-wrap')
   })
 
-  it('does not expose routing diagnostics on selected groups', () => {
+  it('shows compact selected groups with platform color, name and rate', () => {
     const wrapper = mount(ApiKeyGroupRouteSelector, {
       props: {
-        modelValue: [1],
-        groups: [makeGroup(1)]
+        modelValue: [1, 2],
+        groups: [makeGroup(1, 'openai'), makeGroup(2, 'grok')]
       }
     })
 
+    const openai = wrapper.get('[data-test="selected-route-group-1"]')
+    const grok = wrapper.get('[data-test="selected-route-group-2"]')
+    expect(openai.text()).toContain('group-1')
+    expect(openai.text()).toContain('1x')
+    expect(openai.text()).not.toContain('keys.routePrimaryGroup')
+    expect(openai.text()).not.toContain('keys.routeGroupRate')
+    expect(openai.classes().join(' ')).toContain('green')
+    expect(grok.classes().join(' ')).toContain('zinc')
     expect(wrapper.find('[data-test="route-group-detail-1"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('keys.routePrimaryGroup')
-    expect(wrapper.text()).toContain('keys.routeGroupRate')
     expect(wrapper.text()).not.toContain('keys.routeCurrentRank')
     expect(wrapper.text()).not.toContain('keys.routeConfidence.high')
   })

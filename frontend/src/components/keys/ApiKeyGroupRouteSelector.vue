@@ -122,14 +122,14 @@
       <div
         v-for="(item, index) in selectedItems"
         :key="item.id"
-        class="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 transition-[box-shadow,border-color] sm:flex-nowrap dark:border-dark-600 dark:bg-dark-800"
-        :class="canReorder && 'hover:border-gray-300 hover:shadow-sm dark:hover:border-dark-500'"
+        class="flex items-center gap-2 rounded-xl border px-2.5 py-1.5 transition-[box-shadow,border-color]"
+        :class="[selectedRowClass(item.id), canReorder && 'hover:shadow-sm']"
         :data-test="`selected-route-group-${item.id}`"
       >
         <button
           v-if="canReorder"
           type="button"
-          class="drag-handle -ml-1 flex h-7 w-6 flex-none cursor-grab items-center justify-center rounded text-gray-300 hover:bg-white hover:text-gray-500 active:cursor-grabbing dark:text-dark-500 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+          class="drag-handle -ml-0.5 flex h-7 w-6 flex-none cursor-grab items-center justify-center rounded text-current/35 hover:bg-black/5 hover:text-current/70 active:cursor-grabbing dark:hover:bg-white/10"
           :title="t('keys.dragToReorder')"
           :aria-label="t('keys.dragToReorder')"
           :data-test="`drag-route-${item.id}`"
@@ -140,24 +140,31 @@
             <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
           </svg>
         </button>
-        <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+        <span
+          class="flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold"
+          :class="selectedIndexClass(item.id)"
+        >
           {{ index + 1 }}
         </span>
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-            {{ groupById.get(item.id)?.name || `#${item.id}` }}
-          </div>
-          <div class="text-xs text-gray-500 dark:text-gray-400">
-            {{ index === 0 ? t('keys.routePrimaryGroup') : t('keys.routeFallbackGroup') }}
-            <template v-if="groupById.get(item.id)">
-              · {{ groupById.get(item.id)?.platform }}
-              · {{ t('keys.routeGroupRate', { rate: effectiveRate(groupById.get(item.id)!).toFixed(2) }) }}
-            </template>
-          </div>
-        </div>
+        <PlatformIcon
+          v-if="selectedGroup(item.id)"
+          :platform="selectedGroup(item.id)!.platform"
+          size="sm"
+          :class="platformIconClass(selectedGroup(item.id)!.platform)"
+        />
+        <span class="min-w-0 flex-1 truncate text-sm font-medium">
+          {{ selectedGroup(item.id)?.name || `#${item.id}` }}
+        </span>
+        <span
+          v-if="selectedRateLabel(item.id)"
+          class="flex-none rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
+          :class="selectedIndexClass(item.id)"
+        >
+          {{ selectedRateLabel(item.id) }}
+        </span>
         <button
           type="button"
-          class="no-drag rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+          class="no-drag rounded p-1 text-current/40 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-300"
           :title="t('keys.removeGroup')"
           :aria-label="t('keys.removeGroup')"
           :data-test="`remove-route-group-${item.id}`"
@@ -179,7 +186,9 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import Icon from '@/components/icons/Icon.vue'
+import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import type { Group } from '@/types'
+import { platformBadgeLightClass, platformBorderClass, platformDiscountClass, platformIconClass } from '@/utils/platformColors'
 
 const props = withDefaults(defineProps<{
   modelValue: number[]
@@ -249,6 +258,32 @@ const activeOptionID = computed(() => highlightedGroup.value ? `route-group-opti
 
 function effectiveRate(group: Group): number {
   return props.userGroupRates[group.id] ?? group.rate_multiplier
+}
+
+function selectedGroup(id: number): Group | undefined {
+  return groupById.value.get(id)
+}
+
+function formatRate(rate: number): string {
+  return Number.isInteger(rate) ? String(rate) : rate.toFixed(2)
+}
+
+function selectedRateLabel(id: number): string {
+  const group = selectedGroup(id)
+  if (!group) return ''
+  return `${formatRate(effectiveRate(group))}x`
+}
+
+function selectedRowClass(id: number): string {
+  const platform = selectedGroup(id)?.platform
+  if (!platform) return 'border-gray-200 bg-gray-50 text-gray-900 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-100'
+  return `${platformBadgeLightClass(platform)} ${platformBorderClass(platform)}`
+}
+
+function selectedIndexClass(id: number): string {
+  const platform = selectedGroup(id)?.platform
+  if (!platform) return 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+  return platformDiscountClass(platform)
 }
 
 function isSelected(groupId: number): boolean {
