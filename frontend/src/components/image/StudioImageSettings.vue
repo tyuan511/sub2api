@@ -1,17 +1,17 @@
 <template>
-  <Select class="studio-settings-select" :model-value="ratio" :options="[]" :searchable="false" :panel-width="480" :error="sizeError" :aria-label="t('imageStudio.imageSettings')">
+  <Select class="studio-settings-select" :model-value="ratio" :options="[]" :searchable="false" :error="sizeError" :aria-label="t('imageStudio.imageSettings')">
     <template #selected>
       <span class="settings-summary">
         <Icon v-if="automatic" name="expand" size="sm" aria-hidden="true" />
         <span v-else class="ratio-glyph" :style="ratioStyle(ratio, 15)" aria-hidden="true" />
-        <span>{{ ratioLabel(ratio) }}</span><template v-if="!automatic"><i>·</i><span :title="formatSize(selectedSize)">{{ resolutionLabel(resolution) }}</span></template><i>·</i><span>{{ count }}</span>
+        <span>{{ ratioLabel(ratio) }}</span><template v-if="!automatic"><i>·</i><span :title="formatSize(selectedSize)">{{ resolutionLabel(resolution) }}</span></template><template v-if="maxCount > 1"><i>·</i><span>{{ count }}</span></template>
       </span>
     </template>
     <template #panel>
       <div class="image-settings-panel">
         <fieldset>
           <legend>{{ t('imageStudio.chooseRatio') }}</legend>
-          <div class="settings-segments ratio-segments" :aria-label="t('imageStudio.ratio')" role="group">
+          <div class="settings-segments ratio-segments" :style="{ '--ratio-cols': ratios.length }" :aria-label="t('imageStudio.ratio')" role="group">
             <button v-for="value in ratios" :key="value" type="button" :aria-pressed="ratio === value" :aria-label="ratioLabel(value)" @click="chooseRatio(value)">
               <span class="ratio-glyph-space" aria-hidden="true"><Icon v-if="value === 'auto'" name="expand" size="sm" /><span v-else class="ratio-glyph" :style="ratioStyle(value, 17)" /></span>
               <span>{{ ratioLabel(value) }}</span>
@@ -27,7 +27,7 @@
             </template>
           </div>
         </fieldset>
-        <fieldset>
+        <fieldset v-if="maxCount > 1">
           <legend>{{ t('imageStudio.chooseCount') }}</legend>
           <div class="settings-segments" :aria-label="t('imageStudio.imageCount')" role="group">
             <button v-for="value in maxCount" :key="value" type="button" :aria-pressed="count === value" :aria-label="t('imageStudio.count', { count: value })" @click="emit('update:count', value)">{{ value }}</button>
@@ -150,18 +150,18 @@ function commitSize(edge: 'width' | 'height') {
 .settings-summary { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .settings-summary i { color: #b4b5be; font-style: normal; }
 .ratio-glyph { display: inline-block; flex: none; border: 1.6px solid currentColor; border-radius: 3px; }
-.image-settings-panel { padding: 14px; color: #282932; }
-.image-settings-panel fieldset { min-width: 0; }
+.image-settings-panel { padding: 14px; color: #282932; width: max-content; max-width: 100%; }
+.image-settings-panel fieldset { min-width: 100%; }
 .image-settings-panel fieldset + fieldset { margin-top: 10px; }
 .image-settings-panel legend { margin-bottom: 8px; font-size: 11px; color: #858a97; }
 .settings-segments { display: flex; gap: 3px; padding: 3px; border-radius: 10px; background: #f5f5f7; }
-.settings-segments button { display: flex; flex: 1; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 32px; padding: 5px 3px; border-radius: 8px; font-size: 12px; white-space: nowrap; transition: background .18s, box-shadow .18s; }
+.settings-segments button { display: flex; flex: 1; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 32px; padding: 5px 8px; border-radius: 8px; font-size: 12px; white-space: nowrap; transition: background .18s, box-shadow .18s; }
 .settings-segments button:hover { background: #ffffff80; }
 .settings-segments button[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 4px #18182506; }
 .settings-segments button:focus-visible { outline: 2px solid #9585ed; outline-offset: -2px; }
 .settings-segments button:disabled { opacity: .35; cursor: not-allowed; background: transparent; box-shadow: none; }
-.ratio-segments { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px; }
-.ratio-segments button { flex-direction: column; gap: 6px; min-height: 54px; font-size: 11px; }
+.ratio-segments { display: grid; grid-template-columns: repeat(var(--ratio-cols, 8), auto); gap: 2px; width: max-content; max-width: 100%; }
+.ratio-segments button { flex-direction: column; gap: 6px; min-height: 54px; min-width: 52px; font-size: 11px; }
 .ratio-glyph-space { height: 19px; display: flex; align-items: center; justify-content: center; }
 .size-fields { display: grid; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 22px; gap: 10px; align-items: center; }
 .size-fields :deep(input) { height: 34px; font-size: 12px; text-align: right; background: #f5f5f7; border-color: transparent; border-radius: 9px; box-shadow: none; font-variant-numeric: tabular-nums; }
@@ -177,7 +177,7 @@ function commitSize(edge: 'width' | 'height') {
 .dark .settings-segments button[aria-pressed="true"] { background: #3b3d4b; }
 @media (max-width: 480px) {
   .image-settings-panel { padding: 14px; }
-  .ratio-segments { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ratio-segments { grid-template-columns: repeat(4, auto); }
   .ratio-segments button { min-height: 50px; gap: 5px; }
   .size-fields { gap: 8px; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 22px; }
 }

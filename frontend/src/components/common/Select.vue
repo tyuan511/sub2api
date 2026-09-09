@@ -157,7 +157,7 @@ interface Props {
   id?: string
   ariaLabel?: string
   ariaDescribedby?: string
-  /** Preferred width for a custom panel, clamped to the viewport. */
+  /** Preferred width for a custom panel, clamped to the viewport. Omit to size the panel to its content. */
   panelWidth?: number
   /** 远程搜索模式：输入不在本地过滤 options，而是防抖后 emit('search', query)，由父组件请求数据更新 options */
   remote?: boolean
@@ -200,6 +200,7 @@ const dropdownPosition = ref<'bottom' | 'top'>('bottom')
 const triggerRect = ref<DOMRect | null>(null)
 const dropdownViewportPadding = 8
 const dropdownMinimumWidth = 200
+const measuredPanelWidth = ref(0)
 
 // i18n placeholders
 const placeholderText = computed(() => props.placeholder ?? t('common.selectOption'))
@@ -223,11 +224,14 @@ const dropdownStyle = computed(() => {
 
   const rect = triggerRect.value
   if (hasPanel.value) {
-    const width = Math.min(props.panelWidth ?? 560, Math.max(0, window.innerWidth - 16))
+    const maxWidth = Math.max(0, window.innerWidth - 16)
     const above = dropdownPosition.value === 'top'
+    const fixedWidth = props.panelWidth != null ? Math.min(props.panelWidth, maxWidth) : undefined
+    const usedWidth = fixedWidth ?? measuredPanelWidth.value
     return {
-      position: 'fixed', zIndex: '100000020', width: `${width}px`,
-      left: `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`,
+      position: 'fixed', zIndex: '100000020',
+      ...(fixedWidth != null ? { width: `${fixedWidth}px` } : { width: 'max-content', maxWidth: `${maxWidth}px` }),
+      left: `${Math.max(8, Math.min(rect.left, window.innerWidth - Math.max(usedWidth, 160) - 8))}px`,
       ...(above ? { bottom: `${window.innerHeight - rect.top + 8}px` } : { top: `${rect.bottom + 8}px` }),
       maxHeight: `${Math.max(0, (above ? rect.top : window.innerHeight - rect.bottom) - 16)}px`,
       overflowY: 'auto',
@@ -369,6 +373,7 @@ const calculateDropdownPosition = () => {
 
   nextTick(() => {
     if (!dropdownRef.value || !triggerRect.value) return
+    measuredPanelWidth.value = dropdownRef.value.offsetWidth
     const dropdownHeight = dropdownRef.value.offsetHeight || 240
     const spaceBelow = window.innerHeight - triggerRect.value.bottom
     const spaceAbove = triggerRect.value.top
@@ -411,6 +416,7 @@ watch(isOpen, (open) => {
   } else {
     searchQuery.value = ''
     focusedIndex.value = -1
+    measuredPanelWidth.value = 0
     // 关闭时取消仍在排队的远程搜索（避免关闭后尾随 emit 一次 search(''))。
     if (remoteSearchTimer) {
       clearTimeout(remoteSearchTimer)

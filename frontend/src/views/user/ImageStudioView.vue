@@ -127,6 +127,15 @@ const keyOptions = computed<SelectOption[]>(() => [
   ...keys.value.map(key => ({ value: key.id, label: `${key.name} · ${key.group?.name}` })),
   { value: 'create', label: t('imageStudio.createKey'), disabled: !!loadError.value },
 ])
+const LAST_MODEL_KEY = 'image-studio-model'
+function rememberedModel() {
+  try { return localStorage.getItem(LAST_MODEL_KEY)?.trim() || '' }
+  catch { return '' }
+}
+function rememberModel(value: string) {
+  try { localStorage.setItem(LAST_MODEL_KEY, value) }
+  catch { /* private mode */ }
+}
 const model = ref('')
 const prompt = ref('')
 const ratio = ref<ImageRatio>('1:1')
@@ -136,7 +145,10 @@ const customSize = ref<string>()
 const sizeValid = ref(true)
 const availableRatios = computed(() => getImageRatios(model.value))
 const availableResolutions = computed(() => getImageResolutions(model.value, ratio.value))
-const modelOptions = computed(() => models.value.map(value => ({ value, label: value })))
+const modelOptions = computed(() => {
+  const values = model.value && !models.value.includes(model.value) ? [model.value, ...models.value] : models.value
+  return values.map(value => ({ value, label: value }))
+})
 const groupOptions = computed(() => groups.value.map(group => ({ value: group.id, label: group.name })))
 const references = ref<{ file: File; url: string; sourceId?: string }[]>([])
 const promptInput = ref<InstanceType<typeof TextArea>>()
@@ -267,12 +279,18 @@ function openCreate() {
   createError.value = ''
   showCreate.value = true
 }
+let syncingModel = false
 watch(models, available => {
-  if (!available.includes(model.value)) model.value = available.find(item => item === 'gpt-image-2') || available[0] || ''
+  if (available.includes(model.value)) return
+  const last = rememberedModel()
+  syncingModel = true
+  model.value = (last && available.includes(last) ? last : available[0]) || ''
+  syncingModel = false
 })
-watch(model, () => {
+watch(model, value => {
+  if (!syncingModel && models.value.includes(value)) rememberModel(value)
   customSize.value = undefined
-  if (isGeminiImageModel(model.value) && count.value > 1) count.value = 1
+  if (isGeminiImageModel(value) && count.value > 1) count.value = 1
 })
 watch(availableRatios, available => {
   if (!available.includes(ratio.value)) ratio.value = '1:1'
@@ -354,10 +372,8 @@ async function editCreation(creation: StudioCreation) {
     selectedKeyId.value = creation.keyId
     await nextTick()
   }
-  if (models.value.includes(creation.model)) model.value = creation.model
-  else formError.value = t('imageStudio.modelUnavailable')
-  ratio.value = availableRatios.value.includes(creation.ratio) ? creation.ratio : '1:1'
-  if (ratio.value !== creation.ratio) formError.value = t('imageStudio.ratioUnavailable')
+  model.value = creation.model
+  ratio.value = availableRatios.value.includes(creation.ratio) ? creation.ratio : availableRatios.value[0] || '1:1'
   await nextTick()
   resolution.value = availableResolutions.value.includes(creation.resolution) ? creation.resolution : availableResolutions.value[0] || '1K'
   customSize.value = model.value.startsWith('gpt-image-2') && creation.size && isValidImageSize(creation.size, ratio.value) ? creation.size : undefined

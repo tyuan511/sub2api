@@ -66,6 +66,7 @@ const choose = async (wrapper: VueWrapper, label: string, value: string | number
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.removeItem('image-studio-model')
   mocks.groups.mockResolvedValue([imageGroup])
   mocks.list.mockResolvedValue({ items: [imageKey], pages: 1 })
   mocks.rates.mockResolvedValue({})
@@ -432,6 +433,17 @@ describe('image studio user flow', () => {
     expect(wrapper.find('.reference-thumbnail').exists()).toBe(true)
     wrapper.unmount()
   })
+  it('selects the first available model on the first visit and remembers the last choice', async () => {
+    mocks.groups.mockResolvedValue([{ ...imageGroup, image_models: ['gemini-2.5-flash-image', 'gpt-image-2'] }])
+    const first = render(); await flushPromises()
+    expect(select(first, 'Model').props('modelValue')).toBe('gemini-2.5-flash-image')
+    await choose(first, 'Model', 'gpt-image-2')
+    expect(localStorage.getItem('image-studio-model')).toBe('gpt-image-2')
+    first.unmount()
+    const second = render(); await flushPromises()
+    expect(select(second, 'Model').props('modelValue')).toBe('gpt-image-2')
+    second.unmount()
+  })
   it('offers common ratios and keeps resolution and model switches valid', async () => {
     mocks.groups.mockResolvedValue([{ ...imageGroup, image_models: ['gpt-image-2', 'gpt-image-1.5'] }])
     const wrapper = render()
@@ -475,6 +487,18 @@ describe('image studio user flow', () => {
     await choose(wrapper, 'Resolution', '2K')
     expect((wrapper.get('input[aria-label="Image width"]').element as HTMLInputElement).value).toBe('2016')
     expect(wrapper.getComponent(StudioImageSettings).props('size')).toBeUndefined()
+    wrapper.unmount()
+  })
+  it('restores a historical draft even when the current key does not include that model', async () => {
+    mocks.creations = [{ id: 'gemini', prompt: 'A watercolor fox', model: 'gemini-2.5-flash-image', ratio: '16:9', resolution: '2K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'completed', images: [], references: [] }]
+    const wrapper = render(); await flushPromises()
+    await wrapper.findAll('.creation-actions button').find(item => item.text() === 'Edit prompt')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.form-error').exists()).toBe(false)
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('A watercolor fox')
+    expect(select(wrapper, 'Model').props('modelValue')).toBe('gemini-2.5-flash-image')
+    expect(select(wrapper, 'Model').props('options').map(option => option.value)).toContain('gemini-2.5-flash-image')
+    expect(wrapper.getComponent(StudioImageSettings).props()).toMatchObject({ ratio: '16:9', resolution: '2K', count: 1 })
     wrapper.unmount()
   })
   it('restores saved custom dimensions when regenerating a historical image', async () => {
