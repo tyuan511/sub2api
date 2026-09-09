@@ -330,7 +330,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	modelPlazaHandler := handler.NewModelPlazaHandler(modelPlazaService, apiKeyService, settingService)
 	imageTaskStore := repository.NewImageTaskStore(redisClient)
 	imageTaskService := service.ProvideImageTaskService(imageTaskStore, imageStorageSettingService)
-	asyncImageHandler := handler.NewAsyncImageHandler(imageTaskService, openAIGatewayHandler)
+	asyncImageHandler := handler.NewAsyncImageHandler(imageTaskService, openAIGatewayHandler, gatewayHandler)
 	imageStudioRepository := repository.NewImageStudioRepository(db)
 	imageStudioService := service.NewImageStudioService(imageStudioRepository, secretEncryptor, imageStorageFactory, imageStorageSettingService, imageTaskStore, configConfig)
 	imageStudioHandler := handler.NewImageStudioHandler(imageStudioService, asyncImageHandler)

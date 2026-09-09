@@ -46,7 +46,7 @@ export default {
     loading: '正在加载生图渠道…', retry: '重新加载', loadFailed: '生图渠道加载失败',
     createKey: '新建生图 Key', createDescription: '为图片创作创建一个 Key，创建后会自动选中。',
     keyName: 'Key 名称', defaultKeyName: '图片创作', group: '生图分组', selectGroup: '请选择生图分组',
-    noGroups: '当前没有可用的 OpenAI 生图分组，请联系管理员开通后重试。',
+    noGroups: '当前没有可用的生图分组，请联系管理员开通后重试。',
     noKeysDescription: '还没有可用的生图 Key，创建后就可以开始创作。',
     create: '创建并使用', creating: '正在创建…', cancel: '取消', createFailed: '创建 Key 失败',
     ratioUnavailable: '当前模型不支持该记录的画面比例，请重新选择。',

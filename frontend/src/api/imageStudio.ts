@@ -32,11 +32,35 @@ const imageSizes: Record<ImageResolution, Record<Exclude<ImageRatio, 'auto'>, st
   '4K': { '1:1': '2880x2880', '16:9': '3840x2160', '9:16': '2160x3840', '4:3': '3264x2448', '3:4': '2448x3264', '3:2': '3456x2304', '2:3': '2304x3456', '4:5': '2560x3200', '5:4': '3200x2560', '21:9': '3696x1584' },
 }
 
+const geminiImageRatios: ImageRatio[] = ['1:1', '16:9', '9:16', '4:3', '3:4']
+const grokImageRatios: ImageRatio[] = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3']
+const grokImageResolutions: ImageResolution[] = ['1K', '2K']
+
+export function isGeminiImageModel(model: string): boolean {
+  const name = model.replace(/^models\//i, '').toLowerCase()
+  return name.startsWith('gemini-') && (name.includes('-image') || name.includes('image-generation'))
+}
+
+export function isGrokImageModel(model: string): boolean {
+  const name = model.toLowerCase()
+  return name === 'grok-imagine' || name === 'grok-imagine-edit' || name.startsWith('grok-imagine-image')
+}
+
 export function getImageRatios(model: string): readonly ImageRatio[] {
+  if (isGeminiImageModel(model)) return geminiImageRatios
+  if (isGrokImageModel(model)) return grokImageRatios
   return model.startsWith('gpt-image-2') ? imageRatios : legacyImageRatios
 }
 
 export function getImageResolutions(model: string, ratio: ImageRatio): ImageResolution[] {
+  if (isGeminiImageModel(model)) {
+    if (ratio === 'auto') return imageResolutions
+    return geminiImageRatios.includes(ratio) ? imageResolutions : []
+  }
+  if (isGrokImageModel(model)) {
+    if (ratio === 'auto') return grokImageResolutions
+    return grokImageRatios.includes(ratio) ? grokImageResolutions : []
+  }
   if (ratio === 'auto') return model.startsWith('gpt-image-2') ? imageResolutions : ['1K']
   if (!model.startsWith('gpt-image-2')) return legacyImageRatios.includes(ratio) ? ['1K'] : []
   return imageResolutions.filter(resolution => imageSizes[resolution][ratio])
@@ -47,6 +71,7 @@ export interface ImageGenerationRequest {
   n: number
   size?: string
   aspect_ratio?: ImageRatio
+  image_size?: ImageResolution
 }
 export interface StudioImage {
   url: string
@@ -55,7 +80,7 @@ export interface StudioImage {
 }
 
 export function isImageGroup(group: Group): boolean {
-  return group.platform === 'openai' && group.status === 'active' && group.allow_image_generation === true
+  return group.status === 'active' && group.allow_image_generation === true
 }
 
 export function apiKeyBoundGroupIds(key: ApiKey): number[] {
@@ -122,9 +147,8 @@ export function imageGroupForKey(key: ApiKey, imageGroups: ImageGenerationGroup[
   return matches[0]
 }
 
-// Keep this aligned with validateOpenAIImagesModel in the existing gateway.
 export function isImageModel(model: string): boolean {
-  return /^gpt-image-/i.test(model)
+  return /^gpt-image-/i.test(model) || isGeminiImageModel(model) || isGrokImageModel(model)
 }
 
 export function isValidImageSize(size: string, ratio: ImageRatio): boolean {
@@ -145,6 +169,17 @@ export function imageSizeResolution(size: string): ImageResolution {
 }
 
 export function buildImageRequest(model: string, prompt: string, ratio: ImageRatio, count: number, resolution: ImageResolution = '1K', customSize?: string): ImageGenerationRequest {
+  if (isGeminiImageModel(model)) {
+    if (ratio === 'auto') return { model, prompt: prompt.trim(), n: 1, image_size: resolution }
+    if (!geminiImageRatios.includes(ratio)) throw new RangeError('Unsupported image ratio or resolution')
+    return { model, prompt: prompt.trim(), n: 1, aspect_ratio: ratio, image_size: resolution }
+  }
+  if (isGrokImageModel(model)) {
+    if (!grokImageResolutions.includes(resolution)) throw new RangeError('Unsupported image ratio or resolution')
+    if (ratio === 'auto') return { model, prompt: prompt.trim(), n: count, image_size: resolution }
+    if (!grokImageRatios.includes(ratio)) throw new RangeError('Unsupported image ratio or resolution')
+    return { model, prompt: prompt.trim(), n: count, aspect_ratio: ratio, image_size: resolution }
+  }
   if (ratio === 'auto') return { model, prompt: prompt.trim(), n: count }
   if (customSize !== undefined && (!model.startsWith('gpt-image-2') || !isValidImageSize(customSize, ratio))) throw new RangeError('Unsupported image size')
   const size = customSize ?? (model.startsWith('gpt-image-2') ? imageSizes[resolution][ratio]

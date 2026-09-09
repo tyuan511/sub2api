@@ -70,6 +70,8 @@ type OpenAIImagesRequest struct {
 	N                  int
 	Size               string
 	ExplicitSize       bool
+	AspectRatio        string
+	ImageSize          string
 	SizeTier           string
 	ResponseFormat     string
 	Quality            string
@@ -177,6 +179,33 @@ func (r *OpenAIImagesRequest) StickySessionSeed() string {
 }
 
 func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []byte) (*OpenAIImagesRequest, error) {
+	req, err := s.parseOpenAIImagesRequest(c, body)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateOpenAIImagesModel(req.Model); err != nil {
+		return nil, err
+	}
+	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
+	req.RequiredCapability = classifyOpenAIImagesCapability(req)
+	return req, nil
+}
+
+// ParseStudioImagesRequest accepts GPT Image, Gemini, and Grok Imagine models for Image Studio.
+func (s *OpenAIGatewayService) ParseStudioImagesRequest(c *gin.Context, body []byte) (*OpenAIImagesRequest, error) {
+	req, err := s.parseOpenAIImagesRequest(c, body)
+	if err != nil {
+		return nil, err
+	}
+	if !IsGPTImageGenerationModel(req.Model) && !isImageGenerationModel(req.Model) && !isGrokImageGenerationModel(req.Model) {
+		return nil, fmt.Errorf("images endpoint requires an image model, got %q", req.Model)
+	}
+	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
+	req.RequiredCapability = classifyOpenAIImagesCapability(req)
+	return req, nil
+}
+
+func (s *OpenAIGatewayService) parseOpenAIImagesRequest(c *gin.Context, body []byte) (*OpenAIImagesRequest, error) {
 	if c == nil || c.Request == nil {
 		return nil, fmt.Errorf("missing request context")
 	}
@@ -216,11 +245,6 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	}
 
 	applyOpenAIImagesDefaults(req)
-	if err := validateOpenAIImagesModel(req.Model); err != nil {
-		return nil, err
-	}
-	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
-	req.RequiredCapability = classifyOpenAIImagesCapability(req)
 	return req, nil
 }
 
@@ -252,6 +276,8 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.Size = strings.TrimSpace(sizeResult.String())
 		req.ExplicitSize = req.Size != ""
 	}
+	req.AspectRatio = strings.TrimSpace(gjson.GetBytes(body, "aspect_ratio").String())
+	req.ImageSize = strings.TrimSpace(gjson.GetBytes(body, "image_size").String())
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
@@ -378,6 +404,10 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		case "size":
 			req.Size = value
 			req.ExplicitSize = value != ""
+		case "aspect_ratio":
+			req.AspectRatio = value
+		case "image_size":
+			req.ImageSize = value
 		case "response_format":
 			req.ResponseFormat = strings.ToLower(value)
 		case "stream":
@@ -463,6 +493,10 @@ func isOpenAIImageGenerationModel(model string) bool {
 func IsGPTImageGenerationModel(model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
 	return strings.HasPrefix(model, "gpt-image-")
+}
+
+func IsGrokImageGenerationModel(model string) bool {
+	return isGrokImageGenerationModel(model)
 }
 
 func isGrokImageGenerationModel(model string) bool {

@@ -16,7 +16,7 @@
             <div class="creation-caption">
               <p class="creation-prompt" tabindex="0">{{ creation.prompt }}</p>
               <p class="creation-prompt-pop" aria-hidden="true">{{ creation.prompt }}</p>
-              <div class="creation-meta"><span>{{ creation.model }}</span><span>{{ creation.ratio === 'auto' ? t('imageStudio.autoRatio') : creation.ratio }}</span><span v-if="creation.ratio !== 'auto'" :title="creation.size?.replace('x', '×')">{{ creation.model.startsWith('gpt-image-2') ? creation.resolution : t('imageStudio.standard') }}</span><span>{{ creation.keyName }}</span><span v-if="creation.references.length">{{ t('imageStudio.referenceCount', { count: creation.references.length }) }}</span><time :datetime="new Date(creation.createdAt).toISOString()">{{ formatTime(creation.createdAt) }}</time></div>
+              <div class="creation-meta"><span>{{ creation.model }}</span><span>{{ creation.ratio === 'auto' ? t('imageStudio.autoRatio') : creation.ratio }}</span><span v-if="creation.ratio !== 'auto'" :title="creation.size?.replace('x', '×')">{{ creation.model.startsWith('gpt-image-2') || isGeminiImageModel(creation.model) || isGrokImageModel(creation.model) ? creation.resolution : t('imageStudio.standard') }}</span><span>{{ creation.keyName }}</span><span v-if="creation.references.length">{{ t('imageStudio.referenceCount', { count: creation.references.length }) }}</span><time :datetime="new Date(creation.createdAt).toISOString()">{{ formatTime(creation.createdAt) }}</time></div>
             </div>
           </div>
           <div v-if="creation.status === 'generating'" class="creation-grid" :style="{ '--image-count': creation.count }" role="status">
@@ -91,7 +91,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { keysAPI } from '@/api/keys'
 import { userGroupsAPI } from '@/api/groups'
-import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, imageGroupForKey, imageModelsForKey, isValidImageSize, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
+import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, imageGroupForKey, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isValidImageSize, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
 import { useImageStudioStore, type StudioCreation } from '@/stores/imageStudio'
 import { useAppStore } from '@/stores/app'
 import type { ApiKey } from '@/types'
@@ -205,11 +205,15 @@ const price = computed(() => {
   if (ratio.value === 'auto') return null
   const group = selectedImageGroup.value
   if (!group || rates.value === null || group.peak_rate_enabled || !availableResolutions.value.includes(resolution.value)) return null
-  let size: string
-  try { size = buildImageRequest(model.value, '', ratio.value, count.value, resolution.value, customSize.value).size || '' }
-  catch { return null }
-  const edge = Math.max(...size.split('x').map(Number))
-  const base = edge <= 1024 ? group.image_price_1k : edge <= 2048 ? group.image_price_2k : group.image_price_4k
+  let tier: ImageResolution = resolution.value
+  if (!isGeminiImageModel(model.value) && !isGrokImageModel(model.value)) {
+    let size: string
+    try { size = buildImageRequest(model.value, '', ratio.value, count.value, resolution.value, customSize.value).size || '' }
+    catch { return null }
+    const edge = Math.max(...size.split('x').map(Number))
+    tier = edge <= 1024 ? '1K' : edge <= 2048 ? '2K' : '4K'
+  }
+  const base = tier === '1K' ? group.image_price_1k : tier === '2K' ? group.image_price_2k : group.image_price_4k
   const multiplier = group.image_rate_independent ? group.image_rate_multiplier : rates.value[group.id] ?? group.rate_multiplier
   return typeof base === 'number' && Number.isFinite(base) && base >= 0 && Number.isFinite(multiplier) ? base * Math.max(0, multiplier) : null
 })
@@ -266,7 +270,10 @@ function openCreate() {
 watch(models, available => {
   if (!available.includes(model.value)) model.value = available.find(item => item === 'gpt-image-2') || available[0] || ''
 })
-watch(model, () => { customSize.value = undefined })
+watch(model, () => {
+  customSize.value = undefined
+  if (isGeminiImageModel(model.value) && count.value > 1) count.value = 1
+})
 watch(availableRatios, available => {
   if (!available.includes(ratio.value)) ratio.value = '1:1'
 })

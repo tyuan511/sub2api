@@ -60,6 +60,8 @@ func (imageStudioFailingAccountRepo) ListSchedulableByGroupID(context.Context, i
 
 func TestImageGenerationGroups(t *testing.T) {
 	imageAccount := service.Account{Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"model_mapping": map[string]any{"gpt-image-2": "gpt-image-2", "gpt-5.5": "gpt-5.5"}}}
+	geminiAccount := service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"model_mapping": map[string]any{"gemini-2.5-flash-image": "gemini-2.5-flash-image", "gemini-2.5-flash": "gemini-2.5-flash"}}}
+	grokAccount := service.Account{Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"model_mapping": map[string]any{"grok-imagine-image": "grok-imagine-image", "grok-4.6": "grok-4.6"}}}
 	textAccount := imageAccount
 	textAccount.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-5.5": "gpt-5.5"}}
 	defaultsAccount := imageAccount
@@ -86,7 +88,11 @@ func TestImageGenerationGroups(t *testing.T) {
 		{name: "wildcards become concrete models", accounts: []service.Account{wildcardAccount}, wantModels: []string{"gpt-image-1", "gpt-image-1.5", "gpt-image-2"}},
 		{name: "disabled image permission", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.AllowImageGeneration = false }},
 		{name: "inactive group", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.Status = "inactive" }},
-		{name: "other group platform", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.Platform = service.PlatformGrok }},
+		{name: "composite image group", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.Platform = service.PlatformComposite }, wantModels: []string{"gpt-image-2"}},
+		{name: "gemini image models", accounts: []service.Account{geminiAccount}, changeGroup: func(g *service.Group) { g.Platform = service.PlatformGemini }, wantModels: []string{"gemini-2.5-flash-image"}},
+		{name: "mixed gpt and gemini compose group", accounts: []service.Account{imageAccount, geminiAccount}, changeGroup: func(g *service.Group) { g.Platform = service.PlatformComposite }, wantModels: []string{"gemini-2.5-flash-image", "gpt-image-2"}},
+		{name: "grok image models", accounts: []service.Account{grokAccount}, changeGroup: func(g *service.Group) { g.Platform = service.PlatformGrok }, wantModels: []string{"grok-imagine-image"}},
+		{name: "mixed gpt gemini grok compose group", accounts: []service.Account{imageAccount, geminiAccount, grokAccount}, changeGroup: func(g *service.Group) { g.Platform = service.PlatformComposite }, wantModels: []string{"gemini-2.5-flash-image", "gpt-image-2", "grok-imagine-image"}},
 		{name: "exclusive group access denied", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.IsExclusive = true }},
 		{name: "subscription required", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.SubscriptionType = "subscription" }},
 		{name: "custom list hides images", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) {

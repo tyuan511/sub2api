@@ -23,11 +23,12 @@ import (
 type AsyncImageHandler struct {
 	tasks   *service.ImageTaskService
 	openAI  *OpenAIGatewayHandler
+	gemini  *GatewayHandler
 	execute func(platform string, c *gin.Context)
 }
 
-func NewAsyncImageHandler(tasks *service.ImageTaskService, openAI *OpenAIGatewayHandler) *AsyncImageHandler {
-	h := &AsyncImageHandler{tasks: tasks, openAI: openAI}
+func NewAsyncImageHandler(tasks *service.ImageTaskService, openAI *OpenAIGatewayHandler, gemini *GatewayHandler) *AsyncImageHandler {
+	h := &AsyncImageHandler{tasks: tasks, openAI: openAI, gemini: gemini}
 	h.execute = h.executeWithGateway
 	return h
 }
@@ -201,7 +202,7 @@ func (h *AsyncImageHandler) activateImageStudioRoute(c *gin.Context, apiKey *ser
 		if candidate == nil || candidate.Group == nil {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
-		if candidate.Group.Platform != service.PlatformOpenAI || !service.GroupAllowsImageGeneration(candidate.Group) {
+		if !service.GroupAllowsImageGeneration(candidate.Group) {
 			return service.ErrNoEligibleAPIKeyRoute
 		}
 		if err := rejectAPIKeyRouteUnsupportedModel(c, h.openAI.gatewayService, candidate, model); err != nil {
@@ -275,7 +276,13 @@ func (h *AsyncImageHandler) checkSecurityAuditBeforeSubmit(c *gin.Context, apiKe
 		parsed := service.ParseGrokMediaRequest(c.GetHeader("Content-Type"), body)
 		model, moderationBody = parsed.Model, parsed.ModerationBody()
 	} else if h.openAI.gatewayService != nil {
-		parsed, err := h.openAI.gatewayService.ParseOpenAIImagesRequest(c, body)
+		var parsed *service.OpenAIImagesRequest
+		var err error
+		if platform == service.PlatformGemini {
+			parsed, err = h.openAI.gatewayService.ParseStudioImagesRequest(c, body)
+		} else {
+			parsed, err = h.openAI.gatewayService.ParseOpenAIImagesRequest(c, body)
+		}
 		if err != nil {
 			imageTaskJSONError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 			return false
@@ -344,6 +351,14 @@ func (h *AsyncImageHandler) validateRequest(c *gin.Context, platform string, bod
 }
 
 func (h *AsyncImageHandler) executeWithGateway(platform string, c *gin.Context) {
+	if platform == service.PlatformGemini {
+		if h.gemini == nil {
+			imageTaskJSONError(c, http.StatusServiceUnavailable, "api_error", "image gateway is unavailable")
+			return
+		}
+		h.gemini.GeminiV1BetaModels(c)
+		return
+	}
 	if h.openAI == nil {
 		imageTaskJSONError(c, http.StatusServiceUnavailable, "api_error", "image gateway is unavailable")
 		return
@@ -375,6 +390,14 @@ func (h *AsyncImageHandler) run(taskID, platform string, taskCtx *gin.Context, r
 		statusCode = http.StatusOK
 	}
 	if statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices {
+		if platform == service.PlatformGemini {
+			converted, err := studioGeminiImagesResult(body)
+			if err != nil {
+				h.failTask(taskID, http.StatusBadGateway, imageTaskErrorPayload("api_error", err.Error()))
+				return
+			}
+			body = converted
+		}
 		if len(body) == 0 || !json.Valid(body) {
 			h.failTask(taskID, http.StatusBadGateway, imageTaskErrorPayload("api_error", "upstream returned an invalid image response"))
 			return

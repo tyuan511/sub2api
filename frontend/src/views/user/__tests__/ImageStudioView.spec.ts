@@ -308,8 +308,11 @@ describe('image studio user flow', () => {
     wrapper.unmount()
   })
   it('opens creation only from the Key dropdown and selects the created image Key', async () => {
+    const composeGroup = { ...imageGroup, id: 6, name: 'GPT+Gemini Images', platform: 'composite' }
+    const composeKey = { ...imageKey, id: 12, group_id: 6, group: composeGroup }
+    mocks.groups.mockResolvedValue([composeGroup])
     mocks.list.mockResolvedValue({ items: [], pages: 0 })
-    mocks.create.mockResolvedValue(imageKey)
+    mocks.create.mockResolvedValue(composeKey)
     const wrapper = render()
     await flushPromises()
     expect(wrapper.find('[data-testid="dialog"]').exists()).toBe(false)
@@ -318,12 +321,12 @@ describe('image studio user flow', () => {
     await wrapper.get('[role="option"]').trigger('click')
     expect(wrapper.find('[data-testid="dialog"]').exists()).toBe(true)
     const groupSelect = select(wrapper, 'Image group')
-    expect(groupSelect.text()).toContain('OpenAI Images')
+    expect(groupSelect.text()).toContain('GPT+Gemini Images')
     expect(JSON.stringify(groupSelect.props('options'))).not.toMatch(/Text only|Grok Images|Inactive/)
     await wrapper.get('input[aria-label="Key name"]').setValue('My art')
     await wrapper.get('.create-key-form').trigger('submit')
     await flushPromises()
-    expect(mocks.create).toHaveBeenCalledWith('My art', 1)
+    expect(mocks.create).toHaveBeenCalledWith('My art', 6)
     expect(wrapper.find('[data-testid="dialog"]').exists()).toBe(false)
     expect(wrapper.get('button[aria-label="Image Key"]').text()).toContain('Drawing key')
     expect(select(wrapper, 'Model').props('modelValue')).toBe('gpt-image-2')

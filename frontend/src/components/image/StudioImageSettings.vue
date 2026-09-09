@@ -23,17 +23,17 @@
           <div class="settings-segments" :aria-label="t('imageStudio.resolution')" role="group">
             <button v-if="automatic" type="button" disabled>{{ t('imageStudio.autoDimensions') }}</button>
             <template v-else>
-              <button v-for="value in resolutions" :key="value" type="button" :data-preset="value" :aria-label="resolutionLabel(value)" :title="formatSize(presetSize(value))" :aria-pressed="selectedSize === presetSize(value)" @click="chooseResolution(value)">{{ resolutionLabel(value) }}</button>
+              <button v-for="value in resolutions" :key="value" type="button" :data-preset="value" :aria-label="resolutionLabel(value)" :title="formatSize(presetSize(value))" :aria-pressed="resolutionPressed(value)" @click="chooseResolution(value)">{{ resolutionLabel(value) }}</button>
             </template>
           </div>
         </fieldset>
         <fieldset>
           <legend>{{ t('imageStudio.chooseCount') }}</legend>
           <div class="settings-segments" :aria-label="t('imageStudio.imageCount')" role="group">
-            <button v-for="value in 4" :key="value" type="button" :aria-pressed="count === value" :aria-label="t('imageStudio.count', { count: value })" @click="emit('update:count', value)">{{ value }}</button>
+            <button v-for="value in maxCount" :key="value" type="button" :aria-pressed="count === value" :aria-label="t('imageStudio.count', { count: value })" @click="emit('update:count', value)">{{ value }}</button>
           </div>
         </fieldset>
-        <fieldset>
+        <fieldset v-if="!namedGeometry">
           <legend>{{ t('imageStudio.dimensions') }}</legend>
           <div class="size-fields" @keydown.enter.prevent>
             <Input :model-value="width" :aria-label="t('imageStudio.width')" :disabled="automatic" :placeholder="automatic ? '—' : ''" :readonly="!supportsSize" :maxlength="4" autocomplete="off" @update:model-value="draft('width', $event)" @blur="commitSize('width')" @enter="commitSize('width')"><template #prefix>W</template></Input>
@@ -55,7 +55,7 @@ import { useI18n } from 'vue-i18n'
 import Select from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { buildImageRequest, getImageRatios, getImageResolutions, imageSizeResolution, isValidImageSize, type ImageRatio, type ImageResolution } from '@/api/imageStudio'
+import { buildImageRequest, getImageRatios, getImageResolutions, imageSizeResolution, isGeminiImageModel, isGrokImageModel, isValidImageSize, type ImageRatio, type ImageResolution } from '@/api/imageStudio'
 
 const props = defineProps<{ model: string; ratio: ImageRatio; resolution: ImageResolution; count: number; size?: string }>()
 const emit = defineEmits<{
@@ -66,13 +66,17 @@ const emit = defineEmits<{
   'validity': [value: boolean]
 }>()
 const { t } = useI18n()
+const gemini = computed(() => isGeminiImageModel(props.model))
+const namedGeometry = computed(() => gemini.value || isGrokImageModel(props.model))
 const supportsSize = computed(() => props.model.startsWith('gpt-image-2'))
 const automatic = computed(() => props.ratio === 'auto')
+const maxCount = computed(() => gemini.value ? 1 : 4)
 const ratioLabel = (ratio: ImageRatio) => ratio === 'auto' ? t('imageStudio.autoRatio') : ratio
 const ratioOrder: ImageRatio[] = ['1:1', '3:4', '16:9', '4:3', '9:16', '2:3', '3:2', '21:9']
 const ratios = computed(() => ratioOrder.filter(value => getImageRatios(props.model).includes(value)))
 const resolutions = computed(() => getImageResolutions(props.model, props.ratio))
-const resolutionLabel = (value: ImageResolution) => supportsSize.value ? value : t('imageStudio.standard')
+const resolutionLabel = (value: ImageResolution) => supportsSize.value || namedGeometry.value ? value : t('imageStudio.standard')
+const resolutionPressed = (value: ImageResolution) => namedGeometry.value ? props.resolution === value : selectedSize.value === presetSize(value)
 const formatSize = (size?: string) => size ? size.replace('x', '×') : '—'
 function presetSize(resolution: ImageResolution) {
   try { return buildImageRequest(props.model, '', props.ratio, props.count, resolution).size }
@@ -94,9 +98,12 @@ function resetDraft() {
   [width.value, height.value] = size ? size.split('x') : ['', '']
   sizeError.value = false
   dirtyEdge.value = null
-  emit('validity', automatic.value || !!size)
+  emit('validity', automatic.value || !!size || namedGeometry.value)
 }
 watch(() => [props.model, props.ratio, props.resolution, props.size], resetDraft, { immediate: true })
+watch(() => [gemini.value, props.count] as const, () => {
+  if (gemini.value && props.count !== 1) emit('update:count', 1)
+})
 function chooseRatio(value: ImageRatio) {
   emit('update:size', undefined)
   emit('update:ratio', value)

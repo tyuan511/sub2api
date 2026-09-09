@@ -39,7 +39,7 @@ func (h *GatewayHandler) ImageGenerationGroups(c *gin.Context) {
 	out := make([]imageGenerationGroup, 0, len(groups))
 	for i := range groups {
 		group := &groups[i]
-		if group.Platform != service.PlatformOpenAI || group.Status != service.StatusActive || !group.AllowImageGeneration {
+		if group.Status != service.StatusActive || !group.AllowImageGeneration {
 			continue
 		}
 		models, err := h.gatewayService.GetAvailableImageModels(c.Request.Context(), group.ID)
