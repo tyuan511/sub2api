@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buildImageRequest, canGenerateImages, generateImages, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isImageGroup, isImageModel, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask, type ImageGenerationGroup } from '../imageStudio'
+import { buildImageRequest, canGenerateImages, generateImages, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isImageGroup, isImageModel, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask, studioImageUnitPrice, type ImageGenerationGroup } from '../imageStudio'
 import type { ApiKey, Group } from '@/types'
 
 const api = vi.hoisted(() => ({ get: vi.fn() }))
@@ -91,6 +91,9 @@ describe('image studio gateway contract', () => {
     expect(buildImageRequest('grok-imagine-image', 'cat', '3:2', 2, '2K')).toEqual({
       model: 'grok-imagine-image', prompt: 'cat', n: 2, aspect_ratio: '3:2', image_size: '2K',
     })
+    expect(studioImageUnitPrice({ ...group, image_price_2k: 0.2, image_prices: { 'gpt-image-2': { '2K': 0.99 } } } as ImageGenerationGroup, 'gpt-image-2', '2K')).toBe(0.99)
+    expect(studioImageUnitPrice({ ...group, image_price_2k: 0.2 } as ImageGenerationGroup, 'gpt-image-2', '2K')).toBe(0.2)
+    expect(studioImageUnitPrice({ ...group, image_price_2k: null } as ImageGenerationGroup, 'gpt-image-2', '2K')).toBeNull()
     expect(canGenerateImages({ ...key, status: 'inactive' })).toBe(false)
     expect(canGenerateImages({ ...key, expires_at: '2000-01-01' })).toBe(false)
     expect(canGenerateImages({ ...key, quota: 2, quota_used: 2 })).toBe(false)

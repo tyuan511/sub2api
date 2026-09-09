@@ -5,6 +5,7 @@ import { apiClient } from './client'
 
 export interface ImageGenerationGroup extends Group {
   image_models: string[]
+  image_prices?: Record<string, Partial<Record<'1K' | '2K' | '4K', number>>>
 }
 
 export async function getImageGenerationGroups(): Promise<ImageGenerationGroup[]> {
@@ -149,6 +150,13 @@ export function imageGroupForKey(key: ApiKey, imageGroups: ImageGenerationGroup[
 
 export function isImageModel(model: string): boolean {
   return /^gpt-image-/i.test(model) || isGeminiImageModel(model) || isGrokImageModel(model)
+}
+
+export function studioImageUnitPrice(group: ImageGenerationGroup, model: string, tier: ImageResolution): number | null {
+  const priced = group.image_prices?.[model]?.[tier]
+  if (typeof priced === 'number' && Number.isFinite(priced) && priced >= 0) return priced
+  const fallback = tier === '1K' ? group.image_price_1k : tier === '2K' ? group.image_price_2k : group.image_price_4k
+  return typeof fallback === 'number' && Number.isFinite(fallback) && fallback >= 0 ? fallback : null
 }
 
 export function isValidImageSize(size: string, ratio: ImageRatio): boolean {

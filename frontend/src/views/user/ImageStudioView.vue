@@ -91,7 +91,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { keysAPI } from '@/api/keys'
 import { userGroupsAPI } from '@/api/groups'
-import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, imageGroupForKey, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isValidImageSize, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
+import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, imageGroupForKey, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isValidImageSize, studioImageUnitPrice, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
 import { useImageStudioStore, type StudioCreation } from '@/stores/imageStudio'
 import { useAppStore } from '@/stores/app'
 import type { ApiKey } from '@/types'
@@ -213,7 +213,7 @@ const price = computed(() => {
     const edge = Math.max(...size.split('x').map(Number))
     tier = edge <= 1024 ? '1K' : edge <= 2048 ? '2K' : '4K'
   }
-  const base = tier === '1K' ? group.image_price_1k : tier === '2K' ? group.image_price_2k : group.image_price_4k
+  const base = studioImageUnitPrice(group, model.value, tier)
   const multiplier = group.image_rate_independent ? group.image_rate_multiplier : rates.value[group.id] ?? group.rate_multiplier
   return typeof base === 'number' && Number.isFinite(base) && base >= 0 && Number.isFinite(multiplier) ? base * Math.max(0, multiplier) : null
 })
