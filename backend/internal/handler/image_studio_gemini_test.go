@@ -9,6 +9,15 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestStudioMaxReferenceImages(t *testing.T) {
+	require.Equal(t, 8, studioMaxReferenceImages("gpt-image-2"))
+	require.Equal(t, 3, studioMaxReferenceImages("gemini-2.5-flash-image"))
+	require.Equal(t, 3, studioMaxReferenceImages("models/gemini-3.1-flash-image"))
+	require.Equal(t, 14, studioMaxReferenceImages("gemini-3-pro-image"))
+	require.Equal(t, 3, studioMaxReferenceImages("grok-imagine-image"))
+	require.Equal(t, 0, studioMaxReferenceImages("gpt-5.5"))
+}
+
 func TestStudioImagePlatform(t *testing.T) {
 	require.Equal(t, service.PlatformOpenAI, studioImagePlatform("gpt-image-2"))
 	require.Equal(t, service.PlatformGemini, studioImagePlatform("gemini-2.5-flash-image"))

@@ -38,6 +38,11 @@ const render = () => mount(ImageStudioView, { global: {
     BaseDialog: { props: ['show'], template: '<section v-if="show" data-testid="dialog"><slot /></section>' },
     RouterLink: { template: '<a><slot /></a>' },
     StudioThumbnail: true,
+    StudioPromptEditor: {
+      props: ['modelValue', 'ariaLabel'],
+      template: '<textarea :value="modelValue" :aria-label="ariaLabel" @input="$emit(\'update:modelValue\', $event.target.value)" @keydown="($event.ctrlKey || $event.metaKey) && $event.key === \'Enter\' && $emit(\'submit\')" />',
+      methods: { focus() {} },
+    },
   },
 } })
 
@@ -156,11 +161,25 @@ describe('image studio user flow', () => {
     expect(mocks.creations.map(item => item.id)).toEqual(['creation-3', 'creation-2', 'creation-1'])
     wrapper.unmount()
   })
+  it('renders referenced images in history prompts as filenames', async () => {
+    mocks.creations = [{ id: 'creation-1', prompt: '用[第1张图]的风格', model: 'gpt-image-2', ratio: '1:1', resolution: '1K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'failed', images: [], references: [{ id: 'ref-1', url: 'https://example.test/ref.png', filename: 'ref.png', content_type: 'image/png', size: 12 }] }]
+    const wrapper = render(); await flushPromises()
+    expect(wrapper.get('.creation-prompt .prompt-mention').text()).toBe('@ref.png')
+    wrapper.unmount()
+  })
   it('copies the history prompt from the hover popover', async () => {
     mocks.creations = [{ id: 'creation-1', prompt: 'A glass greenhouse', model: 'gpt-image-2', ratio: '1:1', resolution: '1K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'failed', images: [], references: [] }]
     const wrapper = render(); await flushPromises()
     await wrapper.get('.creation-prompt-pop').trigger('click')
     expect(mocks.copyToClipboard).toHaveBeenCalledWith('A glass greenhouse', 'Prompt copied')
+    wrapper.unmount()
+  })
+  it('blocks submit when the prompt references a missing image', async () => {
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('textarea').setValue('用参考图2的风格')
+    await wrapper.get('.studio-composer').trigger('submit')
+    expect(mocks.generate).not.toHaveBeenCalled()
+    expect(wrapper.get('.form-error').text()).toContain('no longer exists')
     wrapper.unmount()
   })
   it('allows new drafts and regeneration while other tasks are running, without duplicate empty submits', async () => {
@@ -252,7 +271,7 @@ describe('image studio user flow', () => {
     const wrapper = render()
     await flushPromises()
     const upload = wrapper.get('input[type="file"]')
-    Object.defineProperty(upload.element, 'files', { value: Array.from({ length: 4 }, (_, i) => new File(['original'], `${i}.png`, { type: 'image/png' })) })
+    Object.defineProperty(upload.element, 'files', { value: Array.from({ length: 8 }, (_, i) => new File(['original'], `${i}.png`, { type: 'image/png' })) })
     await upload.trigger('change')
     await wrapper.get('textarea').setValue('Keep my draft')
     expect(wrapper.get('.picture-reference').attributes('disabled')).toBeDefined()
@@ -267,7 +286,7 @@ describe('image studio user flow', () => {
     await wrapper.get('.picture-reference').trigger('click')
     await flushPromises()
     expect(mocks.showError).toHaveBeenLastCalledWith('Download failed')
-    expect(wrapper.findAll('.reference-thumbnail')).toHaveLength(3)
+    expect(wrapper.findAll('.reference-thumbnail')).toHaveLength(7)
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('Keep my draft')
     wrapper.unmount()
   })

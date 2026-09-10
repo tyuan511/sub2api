@@ -1,6 +1,6 @@
 <template>
   <div v-if="!readOnly || references.length" ref="container" class="reference-picker" :class="{ 'is-expanded': expanded && references.length, 'is-readonly': readOnly, 'is-single': references.length === 1 }" @pointerenter="pointerEnter" @pointerleave="pointerLeave" @focusin="expanded = true" @focusout="focusOut" @keydown.esc.stop.prevent="collapse">
-    <button v-if="!references.length" ref="emptyButton" type="button" class="reference-upload reference-empty" :aria-label="t('imageStudio.reference')" :title="t('imageStudio.referenceHint')" @click="$emit('add')">
+    <button v-if="!references.length && max > 0" ref="emptyButton" type="button" class="reference-upload reference-empty" :aria-label="t('imageStudio.reference')" :title="t('imageStudio.referenceHint', { count: max })" @click="$emit('add')">
       <Icon name="plus" /><span>{{ t('imageStudio.reference') }}</span>
     </button>
     <template v-else>
@@ -13,10 +13,10 @@
             <img v-else :src="reference.url" :alt="referenceName(reference)" referrerpolicy="no-referrer" />
             <button v-if="!readOnly" type="button" class="reference-remove" :tabindex="expanded ? 0 : -1" :aria-label="t('imageStudio.removeReferenceNamed', { name: referenceName(reference) })" @click="remove(index)"><Icon name="x" size="sm" /></button>
           </div>
-          <button v-if="!readOnly && references.length < 4" type="button" class="reference-upload reference-add" :tabindex="expanded ? 0 : -1" :aria-label="t('imageStudio.reference')" :title="t('imageStudio.referenceHint')" @click="$emit('add')"><Icon name="plus" /></button>
+          <button v-if="!readOnly && references.length < max" type="button" class="reference-upload reference-add" :tabindex="expanded ? 0 : -1" :aria-label="t('imageStudio.reference')" :title="t('imageStudio.referenceHint', { count: max })" @click="$emit('add')"><Icon name="plus" /></button>
         </div>
       </div>
-      <button v-if="!readOnly && references.length < 4" type="button" class="reference-add-badge" :tabindex="expanded ? -1 : 0" :aria-label="t('imageStudio.reference')" @click="$emit('add')"><Icon name="plus" size="sm" /></button>
+      <button v-if="!readOnly && references.length < max" type="button" class="reference-add-badge" :tabindex="expanded ? -1 : 0" :aria-label="t('imageStudio.reference')" @click="$emit('add')"><Icon name="plus" size="sm" /></button>
     </template>
   </div>
 </template>
@@ -30,7 +30,7 @@ import StudioThumbnail from './StudioThumbnail.vue'
 import type { StudioAsset } from '@/api/imageStudio'
 
 type Reference = File | StudioAsset | { file: File; url: string }
-const props = defineProps<{ references: Reference[]; readOnly?: boolean }>()
+const props = withDefaults(defineProps<{ references: Reference[]; readOnly?: boolean; max?: number }>(), { max: 4 })
 const isFile = (reference: Reference): reference is File => reference instanceof File
 const referenceName = (reference: Reference) => isFile(reference) ? reference.name : 'file' in reference ? reference.file.name : reference.filename
 const emit = defineEmits<{ add: []; remove: [index: number] }>()
@@ -71,12 +71,12 @@ watch(() => props.references.length, count => { if (!count) expanded.value = fal
 .reference-picker { --card-width: 70px; --card-height: 82px; position: relative; flex: 0 0 92px; width: 92px; height: 96px; }
 .reference-tray { position: absolute; top: -8px; left: -8px; padding: 8px; border: 1px solid transparent; border-radius: 16px; transition: background .2s, box-shadow .2s, border-color .2s; }
 .reference-cards { position: relative; width: 90px; height: 96px; padding: 7px; }
-.reference-thumbnail { position: absolute; top: 7px; left: 7px; width: var(--card-width); height: var(--card-height); flex-shrink: 0; padding: 3px; background: var(--studio-surface); border: 1px solid var(--studio-line); border-radius: 9px; box-shadow: 0 3px 9px #17172b12; transform: translate(calc(var(--index) * 5px), calc(var(--index) * -2px)) rotate(var(--angle)); transition: transform .2s; }
-.reference-thumbnail :deep(img) { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; background: #fff; }
+.reference-thumbnail { position: absolute; top: 50%; left: 50%; display: flex; align-items: center; justify-content: center; width: max-content; max-width: var(--card-width); flex-shrink: 0; line-height: 0; border-radius: 9px; box-shadow: 0 4px 12px #17172b26; transform: translate(calc(-50% + var(--index) * 5px), calc(-50% + var(--index) * -2px)) rotate(var(--angle)); transition: transform .2s; }
+.reference-thumbnail :deep(img) { display: block; width: auto; height: auto; max-width: var(--card-width); max-height: var(--card-height); object-fit: contain; border-radius: 9px; }
 .reference-expand { position: absolute; inset: 0; z-index: 5; border-radius: 10px; }
 .reference-expand:focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 2px; }
 .reference-add-badge { position: absolute; right: 0; bottom: 0; z-index: 6; width: 28px; height: 28px; display: grid; place-items: center; background: var(--studio-bg); color: var(--studio-ink); border: 1px solid var(--studio-line); border-radius: 50%; }
-.reference-remove { position: absolute; top: -7px; right: -7px; width: 24px; height: 24px; display: grid; place-items: center; background: #29282f; color: #fff; border: 2px solid var(--studio-surface); border-radius: 50%; visibility: hidden; }
+.reference-remove { position: absolute; top: -7px; right: -7px; width: 24px; height: 24px; display: grid; place-items: center; background: #29282f; color: #fff; border: 2px solid var(--studio-bg); border-radius: 50%; visibility: hidden; }
 .reference-remove:hover { background: #514c61; }
 .reference-upload { display: flex; align-items: center; justify-content: center; width: var(--card-width); height: var(--card-height); flex-shrink: 0; border: 1px dashed color-mix(in srgb, var(--studio-muted) 35%, var(--studio-line)); border-radius: 9px; background: var(--studio-bg); color: var(--studio-muted); }
 .reference-upload:hover { color: var(--studio-accent); border-color: var(--studio-accent); }
@@ -84,8 +84,8 @@ watch(() => props.references.length, count => { if (!count) expanded.value = fal
 .reference-empty span { font-size: 10px; }
 .reference-add { display: none; }
 .is-expanded .reference-tray { z-index: 10; }
-.is-expanded .reference-cards { display: flex; gap: 4px; width: max-content; max-width: calc(100vw - 82px); overflow-x: auto; height: auto; padding: 10px 8px; }
-.is-expanded .reference-thumbnail { position: relative; top: auto; left: auto; transform: rotate(0deg); }
+.is-expanded .reference-cards { display: flex; gap: 4px; align-items: center; justify-content: center; width: max-content; max-width: calc(100vw - 82px); overflow-x: auto; height: auto; padding: 10px 8px; }
+.is-expanded .reference-thumbnail { position: relative; top: auto; left: auto; flex-shrink: 0; transform: none; }
 .is-expanded .reference-remove { visibility: visible; }
 .is-expanded .reference-add { display: flex; }
 .is-expanded .reference-expand, .is-expanded .reference-add-badge { opacity: 0; pointer-events: none; }
@@ -98,7 +98,7 @@ watch(() => props.references.length, count => { if (!count) expanded.value = fal
 .is-readonly.is-single { flex-basis: 46px; width: 46px; }
 .is-readonly .reference-tray { top: -6px; left: -6px; padding: 6px; border-radius: 12px; }
 .is-readonly:not(.is-expanded) .reference-cards { width: 58px; height: 48px; padding: 0; }
-.is-readonly:not(.is-expanded) .reference-thumbnail { top: 0; left: 0; padding: 2px; }
+.is-readonly:not(.is-expanded) .reference-thumbnail { top: 50%; left: 50%; }
 .is-readonly.is-single .reference-thumbnail { transform: none; }
 .is-readonly.is-expanded { --card-width: clamp(44px, calc((100vw - 122px) / 4), 64px); --card-height: var(--card-width); }
 .is-readonly.is-expanded .reference-cards { padding: 6px; }

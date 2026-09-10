@@ -14,8 +14,8 @@
           <div class="creation-description">
             <StudioReferencePicker v-if="creation.references.length" :references="creation.references" read-only />
             <div class="creation-caption">
-              <p class="creation-prompt" tabindex="0">{{ creation.prompt }}</p>
-              <button type="button" class="creation-prompt-pop" :title="t('imageStudio.copyPrompt')" :aria-label="t('imageStudio.copyPrompt')" @click="copyPrompt(creation.prompt)">{{ creation.prompt }}</button>
+              <p class="creation-prompt" tabindex="0"><StudioPromptRich :prompt="creation.prompt" :references="creation.references" /></p>
+              <button type="button" class="creation-prompt-pop" :title="t('imageStudio.copyPrompt')" :aria-label="t('imageStudio.copyPrompt')" @click="copyPrompt(creation)"><StudioPromptRich :prompt="creation.prompt" :references="creation.references" /></button>
               <div class="creation-meta"><span>{{ creation.model }}</span><span>{{ creation.ratio === 'auto' ? t('imageStudio.autoRatio') : creation.ratio }}</span><span v-if="creation.ratio !== 'auto'" :title="creation.size?.replace('x', '×')">{{ creation.model.startsWith('gpt-image-2') || isGeminiImageModel(creation.model) || isGrokImageModel(creation.model) ? creation.resolution : t('imageStudio.standard') }}</span><span>{{ creation.keyName }}</span><span v-if="creation.references.length">{{ t('imageStudio.referenceCount', { count: creation.references.length }) }}</span><time :datetime="new Date(creation.createdAt).toISOString()">{{ formatTime(creation.createdAt) }}</time></div>
             </div>
           </div>
@@ -46,9 +46,9 @@
         <div v-else-if="!loading && !storageAvailable" class="studio-notice" role="status">{{ t('imageStudio.storageUnavailable') }}<button @click="loadAccess">{{ t('imageStudio.retry') }}</button></div>
         <form class="studio-composer" @submit.prevent="submit">
           <div class="composer-input">
-            <StudioReferencePicker :references="references" @add="fileInput?.click()" @remove="removeReference" />
+            <StudioReferencePicker :references="references" :max="referenceLimit" @add="fileInput?.click()" @remove="removeReference" />
             <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple class="sr-only" tabindex="-1" @change="addReferences" />
-            <TextArea ref="promptInput" v-model="prompt" class="composer-prompt" :aria-label="t('imageStudio.prompt')" :placeholder="t('imageStudio.placeholder')" :maxlength="32000" :rows="3" @keydown="promptKeydown" />
+            <StudioPromptEditor ref="promptInput" v-model="prompt" class="composer-prompt" :references="promptReferences" :aria-label="t('imageStudio.prompt')" :placeholder="t('imageStudio.placeholder')" @submit="submit" @mentions-unresolved="formError = t('imageStudio.referenceMentionPaste')" />
           </div>
           <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
           <div class="composer-toolbar">
@@ -91,7 +91,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { keysAPI } from '@/api/keys'
 import { userGroupsAPI } from '@/api/groups'
-import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, imageGroupForKey, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isValidImageSize, studioImageUnitPrice, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
+import { buildImageRequest, canGenerateImages, getImageGenerationGroups, getImageStudioStatus, getImageRatios, getImageResolutions, getStudioFile, imageGroupForKey, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isValidImageSize, studioImageUnitPrice, studioReferenceLimit, type ImageGenerationGroup, type ImageRatio, type ImageResolution, type StudioImage } from '@/api/imageStudio'
 import { useImageStudioStore, type StudioCreation } from '@/stores/imageStudio'
 import { useAppStore } from '@/stores/app'
 import type { ApiKey } from '@/types'
@@ -100,15 +100,17 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Input from '@/components/common/Input.vue'
-import TextArea from '@/components/common/TextArea.vue'
 import Icon from '@/components/icons/Icon.vue'
 import StudioReferencePicker from '@/components/image/StudioReferencePicker.vue'
+import StudioPromptEditor from '@/components/image/StudioPromptEditor.vue'
+import StudioPromptRich from '@/components/image/StudioPromptRich.vue'
 import StudioGenerationPlaceholder from '@/components/image/StudioGenerationPlaceholder.vue'
 import StudioImageSettings from '@/components/image/StudioImageSettings.vue'
 import StudioImagePreview from '@/components/image/StudioImagePreview.vue'
 import StudioThumbnail from '@/components/image/StudioThumbnail.vue'
 import { isImageUrlFresh } from '@/utils/imageUrlCache'
 import { fetchImage } from '@/utils/fetchImage'
+import { dropStudioMentionsAbove, remapStudioMentionsOnRemove, studioPromptDisplayText, studioPromptMaxMention } from '@/utils/studioPromptMentions'
 import { useClipboard } from '@/composables/useClipboard'
 
 const { t, locale } = useI18n()
@@ -153,7 +155,12 @@ const modelOptions = computed(() => {
 })
 const groupOptions = computed(() => groups.value.map(group => ({ value: group.id, label: group.name })))
 const references = ref<{ file: File; url: string; sourceId?: string }[]>([])
-const promptInput = ref<InstanceType<typeof TextArea>>()
+const promptInput = ref<InstanceType<typeof StudioPromptEditor>>()
+const promptReferences = computed(() => references.value.map(item => ({ name: item.file.name })))
+const referenceLimit = computed(() => {
+  const limit = studioReferenceLimit(model.value)
+  return model.value ? limit : 8
+})
 const fileInput = ref<HTMLInputElement>()
 const historyEl = ref<HTMLElement>()
 const historyContentEl = ref<HTMLElement>()
@@ -212,6 +219,13 @@ const deleteTarget = ref<StudioCreation | null>(null)
 const deleting = ref(false)
 const deleteError = ref('')
 watch(deleteTarget, () => { deleteError.value = '' })
+watch(referenceLimit, limit => {
+  if (references.value.length <= limit) return
+  const extra = references.value.splice(limit)
+  extra.forEach(item => URL.revokeObjectURL(item.url))
+  prompt.value = dropStudioMentionsAbove(prompt.value, limit)
+  formError.value = t('imageStudio.referenceLimitTrimmed', { count: limit })
+})
 const preview = ref<{ picture: StudioImage & { id?: string }; creation: StudioCreation; index: number } | null>(null)
 let disposed = false
 const canSubmit = computed(() => sizeValid.value && !!prompt.value.trim() && !!selectedKey.value && models.value.includes(model.value) && availableRatios.value.includes(ratio.value) && availableResolutions.value.includes(resolution.value) && storageAvailable.value && !loading.value && !editing.value && !addingReference.value && !studio.historyLoading && !loadError.value)
@@ -320,30 +334,32 @@ function addReferences(event: Event) {
   const input = event.target as HTMLInputElement
   const files = Array.from(input.files || [])
   formError.value = ''
-  if (references.value.length + files.length > 4 || files.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 30 * 1024 * 1024 || !file.size)) {
-    formError.value = t('imageStudio.invalidReference')
+  if (references.value.length + files.length > referenceLimit.value || files.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 30 * 1024 * 1024 || !file.size)) {
+    formError.value = t('imageStudio.invalidReference', { count: referenceLimit.value })
   } else { references.value.push(...files.map(file => ({ file, url: URL.createObjectURL(file) }))) }
   input.value = ''
 }
 function removeReference(index: number) {
   URL.revokeObjectURL(references.value[index].url)
   references.value.splice(index, 1)
+  prompt.value = remapStudioMentionsOnRemove(prompt.value, index)
 }
 function replaceReferences(files: File[]) {
   references.value.forEach(item => URL.revokeObjectURL(item.url))
   references.value = files.map(file => ({ file, url: URL.createObjectURL(file) }))
 }
-function copyPrompt(text: string) {
-  if (!text) return
-  void copyToClipboard(text, t('imageStudio.promptCopied'))
+function copyPrompt(creation: StudioCreation) {
+  const names = creation.references.map(reference => reference instanceof File ? reference.name : reference.filename)
+  void copyToClipboard(studioPromptDisplayText(creation.prompt, names), t('imageStudio.promptCopied'))
 }
 function useSuggestion(index: number) { prompt.value = t(`imageStudio.suggestion${index}`); promptInput.value?.focus() }
-function promptKeydown(event: KeyboardEvent) {
-  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.isComposing) { event.preventDefault(); void submit() }
-}
 async function submit() {
   if (!canSubmit.value || !selectedKey.value) return
   formError.value = ''
+  if (studioPromptMaxMention(prompt.value) > references.value.length) {
+    formError.value = t('imageStudio.referenceMentionMissing')
+    return
+  }
   const key = selectedKey.value
   const extra: [string?] = customSize.value ? [customSize.value] : []
   const pending = studio.generate(key.key, prompt.value, model.value, ratio.value, count.value, resolution.value, references.value.map(item => item.file), key.id, key.name, ...extra)
@@ -405,7 +421,7 @@ async function removeCreation() {
 const imageIdentity = (picture: StudioImage & { id?: string }) => picture.id || picture.url
 const isReferenceAdded = (picture: StudioImage & { id?: string }) => references.value.some(reference => reference.sourceId === imageIdentity(picture))
 function referenceActionDisabled(picture: StudioImage & { id?: string }) {
-  return !!addingReference.value || editing.value || references.value.length >= 4 || isReferenceAdded(picture)
+  return !!addingReference.value || editing.value || references.value.length >= referenceLimit.value || isReferenceAdded(picture)
 }
 function referenceActionLabel(picture: StudioImage & { id?: string }) {
   if (addingReference.value === imageIdentity(picture)) return t('imageStudio.addingReference')
@@ -421,15 +437,15 @@ async function useAsReference(picture: StudioImage & { id?: string }, creationId
   try {
     // Renew the stored asset URL before fetching; never send API credentials to S3.
     const asset = picture.id ? await getStudioFile(picture.id) : null
-    if (asset && asset.size > 30 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference'))
+    if (asset && asset.size > 30 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference', { count: referenceLimit.value }))
     const response = await fetchImage(asset?.url || picture.url, controller.signal)
     if (!response.ok) throw new Error(t('imageStudio.referenceUnavailable'))
     const blob = await response.blob()
     const mime = blob.type || asset?.content_type || ''
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mime) || !blob.size || blob.size > 30 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference'))
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mime) || !blob.size || blob.size > 30 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference', { count: referenceLimit.value }))
     if (disposed) return
     // The user may have uploaded more references while the image was loading.
-    if (references.value.length >= 4) throw new Error(t('imageStudio.invalidReference'))
+    if (references.value.length >= referenceLimit.value) throw new Error(t('imageStudio.invalidReference', { count: referenceLimit.value }))
     const extension = mime === 'image/webp' ? 'webp' : mime === 'image/jpeg' ? 'jpg' : 'png'
     const file = new File([blob], `image-${creationId}-${index + 1}.${extension}`, { type: mime })
     references.value.push({ file, url: URL.createObjectURL(file), sourceId })
@@ -604,13 +620,31 @@ onBeforeUnmount(() => {
 .composer-dock { flex-shrink: 0; padding: 12px 32px max(16px, env(safe-area-inset-bottom)); background: var(--studio-bg); }
 .studio-composer { padding: 12px; border: 1px solid var(--studio-line); border-radius: 20px; background: var(--studio-surface); box-shadow: 0 4px 24px #30304004; }
 .composer-input { display: flex; align-items: flex-start; gap: 10px; min-height: 94px; }
-.composer-prompt { flex: 1; min-width: 0; }
-.studio-composer .composer-prompt :deep(textarea) { resize: none; min-width: 0; min-height: 82px; max-height: 180px; padding: 6px 0; border: 0; color: var(--studio-ink); font-size: 14px; line-height: 1.8; }
-/* The deployed site theme uses !important on form surfaces and focus rings. */
-.studio-composer .composer-prompt :deep(textarea),
-.studio-composer .composer-prompt :deep(textarea:focus),
-.studio-composer .composer-prompt :deep(textarea:focus-visible) { background: transparent !important; border-radius: 0 !important; outline: none !important; box-shadow: none !important; }
-.composer-prompt :deep(textarea::placeholder) { color: var(--studio-muted); opacity: .8; }
+.composer-prompt { flex: 1; min-width: 0; position: relative; }
+.studio-prompt-editor { min-width: 0; }
+.studio-composer .studio-prompt-input,
+.studio-composer .studio-prompt-input:focus,
+.studio-composer .studio-prompt-input:focus-visible {
+  display: block;
+  width: 100%;
+  resize: none;
+  min-width: 0;
+  min-height: 82px;
+  max-height: 180px;
+  padding: 6px 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: var(--studio-ink);
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-y: auto;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.studio-prompt-input.is-empty:before { content: attr(data-placeholder); color: var(--studio-muted); opacity: .8; pointer-events: none; }
 .composer-toolbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding-top: 13px; }
 .composer-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .composer-select { min-width: 72px; }
@@ -654,7 +688,7 @@ onBeforeUnmount(() => {
   .composer-dock { padding: 8px 12px max(12px, env(safe-area-inset-bottom)); }
   .studio-composer { padding: 10px 10px 12px; border-radius: 14px; }
   .composer-input { gap: 10px; min-height: 94px; }
-  .studio-composer .composer-prompt :deep(textarea) { font-size: 13px; min-height: 82px; max-height: 130px; }
+  .studio-composer .studio-prompt-input { font-size: 13px; min-height: 82px; max-height: 130px; }
   .composer-toolbar { gap: 10px; padding-top: 6px; }
   .composer-select :deep(.select-trigger) { min-height: 32px; padding: 6px 8px; }
   .key-select { max-width: 210px; }

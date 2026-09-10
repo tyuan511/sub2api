@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -157,8 +158,9 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 	if platform == service.PlatformGemini {
 		maxCount = 1
 	}
-	if parsed.Stream || parsed.N < 1 || parsed.N > maxCount || len(parsed.Uploads) > 4 || len(parsed.InputImageURLs) > 0 || parsed.HasMask || platform == "" {
-		imageTaskJSONError(c, 400, "invalid_request_error", "图片创作支持 GPT Image、Gemini 与 Grok 生图模型，最多 4 张上传参考图")
+	maxRefs := studioMaxReferenceImages(parsed.Model)
+	if parsed.Stream || parsed.N < 1 || parsed.N > maxCount || maxRefs == 0 || len(parsed.Uploads) > maxRefs || len(parsed.InputImageURLs) > 0 || parsed.HasMask || platform == "" {
+		imageTaskJSONError(c, 400, "invalid_request_error", fmt.Sprintf("图片创作支持 GPT Image、Gemini 与 Grok 生图模型，当前模型最多 %d 张参考图", maxRefs))
 		return
 	}
 	for _, file := range parsed.Uploads {

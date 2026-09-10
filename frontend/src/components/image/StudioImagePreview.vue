@@ -26,7 +26,7 @@
           <div class="preview-model"><Icon name="cube" size="sm" />{{ creation.model }}</div>
           <div class="preview-tags"><span>{{ creation.ratio === 'auto' ? t('imageStudio.autoRatio') : creation.ratio }}</span><span v-if="creation.ratio !== 'auto'">{{ creation.resolution }}</span><span v-if="creation.size">{{ creation.size.replace('x', ' × ') }}</span></div>
           <h4>{{ t('imageStudio.prompt') }}</h4>
-          <p class="preview-prompt">{{ picture.revisedPrompt || creation.prompt }}</p>
+          <p class="preview-prompt"><StudioPromptRich :prompt="creation.prompt" :references="creation.references" /></p>
         </div>
         <div class="preview-actions">
           <button class="btn btn-primary" :disabled="downloading" @click="emit('download')"><Icon :name="downloading ? 'refresh' : 'download'" size="sm" />{{ t('imageStudio.download') }}</button>
@@ -44,6 +44,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import StudioThumbnail from './StudioThumbnail.vue'
+import StudioPromptRich from './StudioPromptRich.vue'
 import type { StudioCreation } from '@/stores/imageStudio'
 
 const props = defineProps<{

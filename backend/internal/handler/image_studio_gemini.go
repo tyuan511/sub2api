@@ -23,6 +23,22 @@ func studioImagePlatform(model string) string {
 	return ""
 }
 
+func studioMaxReferenceImages(model string) int {
+	switch studioImagePlatform(model) {
+	case service.PlatformGemini:
+		if strings.Contains(strings.ToLower(model), "pro-image") {
+			return 14
+		}
+		return 3
+	case service.PlatformGrok:
+		return 3
+	case service.PlatformOpenAI:
+		return 8
+	default:
+		return 0
+	}
+}
+
 func grokStudioResolution(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "1k":

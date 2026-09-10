@@ -47,6 +47,16 @@ export function isGrokImageModel(model: string): boolean {
   return name === 'grok-imagine' || name === 'grok-imagine-edit' || name.startsWith('grok-imagine-image')
 }
 
+export function studioReferenceLimit(model: string): number {
+  const name = model.replace(/^models\//i, '').toLowerCase()
+  if (name.includes('pro-image')) return 14
+  if (name.includes('flash-image')) return 3
+  if (isGrokImageModel(model)) return 3
+  if (/^gpt-image-/.test(name)) return 8
+  if (isGeminiImageModel(model)) return 3
+  return 0
+}
+
 export function getImageRatios(model: string): readonly ImageRatio[] {
   if (isGeminiImageModel(model)) return geminiImageRatios
   if (isGrokImageModel(model)) return grokImageRatios

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buildImageRequest, canGenerateImages, generateImages, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isImageGroup, isImageModel, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask, studioImageUnitPrice, type ImageGenerationGroup } from '../imageStudio'
+import { buildImageRequest, canGenerateImages, generateImages, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isImageGroup, isImageModel, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask, studioImageUnitPrice, studioReferenceLimit, type ImageGenerationGroup } from '../imageStudio'
 import type { ApiKey, Group } from '@/types'
 
 const api = vi.hoisted(() => ({ get: vi.fn() }))
@@ -82,6 +82,11 @@ describe('image studio gateway contract', () => {
     expect(isGeminiImageModel('models/gemini-3.1-flash-image')).toBe(true)
     expect(isImageModel('gemini-2.5-flash')).toBe(false)
     expect(isGrokImageModel('grok-imagine-image-2.0')).toBe(true)
+    expect(studioReferenceLimit('gpt-image-2')).toBe(8)
+    expect(studioReferenceLimit('gemini-2.5-flash-image')).toBe(3)
+    expect(studioReferenceLimit('models/gemini-3.1-flash-image')).toBe(3)
+    expect(studioReferenceLimit('gemini-3-pro-image')).toBe(14)
+    expect(studioReferenceLimit('grok-imagine-image')).toBe(3)
     expect(isImageModel('grok-imagine-video')).toBe(false)
     expect(getImageRatios('gemini-2.5-flash-image')).toEqual(['1:1', '16:9', '9:16', '4:3', '3:4'])
     expect(getImageResolutions('grok-imagine-image', '16:9')).toEqual(['1K', '2K'])
