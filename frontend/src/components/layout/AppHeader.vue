@@ -21,15 +21,15 @@
         </div>
       </div>
 
-      <!-- Right: Support + Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
+      <!-- Right: Announcements + Support + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex min-w-0 items-center gap-1 sm:gap-3">
+        <!-- Announcement Bell -->
+        <AnnouncementBell v-if="user" />
+
         <template v-if="user">
           <AdminSupportWidget v-if="authStore.isAdmin" />
           <SupportWidget v-else />
         </template>
-
-        <!-- Announcement Bell -->
-        <AnnouncementBell v-if="user" />
 
         <!-- Docs Link -->
         <a
