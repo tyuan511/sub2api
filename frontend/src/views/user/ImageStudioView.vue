@@ -569,7 +569,7 @@ onBeforeUnmount(() => {
   border-radius: 10px;
   box-shadow: 0 16px 40px rgb(15 18 28 / .16);
   color: inherit;
-  font: inherit;
+  font-family: inherit;
   text-align: left;
   cursor: pointer;
   scrollbar-width: thin;
