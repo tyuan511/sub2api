@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { buildImageRequest, canGenerateImages, generateImages, imageModelsForKey, isImageGroup, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask, type ImageGenerationGroup } from '../imageStudio'
+import { buildImageRequest, canGenerateImages, generateImages, imageModelsForKey, isGeminiImageModel, isGrokImageModel, isImageGroup, isImageModel, getImageGenerationGroups, getImageRatios, getImageResolutions, isValidImageSize, pollImageTask, studioImageUnitPrice, type ImageGenerationGroup } from '../imageStudio'
 import type { ApiKey, Group } from '@/types'
 
 const api = vi.hoisted(() => ({ get: vi.fn() }))
@@ -71,10 +71,29 @@ describe('image studio gateway contract', () => {
     }
     expect(() => buildImageRequest('gpt-image-1.5', 'test', '1:1', 1, '1K', '1024x1024')).toThrow(RangeError)
   })
-  it('only accepts active OpenAI image groups and usable keys', () => {
+  it('only accepts active image-capable groups and usable keys', () => {
     expect(canGenerateImages(key)).toBe(true)
-    expect(isImageGroup({ ...group, platform: 'grok' })).toBe(false)
+    expect(isImageGroup({ ...group, platform: 'composite' })).toBe(true)
+    expect(isImageGroup({ ...group, platform: 'gemini' })).toBe(true)
     expect(isImageGroup({ ...group, allow_image_generation: false })).toBe(false)
+    expect(isImageGroup({ ...group, status: 'inactive' })).toBe(false)
+    expect(isImageModel('gpt-image-2')).toBe(true)
+    expect(isImageModel('gemini-2.5-flash-image')).toBe(true)
+    expect(isGeminiImageModel('models/gemini-3.1-flash-image')).toBe(true)
+    expect(isImageModel('gemini-2.5-flash')).toBe(false)
+    expect(isGrokImageModel('grok-imagine-image-2.0')).toBe(true)
+    expect(isImageModel('grok-imagine-video')).toBe(false)
+    expect(getImageRatios('gemini-2.5-flash-image')).toEqual(['1:1', '16:9', '9:16', '4:3', '3:4'])
+    expect(getImageResolutions('grok-imagine-image', '16:9')).toEqual(['1K', '2K'])
+    expect(buildImageRequest('gemini-2.5-flash-image', 'cat', '16:9', 4, '2K')).toEqual({
+      model: 'gemini-2.5-flash-image', prompt: 'cat', n: 1, aspect_ratio: '16:9', image_size: '2K',
+    })
+    expect(buildImageRequest('grok-imagine-image', 'cat', '3:2', 2, '2K')).toEqual({
+      model: 'grok-imagine-image', prompt: 'cat', n: 2, aspect_ratio: '3:2', image_size: '2K',
+    })
+    expect(studioImageUnitPrice({ ...group, image_price_2k: 0.2, image_prices: { 'gpt-image-2': { '2K': 0.99 } } } as ImageGenerationGroup, 'gpt-image-2', '2K')).toBe(0.99)
+    expect(studioImageUnitPrice({ ...group, image_price_2k: 0.2 } as ImageGenerationGroup, 'gpt-image-2', '2K')).toBe(0.2)
+    expect(studioImageUnitPrice({ ...group, image_price_2k: null } as ImageGenerationGroup, 'gpt-image-2', '2K')).toBeNull()
     expect(canGenerateImages({ ...key, status: 'inactive' })).toBe(false)
     expect(canGenerateImages({ ...key, expires_at: '2000-01-01' })).toBe(false)
     expect(canGenerateImages({ ...key, quota: 2, quota_used: 2 })).toBe(false)
@@ -100,8 +119,9 @@ describe('image studio gateway contract', () => {
   })
   it('loads authorized image groups before any Key is selected', async () => {
     const supported = { ...group, image_models: ['gpt-image-2'] }
-    api.get.mockResolvedValue({ data: [supported, { ...group, id: 2, image_models: ['gpt-5'] }, { ...supported, id: 3, allow_image_generation: false }] })
-    expect(await getImageGenerationGroups()).toEqual([supported])
+    const composite = { ...supported, id: 4, platform: 'composite', name: 'GPT+Gemini' }
+    api.get.mockResolvedValue({ data: [supported, { ...group, id: 2, image_models: ['gpt-5'] }, { ...supported, id: 3, allow_image_generation: false }, composite] })
+    expect(await getImageGenerationGroups()).toEqual([supported, composite])
     expect(api.get).toHaveBeenCalledWith('/groups/image-generation')
   })
   it('submits exactly once and polls authenticated database history without passing the Key', async () => {

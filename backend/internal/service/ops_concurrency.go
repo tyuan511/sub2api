@@ -122,7 +122,14 @@ func (s *OpsService) GetConcurrencyStats(
 	if err := s.RequireMonitoringEnabled(ctx); err != nil {
 		return nil, nil, nil, nil, err
 	}
+	return s.collectConcurrencyStats(ctx, platformFilter, groupIDFilter)
+}
 
+func (s *OpsService) collectConcurrencyStats(
+	ctx context.Context,
+	platformFilter string,
+	groupIDFilter *int64,
+) (map[string]*PlatformConcurrencyInfo, map[int64]*GroupConcurrencyInfo, map[int64]*AccountConcurrencyInfo, *time.Time, error) {
 	accounts, err := s.listAllAccountsForOps(ctx, platformFilter, groupIDFilter)
 	if err != nil {
 		return nil, nil, nil, nil, err

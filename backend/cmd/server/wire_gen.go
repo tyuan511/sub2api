@@ -293,7 +293,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		return nil, err
 	}
 	supportService := service.NewSupportService(client, redisClient, supportAttachmentStore)
-	supportTelegramService := service.ProvideSupportTelegramService(client, redisClient, supportService, settingRepository, secretEncryptor)
+	supportTelegramService := service.ProvideSupportTelegramService(client, redisClient, supportService, settingRepository, secretEncryptor, opsService, channelMonitorV2Service, dashboardService)
 	supportHandler := admin.NewSupportHandler(supportService, supportTelegramService)
 	routingBackgroundDB, err := repository.ProvideRoutingBackgroundDB(configConfig)
 	if err != nil {
@@ -330,7 +330,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	modelPlazaHandler := handler.NewModelPlazaHandler(modelPlazaService, apiKeyService, settingService)
 	imageTaskStore := repository.NewImageTaskStore(redisClient)
 	imageTaskService := service.ProvideImageTaskService(imageTaskStore, imageStorageSettingService)
-	asyncImageHandler := handler.NewAsyncImageHandler(imageTaskService, openAIGatewayHandler)
+	asyncImageHandler := handler.NewAsyncImageHandler(imageTaskService, openAIGatewayHandler, gatewayHandler)
 	imageStudioRepository := repository.NewImageStudioRepository(db)
 	imageStudioService := service.NewImageStudioService(imageStudioRepository, secretEncryptor, imageStorageFactory, imageStorageSettingService, imageTaskStore, configConfig)
 	imageStudioHandler := handler.NewImageStudioHandler(imageStudioService, asyncImageHandler)

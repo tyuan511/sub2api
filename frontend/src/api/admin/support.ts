@@ -7,6 +7,8 @@ export interface TelegramConfig {
   token_set: boolean
   webhook_set: boolean
   webhook_base_url: string
+  stats_cron_enabled: boolean
+  stats_cron: string
 }
 
 export interface TelegramBinding {
@@ -73,7 +75,13 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
   return data
 }
 
-export async function saveTelegramConfig(input: { enabled: boolean; bot_token: string; webhook_base_url: string }): Promise<TelegramConfig> {
+export async function saveTelegramConfig(input: {
+  enabled: boolean
+  bot_token: string
+  webhook_base_url: string
+  stats_cron_enabled: boolean
+  stats_cron: string
+}): Promise<TelegramConfig> {
   const { data } = await apiClient.put<TelegramConfig>('/admin/support/telegram/config', input)
   return data
 }

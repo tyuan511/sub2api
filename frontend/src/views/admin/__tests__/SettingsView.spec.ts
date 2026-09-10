@@ -145,6 +145,29 @@ vi.mock("@/utils/apiError", () => ({
   extractApiErrorMessage: () => "error",
 }));
 
+vi.mock("@/api/admin/support", () => ({
+  getTelegramConfig: vi.fn().mockResolvedValue({
+    enabled: false,
+    bot_username: "",
+    token_set: false,
+    webhook_set: false,
+    webhook_base_url: "",
+    stats_cron_enabled: false,
+    stats_cron: "",
+  }),
+  saveTelegramConfig: vi.fn(),
+  getTelegramBinding: vi.fn().mockResolvedValue({
+    bound: false,
+    enabled: false,
+    notify_new_ticket: false,
+    notify_user_reply: false,
+  }),
+  createTelegramBindLink: vi.fn(),
+  updateTelegramBinding: vi.fn(),
+  deleteTelegramBinding: vi.fn(),
+  testTelegramBinding: vi.fn(),
+}));
+
 vi.mock("vue-i18n", async () => {
   const actual = await vi.importActual<typeof import("vue-i18n")>("vue-i18n");
   const translations: Record<string, string> = {
@@ -1952,5 +1975,23 @@ describe("admin SettingsView platform quota matrix", () => {
     const quotas = payload["default_platform_quotas"] as Record<string, Record<string, unknown>>;
     // 不管输入是什么，提交值应为 null（而非 "" 或 NaN）
     expect(quotas["anthropic"]?.["daily"]).toBe(null);
+  });
+
+  it("shows telegram tab and hides the global save button", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    const telegramTab = wrapper
+      .findAll("button")
+      .find((node) => node.text().includes("admin.settings.tabs.telegram"));
+    expect(telegramTab).toBeDefined();
+    await telegramTab?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("admin.settings.telegram.title");
+    expect(wrapper.text()).toContain("admin.settings.telegram.statsCronEnabled");
+    const saveButton = wrapper.find('button[type="submit"]');
+    expect(saveButton.exists()).toBe(true);
+    expect(saveButton.isVisible()).toBe(false);
   });
 });

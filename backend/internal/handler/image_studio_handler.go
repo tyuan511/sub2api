@@ -10,7 +10,8 @@ import (
 
 type imageGenerationGroup struct {
 	dto.Group
-	ImageModels []string `json:"image_models"`
+	ImageModels []string                      `json:"image_models"`
+	ImagePrices map[string]map[string]float64 `json:"image_prices,omitempty"`
 }
 
 // ImageStudioStatus exposes availability without revealing storage credentials.
@@ -39,7 +40,7 @@ func (h *GatewayHandler) ImageGenerationGroups(c *gin.Context) {
 	out := make([]imageGenerationGroup, 0, len(groups))
 	for i := range groups {
 		group := &groups[i]
-		if group.Platform != service.PlatformOpenAI || group.Status != service.StatusActive || !group.AllowImageGeneration {
+		if group.Status != service.StatusActive || !group.AllowImageGeneration {
 			continue
 		}
 		models, err := h.gatewayService.GetAvailableImageModels(c.Request.Context(), group.ID)
@@ -51,7 +52,11 @@ func (h *GatewayHandler) ImageGenerationGroups(c *gin.Context) {
 			models = filterModelsByCustomList(models, nil, group.ModelsListConfig.Models)
 		}
 		if len(models) > 0 {
-			out = append(out, imageGenerationGroup{Group: *dto.GroupFromService(group), ImageModels: models})
+			out = append(out, imageGenerationGroup{
+				Group:       *dto.GroupFromService(group),
+				ImageModels: models,
+				ImagePrices: h.gatewayService.PreviewStudioImagePrices(c.Request.Context(), group, models),
+			})
 		}
 	}
 	response.Success(c, out)

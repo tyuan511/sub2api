@@ -37,6 +37,8 @@ type supportTelegramStoredConfig struct {
 	WebhookSecretEncrypted string `json:"webhook_secret_encrypted"`
 	WebhookBaseURL         string `json:"webhook_base_url"`
 	WebhookSet             bool   `json:"webhook_set"`
+	StatsCronEnabled       bool   `json:"stats_cron_enabled"`
+	StatsCron              string `json:"stats_cron"`
 }
 
 type supportTelegramRuntimeConfig struct {
@@ -56,15 +58,20 @@ type SupportTelegramService struct {
 	encryptor  SecretEncryptor
 	httpClient *http.Client
 	stop       chan struct{}
+	statsWake  chan struct{}
+	ops        *OpsService
+	monitor    *ChannelMonitorV2Service
+	dashboard  *DashboardService
 }
 
-func NewSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, encryptor SecretEncryptor) *SupportTelegramService {
+func NewSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, encryptor SecretEncryptor, ops *OpsService, monitor *ChannelMonitorV2Service, dashboard *DashboardService) *SupportTelegramService {
 	return &SupportTelegramService{client: client, redis: redisClient, support: support, settings: settings,
-		encryptor: encryptor, httpClient: &http.Client{Timeout: 15 * time.Second}, stop: make(chan struct{})}
+		encryptor: encryptor, httpClient: &http.Client{Timeout: 15 * time.Second}, stop: make(chan struct{}),
+		statsWake: make(chan struct{}, 1), ops: ops, monitor: monitor, dashboard: dashboard}
 }
 
-func ProvideSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, encryptor SecretEncryptor) *SupportTelegramService {
-	svc := NewSupportTelegramService(client, redisClient, support, settings, encryptor)
+func ProvideSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, encryptor SecretEncryptor, ops *OpsService, monitor *ChannelMonitorV2Service, dashboard *DashboardService) *SupportTelegramService {
+	svc := NewSupportTelegramService(client, redisClient, support, settings, encryptor, ops, monitor, dashboard)
 	svc.Start()
 	return svc
 }
@@ -112,7 +119,8 @@ func (s *SupportTelegramService) GetConfig(ctx context.Context) (*TelegramConfig
 		return nil, err
 	}
 	return &TelegramConfigView{Enabled: cfg.Enabled, BotUsername: cfg.BotUsername, TokenSet: cfg.BotTokenEncrypted != "",
-		WebhookSet: cfg.WebhookSet, WebhookBaseURL: cfg.WebhookBaseURL}, nil
+		WebhookSet: cfg.WebhookSet, WebhookBaseURL: cfg.WebhookBaseURL,
+		StatsCronEnabled: cfg.StatsCronEnabled, StatsCron: cfg.StatsCron}, nil
 }
 
 type telegramAPIResponse struct {
@@ -181,6 +189,15 @@ func (s *SupportTelegramService) SaveConfig(ctx context.Context, input TelegramC
 	if input.Enabled && token == "" {
 		return nil, infraerrors.BadRequest("TELEGRAM_TOKEN_REQUIRED", "bot token is required")
 	}
+	statsCron := strings.TrimSpace(input.StatsCron)
+	if statsCron != "" {
+		if err := validateTelegramStatsCron(statsCron); err != nil {
+			return nil, infraerrors.BadRequest("TELEGRAM_STATS_CRON_INVALID", err.Error())
+		}
+	}
+	if input.StatsCronEnabled && statsCron == "" {
+		return nil, infraerrors.BadRequest("TELEGRAM_STATS_CRON_REQUIRED", "cron expression is required when scheduled /stats is enabled")
+	}
 	if token != "" {
 		result, err := s.call(ctx, token, "getMe", map[string]any{})
 		if err != nil {
@@ -218,6 +235,8 @@ func (s *SupportTelegramService) SaveConfig(ctx context.Context, input TelegramC
 	}
 	stored.Enabled = input.Enabled
 	stored.WebhookBaseURL = input.WebhookBaseURL
+	stored.StatsCronEnabled = input.StatsCronEnabled
+	stored.StatsCron = statsCron
 	stored.WebhookSet = false
 	if input.Enabled && input.WebhookBaseURL != "" {
 		_, err := s.call(ctx, token, "setWebhook", map[string]any{
@@ -231,6 +250,9 @@ func (s *SupportTelegramService) SaveConfig(ctx context.Context, input TelegramC
 	} else if token != "" {
 		_, _ = s.call(ctx, token, "deleteWebhook", map[string]any{"drop_pending_updates": false})
 	}
+	if token != "" {
+		s.syncBotCommands(ctx, token, input.Enabled)
+	}
 	raw, err := json.Marshal(stored)
 	if err != nil {
 		return nil, err
@@ -238,6 +260,7 @@ func (s *SupportTelegramService) SaveConfig(ctx context.Context, input TelegramC
 	if err := s.settings.Set(ctx, supportTelegramSettingKey, string(raw)); err != nil {
 		return nil, err
 	}
+	s.notifyStatsCronChanged()
 	return s.GetConfig(ctx)
 }
 
@@ -394,11 +417,18 @@ func (s *SupportTelegramService) HandleWebhook(ctx context.Context, secretHeader
 		return nil
 	}
 	message := update.Message
-	parts := strings.Fields(strings.TrimSpace(message.Text))
-	if len(parts) != 2 || parts[0] != "/start" {
+	cmd, arg := parseTelegramCommand(message.Text)
+	switch cmd {
+	case "/stats":
+		return s.handleStatsCommand(ctx, cfg, message)
+	case "/start":
+		if arg == "" {
+			return s.handleAdminReply(ctx, cfg, message, update.UpdateID)
+		}
+	default:
 		return s.handleAdminReply(ctx, cfg, message, update.UpdateID)
 	}
-	code := parts[1]
+	code := arg
 	if s.redis == nil {
 		return nil
 	}
@@ -433,7 +463,7 @@ func (s *SupportTelegramService) HandleWebhook(ctx context.Context, secretHeader
 	if err != nil {
 		return err
 	}
-	_, _ = s.call(ctx, cfg.BotToken, "sendMessage", map[string]any{"chat_id": message.Chat.ID, "text": "FastVibe 客服通知已绑定"})
+	_, _ = s.call(ctx, cfg.BotToken, "sendMessage", map[string]any{"chat_id": message.Chat.ID, "text": "已绑定。发送 /stats 可查询中转站状态。"})
 	return nil
 }
 
@@ -530,6 +560,7 @@ func (s *SupportTelegramService) Start() {
 			}
 		}
 	}()
+	go s.runStatsCronLoop()
 }
 
 func (s *SupportTelegramService) processOutbox(ctx context.Context) {

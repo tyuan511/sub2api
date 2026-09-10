@@ -147,13 +147,18 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 	} else {
 		c.Request.URL.Path = "/v1/images/generations/async"
 	}
-	parsed, err := h.async.openAI.gatewayService.ParseOpenAIImagesRequest(c, body)
+	parsed, err := h.async.openAI.gatewayService.ParseStudioImagesRequest(c, body)
 	if err != nil {
 		imageTaskJSONError(c, 400, "invalid_request_error", err.Error())
 		return
 	}
-	if parsed.Stream || parsed.N < 1 || parsed.N > 4 || len(parsed.Uploads) > 4 || len(parsed.InputImageURLs) > 0 || parsed.HasMask || !strings.HasPrefix(parsed.Model, "gpt-image-") {
-		imageTaskJSONError(c, 400, "invalid_request_error", "图片创作支持 1–4 张 GPT Image 输出和最多 4 张上传参考图")
+	platform := studioImagePlatform(parsed.Model)
+	maxCount := 4
+	if platform == service.PlatformGemini {
+		maxCount = 1
+	}
+	if parsed.Stream || parsed.N < 1 || parsed.N > maxCount || len(parsed.Uploads) > 4 || len(parsed.InputImageURLs) > 0 || parsed.HasMask || platform == "" {
+		imageTaskJSONError(c, 400, "invalid_request_error", "图片创作支持 GPT Image、Gemini 与 Grok 生图模型，最多 4 张上传参考图")
 		return
 	}
 	for _, file := range parsed.Uploads {
@@ -168,19 +173,49 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 		return
 	}
 	key = routed
-	if key == nil || key.Group == nil || key.Group.Platform != service.PlatformOpenAI || !service.GroupAllowsImageGeneration(key.Group) {
+	if key == nil || key.Group == nil || !service.GroupAllowsImageGeneration(key.Group) {
 		imageTaskJSONError(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
 		return
 	}
-	if !h.async.checkSecurityAuditBeforeSubmit(c, key, service.PlatformOpenAI, body) {
+	if !h.async.checkSecurityAuditBeforeSubmit(c, key, platform, body) {
 		return
 	}
 	ratio, resolution := studioDimensions(parsed.Size)
+	if platform == service.PlatformGemini || platform == service.PlatformGrok {
+		if strings.TrimSpace(parsed.AspectRatio) != "" {
+			ratio = parsed.AspectRatio
+		}
+		if strings.TrimSpace(parsed.ImageSize) != "" {
+			resolution = parsed.ImageSize
+		}
+	}
 	meta := service.StudioMetadata{Prompt: parsed.Prompt, Model: parsed.Model, Count: parsed.N, Ratio: ratio, Resolution: resolution, Size: parsed.Size, KeyName: key.Name}
 	task, tasks, err := h.studio.Start(c.Request.Context(), service.ImageTaskOwner{UserID: key.UserID, APIKeyID: key.ID}, meta, parsed.Uploads)
 	if err != nil {
 		imageTaskError(c, err)
 		return
+	}
+	if platform == service.PlatformGemini {
+		geminiBody, buildErr := buildStudioGeminiRequest(parsed)
+		if buildErr != nil {
+			imageTaskJSONError(c, 400, "invalid_request_error", buildErr.Error())
+			return
+		}
+		body = geminiBody
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Request.URL.Path = "/v1beta/models/" + studioGeminiModelAction(parsed.Model)
+		c.Params = []gin.Param{{Key: "modelAction", Value: studioGeminiModelAction(parsed.Model)}}
+		ensureCompositeTargetPlatform(c, key, parsed.Model)
+	}
+	if platform == service.PlatformGrok {
+		grokBody, buildErr := buildStudioGrokRequest(parsed)
+		if buildErr != nil {
+			imageTaskJSONError(c, 400, "invalid_request_error", buildErr.Error())
+			return
+		}
+		body = grokBody
+		c.Request.Header.Set("Content-Type", "application/json")
+		ensureCompositeTargetPlatform(c, key, parsed.Model)
 	}
 	taskCtx, recorder, cancel := newAsyncImageContext(c, body, tasks.ExecutionTimeout())
 	runner := *h.async
@@ -188,7 +223,7 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Retry-After", "3")
 	c.JSON(http.StatusAccepted, gin.H{"id": task.ID, "task_id": task.ID, "status": task.Status})
-	go runner.run(task.ID, service.PlatformOpenAI, taskCtx, recorder, cancel)
+	go runner.run(task.ID, platform, taskCtx, recorder, cancel)
 }
 func studioDimensions(size string) (string, string) {
 	if strings.TrimSpace(size) == "" || strings.EqualFold(size, "auto") {

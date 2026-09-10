@@ -46,7 +46,7 @@ export default {
     loading: 'Loading image channels…', retry: 'Reload', loadFailed: 'Could not load image channels',
     createKey: 'Create image Key', createDescription: 'Create a Key for image generation. It will be selected automatically.',
     keyName: 'Key name', defaultKeyName: 'Image Studio', group: 'Image group', selectGroup: 'Choose an image group',
-    noGroups: 'No OpenAI image groups are available. Contact an administrator for access, then reload.',
+    noGroups: 'No image groups are available. Contact an administrator for access, then reload.',
     noKeysDescription: 'Create an image Key to start your first creation.',
     create: 'Create and use', creating: 'Creating…', cancel: 'Cancel', createFailed: 'Could not create Key',
     ratioUnavailable: 'The current model does not support this creation’s aspect ratio. Choose another ratio.',

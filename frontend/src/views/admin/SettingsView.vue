@@ -8826,13 +8826,243 @@
         </div>
         <!-- /Tab: Email -->
 
+        <!-- Tab: Telegram -->
+        <div v-show="activeTab === 'telegram'" class="space-y-6">
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.telegram.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.telegram.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div
+                v-if="telegramLoading"
+                class="flex items-center gap-2 text-gray-500"
+              >
+                <div
+                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
+                ></div>
+                {{ t("common.loading") }}
+              </div>
+              <template v-else>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.telegram.enabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.telegram.enabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="telegramForm.enabled" />
+                </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >{{ t("admin.settings.telegram.botToken") }}</label
+                  >
+                  <input
+                    v-model="telegramForm.bot_token"
+                    type="password"
+                    class="input"
+                    :placeholder="
+                      telegramConfig?.token_set
+                        ? t(
+                            'admin.settings.telegram.botTokenConfiguredPlaceholder',
+                          )
+                        : t('admin.settings.telegram.botTokenPlaceholder')
+                    "
+                    autocomplete="off"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >{{ t("admin.settings.telegram.webhookBaseURL") }}</label
+                  >
+                  <input
+                    v-model="telegramForm.webhook_base_url"
+                    type="url"
+                    class="input"
+                    :placeholder="
+                      t('admin.settings.telegram.webhookBaseURLPlaceholder')
+                    "
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.telegram.webhookHint") }}
+                  </p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.telegram.statsCronEnabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.telegram.statsCronEnabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="telegramForm.stats_cron_enabled" />
+                </div>
+                <div v-if="telegramForm.stats_cron_enabled">
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >{{ t("admin.settings.telegram.statsCron") }}</label
+                  >
+                  <input
+                    v-model="telegramForm.stats_cron"
+                    type="text"
+                    class="input font-mono"
+                    placeholder="0 * * * *"
+                    spellcheck="false"
+                    autocomplete="off"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.telegram.statsCronHint") }}
+                  </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    :disabled="telegramSaving"
+                    @click="saveTelegramSettings"
+                  >
+                    {{ t("admin.settings.telegram.save") }}
+                  </button>
+                  <span
+                    v-if="telegramConfig?.bot_username"
+                    class="text-sm text-gray-500 dark:text-gray-400"
+                  >
+                    @{{ telegramConfig.bot_username }} ·
+                    {{
+                      telegramConfig.webhook_set
+                        ? t("admin.settings.telegram.webhookRegistered")
+                        : t("admin.settings.telegram.webhookUnregistered")
+                    }}
+                  </span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <div
+                class="flex flex-wrap items-center justify-between gap-3"
+              >
+                <div>
+                  <h2
+                    class="text-lg font-semibold text-gray-900 dark:text-white"
+                  >
+                    {{ t("admin.settings.telegram.bindingTitle") }}
+                  </h2>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.telegram.bindingDescription") }}
+                  </p>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    v-if="telegramBinding?.bound"
+                    type="button"
+                    class="btn btn-secondary"
+                    @click="testTelegramSettingsBinding"
+                  >
+                    {{ t("admin.settings.telegram.testNotify") }}
+                  </button>
+                  <button
+                    v-if="!telegramBinding?.bound"
+                    type="button"
+                    class="btn btn-primary"
+                    :disabled="telegramLoading"
+                    @click="bindTelegramSettings"
+                  >
+                    {{ t("admin.settings.telegram.generateLink") }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-4 p-6">
+              <div
+                v-if="telegramBinding?.bound"
+                class="grid gap-3 sm:grid-cols-2"
+              >
+                <label class="flex items-center gap-2 text-sm">
+                  <input
+                    v-model="telegramBinding.enabled"
+                    type="checkbox"
+                    @change="saveTelegramSettingsBinding"
+                  />
+                  {{ t("admin.settings.telegram.enableNotify") }}
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                  <input
+                    v-model="telegramBinding.notify_new_ticket"
+                    type="checkbox"
+                    @change="saveTelegramSettingsBinding"
+                  />
+                  {{ t("admin.settings.telegram.notifyNewTicket") }}
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                  <input
+                    v-model="telegramBinding.notify_user_reply"
+                    type="checkbox"
+                    @change="saveTelegramSettingsBinding"
+                  />
+                  {{ t("admin.settings.telegram.notifyUserReply") }}
+                </label>
+                <div
+                  class="flex items-center justify-between text-sm text-gray-500 sm:col-span-2 dark:text-gray-400"
+                >
+                  <span>{{
+                    t("admin.settings.telegram.boundAs", {
+                      username:
+                        telegramBinding.telegram_username || "Telegram",
+                    })
+                  }}</span>
+                  <button
+                    type="button"
+                    class="text-red-600 hover:underline"
+                    @click="unbindTelegramSettings"
+                  >
+                    {{ t("admin.settings.telegram.unbind") }}
+                  </button>
+                </div>
+                <p
+                  v-if="telegramBinding.last_error"
+                  class="text-sm text-red-600 sm:col-span-2"
+                >
+                  {{
+                    t("admin.settings.telegram.lastError", {
+                      error: telegramBinding.last_error,
+                    })
+                  }}
+                </p>
+              </div>
+              <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.telegram.notBound") }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <!-- /Tab: Telegram -->
+
         <!-- Tab: Backup -->
         <div v-show="activeTab === 'backup'">
           <BackupSettings />
         </div>
 
         <!-- Save Button -->
-        <div v-show="activeTab !== 'backup'" class="flex justify-end">
+        <div
+          v-show="activeTab !== 'backup' && activeTab !== 'telegram'"
+          class="flex justify-end"
+        >
           <button
             type="submit"
             :disabled="saving || loadFailed"
@@ -8965,6 +9195,17 @@ import {
 import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
 import { affiliatesAPI, type AffiliateAdminEntry, type SimpleUser as AffiliateSimpleUser } from "@/api/admin/affiliates";
 import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
+import {
+  getTelegramConfig,
+  saveTelegramConfig,
+  getTelegramBinding,
+  createTelegramBindLink,
+  updateTelegramBinding,
+  deleteTelegramBinding,
+  testTelegramBinding,
+  type TelegramBinding,
+  type TelegramConfig,
+} from "@/api/admin/support";
 import { useAppStore } from "@/stores";
 import { useAdminSettingsStore } from "@/stores/adminSettings";
 import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
@@ -9013,6 +9254,7 @@ type SettingsTab =
   | "gateway"
   | "payment"
   | "email"
+  | "telegram"
   | "backup";
 const activeTab = ref<SettingsTab>("general");
 const settingsTabs = [
@@ -9024,6 +9266,7 @@ const settingsTabs = [
   { key: "gateway" as SettingsTab, icon: "server" as const },
   { key: "payment" as SettingsTab, icon: "creditCard" as const },
   { key: "email" as SettingsTab, icon: "mail" as const },
+  { key: "telegram" as SettingsTab, icon: "chat" as const },
   { key: "backup" as SettingsTab, icon: "database" as const },
 ];
 
@@ -13170,6 +13413,109 @@ async function submitAffiliateBatchModal() {
     affiliateBatchModal.saving = false;
   }
 }
+
+const telegramLoading = ref(false);
+const telegramSaving = ref(false);
+const telegramConfig = ref<TelegramConfig>();
+const telegramBinding = ref<TelegramBinding>();
+const telegramForm = reactive({
+  enabled: false,
+  bot_token: "",
+  webhook_base_url: "",
+  stats_cron_enabled: false,
+  stats_cron: "",
+});
+
+async function loadTelegramSettings(): Promise<void> {
+  telegramLoading.value = true;
+  try {
+    telegramConfig.value = await getTelegramConfig();
+    telegramBinding.value = await getTelegramBinding();
+    telegramForm.enabled = telegramConfig.value.enabled;
+    telegramForm.webhook_base_url = telegramConfig.value.webhook_base_url;
+    telegramForm.stats_cron_enabled = telegramConfig.value.stats_cron_enabled;
+    telegramForm.stats_cron = telegramConfig.value.stats_cron;
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(error) || t("admin.settings.telegram.loadFailed"),
+    );
+  } finally {
+    telegramLoading.value = false;
+  }
+}
+
+async function saveTelegramSettings(): Promise<void> {
+  telegramSaving.value = true;
+  try {
+    telegramConfig.value = await saveTelegramConfig(telegramForm);
+    telegramForm.bot_token = "";
+    appStore.showSuccess(t("admin.settings.telegram.saveSuccess"));
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(error) || t("admin.settings.telegram.saveFailed"),
+    );
+  } finally {
+    telegramSaving.value = false;
+  }
+}
+
+async function bindTelegramSettings(): Promise<void> {
+  try {
+    const link = await createTelegramBindLink();
+    window.open(link.url, "_blank", "noopener,noreferrer");
+    appStore.showInfo(t("admin.settings.telegram.generateLinkHint"));
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(error) ||
+        t("admin.settings.telegram.generateLinkFailed"),
+    );
+  }
+}
+
+async function saveTelegramSettingsBinding(): Promise<void> {
+  if (!telegramBinding.value) return;
+  try {
+    telegramBinding.value = await updateTelegramBinding({
+      enabled: telegramBinding.value.enabled,
+      notify_new_ticket: telegramBinding.value.notify_new_ticket,
+      notify_user_reply: telegramBinding.value.notify_user_reply,
+    });
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(error) ||
+        t("admin.settings.telegram.updateBindingFailed"),
+    );
+  }
+}
+
+async function testTelegramSettingsBinding(): Promise<void> {
+  try {
+    await testTelegramBinding();
+    appStore.showSuccess(t("admin.settings.telegram.testSuccess"));
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(error) || t("admin.settings.telegram.testFailed"),
+    );
+  }
+}
+
+async function unbindTelegramSettings(): Promise<void> {
+  try {
+    await deleteTelegramBinding();
+    telegramBinding.value = await getTelegramBinding();
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(error) ||
+        t("admin.settings.telegram.unbindFailed"),
+    );
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === "telegram") {
+    void loadTelegramSettings();
+  }
+});
 
 // Load the per-user table the first time the affiliate switch is observed
 // as enabled. The form starts disabled and is updated to the server's value
