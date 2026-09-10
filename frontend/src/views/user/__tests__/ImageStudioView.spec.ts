@@ -9,12 +9,13 @@ import ImageStudioView from '../ImageStudioView.vue'
 import messages from '@/i18n/locales/en/imageStudio'
 import type { ApiKey, Group } from '@/types'
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), groups: vi.fn(), rates: vi.fn(), status: vi.fn(), generate: vi.fn(), resume: vi.fn(), resumePending: vi.fn(), remove: vi.fn(), file: vi.fn(), showError: vi.fn(), showSuccess: vi.fn(), creations: [] as StudioCreation[] }))
+const mocks = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), groups: vi.fn(), rates: vi.fn(), status: vi.fn(), generate: vi.fn(), resume: vi.fn(), resumePending: vi.fn(), remove: vi.fn(), file: vi.fn(), showError: vi.fn(), showSuccess: vi.fn(), copyToClipboard: vi.fn(), creations: [] as StudioCreation[] }))
 vi.mock('@/api/keys', () => ({ keysAPI: { list: mocks.list, create: mocks.create } }))
 vi.mock('@/api/groups', () => ({ userGroupsAPI: { getUserGroupRates: mocks.rates } }))
 vi.mock('@/api/imageStudio', async importOriginal => ({ ...await importOriginal<object>(), getImageGenerationGroups: mocks.groups, getImageStudioStatus: mocks.status, getStudioFile: mocks.file }))
 vi.mock('@/stores/imageStudio', () => ({ useImageStudioStore: () => ({ creations: reactive(mocks.creations), remove: mocks.remove, get generating() { return mocks.creations.some(item => item.status === 'generating') }, historyLoading: false, historyUnavailable: false, generate: mocks.generate, resume: mocks.resume, resumePending: mocks.resumePending }) }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError: mocks.showError, showSuccess: mocks.showSuccess }) }))
+vi.mock('@/composables/useClipboard', () => ({ useClipboard: () => ({ copyToClipboard: mocks.copyToClipboard }) }))
 vi.mock('vue-i18n', async importOriginal => ({ ...await importOriginal<object>(), useI18n: () => ({
   locale: ref('en'),
   t: (key: string, params: Record<string, string | number> = {}) => {
@@ -153,6 +154,13 @@ describe('image studio user flow', () => {
     const wrapper = render(); await flushPromises()
     expect(wrapper.findAll('.creation-prompt').map(item => item.text())).toEqual(['Creation 1', 'Creation 2', 'Creation 3'])
     expect(mocks.creations.map(item => item.id)).toEqual(['creation-3', 'creation-2', 'creation-1'])
+    wrapper.unmount()
+  })
+  it('copies the history prompt from the hover popover', async () => {
+    mocks.creations = [{ id: 'creation-1', prompt: 'A glass greenhouse', model: 'gpt-image-2', ratio: '1:1', resolution: '1K', count: 1, keyId: 7, keyName: 'Drawing key', createdAt: Date.now(), status: 'failed', images: [], references: [] }]
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('.creation-prompt-pop').trigger('click')
+    expect(mocks.copyToClipboard).toHaveBeenCalledWith('A glass greenhouse', 'Prompt copied')
     wrapper.unmount()
   })
   it('allows new drafts and regeneration while other tasks are running, without duplicate empty submits', async () => {

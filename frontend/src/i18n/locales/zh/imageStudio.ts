@@ -22,6 +22,7 @@ export default {
     suggestion2: '极简香水产品摄影，浅米色背景，柔和的自然光',
     suggestion3: '一只戴着宇航员头盔的小猫，3D 黏土风格',
     prompt: '提示词', placeholder: '描述你想生成的画面，也可以添加参考图，试试具体的主体、风格与光线…',
+    copyPrompt: '复制提示词', promptCopied: '提示词已复制',
     reference: '添加参考图', referenceHint: '最多 4 张 PNG、JPEG 或 WebP，每张不超过 30 MB',
     manageReferences: '查看 {count} 张参考图', removeReferenceNamed: '移除参考图：{name}',
     removeReference: '移除参考图', invalidReference: '请选择 PNG、JPEG 或 WebP 图片，每张不超过 30 MB，最多 4 张。',

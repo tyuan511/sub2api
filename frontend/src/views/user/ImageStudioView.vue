@@ -15,7 +15,7 @@
             <StudioReferencePicker v-if="creation.references.length" :references="creation.references" read-only />
             <div class="creation-caption">
               <p class="creation-prompt" tabindex="0">{{ creation.prompt }}</p>
-              <p class="creation-prompt-pop" aria-hidden="true">{{ creation.prompt }}</p>
+              <button type="button" class="creation-prompt-pop" :title="t('imageStudio.copyPrompt')" :aria-label="t('imageStudio.copyPrompt')" @click="copyPrompt(creation.prompt)">{{ creation.prompt }}</button>
               <div class="creation-meta"><span>{{ creation.model }}</span><span>{{ creation.ratio === 'auto' ? t('imageStudio.autoRatio') : creation.ratio }}</span><span v-if="creation.ratio !== 'auto'" :title="creation.size?.replace('x', '×')">{{ creation.model.startsWith('gpt-image-2') || isGeminiImageModel(creation.model) || isGrokImageModel(creation.model) ? creation.resolution : t('imageStudio.standard') }}</span><span>{{ creation.keyName }}</span><span v-if="creation.references.length">{{ t('imageStudio.referenceCount', { count: creation.references.length }) }}</span><time :datetime="new Date(creation.createdAt).toISOString()">{{ formatTime(creation.createdAt) }}</time></div>
             </div>
           </div>
@@ -109,9 +109,11 @@ import StudioImagePreview from '@/components/image/StudioImagePreview.vue'
 import StudioThumbnail from '@/components/image/StudioThumbnail.vue'
 import { isImageUrlFresh } from '@/utils/imageUrlCache'
 import { fetchImage } from '@/utils/fetchImage'
+import { useClipboard } from '@/composables/useClipboard'
 
 const { t, locale } = useI18n()
 const studio = useImageStudioStore()
+const { copyToClipboard } = useClipboard()
 // The API and store keep newest-first pagination; the timeline reads oldest first.
 const chronologicalCreations = computed(() => [...studio.creations].reverse())
 const app = useAppStore()
@@ -330,6 +332,10 @@ function removeReference(index: number) {
 function replaceReferences(files: File[]) {
   references.value.forEach(item => URL.revokeObjectURL(item.url))
   references.value = files.map(file => ({ file, url: URL.createObjectURL(file) }))
+}
+function copyPrompt(text: string) {
+  if (!text) return
+  void copyToClipboard(text, t('imageStudio.promptCopied'))
 }
 function useSuggestion(index: number) { prompt.value = t(`imageStudio.suggestion${index}`); promptInput.value?.focus() }
 function promptKeydown(event: KeyboardEvent) {
@@ -554,6 +560,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   top: 0;
+  width: 100%;
   max-height: min(48vh, 360px);
   overflow-y: auto;
   padding: 10px 12px;
@@ -561,6 +568,10 @@ onBeforeUnmount(() => {
   border: 1px solid var(--studio-line);
   border-radius: 10px;
   box-shadow: 0 16px 40px rgb(15 18 28 / .16);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   scrollbar-width: thin;
 }
 .creation-caption:hover .creation-prompt-pop,

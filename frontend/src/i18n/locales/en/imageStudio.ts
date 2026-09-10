@@ -22,6 +22,7 @@ export default {
     suggestion2: 'Minimal perfume product photography, warm ivory backdrop, soft natural light',
     suggestion3: 'A kitten wearing an astronaut helmet, 3D clay illustration',
     prompt: 'Prompt', placeholder: 'Describe your image or add a reference. Try a subject, style and lighting…',
+    copyPrompt: 'Copy prompt', promptCopied: 'Prompt copied',
     reference: 'Add reference', referenceHint: 'Up to 4 PNG, JPEG or WebP images, 30 MB each',
     manageReferences: 'Manage {count} reference images', removeReferenceNamed: 'Remove reference: {name}',
     removeReference: 'Remove reference', invalidReference: 'Use up to 4 PNG, JPEG or WebP images, no larger than 30 MB each.',
