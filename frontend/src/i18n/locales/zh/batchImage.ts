@@ -132,7 +132,7 @@ export default {
       refLimitReached: '当前模型每条最多 {limit} 张参考图。',
       refLimitExceededIgnored: '当前模型每条最多 {limit} 张参考图，已忽略超出的文件。',
       refFormatUnsupported: '参考图仅支持 PNG、JPEG 或 WebP。',
-      refFileTooLarge: '{name} 超过 10MB，已忽略。',
+      refFileTooLarge: '{name} 超过 30MB，已忽略。',
     },
     guide: {
       title: '批量生图使用说明',
@@ -187,7 +187,7 @@ export default {
       invalidItems: 'Prompt 列表格式不正确，请检查是否为空、是否超过数量限制，或图片尺寸是否仍为 1K。',
       duplicateCustomId: 'Prompt 列表里的 custom_id 不能重复。',
       promptTooLong: '单条 prompt 过长，请缩短后重试。',
-      invalidReferenceImage: '参考图格式不正确，请使用 10MB 以内的 PNG、JPEG 或 WebP。',
+      invalidReferenceImage: '参考图格式不正确，请使用 30MB 以内的 PNG、JPEG 或 WebP。',
       tooManyReferenceImages: '参考图数量超过限制：Flash Image 每条最多 3 张，Pro Image 每条最多 14 张，整组最多 1000 张。',
       referenceImagesTooLarge: '参考图总量过大。inline 参考图整组最多 128MB；大量参考图请改用 gs:// file_uri 或拆分任务。',
       tooManyOutputImages: '预计生成张数超过限制：每条最多 4 张，整组最多 200 张。',

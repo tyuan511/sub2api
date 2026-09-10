@@ -28,7 +28,7 @@ const (
 	defaultBatchImageDiscountMultiplier = 0.5
 	defaultBatchImageHoldMultiplier     = 0.6
 	maxBatchImagePublicErrorChars       = 500
-	maxBatchImageReferenceImageBytes    = 10 * 1024 * 1024
+	maxBatchImageReferenceImageBytes    = 30 * 1024 * 1024
 	defaultBatchImageMaxReferenceImages = 1000
 	defaultBatchImageMaxReferenceBytes  = 128 * 1024 * 1024
 )

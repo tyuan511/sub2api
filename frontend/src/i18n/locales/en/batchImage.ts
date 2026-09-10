@@ -132,7 +132,7 @@ export default {
       refLimitReached: 'The current model allows up to {limit} reference images per prompt.',
       refLimitExceededIgnored: 'The current model allows up to {limit} reference images per prompt. Extra files were ignored.',
       refFormatUnsupported: 'Reference images must be PNG, JPEG, or WebP.',
-      refFileTooLarge: '{name} exceeds 10MB and was ignored.',
+      refFileTooLarge: '{name} exceeds 30MB and was ignored.',
     },
     guide: {
       title: 'Batch Image Generation Guide',
@@ -187,7 +187,7 @@ export default {
       invalidItems: 'The prompt list is invalid. Check that it is not empty, within the item limit, and still using 1K image size.',
       duplicateCustomId: 'Custom IDs in the prompt list must be unique.',
       promptTooLong: 'One prompt is too long. Shorten it and try again.',
-      invalidReferenceImage: 'A reference image is invalid. Use PNG, JPEG, or WebP under 10 MB.',
+      invalidReferenceImage: 'A reference image is invalid. Use PNG, JPEG, or WebP under 30 MB.',
       tooManyReferenceImages: 'Too many reference images. Flash Image allows up to 3 per item, Pro Image allows up to 14, and each job allows up to 1000 total.',
       referenceImagesTooLarge: 'Reference images are too large. Inline reference images are limited to 128 MB per job; use gs:// file_uri or split the job for large batches.',
       tooManyOutputImages: 'Too many expected output images. Each prompt can request up to 4 images, and each job can generate up to 200 images.',

@@ -157,8 +157,8 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 		return
 	}
 	for _, file := range parsed.Uploads {
-		if len(file.Data) > 10*1024*1024 {
-			imageTaskJSONError(c, 400, "invalid_request_error", "参考图不能超过 10 MB")
+		if len(file.Data) > 30*1024*1024 {
+			imageTaskJSONError(c, 400, "invalid_request_error", "参考图不能超过 30 MB")
 			return
 		}
 	}

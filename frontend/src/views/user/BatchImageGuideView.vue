@@ -1210,7 +1210,7 @@ async function handleReferenceImageFiles(event: Event) {
       appStore.showError(t('batchImage.create.refFormatUnsupported'))
       continue
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 30 * 1024 * 1024) {
       appStore.showError(t('batchImage.create.refFileTooLarge', { name: file.name }))
       continue
     }

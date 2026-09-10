@@ -293,7 +293,7 @@ function addReferences(event: Event) {
   const input = event.target as HTMLInputElement
   const files = Array.from(input.files || [])
   formError.value = ''
-  if (references.value.length + files.length > 4 || files.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024 || !file.size)) {
+  if (references.value.length + files.length > 4 || files.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 30 * 1024 * 1024 || !file.size)) {
     formError.value = t('imageStudio.invalidReference')
   } else { references.value.push(...files.map(file => ({ file, url: URL.createObjectURL(file) }))) }
   input.value = ''
@@ -392,12 +392,12 @@ async function useAsReference(picture: StudioImage & { id?: string }, creationId
   try {
     // Renew the stored asset URL before fetching; never send API credentials to S3.
     const asset = picture.id ? await getStudioFile(picture.id) : null
-    if (asset && asset.size > 10 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference'))
+    if (asset && asset.size > 30 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference'))
     const response = await fetchImage(asset?.url || picture.url, controller.signal)
     if (!response.ok) throw new Error(t('imageStudio.referenceUnavailable'))
     const blob = await response.blob()
     const mime = blob.type || asset?.content_type || ''
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mime) || !blob.size || blob.size > 10 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference'))
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mime) || !blob.size || blob.size > 30 * 1024 * 1024) throw new Error(t('imageStudio.invalidReference'))
     if (disposed) return
     // The user may have uploaded more references while the image was loading.
     if (references.value.length >= 4) throw new Error(t('imageStudio.invalidReference'))
