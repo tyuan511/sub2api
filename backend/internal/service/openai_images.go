@@ -752,7 +752,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamModel)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if aggregateStream {
+	if aggregateStream || (!parsed.Stream && isEventStreamResponse(resp.Header)) {
 		return s.forwardOpenAIImagesAggregatedResponse(resp, c, account, parsed, requestModel, upstreamModel, startTime)
 	}
 
@@ -990,6 +990,7 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(
 	if err != nil {
 		return OpenAIUsage{}, 0, nil, err
 	}
+	body = expandOpenAIImagesAPIData(body)
 	body = s.backfillOpenAIImagesB64JSON(ctx, account, parsed, body)
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	contentType := "application/json"

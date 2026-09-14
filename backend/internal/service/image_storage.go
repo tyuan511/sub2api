@@ -12,6 +12,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 const defaultImageMaxDownloadBytes int64 = 32 << 20 // 32 MiB
@@ -63,6 +66,96 @@ func defaultImageDownloadHTTPClient() *http.Client {
 	return &http.Client{Timeout: 60 * time.Second}
 }
 
+// expandOpenAIImagesAPIData copies every generated image into data[].
+// Relays wrapping the Responses API often bill n images from output[] while
+// only putting the first image in data[], which is what Image Studio stores.
+func expandOpenAIImagesAPIData(result json.RawMessage) json.RawMessage {
+	if len(result) == 0 || !gjson.ValidBytes(result) {
+		return result
+	}
+	items := collectOpenAIImagesAPIDataItems(result)
+	if len(items) == 0 {
+		return result
+	}
+	existing := 0
+	for _, item := range gjson.GetBytes(result, "data").Array() {
+		if strings.TrimSpace(item.Get("b64_json").String()) != "" ||
+			strings.TrimSpace(item.Get("url").String()) != "" ||
+			strings.TrimSpace(item.Get("result").String()) != "" ||
+			strings.TrimSpace(item.Get("image_id").String()) != "" {
+			existing++
+		}
+	}
+	if existing >= len(items) {
+		return result
+	}
+	encoded, err := json.Marshal(items)
+	if err != nil {
+		return result
+	}
+	out, err := sjson.SetRawBytes(result, "data", encoded)
+	if err != nil {
+		return result
+	}
+	return out
+}
+
+func collectOpenAIImagesAPIDataItems(result json.RawMessage) []map[string]string {
+	seen := make(map[string]bool)
+	items := make([]map[string]string, 0, 4)
+	add := func(b64, rawURL, prompt string) {
+		b64, rawURL, prompt = strings.TrimSpace(b64), strings.TrimSpace(rawURL), strings.TrimSpace(prompt)
+		if b64 == "" && rawURL == "" {
+			return
+		}
+		key := b64 + "\x00" + rawURL
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		item := make(map[string]string, 3)
+		if b64 != "" {
+			item["b64_json"] = b64
+		}
+		if rawURL != "" {
+			item["url"] = rawURL
+		}
+		if prompt != "" {
+			item["revised_prompt"] = prompt
+		}
+		items = append(items, item)
+	}
+	addFromObject := func(item gjson.Result) {
+		if !item.IsObject() {
+			return
+		}
+		b64 := strings.TrimSpace(item.Get("b64_json").String())
+		if b64 == "" {
+			b64 = strings.TrimSpace(item.Get("result").String())
+		}
+		add(b64, item.Get("url").String(), item.Get("revised_prompt").String())
+	}
+	for _, item := range gjson.GetBytes(result, "data").Array() {
+		addFromObject(item)
+	}
+	for _, path := range []string{"output", "response.output", "images"} {
+		for _, item := range gjson.GetBytes(result, path).Array() {
+			if !item.IsObject() {
+				if item.Type == gjson.String {
+					add(item.String(), "", "")
+				}
+				continue
+			}
+			kind := strings.TrimSpace(item.Get("type").String())
+			if kind != "" && kind != "image_generation_call" && kind != "image_generation.completed" {
+				continue
+			}
+			addFromObject(item)
+		}
+	}
+	return items
+}
+
 // Rewrite 将 result（上游生图响应 JSON）里的每张图片转存到对象存储，
 // 返回改写后的紧凑结果（data[i].url 指向对象存储，b64_json 被移除）。
 // 任一图片转存失败即返回 error（调用方据此将任务标记为失败，绝不把大 blob 落 Redis）。
@@ -70,6 +163,7 @@ func (u *ImageResultUploader) Rewrite(ctx context.Context, taskID string, result
 	if u == nil || u.storage == nil {
 		return result, nil
 	}
+	result = expandOpenAIImagesAPIData(result)
 	var top map[string]json.RawMessage
 	if err := json.Unmarshal(result, &top); err != nil {
 		return nil, fmt.Errorf("parse image response: %w", err)
@@ -135,6 +229,18 @@ func (u *ImageResultUploader) fetchImageBytes(ctx context.Context, item map[stri
 				data, err := base64.StdEncoding.DecodeString(b64)
 				if err != nil {
 					return nil, "", fmt.Errorf("decode b64_json: %w", err)
+				}
+				return data, detectImageContentType(data), nil
+			}
+		}
+	}
+	if raw, ok := item["result"]; ok {
+		var b64 string
+		if err := json.Unmarshal(raw, &b64); err == nil {
+			if b64 = strings.TrimSpace(b64); b64 != "" {
+				data, err := base64.StdEncoding.DecodeString(b64)
+				if err != nil {
+					return nil, "", fmt.Errorf("decode result: %w", err)
 				}
 				return data, detectImageContentType(data), nil
 			}

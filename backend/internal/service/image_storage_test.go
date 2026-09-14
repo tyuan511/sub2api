@@ -46,6 +46,41 @@ func (f *fakeImageStorage) Save(_ context.Context, key, contentType string, data
 	return "https://cdn.test/" + key, nil
 }
 
+func TestExpandOpenAIImagesAPIDataMergesResponsesOutput(t *testing.T) {
+	first := base64.StdEncoding.EncodeToString(pngBytes)
+	second := base64.StdEncoding.EncodeToString(append([]byte(nil), pngBytes...)) + "YQ=="
+	body := json.RawMessage(`{"created":1,"data":[{"b64_json":"` + first + `","revised_prompt":"one"}],"output":[{"type":"image_generation_call","result":"` + first + `","revised_prompt":"one"},{"type":"image_generation_call","result":"` + second + `","revised_prompt":"two"},{"type":"message","content":[{"type":"output_text","text":"ignore"}]}]}`)
+	out := expandOpenAIImagesAPIData(body)
+	var parsed struct {
+		Data []struct {
+			B64    string `json:"b64_json"`
+			Prompt string `json:"revised_prompt"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(out, &parsed))
+	require.Len(t, parsed.Data, 2)
+	require.Equal(t, first, parsed.Data[0].B64)
+	require.Equal(t, "one", parsed.Data[0].Prompt)
+	require.Equal(t, second, parsed.Data[1].B64)
+	require.Equal(t, "two", parsed.Data[1].Prompt)
+}
+
+func TestImageResultUploaderRewritesMergedResponsesOutput(t *testing.T) {
+	storage := &fakeImageStorage{}
+	uploader := NewImageResultUploader(storage, "images/", 0, nil)
+	first := base64.StdEncoding.EncodeToString(pngBytes)
+	second := base64.StdEncoding.EncodeToString(append(append([]byte(nil), pngBytes...), 'x'))
+	result := json.RawMessage(`{"data":[{"b64_json":"` + first + `"}],"output":[{"type":"image_generation_call","result":"` + first + `"},{"type":"image_generation_call","result":"` + second + `"}]}`)
+	out, err := uploader.Rewrite(context.Background(), "imgtask_multi", result)
+	require.NoError(t, err)
+	require.Len(t, storage.saved, 2)
+	var parsed struct {
+		Data []map[string]json.RawMessage `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(out, &parsed))
+	require.Len(t, parsed.Data, 2)
+}
+
 func TestImageResultUploaderRewritesB64JSON(t *testing.T) {
 	storage := &fakeImageStorage{}
 	uploader := NewImageResultUploader(storage, "images/", 0, nil)

@@ -67,6 +67,62 @@ func TestImageUpstreamStream_AggregatesFourResultsWithoutDuplicateBilling(t *tes
 	require.NotContains(t, rec.Body.String(), "image.generation.chunk")
 }
 
+// A provider may stamp the same result index on every distinct image. The
+// identity must then fall back to the bytes so no billed image is dropped.
+func TestImageUpstreamStream_KeepsDistinctImagesSharingOneResultIndex(t *testing.T) {
+	var stream strings.Builder
+	for _, image := range []string{"aW1hZ2Ux", "aW1hZ2Uy", "aW1hZ2Uz"} {
+		stream.WriteString(imageStreamResult(1, image, 1, 10))
+	}
+	stream.WriteString("data: [DONE]\n\n")
+	a, err := readOpenAIImagesStream(strings.NewReader(stream.String()), 1<<20, time.Now())
+	require.NoError(t, err)
+	require.Len(t, a.images, 3)
+	require.Equal(t, "aW1hZ2Ux", gjson.GetBytes(a.images[0], "b64_json").String())
+	require.Equal(t, "aW1hZ2Uz", gjson.GetBytes(a.images[2], "b64_json").String())
+}
+
+// A completed event may carry the whole batch inside its data array instead of
+// one image per event.
+func TestImageUpstreamStream_CompletedEventCarriesDataArray(t *testing.T) {
+	stream := "data: {\"type\":\"image_generation.completed\",\"data\":[{\"b64_json\":\"aW1hZ2Ux\"},{\"b64_json\":\"aW1hZ2Uy\"}]}\n\ndata: [DONE]\n\n"
+	a, err := readOpenAIImagesStream(strings.NewReader(stream), 1<<20, time.Now())
+	require.NoError(t, err)
+	require.Len(t, a.images, 2)
+	require.Equal(t, "aW1hZ2Ux", gjson.GetBytes(a.images[0], "b64_json").String())
+	require.Equal(t, "aW1hZ2Uy", gjson.GetBytes(a.images[1], "b64_json").String())
+}
+
+// Some providers mirror the first image at the event level while the rest live
+// in data; the mirror must not become a duplicate image.
+func TestImageUpstreamStream_CompletedEventDropsMirroredTopLevelCopy(t *testing.T) {
+	stream := "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"aW1hZ2Ux\",\"data\":[{\"b64_json\":\"aW1hZ2Ux\"},{\"b64_json\":\"aW1hZ2Uy\"}]}\n\ndata: [DONE]\n\n"
+	a, err := readOpenAIImagesStream(strings.NewReader(stream), 1<<20, time.Now())
+	require.NoError(t, err)
+	require.Len(t, a.images, 2)
+}
+
+func TestImageUpstreamStream_UnsolicitedSSEIsAggregatedWithoutOptIn(t *testing.T) {
+	body := []byte(`{"model":"gpt-image-2","prompt":"original","n":4}`)
+	c, rec := newOpenAIImagesTestContext(t, body)
+	var stream strings.Builder
+	for i := 1; i <= 4; i++ {
+		stream.WriteString(imageStreamResult(i, fmt.Sprintf("aW1hZ2U%d", i), 1, 10))
+	}
+	stream.WriteString("data: [DONE]\n\n")
+	upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(stream.String()))}}
+	svc := newOpenAIImagesTestService(upstream)
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	account := newOpenAIImagesAPIKeyAccount()
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(upstream.lastBody, "stream").Bool(), "must not send stream=true when the account did not opt in")
+	require.Equal(t, 4, result.ImageCount)
+	require.Len(t, gjson.GetBytes(rec.Body.Bytes(), "data").Array(), 4)
+	require.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+}
+
 func TestImageUpstreamStream_OptInAndClientStreamContracts(t *testing.T) {
 	for _, tt := range []struct {
 		name   string

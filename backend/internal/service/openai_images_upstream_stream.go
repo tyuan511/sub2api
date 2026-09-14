@@ -11,10 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"go.uber.org/zap"
 )
 
 func enableOpenAIImagesUpstreamStream(body []byte, contentType string) ([]byte, string, error) {
@@ -42,10 +44,36 @@ type openAIImagesStreamAggregate struct {
 	images       []json.RawMessage
 	sizes        []string
 	seenImages   map[string]bool
-	seenResults  map[string]bool
 	usage        OpenAIUsage
 	firstEventMS *int
 	done         bool
+	events       int
+	frames       []string
+	frameKeys    map[string]bool
+}
+
+// openAIImagesStreamShapeLimit caps the distinct frame signatures kept for the
+// partial-stream diagnostic so a chatty provider cannot grow memory.
+const openAIImagesStreamShapeLimit = 12
+
+// recordFrame remembers the shape (never the payload) of the first few SSE
+// frames so a short stream can be diagnosed from logs without the raw images.
+func (a *openAIImagesStreamAggregate) recordFrame(kind, object string, root gjson.Result) {
+	a.events++
+	if len(a.frames) >= openAIImagesStreamShapeLimit {
+		return
+	}
+	if a.frameKeys == nil {
+		a.frameKeys = make(map[string]bool)
+	}
+	shape := fmt.Sprintf("type=%q object=%q data_array=%t index=%s image_index=%s has_b64=%t has_url=%t",
+		kind, object, root.Get("data").IsArray(), root.Get("index").Raw, root.Get("image_index").Raw,
+		root.Get("b64_json").String() != "", root.Get("url").String() != "")
+	if a.frameKeys[shape] {
+		return
+	}
+	a.frameKeys[shape] = true
+	a.frames = append(a.frames, shape)
 }
 
 func (a *openAIImagesStreamAggregate) consume(frame openAICompatSSEFrame, start time.Time) error {
@@ -82,6 +110,7 @@ func (a *openAIImagesStreamAggregate) consume(frame openAICompatSSEFrame, start 
 	if strings.Contains(kind, "partial_image") || object == "image.generation.chunk" {
 		return nil
 	}
+	a.recordFrame(kind, object, root)
 
 	var items []gjson.Result
 	resultKey := ""
@@ -96,12 +125,15 @@ func (a *openAIImagesStreamAggregate) consume(frame openAICompatSSEFrame, start 
 		}
 		perImageUsage = true
 	case kind == "image_generation.completed" || kind == "image_edit.completed":
-		items = []gjson.Result{root}
+		// The final image can sit at the event level, inside a data array, or
+		// both; providers differ, so collect every image the event carries and
+		// let the content-aware de-duplication below drop any mirrored copy.
+		items = completedEventImages(root)
 		if index := root.Get("image_index"); index.Exists() {
 			resultKey = "image:" + index.Raw
 		}
 		perImageUsage = true
-	case object == "" && kind == "" && root.Get("data").IsArray():
+	case root.Get("data").IsArray():
 		// Some Images providers send the final regular JSON response in an SSE
 		// frame, and others ignore stream=true and return JSON directly.
 		items = root.Get("data").Array()
@@ -115,19 +147,21 @@ func (a *openAIImagesStreamAggregate) consume(frame openAICompatSSEFrame, start 
 		hash := sha256.Sum256([]byte(root.Get("data").Raw + root.Get("b64_json").String() + root.Get("url").String()))
 		resultKey = fmt.Sprintf("content:%x", hash)
 	}
-	if a.seenResults == nil {
-		a.seenResults = make(map[string]bool)
+	if a.seenImages == nil {
 		a.seenImages = make(map[string]bool)
 	}
-	if a.seenResults[resultKey] {
-		return nil
-	}
 	before := len(a.images)
-	for i, item := range items {
-		if item.Get("b64_json").String() == "" && item.Get("url").String() == "" {
+	for _, item := range items {
+		b64 := item.Get("b64_json").String()
+		rawURL := item.Get("url").String()
+		if b64 == "" && rawURL == "" {
 			continue
 		}
-		identity := fmt.Sprintf("%s:%d", resultKey, i)
+		// A provider may reuse one result index for several distinct images, so
+		// the identity must include the bytes: a replayed frame is dropped, while
+		// identical bytes under distinct result indexes stay distinct.
+		contentHash := sha256.Sum256([]byte(b64 + "\x00" + rawURL))
+		identity := fmt.Sprintf("%s:%x", resultKey, contentHash)
 		if a.seenImages[identity] {
 			continue
 		}
@@ -142,7 +176,7 @@ func (a *openAIImagesStreamAggregate) consume(frame openAICompatSSEFrame, start 
 				out[field] = json.RawMessage(value.Raw)
 			}
 		}
-		size := detectOpenAIImageResultSize(item.Get("b64_json").String())
+		size := detectOpenAIImageResultSize(b64)
 		if size == "" {
 			size = item.Get("size").String()
 		}
@@ -160,7 +194,6 @@ func (a *openAIImagesStreamAggregate) consume(frame openAICompatSSEFrame, start 
 	if len(a.images) == before {
 		return nil
 	}
-	a.seenResults[resultKey] = true
 	if usage, ok := extractOpenAIUsageFromJSONBytes([]byte(data)); ok {
 		if perImageUsage {
 			a.usage.InputTokens += usage.InputTokens
@@ -174,6 +207,23 @@ func (a *openAIImagesStreamAggregate) consume(frame openAICompatSSEFrame, start 
 		}
 	}
 	return nil
+}
+
+// completedEventImages returns the image payloads a completed image event
+// carries. The payload may be the event itself, a data array, or both; the
+// content-based identity in consume drops a top-level mirror of a data item.
+func completedEventImages(root gjson.Result) []gjson.Result {
+	data := root.Get("data")
+	if !data.IsArray() {
+		return []gjson.Result{root}
+	}
+	array := data.Array()
+	if root.Get("b64_json").String() == "" && root.Get("url").String() == "" {
+		return array
+	}
+	items := make([]gjson.Result, 0, len(array)+1)
+	items = append(items, root)
+	return append(items, array...)
 }
 
 func readOpenAIImagesStream(body io.Reader, limit int64, start time.Time) (*openAIImagesStreamAggregate, error) {
@@ -228,6 +278,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAggregatedResponse(resp *http.
 	// We never turn partial output into a replayable failover error.
 	if streamErr != nil {
 		message := sanitizeUpstreamErrorMessage(streamErr.Error())
+		logger.L().Warn("image_task.upstream_stream_incomplete",
+			zap.Int("received", count), zap.Int("requested", parsed.N), zap.Int("events", aggregate.events),
+			zap.Strings("frames", aggregate.frames), zap.Int64("account_id", account.ID), zap.String("account", account.Name))
 		setOpsUpstreamError(c, http.StatusBadGateway, message, "")
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 			ProxyID: opsUpstreamProxyID(account), ProxyName: opsUpstreamProxyName(account),
