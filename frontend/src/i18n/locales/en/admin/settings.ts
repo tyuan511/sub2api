@@ -50,6 +50,8 @@ export default {
         enableNotify: 'Enable notifications',
         notifyNewTicket: 'New messages',
         notifyUserReply: 'User replies',
+        notifyBalanceRecharge: 'Balance recharge',
+        notifyRedeem: 'Redeem codes',
         lastError: 'Last error: {error}',
         updateBindingFailed: 'Failed to update binding',
       },

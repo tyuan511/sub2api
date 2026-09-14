@@ -229,6 +229,16 @@ func TicketIDLTE(v int64) predicate.SupportNotificationOutbox {
 	return predicate.SupportNotificationOutbox(sql.FieldLTE(FieldTicketID, v))
 }
 
+// TicketIDIsNil applies the IsNil predicate on the "ticket_id" field.
+func TicketIDIsNil() predicate.SupportNotificationOutbox {
+	return predicate.SupportNotificationOutbox(sql.FieldIsNull(FieldTicketID))
+}
+
+// TicketIDNotNil applies the NotNil predicate on the "ticket_id" field.
+func TicketIDNotNil() predicate.SupportNotificationOutbox {
+	return predicate.SupportNotificationOutbox(sql.FieldNotNull(FieldTicketID))
+}
+
 // MessageIDEQ applies the EQ predicate on the "message_id" field.
 func MessageIDEQ(v int64) predicate.SupportNotificationOutbox {
 	return predicate.SupportNotificationOutbox(sql.FieldEQ(FieldMessageID, v))

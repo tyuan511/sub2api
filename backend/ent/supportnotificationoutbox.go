@@ -20,7 +20,7 @@ type SupportNotificationOutbox struct {
 	// EventType holds the value of the "event_type" field.
 	EventType string `json:"event_type,omitempty"`
 	// TicketID holds the value of the "ticket_id" field.
-	TicketID int64 `json:"ticket_id,omitempty"`
+	TicketID *int64 `json:"ticket_id,omitempty"`
 	// MessageID holds the value of the "message_id" field.
 	MessageID *int64 `json:"message_id,omitempty"`
 	// TargetAdminID holds the value of the "target_admin_id" field.
@@ -90,7 +90,8 @@ func (_m *SupportNotificationOutbox) assignValues(columns []string, values []any
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field ticket_id", values[i])
 			} else if value.Valid {
-				_m.TicketID = value.Int64
+				_m.TicketID = new(int64)
+				*_m.TicketID = value.Int64
 			}
 		case supportnotificationoutbox.FieldMessageID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -208,8 +209,10 @@ func (_m *SupportNotificationOutbox) String() string {
 	builder.WriteString("event_type=")
 	builder.WriteString(_m.EventType)
 	builder.WriteString(", ")
-	builder.WriteString("ticket_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.TicketID))
+	if v := _m.TicketID; v != nil {
+		builder.WriteString("ticket_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	if v := _m.MessageID; v != nil {
 		builder.WriteString("message_id=")

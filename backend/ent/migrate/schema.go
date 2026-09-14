@@ -416,6 +416,8 @@ var (
 		{Name: "notify_new_ticket", Type: field.TypeBool, Default: true},
 		{Name: "notify_user_reply", Type: field.TypeBool, Default: true},
 		{Name: "notify_high_priority", Type: field.TypeBool, Default: true},
+		{Name: "notify_balance_recharge", Type: field.TypeBool, Default: true},
+		{Name: "notify_redeem", Type: field.TypeBool, Default: true},
 		{Name: "bound_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "last_success_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "last_error", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
@@ -1939,7 +1941,7 @@ var (
 	SupportNotificationOutboxColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "event_type", Type: field.TypeString, Size: 32},
-		{Name: "ticket_id", Type: field.TypeInt64},
+		{Name: "ticket_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "message_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "target_admin_id", Type: field.TypeInt64},
 		{Name: "telegram_message_id", Type: field.TypeInt64, Nullable: true},

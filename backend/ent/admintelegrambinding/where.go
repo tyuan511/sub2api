@@ -94,6 +94,16 @@ func NotifyHighPriority(v bool) predicate.AdminTelegramBinding {
 	return predicate.AdminTelegramBinding(sql.FieldEQ(FieldNotifyHighPriority, v))
 }
 
+// NotifyBalanceRecharge applies equality check predicate on the "notify_balance_recharge" field. It's identical to NotifyBalanceRechargeEQ.
+func NotifyBalanceRecharge(v bool) predicate.AdminTelegramBinding {
+	return predicate.AdminTelegramBinding(sql.FieldEQ(FieldNotifyBalanceRecharge, v))
+}
+
+// NotifyRedeem applies equality check predicate on the "notify_redeem" field. It's identical to NotifyRedeemEQ.
+func NotifyRedeem(v bool) predicate.AdminTelegramBinding {
+	return predicate.AdminTelegramBinding(sql.FieldEQ(FieldNotifyRedeem, v))
+}
+
 // BoundAt applies equality check predicate on the "bound_at" field. It's identical to BoundAtEQ.
 func BoundAt(v time.Time) predicate.AdminTelegramBinding {
 	return predicate.AdminTelegramBinding(sql.FieldEQ(FieldBoundAt, v))
@@ -352,6 +362,26 @@ func NotifyHighPriorityEQ(v bool) predicate.AdminTelegramBinding {
 // NotifyHighPriorityNEQ applies the NEQ predicate on the "notify_high_priority" field.
 func NotifyHighPriorityNEQ(v bool) predicate.AdminTelegramBinding {
 	return predicate.AdminTelegramBinding(sql.FieldNEQ(FieldNotifyHighPriority, v))
+}
+
+// NotifyBalanceRechargeEQ applies the EQ predicate on the "notify_balance_recharge" field.
+func NotifyBalanceRechargeEQ(v bool) predicate.AdminTelegramBinding {
+	return predicate.AdminTelegramBinding(sql.FieldEQ(FieldNotifyBalanceRecharge, v))
+}
+
+// NotifyBalanceRechargeNEQ applies the NEQ predicate on the "notify_balance_recharge" field.
+func NotifyBalanceRechargeNEQ(v bool) predicate.AdminTelegramBinding {
+	return predicate.AdminTelegramBinding(sql.FieldNEQ(FieldNotifyBalanceRecharge, v))
+}
+
+// NotifyRedeemEQ applies the EQ predicate on the "notify_redeem" field.
+func NotifyRedeemEQ(v bool) predicate.AdminTelegramBinding {
+	return predicate.AdminTelegramBinding(sql.FieldEQ(FieldNotifyRedeem, v))
+}
+
+// NotifyRedeemNEQ applies the NEQ predicate on the "notify_redeem" field.
+func NotifyRedeemNEQ(v bool) predicate.AdminTelegramBinding {
+	return predicate.AdminTelegramBinding(sql.FieldNEQ(FieldNotifyRedeem, v))
 }
 
 // BoundAtEQ applies the EQ predicate on the "bound_at" field.

@@ -73,6 +73,7 @@ func NewSupportTelegramService(client *ent.Client, redisClient *redis.Client, su
 func ProvideSupportTelegramService(client *ent.Client, redisClient *redis.Client, support *SupportService, settings SettingRepository, encryptor SecretEncryptor, ops *OpsService, monitor *ChannelMonitorV2Service, dashboard *DashboardService) *SupportTelegramService {
 	svc := NewSupportTelegramService(client, redisClient, support, settings, encryptor, ops, monitor, dashboard)
 	svc.Start()
+	SetDefaultActivityNotifier(svc)
 	return svc
 }
 
@@ -282,6 +283,7 @@ func (s *SupportTelegramService) GetBinding(ctx context.Context, adminID int64) 
 	}
 	return &TelegramBindingView{Bound: true, Enabled: binding.Enabled, TelegramUsername: username,
 		NotifyNewTicket: binding.NotifyNewTicket, NotifyUserReply: binding.NotifyUserReply,
+		NotifyBalanceRecharge: binding.NotifyBalanceRecharge, NotifyRedeem: binding.NotifyRedeem,
 		BoundAt:       &binding.BoundAt,
 		LastSuccessAt: binding.LastSuccessAt, LastError: lastError}, nil
 }
@@ -311,6 +313,7 @@ func (s *SupportTelegramService) CreateBindLink(ctx context.Context, adminID int
 func (s *SupportTelegramService) UpdateBinding(ctx context.Context, adminID int64, input TelegramBindingInput) (*TelegramBindingView, error) {
 	updated, err := s.client.AdminTelegramBinding.Update().Where(admintelegrambinding.AdminIDEQ(adminID)).
 		SetEnabled(input.Enabled).SetNotifyNewTicket(input.NotifyNewTicket).SetNotifyUserReply(input.NotifyUserReply).
+		SetNotifyBalanceRecharge(input.NotifyBalanceRecharge).SetNotifyRedeem(input.NotifyRedeem).
 		Save(ctx)
 	if err != nil {
 		return nil, err
@@ -401,6 +404,57 @@ func formatSupportTelegramNotification(eventType string, payload supportTelegram
 	return fmt.Sprintf("[用户 %s %s]\n%s", identity, action, string(content))
 }
 
+// formatTelegramOutboxText renders an outbox row for Telegram. Activity
+// notifications (recharge/redeem) carry a different payload than support
+// tickets, so they are re-decoded from the raw payload.
+func formatTelegramOutboxText(eventType, raw string, supportPayload supportTelegramNotificationPayload) string {
+	if isActivityEventType(eventType) {
+		var notification ActivityNotification
+		if err := json.Unmarshal([]byte(raw), &notification); err != nil {
+			return "[" + eventType + "]\n" + raw
+		}
+		notification.EventType = eventType
+		return formatActivityTelegramNotification(notification)
+	}
+	return formatSupportTelegramNotification(eventType, supportPayload)
+}
+
+// NotifyActivity enqueues recharge/redeem notifications for every bound and
+// opted-in administrator. Delivery is handled asynchronously by processOutbox.
+func (s *SupportTelegramService) NotifyActivity(ctx context.Context, notification ActivityNotification) {
+	if s == nil || s.client == nil || !isActivityEventType(notification.EventType) {
+		return
+	}
+	if notification.At.IsZero() {
+		notification.At = time.Now()
+	}
+	query := s.client.AdminTelegramBinding.Query().Where(admintelegrambinding.EnabledEQ(true))
+	if isRechargeActivityEvent(notification.EventType) {
+		query = query.Where(admintelegrambinding.NotifyBalanceRechargeEQ(true))
+	} else {
+		query = query.Where(admintelegrambinding.NotifyRedeemEQ(true))
+	}
+	bindings, err := query.All(ctx)
+	if err != nil {
+		logger.L().Warn("support.telegram_activity_bindings_failed", zap.Error(err))
+		return
+	}
+	if len(bindings) == 0 {
+		return
+	}
+	payload, err := json.Marshal(notification)
+	if err != nil {
+		logger.L().Warn("support.telegram_activity_payload_failed", zap.Error(err))
+		return
+	}
+	for _, binding := range bindings {
+		if _, err := s.client.SupportNotificationOutbox.Create().SetEventType(notification.EventType).
+			SetTargetAdminID(binding.AdminID).SetPayload(string(payload)).Save(ctx); err != nil {
+			logger.L().Warn("support.telegram_activity_enqueue_failed", zap.Error(err), zap.Int64("admin_id", binding.AdminID))
+		}
+	}
+}
+
 func (s *SupportTelegramService) HandleWebhook(ctx context.Context, secretHeader string, body []byte) error {
 	cfg, err := s.loadRuntime(ctx)
 	if err != nil {
@@ -488,7 +542,7 @@ func (s *SupportTelegramService) handleAdminReply(ctx context.Context, cfg *supp
 		supportnotificationoutbox.TelegramMessageIDEQ(message.ReplyToMessage.MessageID),
 		supportnotificationoutbox.StatusEQ("sent"),
 	).Only(ctx)
-	if err != nil || mapping.MessageID == nil {
+	if err != nil || mapping.MessageID == nil || mapping.TicketID == nil {
 		_, _ = s.call(ctx, cfg.BotToken, "sendMessage", map[string]any{"chat_id": message.Chat.ID, "text": "这条消息不是有效的客服通知，请引用最新的客服通知回复。"})
 		return nil
 	}
@@ -502,7 +556,7 @@ func (s *SupportTelegramService) handleAdminReply(ctx context.Context, cfg *supp
 		return nil
 	}
 	requestID := fmt.Sprintf("telegram-%d-%d", message.From.ID, updateID)
-	_, err = s.support.Reply(ctx, binding.AdminID, mapping.TicketID, true, SupportReplyInput{
+	_, err = s.support.Reply(ctx, binding.AdminID, *mapping.TicketID, true, SupportReplyInput{
 		Content: content, ClientRequestID: requestID, Attachments: uploads,
 	})
 	if err != nil {
@@ -602,7 +656,7 @@ func (s *SupportTelegramService) deliverOutbox(ctx context.Context, item *ent.Su
 		s.failOutbox(ctx, item, err, 0)
 		return
 	}
-	text := formatSupportTelegramNotification(item.EventType, payload)
+	text := formatTelegramOutboxText(item.EventType, item.Payload, payload)
 	result, err := s.call(ctx, cfg.BotToken, "sendMessage", map[string]any{"chat_id": binding.ChatID, "text": text})
 	if err != nil {
 		retry := 0

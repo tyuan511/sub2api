@@ -34,6 +34,14 @@ func (_c *SupportNotificationOutboxCreate) SetTicketID(v int64) *SupportNotifica
 	return _c
 }
 
+// SetNillableTicketID sets the "ticket_id" field if the given value is not nil.
+func (_c *SupportNotificationOutboxCreate) SetNillableTicketID(v *int64) *SupportNotificationOutboxCreate {
+	if v != nil {
+		_c.SetTicketID(*v)
+	}
+	return _c
+}
+
 // SetMessageID sets the "message_id" field.
 func (_c *SupportNotificationOutboxCreate) SetMessageID(v int64) *SupportNotificationOutboxCreate {
 	_c.mutation.SetMessageID(v)
@@ -253,9 +261,6 @@ func (_c *SupportNotificationOutboxCreate) check() error {
 			return &ValidationError{Name: "event_type", err: fmt.Errorf(`ent: validator failed for field "SupportNotificationOutbox.event_type": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.TicketID(); !ok {
-		return &ValidationError{Name: "ticket_id", err: errors.New(`ent: missing required field "SupportNotificationOutbox.ticket_id"`)}
-	}
 	if _, ok := _c.mutation.TargetAdminID(); !ok {
 		return &ValidationError{Name: "target_admin_id", err: errors.New(`ent: missing required field "SupportNotificationOutbox.target_admin_id"`)}
 	}
@@ -315,7 +320,7 @@ func (_c *SupportNotificationOutboxCreate) createSpec() (*SupportNotificationOut
 	}
 	if value, ok := _c.mutation.TicketID(); ok {
 		_spec.SetField(supportnotificationoutbox.FieldTicketID, field.TypeInt64, value)
-		_node.TicketID = value
+		_node.TicketID = &value
 	}
 	if value, ok := _c.mutation.MessageID(); ok {
 		_spec.SetField(supportnotificationoutbox.FieldMessageID, field.TypeInt64, value)
@@ -444,6 +449,12 @@ func (u *SupportNotificationOutboxUpsert) UpdateTicketID() *SupportNotificationO
 // AddTicketID adds v to the "ticket_id" field.
 func (u *SupportNotificationOutboxUpsert) AddTicketID(v int64) *SupportNotificationOutboxUpsert {
 	u.Add(supportnotificationoutbox.FieldTicketID, v)
+	return u
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (u *SupportNotificationOutboxUpsert) ClearTicketID() *SupportNotificationOutboxUpsert {
+	u.SetNull(supportnotificationoutbox.FieldTicketID)
 	return u
 }
 
@@ -710,6 +721,13 @@ func (u *SupportNotificationOutboxUpsertOne) AddTicketID(v int64) *SupportNotifi
 func (u *SupportNotificationOutboxUpsertOne) UpdateTicketID() *SupportNotificationOutboxUpsertOne {
 	return u.Update(func(s *SupportNotificationOutboxUpsert) {
 		s.UpdateTicketID()
+	})
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (u *SupportNotificationOutboxUpsertOne) ClearTicketID() *SupportNotificationOutboxUpsertOne {
+	return u.Update(func(s *SupportNotificationOutboxUpsert) {
+		s.ClearTicketID()
 	})
 }
 
@@ -1173,6 +1191,13 @@ func (u *SupportNotificationOutboxUpsertBulk) AddTicketID(v int64) *SupportNotif
 func (u *SupportNotificationOutboxUpsertBulk) UpdateTicketID() *SupportNotificationOutboxUpsertBulk {
 	return u.Update(func(s *SupportNotificationOutboxUpsert) {
 		s.UpdateTicketID()
+	})
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (u *SupportNotificationOutboxUpsertBulk) ClearTicketID() *SupportNotificationOutboxUpsertBulk {
+	return u.Update(func(s *SupportNotificationOutboxUpsert) {
+		s.ClearTicketID()
 	})
 }
 

@@ -110,6 +110,34 @@ func (_c *AdminTelegramBindingCreate) SetNillableNotifyHighPriority(v *bool) *Ad
 	return _c
 }
 
+// SetNotifyBalanceRecharge sets the "notify_balance_recharge" field.
+func (_c *AdminTelegramBindingCreate) SetNotifyBalanceRecharge(v bool) *AdminTelegramBindingCreate {
+	_c.mutation.SetNotifyBalanceRecharge(v)
+	return _c
+}
+
+// SetNillableNotifyBalanceRecharge sets the "notify_balance_recharge" field if the given value is not nil.
+func (_c *AdminTelegramBindingCreate) SetNillableNotifyBalanceRecharge(v *bool) *AdminTelegramBindingCreate {
+	if v != nil {
+		_c.SetNotifyBalanceRecharge(*v)
+	}
+	return _c
+}
+
+// SetNotifyRedeem sets the "notify_redeem" field.
+func (_c *AdminTelegramBindingCreate) SetNotifyRedeem(v bool) *AdminTelegramBindingCreate {
+	_c.mutation.SetNotifyRedeem(v)
+	return _c
+}
+
+// SetNillableNotifyRedeem sets the "notify_redeem" field if the given value is not nil.
+func (_c *AdminTelegramBindingCreate) SetNillableNotifyRedeem(v *bool) *AdminTelegramBindingCreate {
+	if v != nil {
+		_c.SetNotifyRedeem(*v)
+	}
+	return _c
+}
+
 // SetBoundAt sets the "bound_at" field.
 func (_c *AdminTelegramBindingCreate) SetBoundAt(v time.Time) *AdminTelegramBindingCreate {
 	_c.mutation.SetBoundAt(v)
@@ -231,6 +259,14 @@ func (_c *AdminTelegramBindingCreate) defaults() {
 		v := admintelegrambinding.DefaultNotifyHighPriority
 		_c.mutation.SetNotifyHighPriority(v)
 	}
+	if _, ok := _c.mutation.NotifyBalanceRecharge(); !ok {
+		v := admintelegrambinding.DefaultNotifyBalanceRecharge
+		_c.mutation.SetNotifyBalanceRecharge(v)
+	}
+	if _, ok := _c.mutation.NotifyRedeem(); !ok {
+		v := admintelegrambinding.DefaultNotifyRedeem
+		_c.mutation.SetNotifyRedeem(v)
+	}
 	if _, ok := _c.mutation.BoundAt(); !ok {
 		v := admintelegrambinding.DefaultBoundAt()
 		_c.mutation.SetBoundAt(v)
@@ -272,6 +308,12 @@ func (_c *AdminTelegramBindingCreate) check() error {
 	}
 	if _, ok := _c.mutation.NotifyHighPriority(); !ok {
 		return &ValidationError{Name: "notify_high_priority", err: errors.New(`ent: missing required field "AdminTelegramBinding.notify_high_priority"`)}
+	}
+	if _, ok := _c.mutation.NotifyBalanceRecharge(); !ok {
+		return &ValidationError{Name: "notify_balance_recharge", err: errors.New(`ent: missing required field "AdminTelegramBinding.notify_balance_recharge"`)}
+	}
+	if _, ok := _c.mutation.NotifyRedeem(); !ok {
+		return &ValidationError{Name: "notify_redeem", err: errors.New(`ent: missing required field "AdminTelegramBinding.notify_redeem"`)}
 	}
 	if _, ok := _c.mutation.BoundAt(); !ok {
 		return &ValidationError{Name: "bound_at", err: errors.New(`ent: missing required field "AdminTelegramBinding.bound_at"`)}
@@ -340,6 +382,14 @@ func (_c *AdminTelegramBindingCreate) createSpec() (*AdminTelegramBinding, *sqlg
 	if value, ok := _c.mutation.NotifyHighPriority(); ok {
 		_spec.SetField(admintelegrambinding.FieldNotifyHighPriority, field.TypeBool, value)
 		_node.NotifyHighPriority = value
+	}
+	if value, ok := _c.mutation.NotifyBalanceRecharge(); ok {
+		_spec.SetField(admintelegrambinding.FieldNotifyBalanceRecharge, field.TypeBool, value)
+		_node.NotifyBalanceRecharge = value
+	}
+	if value, ok := _c.mutation.NotifyRedeem(); ok {
+		_spec.SetField(admintelegrambinding.FieldNotifyRedeem, field.TypeBool, value)
+		_node.NotifyRedeem = value
 	}
 	if value, ok := _c.mutation.BoundAt(); ok {
 		_spec.SetField(admintelegrambinding.FieldBoundAt, field.TypeTime, value)
@@ -530,6 +580,30 @@ func (u *AdminTelegramBindingUpsert) SetNotifyHighPriority(v bool) *AdminTelegra
 // UpdateNotifyHighPriority sets the "notify_high_priority" field to the value that was provided on create.
 func (u *AdminTelegramBindingUpsert) UpdateNotifyHighPriority() *AdminTelegramBindingUpsert {
 	u.SetExcluded(admintelegrambinding.FieldNotifyHighPriority)
+	return u
+}
+
+// SetNotifyBalanceRecharge sets the "notify_balance_recharge" field.
+func (u *AdminTelegramBindingUpsert) SetNotifyBalanceRecharge(v bool) *AdminTelegramBindingUpsert {
+	u.Set(admintelegrambinding.FieldNotifyBalanceRecharge, v)
+	return u
+}
+
+// UpdateNotifyBalanceRecharge sets the "notify_balance_recharge" field to the value that was provided on create.
+func (u *AdminTelegramBindingUpsert) UpdateNotifyBalanceRecharge() *AdminTelegramBindingUpsert {
+	u.SetExcluded(admintelegrambinding.FieldNotifyBalanceRecharge)
+	return u
+}
+
+// SetNotifyRedeem sets the "notify_redeem" field.
+func (u *AdminTelegramBindingUpsert) SetNotifyRedeem(v bool) *AdminTelegramBindingUpsert {
+	u.Set(admintelegrambinding.FieldNotifyRedeem, v)
+	return u
+}
+
+// UpdateNotifyRedeem sets the "notify_redeem" field to the value that was provided on create.
+func (u *AdminTelegramBindingUpsert) UpdateNotifyRedeem() *AdminTelegramBindingUpsert {
+	u.SetExcluded(admintelegrambinding.FieldNotifyRedeem)
 	return u
 }
 
@@ -775,6 +849,34 @@ func (u *AdminTelegramBindingUpsertOne) SetNotifyHighPriority(v bool) *AdminTele
 func (u *AdminTelegramBindingUpsertOne) UpdateNotifyHighPriority() *AdminTelegramBindingUpsertOne {
 	return u.Update(func(s *AdminTelegramBindingUpsert) {
 		s.UpdateNotifyHighPriority()
+	})
+}
+
+// SetNotifyBalanceRecharge sets the "notify_balance_recharge" field.
+func (u *AdminTelegramBindingUpsertOne) SetNotifyBalanceRecharge(v bool) *AdminTelegramBindingUpsertOne {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.SetNotifyBalanceRecharge(v)
+	})
+}
+
+// UpdateNotifyBalanceRecharge sets the "notify_balance_recharge" field to the value that was provided on create.
+func (u *AdminTelegramBindingUpsertOne) UpdateNotifyBalanceRecharge() *AdminTelegramBindingUpsertOne {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.UpdateNotifyBalanceRecharge()
+	})
+}
+
+// SetNotifyRedeem sets the "notify_redeem" field.
+func (u *AdminTelegramBindingUpsertOne) SetNotifyRedeem(v bool) *AdminTelegramBindingUpsertOne {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.SetNotifyRedeem(v)
+	})
+}
+
+// UpdateNotifyRedeem sets the "notify_redeem" field to the value that was provided on create.
+func (u *AdminTelegramBindingUpsertOne) UpdateNotifyRedeem() *AdminTelegramBindingUpsertOne {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.UpdateNotifyRedeem()
 	})
 }
 
@@ -1196,6 +1298,34 @@ func (u *AdminTelegramBindingUpsertBulk) SetNotifyHighPriority(v bool) *AdminTel
 func (u *AdminTelegramBindingUpsertBulk) UpdateNotifyHighPriority() *AdminTelegramBindingUpsertBulk {
 	return u.Update(func(s *AdminTelegramBindingUpsert) {
 		s.UpdateNotifyHighPriority()
+	})
+}
+
+// SetNotifyBalanceRecharge sets the "notify_balance_recharge" field.
+func (u *AdminTelegramBindingUpsertBulk) SetNotifyBalanceRecharge(v bool) *AdminTelegramBindingUpsertBulk {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.SetNotifyBalanceRecharge(v)
+	})
+}
+
+// UpdateNotifyBalanceRecharge sets the "notify_balance_recharge" field to the value that was provided on create.
+func (u *AdminTelegramBindingUpsertBulk) UpdateNotifyBalanceRecharge() *AdminTelegramBindingUpsertBulk {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.UpdateNotifyBalanceRecharge()
+	})
+}
+
+// SetNotifyRedeem sets the "notify_redeem" field.
+func (u *AdminTelegramBindingUpsertBulk) SetNotifyRedeem(v bool) *AdminTelegramBindingUpsertBulk {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.SetNotifyRedeem(v)
+	})
+}
+
+// UpdateNotifyRedeem sets the "notify_redeem" field to the value that was provided on create.
+func (u *AdminTelegramBindingUpsertBulk) UpdateNotifyRedeem() *AdminTelegramBindingUpsertBulk {
+	return u.Update(func(s *AdminTelegramBindingUpsert) {
+		s.UpdateNotifyRedeem()
 	})
 }
 

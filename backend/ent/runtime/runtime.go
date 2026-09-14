@@ -478,16 +478,24 @@ func init() {
 	admintelegrambindingDescNotifyHighPriority := admintelegrambindingFields[7].Descriptor()
 	// admintelegrambinding.DefaultNotifyHighPriority holds the default value on creation for the notify_high_priority field.
 	admintelegrambinding.DefaultNotifyHighPriority = admintelegrambindingDescNotifyHighPriority.Default.(bool)
+	// admintelegrambindingDescNotifyBalanceRecharge is the schema descriptor for notify_balance_recharge field.
+	admintelegrambindingDescNotifyBalanceRecharge := admintelegrambindingFields[8].Descriptor()
+	// admintelegrambinding.DefaultNotifyBalanceRecharge holds the default value on creation for the notify_balance_recharge field.
+	admintelegrambinding.DefaultNotifyBalanceRecharge = admintelegrambindingDescNotifyBalanceRecharge.Default.(bool)
+	// admintelegrambindingDescNotifyRedeem is the schema descriptor for notify_redeem field.
+	admintelegrambindingDescNotifyRedeem := admintelegrambindingFields[9].Descriptor()
+	// admintelegrambinding.DefaultNotifyRedeem holds the default value on creation for the notify_redeem field.
+	admintelegrambinding.DefaultNotifyRedeem = admintelegrambindingDescNotifyRedeem.Default.(bool)
 	// admintelegrambindingDescBoundAt is the schema descriptor for bound_at field.
-	admintelegrambindingDescBoundAt := admintelegrambindingFields[8].Descriptor()
+	admintelegrambindingDescBoundAt := admintelegrambindingFields[10].Descriptor()
 	// admintelegrambinding.DefaultBoundAt holds the default value on creation for the bound_at field.
 	admintelegrambinding.DefaultBoundAt = admintelegrambindingDescBoundAt.Default.(func() time.Time)
 	// admintelegrambindingDescCreatedAt is the schema descriptor for created_at field.
-	admintelegrambindingDescCreatedAt := admintelegrambindingFields[11].Descriptor()
+	admintelegrambindingDescCreatedAt := admintelegrambindingFields[13].Descriptor()
 	// admintelegrambinding.DefaultCreatedAt holds the default value on creation for the created_at field.
 	admintelegrambinding.DefaultCreatedAt = admintelegrambindingDescCreatedAt.Default.(func() time.Time)
 	// admintelegrambindingDescUpdatedAt is the schema descriptor for updated_at field.
-	admintelegrambindingDescUpdatedAt := admintelegrambindingFields[12].Descriptor()
+	admintelegrambindingDescUpdatedAt := admintelegrambindingFields[14].Descriptor()
 	// admintelegrambinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	admintelegrambinding.DefaultUpdatedAt = admintelegrambindingDescUpdatedAt.Default.(func() time.Time)
 	// admintelegrambinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

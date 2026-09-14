@@ -28,6 +28,8 @@ func (AdminTelegramBinding) Fields() []ent.Field {
 		field.Bool("notify_new_ticket").Default(true),
 		field.Bool("notify_user_reply").Default(true),
 		field.Bool("notify_high_priority").Default(true),
+		field.Bool("notify_balance_recharge").Default(true),
+		field.Bool("notify_redeem").Default(true),
 		field.Time("bound_at").Default(time.Now).SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Time("last_success_at").Optional().Nillable().SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.String("last_error").SchemaType(map[string]string{dialect.Postgres: "text"}).Optional().Nillable(),

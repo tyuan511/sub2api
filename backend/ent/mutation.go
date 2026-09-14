@@ -8960,29 +8960,31 @@ func (m *AccountProxyMutation) ResetEdge(name string) error {
 // AdminTelegramBindingMutation represents an operation that mutates the AdminTelegramBinding nodes in the graph.
 type AdminTelegramBindingMutation struct {
 	config
-	op                   Op
-	typ                  string
-	id                   *int64
-	admin_id             *int64
-	addadmin_id          *int64
-	telegram_user_id     *int64
-	addtelegram_user_id  *int64
-	chat_id              *int64
-	addchat_id           *int64
-	telegram_username    *string
-	enabled              *bool
-	notify_new_ticket    *bool
-	notify_user_reply    *bool
-	notify_high_priority *bool
-	bound_at             *time.Time
-	last_success_at      *time.Time
-	last_error           *string
-	created_at           *time.Time
-	updated_at           *time.Time
-	clearedFields        map[string]struct{}
-	done                 bool
-	oldValue             func(context.Context) (*AdminTelegramBinding, error)
-	predicates           []predicate.AdminTelegramBinding
+	op                      Op
+	typ                     string
+	id                      *int64
+	admin_id                *int64
+	addadmin_id             *int64
+	telegram_user_id        *int64
+	addtelegram_user_id     *int64
+	chat_id                 *int64
+	addchat_id              *int64
+	telegram_username       *string
+	enabled                 *bool
+	notify_new_ticket       *bool
+	notify_user_reply       *bool
+	notify_high_priority    *bool
+	notify_balance_recharge *bool
+	notify_redeem           *bool
+	bound_at                *time.Time
+	last_success_at         *time.Time
+	last_error              *string
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	done                    bool
+	oldValue                func(context.Context) (*AdminTelegramBinding, error)
+	predicates              []predicate.AdminTelegramBinding
 }
 
 var _ ent.Mutation = (*AdminTelegramBindingMutation)(nil)
@@ -9444,6 +9446,78 @@ func (m *AdminTelegramBindingMutation) ResetNotifyHighPriority() {
 	m.notify_high_priority = nil
 }
 
+// SetNotifyBalanceRecharge sets the "notify_balance_recharge" field.
+func (m *AdminTelegramBindingMutation) SetNotifyBalanceRecharge(b bool) {
+	m.notify_balance_recharge = &b
+}
+
+// NotifyBalanceRecharge returns the value of the "notify_balance_recharge" field in the mutation.
+func (m *AdminTelegramBindingMutation) NotifyBalanceRecharge() (r bool, exists bool) {
+	v := m.notify_balance_recharge
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNotifyBalanceRecharge returns the old "notify_balance_recharge" field's value of the AdminTelegramBinding entity.
+// If the AdminTelegramBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AdminTelegramBindingMutation) OldNotifyBalanceRecharge(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNotifyBalanceRecharge is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNotifyBalanceRecharge requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNotifyBalanceRecharge: %w", err)
+	}
+	return oldValue.NotifyBalanceRecharge, nil
+}
+
+// ResetNotifyBalanceRecharge resets all changes to the "notify_balance_recharge" field.
+func (m *AdminTelegramBindingMutation) ResetNotifyBalanceRecharge() {
+	m.notify_balance_recharge = nil
+}
+
+// SetNotifyRedeem sets the "notify_redeem" field.
+func (m *AdminTelegramBindingMutation) SetNotifyRedeem(b bool) {
+	m.notify_redeem = &b
+}
+
+// NotifyRedeem returns the value of the "notify_redeem" field in the mutation.
+func (m *AdminTelegramBindingMutation) NotifyRedeem() (r bool, exists bool) {
+	v := m.notify_redeem
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNotifyRedeem returns the old "notify_redeem" field's value of the AdminTelegramBinding entity.
+// If the AdminTelegramBinding object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AdminTelegramBindingMutation) OldNotifyRedeem(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNotifyRedeem is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNotifyRedeem requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNotifyRedeem: %w", err)
+	}
+	return oldValue.NotifyRedeem, nil
+}
+
+// ResetNotifyRedeem resets all changes to the "notify_redeem" field.
+func (m *AdminTelegramBindingMutation) ResetNotifyRedeem() {
+	m.notify_redeem = nil
+}
+
 // SetBoundAt sets the "bound_at" field.
 func (m *AdminTelegramBindingMutation) SetBoundAt(t time.Time) {
 	m.bound_at = &t
@@ -9684,7 +9758,7 @@ func (m *AdminTelegramBindingMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AdminTelegramBindingMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 15)
 	if m.admin_id != nil {
 		fields = append(fields, admintelegrambinding.FieldAdminID)
 	}
@@ -9708,6 +9782,12 @@ func (m *AdminTelegramBindingMutation) Fields() []string {
 	}
 	if m.notify_high_priority != nil {
 		fields = append(fields, admintelegrambinding.FieldNotifyHighPriority)
+	}
+	if m.notify_balance_recharge != nil {
+		fields = append(fields, admintelegrambinding.FieldNotifyBalanceRecharge)
+	}
+	if m.notify_redeem != nil {
+		fields = append(fields, admintelegrambinding.FieldNotifyRedeem)
 	}
 	if m.bound_at != nil {
 		fields = append(fields, admintelegrambinding.FieldBoundAt)
@@ -9748,6 +9828,10 @@ func (m *AdminTelegramBindingMutation) Field(name string) (ent.Value, bool) {
 		return m.NotifyUserReply()
 	case admintelegrambinding.FieldNotifyHighPriority:
 		return m.NotifyHighPriority()
+	case admintelegrambinding.FieldNotifyBalanceRecharge:
+		return m.NotifyBalanceRecharge()
+	case admintelegrambinding.FieldNotifyRedeem:
+		return m.NotifyRedeem()
 	case admintelegrambinding.FieldBoundAt:
 		return m.BoundAt()
 	case admintelegrambinding.FieldLastSuccessAt:
@@ -9783,6 +9867,10 @@ func (m *AdminTelegramBindingMutation) OldField(ctx context.Context, name string
 		return m.OldNotifyUserReply(ctx)
 	case admintelegrambinding.FieldNotifyHighPriority:
 		return m.OldNotifyHighPriority(ctx)
+	case admintelegrambinding.FieldNotifyBalanceRecharge:
+		return m.OldNotifyBalanceRecharge(ctx)
+	case admintelegrambinding.FieldNotifyRedeem:
+		return m.OldNotifyRedeem(ctx)
 	case admintelegrambinding.FieldBoundAt:
 		return m.OldBoundAt(ctx)
 	case admintelegrambinding.FieldLastSuccessAt:
@@ -9857,6 +9945,20 @@ func (m *AdminTelegramBindingMutation) SetField(name string, value ent.Value) er
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetNotifyHighPriority(v)
+		return nil
+	case admintelegrambinding.FieldNotifyBalanceRecharge:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNotifyBalanceRecharge(v)
+		return nil
+	case admintelegrambinding.FieldNotifyRedeem:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNotifyRedeem(v)
 		return nil
 	case admintelegrambinding.FieldBoundAt:
 		v, ok := value.(time.Time)
@@ -10025,6 +10127,12 @@ func (m *AdminTelegramBindingMutation) ResetField(name string) error {
 		return nil
 	case admintelegrambinding.FieldNotifyHighPriority:
 		m.ResetNotifyHighPriority()
+		return nil
+	case admintelegrambinding.FieldNotifyBalanceRecharge:
+		m.ResetNotifyBalanceRecharge()
+		return nil
+	case admintelegrambinding.FieldNotifyRedeem:
+		m.ResetNotifyRedeem()
 		return nil
 	case admintelegrambinding.FieldBoundAt:
 		m.ResetBoundAt()
@@ -54128,7 +54236,7 @@ func (m *SupportNotificationOutboxMutation) TicketID() (r int64, exists bool) {
 // OldTicketID returns the old "ticket_id" field's value of the SupportNotificationOutbox entity.
 // If the SupportNotificationOutbox object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *SupportNotificationOutboxMutation) OldTicketID(ctx context.Context) (v int64, err error) {
+func (m *SupportNotificationOutboxMutation) OldTicketID(ctx context.Context) (v *int64, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
 	}
@@ -54160,10 +54268,24 @@ func (m *SupportNotificationOutboxMutation) AddedTicketID() (r int64, exists boo
 	return *v, true
 }
 
+// ClearTicketID clears the value of the "ticket_id" field.
+func (m *SupportNotificationOutboxMutation) ClearTicketID() {
+	m.ticket_id = nil
+	m.addticket_id = nil
+	m.clearedFields[supportnotificationoutbox.FieldTicketID] = struct{}{}
+}
+
+// TicketIDCleared returns if the "ticket_id" field was cleared in this mutation.
+func (m *SupportNotificationOutboxMutation) TicketIDCleared() bool {
+	_, ok := m.clearedFields[supportnotificationoutbox.FieldTicketID]
+	return ok
+}
+
 // ResetTicketID resets all changes to the "ticket_id" field.
 func (m *SupportNotificationOutboxMutation) ResetTicketID() {
 	m.ticket_id = nil
 	m.addticket_id = nil
+	delete(m.clearedFields, supportnotificationoutbox.FieldTicketID)
 }
 
 // SetMessageID sets the "message_id" field.
@@ -55095,6 +55217,9 @@ func (m *SupportNotificationOutboxMutation) AddField(name string, value ent.Valu
 // mutation.
 func (m *SupportNotificationOutboxMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(supportnotificationoutbox.FieldTicketID) {
+		fields = append(fields, supportnotificationoutbox.FieldTicketID)
+	}
 	if m.FieldCleared(supportnotificationoutbox.FieldMessageID) {
 		fields = append(fields, supportnotificationoutbox.FieldMessageID)
 	}
@@ -55124,6 +55249,9 @@ func (m *SupportNotificationOutboxMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *SupportNotificationOutboxMutation) ClearField(name string) error {
 	switch name {
+	case supportnotificationoutbox.FieldTicketID:
+		m.ClearTicketID()
+		return nil
 	case supportnotificationoutbox.FieldMessageID:
 		m.ClearMessageID()
 		return nil

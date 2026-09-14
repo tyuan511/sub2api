@@ -63,6 +63,12 @@ func (_u *SupportNotificationOutboxUpdate) AddTicketID(v int64) *SupportNotifica
 	return _u
 }
 
+// ClearTicketID clears the value of the "ticket_id" field.
+func (_u *SupportNotificationOutboxUpdate) ClearTicketID() *SupportNotificationOutboxUpdate {
+	_u.mutation.ClearTicketID()
+	return _u
+}
+
 // SetMessageID sets the "message_id" field.
 func (_u *SupportNotificationOutboxUpdate) SetMessageID(v int64) *SupportNotificationOutboxUpdate {
 	_u.mutation.ResetMessageID()
@@ -344,6 +350,9 @@ func (_u *SupportNotificationOutboxUpdate) sqlSave(ctx context.Context) (_node i
 	if value, ok := _u.mutation.AddedTicketID(); ok {
 		_spec.AddField(supportnotificationoutbox.FieldTicketID, field.TypeInt64, value)
 	}
+	if _u.mutation.TicketIDCleared() {
+		_spec.ClearField(supportnotificationoutbox.FieldTicketID, field.TypeInt64)
+	}
 	if value, ok := _u.mutation.MessageID(); ok {
 		_spec.SetField(supportnotificationoutbox.FieldMessageID, field.TypeInt64, value)
 	}
@@ -456,6 +465,12 @@ func (_u *SupportNotificationOutboxUpdateOne) SetNillableTicketID(v *int64) *Sup
 // AddTicketID adds value to the "ticket_id" field.
 func (_u *SupportNotificationOutboxUpdateOne) AddTicketID(v int64) *SupportNotificationOutboxUpdateOne {
 	_u.mutation.AddTicketID(v)
+	return _u
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (_u *SupportNotificationOutboxUpdateOne) ClearTicketID() *SupportNotificationOutboxUpdateOne {
+	_u.mutation.ClearTicketID()
 	return _u
 }
 
@@ -769,6 +784,9 @@ func (_u *SupportNotificationOutboxUpdateOne) sqlSave(ctx context.Context) (_nod
 	}
 	if value, ok := _u.mutation.AddedTicketID(); ok {
 		_spec.AddField(supportnotificationoutbox.FieldTicketID, field.TypeInt64, value)
+	}
+	if _u.mutation.TicketIDCleared() {
+		_spec.ClearField(supportnotificationoutbox.FieldTicketID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.MessageID(); ok {
 		_spec.SetField(supportnotificationoutbox.FieldMessageID, field.TypeInt64, value)

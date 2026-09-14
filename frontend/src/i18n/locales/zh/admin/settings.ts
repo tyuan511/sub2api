@@ -50,6 +50,8 @@ export default {
         enableNotify: '启用通知',
         notifyNewTicket: '新消息',
         notifyUserReply: '用户回复',
+        notifyBalanceRecharge: '充值到账',
+        notifyRedeem: '兑换码',
         lastError: '最近错误：{error}',
         updateBindingFailed: '更新绑定失败',
       },

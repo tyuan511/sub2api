@@ -167,6 +167,34 @@ func (_u *AdminTelegramBindingUpdate) SetNillableNotifyHighPriority(v *bool) *Ad
 	return _u
 }
 
+// SetNotifyBalanceRecharge sets the "notify_balance_recharge" field.
+func (_u *AdminTelegramBindingUpdate) SetNotifyBalanceRecharge(v bool) *AdminTelegramBindingUpdate {
+	_u.mutation.SetNotifyBalanceRecharge(v)
+	return _u
+}
+
+// SetNillableNotifyBalanceRecharge sets the "notify_balance_recharge" field if the given value is not nil.
+func (_u *AdminTelegramBindingUpdate) SetNillableNotifyBalanceRecharge(v *bool) *AdminTelegramBindingUpdate {
+	if v != nil {
+		_u.SetNotifyBalanceRecharge(*v)
+	}
+	return _u
+}
+
+// SetNotifyRedeem sets the "notify_redeem" field.
+func (_u *AdminTelegramBindingUpdate) SetNotifyRedeem(v bool) *AdminTelegramBindingUpdate {
+	_u.mutation.SetNotifyRedeem(v)
+	return _u
+}
+
+// SetNillableNotifyRedeem sets the "notify_redeem" field if the given value is not nil.
+func (_u *AdminTelegramBindingUpdate) SetNillableNotifyRedeem(v *bool) *AdminTelegramBindingUpdate {
+	if v != nil {
+		_u.SetNotifyRedeem(*v)
+	}
+	return _u
+}
+
 // SetBoundAt sets the "bound_at" field.
 func (_u *AdminTelegramBindingUpdate) SetBoundAt(v time.Time) *AdminTelegramBindingUpdate {
 	_u.mutation.SetBoundAt(v)
@@ -325,6 +353,12 @@ func (_u *AdminTelegramBindingUpdate) sqlSave(ctx context.Context) (_node int, e
 	}
 	if value, ok := _u.mutation.NotifyHighPriority(); ok {
 		_spec.SetField(admintelegrambinding.FieldNotifyHighPriority, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.NotifyBalanceRecharge(); ok {
+		_spec.SetField(admintelegrambinding.FieldNotifyBalanceRecharge, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.NotifyRedeem(); ok {
+		_spec.SetField(admintelegrambinding.FieldNotifyRedeem, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.BoundAt(); ok {
 		_spec.SetField(admintelegrambinding.FieldBoundAt, field.TypeTime, value)
@@ -499,6 +533,34 @@ func (_u *AdminTelegramBindingUpdateOne) SetNotifyHighPriority(v bool) *AdminTel
 func (_u *AdminTelegramBindingUpdateOne) SetNillableNotifyHighPriority(v *bool) *AdminTelegramBindingUpdateOne {
 	if v != nil {
 		_u.SetNotifyHighPriority(*v)
+	}
+	return _u
+}
+
+// SetNotifyBalanceRecharge sets the "notify_balance_recharge" field.
+func (_u *AdminTelegramBindingUpdateOne) SetNotifyBalanceRecharge(v bool) *AdminTelegramBindingUpdateOne {
+	_u.mutation.SetNotifyBalanceRecharge(v)
+	return _u
+}
+
+// SetNillableNotifyBalanceRecharge sets the "notify_balance_recharge" field if the given value is not nil.
+func (_u *AdminTelegramBindingUpdateOne) SetNillableNotifyBalanceRecharge(v *bool) *AdminTelegramBindingUpdateOne {
+	if v != nil {
+		_u.SetNotifyBalanceRecharge(*v)
+	}
+	return _u
+}
+
+// SetNotifyRedeem sets the "notify_redeem" field.
+func (_u *AdminTelegramBindingUpdateOne) SetNotifyRedeem(v bool) *AdminTelegramBindingUpdateOne {
+	_u.mutation.SetNotifyRedeem(v)
+	return _u
+}
+
+// SetNillableNotifyRedeem sets the "notify_redeem" field if the given value is not nil.
+func (_u *AdminTelegramBindingUpdateOne) SetNillableNotifyRedeem(v *bool) *AdminTelegramBindingUpdateOne {
+	if v != nil {
+		_u.SetNotifyRedeem(*v)
 	}
 	return _u
 }
@@ -691,6 +753,12 @@ func (_u *AdminTelegramBindingUpdateOne) sqlSave(ctx context.Context) (_node *Ad
 	}
 	if value, ok := _u.mutation.NotifyHighPriority(); ok {
 		_spec.SetField(admintelegrambinding.FieldNotifyHighPriority, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.NotifyBalanceRecharge(); ok {
+		_spec.SetField(admintelegrambinding.FieldNotifyBalanceRecharge, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.NotifyRedeem(); ok {
+		_spec.SetField(admintelegrambinding.FieldNotifyRedeem, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.BoundAt(); ok {
 		_spec.SetField(admintelegrambinding.FieldBoundAt, field.TypeTime, value)

@@ -17,6 +17,8 @@ export interface TelegramBinding {
   telegram_username?: string
   notify_new_ticket: boolean
   notify_user_reply: boolean
+  notify_balance_recharge: boolean
+  notify_redeem: boolean
   bound_at?: string
   last_success_at?: string
   last_error?: string

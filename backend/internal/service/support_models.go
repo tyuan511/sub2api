@@ -127,20 +127,24 @@ type TelegramConfigInput struct {
 }
 
 type TelegramBindingView struct {
-	Bound            bool       `json:"bound"`
-	Enabled          bool       `json:"enabled"`
-	TelegramUsername string     `json:"telegram_username,omitempty"`
-	NotifyNewTicket  bool       `json:"notify_new_ticket"`
-	NotifyUserReply  bool       `json:"notify_user_reply"`
-	BoundAt          *time.Time `json:"bound_at,omitempty"`
-	LastSuccessAt    *time.Time `json:"last_success_at,omitempty"`
-	LastError        string     `json:"last_error,omitempty"`
+	Bound                 bool       `json:"bound"`
+	Enabled               bool       `json:"enabled"`
+	TelegramUsername      string     `json:"telegram_username,omitempty"`
+	NotifyNewTicket       bool       `json:"notify_new_ticket"`
+	NotifyUserReply       bool       `json:"notify_user_reply"`
+	NotifyBalanceRecharge bool       `json:"notify_balance_recharge"`
+	NotifyRedeem          bool       `json:"notify_redeem"`
+	BoundAt               *time.Time `json:"bound_at,omitempty"`
+	LastSuccessAt         *time.Time `json:"last_success_at,omitempty"`
+	LastError             string     `json:"last_error,omitempty"`
 }
 
 type TelegramBindingInput struct {
-	Enabled         bool `json:"enabled"`
-	NotifyNewTicket bool `json:"notify_new_ticket"`
-	NotifyUserReply bool `json:"notify_user_reply"`
+	Enabled               bool `json:"enabled"`
+	NotifyNewTicket       bool `json:"notify_new_ticket"`
+	NotifyUserReply       bool `json:"notify_user_reply"`
+	NotifyBalanceRecharge bool `json:"notify_balance_recharge"`
+	NotifyRedeem          bool `json:"notify_redeem"`
 }
 
 type TelegramBindLink struct {

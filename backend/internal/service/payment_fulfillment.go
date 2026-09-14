@@ -347,7 +347,7 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder, l
 	case redeemActionRedeem:
 		// Code exists but unused — skip creation, proceed to redeem
 	}
-	if _, err := s.redeemService.Redeem(ContextSkipRedeemAffiliate(ctx), o.UserID, o.RechargeCode); err != nil {
+	if _, err := s.redeemService.Redeem(ContextSkipRedeemNotification(ContextSkipRedeemAffiliate(ctx)), o.UserID, o.RechargeCode); err != nil {
 		return fmt.Errorf("redeem balance: %w", err)
 	}
 	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
@@ -383,8 +383,37 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 			"payAmount":      o.PayAmount,
 		})
 		s.dispatchPaymentFulfillmentNotification(o, auditAction)
+		s.notifyPaymentActivity(o, auditAction)
 	}
 	return nil
+}
+
+// notifyPaymentActivity tells bound administrators about a completed online
+// payment. Delivery is best-effort and never affects fulfillment.
+func (s *PaymentService) notifyPaymentActivity(o *dbent.PaymentOrder, auditAction string) {
+	if o == nil {
+		return
+	}
+	notification := ActivityNotification{
+		UserID:    o.UserID,
+		UserEmail: o.UserEmail,
+		OrderID:   o.ID,
+		At:        time.Now(),
+	}
+	switch auditAction {
+	case "RECHARGE_SUCCESS":
+		notification.EventType = ActivityEventRechargeBalance
+		notification.Amount = o.PayAmount
+		if o.Amount != o.PayAmount {
+			notification.Detail = fmt.Sprintf("%.2f", o.Amount)
+		}
+	case "SUBSCRIPTION_SUCCESS":
+		notification.EventType = ActivityEventRechargeSubscription
+		notification.Amount = o.PayAmount
+	default:
+		return
+	}
+	EnqueueActivityNotification(context.Background(), notification)
 }
 
 func (s *PaymentService) dispatchPaymentFulfillmentNotification(o *dbent.PaymentOrder, auditAction string) {

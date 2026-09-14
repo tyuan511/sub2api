@@ -39,6 +39,15 @@ func ContextSkipRedeemAffiliate(ctx context.Context) context.Context {
 	return context.WithValue(ctx, ctxKeySkipRedeemAffiliate{}, true)
 }
 
+type ctxKeySkipRedeemNotification struct{}
+
+// ContextSkipRedeemNotification returns a context that suppresses the redeem
+// activity notification. Payment fulfillment emits its own recharge
+// notification, so the internal redeem must not notify twice.
+func ContextSkipRedeemNotification(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ctxKeySkipRedeemNotification{}, true)
+}
+
 // RedeemCache defines cache operations for redeem service
 type RedeemCache interface {
 	GetRedeemAttemptCount(ctx context.Context, userID int64) (int, error)
@@ -429,7 +438,7 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	}
 
 	// 获取用户信息
-	_, err = s.userRepo.GetByID(ctx, userID)
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
@@ -521,6 +530,9 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 		s.tryAccrueAffiliateRebateForRedeem(ctx, userID, redeemCode.Value)
 	}
 
+	// 通知已绑定管理员（best-effort，失败不影响兑换结果）
+	s.notifyRedeemActivity(ctx, user, redeemCode)
+
 	// 重新获取更新后的兑换码
 	redeemCode, err = s.redeemRepo.GetByID(ctx, redeemCode.ID)
 	if err != nil {
@@ -568,6 +580,34 @@ func (s *RedeemService) invalidateRedeemCaches(ctx context.Context, userID int64
 			}()
 		}
 	}
+}
+
+func (s *RedeemService) notifyRedeemActivity(ctx context.Context, user *User, code *RedeemCode) {
+	if user == nil || code == nil {
+		return
+	}
+	if ctx.Value(ctxKeySkipRedeemNotification{}) != nil {
+		return
+	}
+	notification := ActivityNotification{UserID: user.ID, UserEmail: user.Email, At: time.Now()}
+	switch code.Type {
+	case RedeemTypeBalance:
+		notification.EventType = ActivityEventRedeemBalance
+		notification.Amount = code.Value
+	case RedeemTypeConcurrency:
+		notification.EventType = ActivityEventRedeemConcurrency
+		notification.Detail = fmt.Sprintf("%+d", int(code.Value))
+	case RedeemTypeSubscription:
+		notification.EventType = ActivityEventRedeemSubscription
+		days := code.ValidityDays
+		if days == 0 {
+			days = 30
+		}
+		notification.Detail = fmt.Sprintf("%d 天", days)
+	default:
+		return
+	}
+	EnqueueActivityNotification(context.Background(), notification)
 }
 
 func (s *RedeemService) tryAccrueAffiliateRebateForRedeem(ctx context.Context, userID int64, amount float64) {

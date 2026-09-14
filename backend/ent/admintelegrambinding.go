@@ -33,6 +33,10 @@ type AdminTelegramBinding struct {
 	NotifyUserReply bool `json:"notify_user_reply,omitempty"`
 	// NotifyHighPriority holds the value of the "notify_high_priority" field.
 	NotifyHighPriority bool `json:"notify_high_priority,omitempty"`
+	// NotifyBalanceRecharge holds the value of the "notify_balance_recharge" field.
+	NotifyBalanceRecharge bool `json:"notify_balance_recharge,omitempty"`
+	// NotifyRedeem holds the value of the "notify_redeem" field.
+	NotifyRedeem bool `json:"notify_redeem,omitempty"`
 	// BoundAt holds the value of the "bound_at" field.
 	BoundAt time.Time `json:"bound_at,omitempty"`
 	// LastSuccessAt holds the value of the "last_success_at" field.
@@ -51,7 +55,7 @@ func (*AdminTelegramBinding) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case admintelegrambinding.FieldEnabled, admintelegrambinding.FieldNotifyNewTicket, admintelegrambinding.FieldNotifyUserReply, admintelegrambinding.FieldNotifyHighPriority:
+		case admintelegrambinding.FieldEnabled, admintelegrambinding.FieldNotifyNewTicket, admintelegrambinding.FieldNotifyUserReply, admintelegrambinding.FieldNotifyHighPriority, admintelegrambinding.FieldNotifyBalanceRecharge, admintelegrambinding.FieldNotifyRedeem:
 			values[i] = new(sql.NullBool)
 		case admintelegrambinding.FieldID, admintelegrambinding.FieldAdminID, admintelegrambinding.FieldTelegramUserID, admintelegrambinding.FieldChatID:
 			values[i] = new(sql.NullInt64)
@@ -128,6 +132,18 @@ func (_m *AdminTelegramBinding) assignValues(columns []string, values []any) err
 				return fmt.Errorf("unexpected type %T for field notify_high_priority", values[i])
 			} else if value.Valid {
 				_m.NotifyHighPriority = value.Bool
+			}
+		case admintelegrambinding.FieldNotifyBalanceRecharge:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field notify_balance_recharge", values[i])
+			} else if value.Valid {
+				_m.NotifyBalanceRecharge = value.Bool
+			}
+		case admintelegrambinding.FieldNotifyRedeem:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field notify_redeem", values[i])
+			} else if value.Valid {
+				_m.NotifyRedeem = value.Bool
 			}
 		case admintelegrambinding.FieldBoundAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -222,6 +238,12 @@ func (_m *AdminTelegramBinding) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("notify_high_priority=")
 	builder.WriteString(fmt.Sprintf("%v", _m.NotifyHighPriority))
+	builder.WriteString(", ")
+	builder.WriteString("notify_balance_recharge=")
+	builder.WriteString(fmt.Sprintf("%v", _m.NotifyBalanceRecharge))
+	builder.WriteString(", ")
+	builder.WriteString("notify_redeem=")
+	builder.WriteString(fmt.Sprintf("%v", _m.NotifyRedeem))
 	builder.WriteString(", ")
 	builder.WriteString("bound_at=")
 	builder.WriteString(_m.BoundAt.Format(time.ANSIC))

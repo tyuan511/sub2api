@@ -29,6 +29,10 @@ const (
 	FieldNotifyUserReply = "notify_user_reply"
 	// FieldNotifyHighPriority holds the string denoting the notify_high_priority field in the database.
 	FieldNotifyHighPriority = "notify_high_priority"
+	// FieldNotifyBalanceRecharge holds the string denoting the notify_balance_recharge field in the database.
+	FieldNotifyBalanceRecharge = "notify_balance_recharge"
+	// FieldNotifyRedeem holds the string denoting the notify_redeem field in the database.
+	FieldNotifyRedeem = "notify_redeem"
 	// FieldBoundAt holds the string denoting the bound_at field in the database.
 	FieldBoundAt = "bound_at"
 	// FieldLastSuccessAt holds the string denoting the last_success_at field in the database.
@@ -54,6 +58,8 @@ var Columns = []string{
 	FieldNotifyNewTicket,
 	FieldNotifyUserReply,
 	FieldNotifyHighPriority,
+	FieldNotifyBalanceRecharge,
+	FieldNotifyRedeem,
 	FieldBoundAt,
 	FieldLastSuccessAt,
 	FieldLastError,
@@ -82,6 +88,10 @@ var (
 	DefaultNotifyUserReply bool
 	// DefaultNotifyHighPriority holds the default value on creation for the "notify_high_priority" field.
 	DefaultNotifyHighPriority bool
+	// DefaultNotifyBalanceRecharge holds the default value on creation for the "notify_balance_recharge" field.
+	DefaultNotifyBalanceRecharge bool
+	// DefaultNotifyRedeem holds the default value on creation for the "notify_redeem" field.
+	DefaultNotifyRedeem bool
 	// DefaultBoundAt holds the default value on creation for the "bound_at" field.
 	DefaultBoundAt func() time.Time
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -138,6 +148,16 @@ func ByNotifyUserReply(opts ...sql.OrderTermOption) OrderOption {
 // ByNotifyHighPriority orders the results by the notify_high_priority field.
 func ByNotifyHighPriority(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldNotifyHighPriority, opts...).ToFunc()
+}
+
+// ByNotifyBalanceRecharge orders the results by the notify_balance_recharge field.
+func ByNotifyBalanceRecharge(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNotifyBalanceRecharge, opts...).ToFunc()
+}
+
+// ByNotifyRedeem orders the results by the notify_redeem field.
+func ByNotifyRedeem(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNotifyRedeem, opts...).ToFunc()
 }
 
 // ByBoundAt orders the results by the bound_at field.

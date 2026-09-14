@@ -9017,6 +9017,22 @@
                   />
                   {{ t("admin.settings.telegram.notifyUserReply") }}
                 </label>
+                <label class="flex items-center gap-2 text-sm">
+                  <input
+                    v-model="telegramBinding.notify_balance_recharge"
+                    type="checkbox"
+                    @change="saveTelegramSettingsBinding"
+                  />
+                  {{ t("admin.settings.telegram.notifyBalanceRecharge") }}
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                  <input
+                    v-model="telegramBinding.notify_redeem"
+                    type="checkbox"
+                    @change="saveTelegramSettingsBinding"
+                  />
+                  {{ t("admin.settings.telegram.notifyRedeem") }}
+                </label>
                 <div
                   class="flex items-center justify-between text-sm text-gray-500 sm:col-span-2 dark:text-gray-400"
                 >
@@ -13479,6 +13495,8 @@ async function saveTelegramSettingsBinding(): Promise<void> {
       enabled: telegramBinding.value.enabled,
       notify_new_ticket: telegramBinding.value.notify_new_ticket,
       notify_user_reply: telegramBinding.value.notify_user_reply,
+      notify_balance_recharge: telegramBinding.value.notify_balance_recharge,
+      notify_redeem: telegramBinding.value.notify_redeem,
     });
   } catch (error: unknown) {
     appStore.showError(

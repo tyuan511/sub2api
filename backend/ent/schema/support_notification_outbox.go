@@ -21,7 +21,7 @@ func (SupportNotificationOutbox) Annotations() []schema.Annotation {
 func (SupportNotificationOutbox) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("event_type").MaxLen(32),
-		field.Int64("ticket_id"),
+		field.Int64("ticket_id").Optional().Nillable(),
 		field.Int64("message_id").Optional().Nillable(),
 		field.Int64("target_admin_id"),
 		field.Int64("telegram_message_id").Optional().Nillable(),

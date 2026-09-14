@@ -507,7 +507,7 @@ async function bindTelegram() {
 async function saveBinding() {
   if (!binding.value) return
   try {
-    binding.value = await updateTelegramBinding({ enabled: binding.value.enabled, notify_new_ticket: binding.value.notify_new_ticket, notify_user_reply: binding.value.notify_user_reply })
+    binding.value = await updateTelegramBinding({ enabled: binding.value.enabled, notify_new_ticket: binding.value.notify_new_ticket, notify_user_reply: binding.value.notify_user_reply, notify_balance_recharge: binding.value.notify_balance_recharge, notify_redeem: binding.value.notify_redeem })
   } catch (error: any) {
     appStore.showError(error?.message || '更新绑定失败')
   }
