@@ -637,6 +637,11 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
+	// Some Images relays (notably gpt-image-2.5-*) accept n>1, bill n, and still
+	// return a single image. Repeat n=1 so Image Studio actually receives n files.
+	if !parsed.Stream && parsed.N > 1 && !account.IsOpenAIImagesUpstreamStreamEnabled() {
+		return s.forwardOpenAIImagesAPIKeyRepeat(ctx, c, account, forwardBody, forwardContentType, parsed, requestModel, upstreamModel, startTime)
+	}
 	aggregateStream := !parsed.Stream && account.IsOpenAIImagesUpstreamStreamEnabled()
 	if aggregateStream {
 		forwardBody, forwardContentType, err = enableOpenAIImagesUpstreamStream(forwardBody, forwardContentType)
@@ -885,6 +890,21 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 
 func buildOpenAIImagesURL(base string, endpoint string) string {
 	return buildOpenAIEndpointURL(base, endpoint)
+}
+
+func rewriteOpenAIImagesN(body []byte, contentType string, n int) ([]byte, string, error) {
+	if n <= 0 {
+		n = 1
+	}
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err == nil && strings.EqualFold(mediaType, "multipart/form-data") {
+		return rewriteOpenAIImagesMultipartFields(body, contentType, map[string]string{"n": strconv.Itoa(n)})
+	}
+	rewritten, err := sjson.SetBytes(body, "n", n)
+	if err != nil {
+		return nil, "", fmt.Errorf("rewrite image request n: %w", err)
+	}
+	return rewritten, contentType, nil
 }
 
 func rewriteOpenAIImagesModel(body []byte, contentType string, model string) ([]byte, string, error) {
