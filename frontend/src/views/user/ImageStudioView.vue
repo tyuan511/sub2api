@@ -594,7 +594,7 @@ onBeforeUnmount(() => {
 .creation-caption:focus-within .creation-prompt-pop { display: block; }
 .creation-meta { display: flex; flex-wrap: wrap; gap: 7px 0; align-items: center; color: var(--studio-muted); font-size: 11px; margin-top: 6px; }
 .creation-meta > * + *::before { content: '·'; margin: 0 9px; opacity: .6; }
-.creation-grid { display: grid; grid-template-columns: repeat(var(--image-count), minmax(0, 1fr)); gap: 8px; max-width: 100%; }
+.creation-grid { display: grid; grid-template-columns: repeat(var(--image-count), minmax(0, 1fr)); gap: 8px; max-width: min(100%, calc(var(--image-count) * 25%)); }
 .creation-grid:has(> :only-child) { max-width: 460px; }
 .picture-tile { overflow: hidden; background: var(--studio-surface); border-radius: 10px; position: relative; }
 .picture-open { width: 100%; height: 100%; display: block; }
@@ -683,7 +683,7 @@ onBeforeUnmount(() => {
   .studio-empty h2 { font-size: 20px; }
   .studio-empty > p { line-height: 1.8; }
   .prompt-suggestions button { font-size: 11px; }
-  .creation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .creation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 100%; }
   .creation-grid:has(> :only-child) { grid-template-columns: 1fr; }
   .composer-dock { padding: 8px 12px max(12px, env(safe-area-inset-bottom)); }
   .studio-composer { padding: 10px 10px 12px; border-radius: 14px; }
