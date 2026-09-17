@@ -48,8 +48,8 @@ func (h *GatewayHandler) ImageGenerationGroups(c *gin.Context) {
 			response.ErrorFrom(c, err)
 			return
 		}
-		if group.CustomModelsListEnabled() {
-			models = filterModelsByCustomList(models, nil, group.ModelsListConfig.Models)
+		if group.ModelAllowlistEnabled() {
+			models = group.ModelAllowlist.FilterForListing(models)
 		}
 		if len(models) > 0 {
 			out = append(out, imageGenerationGroup{

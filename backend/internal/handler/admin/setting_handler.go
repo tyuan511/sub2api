@@ -379,12 +379,14 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorShowProbe:              settings.ChannelMonitorShowProbe,
 		ChannelMonitorBazaarLinkProbeEnabled: settings.ChannelMonitorBazaarLinkProbeEnabled,
 		ChannelMonitorBazaarLinkProbeCron:    settings.ChannelMonitorBazaarLinkProbeCron,
+		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
 
 		GrokDefaultTextModel:           settings.GrokDefaultTextModel,
 		GrokCrossClientModelMapEnabled: settings.GrokCrossClientModelMapEnabled,
 		GrokDefaultBaseURLMode:         settings.GrokDefaultBaseURLMode,
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
+		SubscriptionEnabled:      settings.SubscriptionEnabled,
 
 		ModelPlazaEnabled:       settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:   settings.ModelPlazaRequireAuth,

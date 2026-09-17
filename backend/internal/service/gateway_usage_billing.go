@@ -896,7 +896,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 				CacheReadTokens:     supplierCacheReadTokens,
 				ImageOutputTokens:   result.Usage.ImageOutputTokens,
 			},
-			accountCost.TotalCost,
+			accountCost.TotalCost, pricingAt,
 		)
 	}
 

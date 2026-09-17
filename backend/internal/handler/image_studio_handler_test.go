@@ -6,8 +6,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -58,6 +60,18 @@ func (imageStudioFailingAccountRepo) ListSchedulableByGroupID(context.Context, i
 	return nil, errors.New("repository unavailable")
 }
 
+// defaultOpenAIImageModelIDsForTest 对齐 GetAvailableImageModels 对默认目录的筛选：
+// 所有 gpt-image- 开头的内置模型（目录新增模型时无需再改测试）。
+func defaultOpenAIImageModelIDsForTest() []string {
+	ids := make([]string, 0, len(openai.DefaultModels))
+	for _, model := range openai.DefaultModels {
+		if strings.HasPrefix(strings.ToLower(model.ID), "gpt-image-") {
+			ids = append(ids, model.ID)
+		}
+	}
+	return ids
+}
+
 func TestImageGenerationGroups(t *testing.T) {
 	imageAccount := service.Account{Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"model_mapping": map[string]any{"gpt-image-2": "gpt-image-2", "gpt-5.5": "gpt-5.5"}}}
 	geminiAccount := service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"model_mapping": map[string]any{"gemini-2.5-flash-image": "gemini-2.5-flash-image", "gemini-2.5-flash": "gemini-2.5-flash"}}}
@@ -84,8 +98,8 @@ func TestImageGenerationGroups(t *testing.T) {
 		{name: "text only despite image permission", accounts: []service.Account{textAccount}},
 		{name: "no accounts must not inherit defaults"},
 		{name: "wrong account platform", accounts: []service.Account{otherPlatformAccount}},
-		{name: "unrestricted account", accounts: []service.Account{defaultsAccount}, wantModels: []string{"gpt-image-1", "gpt-image-1.5", "gpt-image-2"}},
-		{name: "wildcards become concrete models", accounts: []service.Account{wildcardAccount}, wantModels: []string{"gpt-image-1", "gpt-image-1.5", "gpt-image-2"}},
+		{name: "unrestricted account", accounts: []service.Account{defaultsAccount}, wantModels: defaultOpenAIImageModelIDsForTest()},
+		{name: "wildcards become concrete models", accounts: []service.Account{wildcardAccount}, wantModels: defaultOpenAIImageModelIDsForTest()},
 		{name: "disabled image permission", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.AllowImageGeneration = false }},
 		{name: "inactive group", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.Status = "inactive" }},
 		{name: "composite image group", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.Platform = service.PlatformComposite }, wantModels: []string{"gpt-image-2"}},
@@ -96,13 +110,13 @@ func TestImageGenerationGroups(t *testing.T) {
 		{name: "exclusive group access denied", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.IsExclusive = true }},
 		{name: "subscription required", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) { g.SubscriptionType = "subscription" }},
 		{name: "custom list hides images", accounts: []service.Account{imageAccount}, changeGroup: func(g *service.Group) {
-			g.ModelsListConfig = service.GroupModelsListConfig{Enabled: true, Models: []string{"gpt-5.5"}}
+			g.ModelAllowlist = service.GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.5"}}
 		}},
 		{name: "custom list cannot add unsupported images", accounts: []service.Account{textAccount}, changeGroup: func(g *service.Group) {
-			g.ModelsListConfig = service.GroupModelsListConfig{Enabled: true, Models: []string{"gpt-image-2"}}
+			g.ModelAllowlist = service.GroupModelAllowlist{Enabled: true, Models: []string{"gpt-image-2"}}
 		}},
 		{name: "custom list restricts defaults", accounts: []service.Account{defaultsAccount}, changeGroup: func(g *service.Group) {
-			g.ModelsListConfig = service.GroupModelsListConfig{Enabled: true, Models: []string{"gpt-image-2"}}
+			g.ModelAllowlist = service.GroupModelAllowlist{Enabled: true, Models: []string{"gpt-image-2"}}
 		}, wantModels: []string{"gpt-image-2"}},
 		{name: "unauthenticated", unauthorized: true, wantStatus: http.StatusUnauthorized},
 		{name: "repository failure is not empty availability", repositoryErr: true, wantStatus: http.StatusInternalServerError},
