@@ -966,6 +966,7 @@ var ProviderSet = wire.NewSet(
 	ProvideChannelMonitorRunner,
 	NewChannelMonitorQuotaFetcher,
 	ProvideChannelMonitorV2Service,
+	ProvideChannelMonitorV2ProbeReader,
 	ProvideChannelMonitorV2Aggregator,
 	ProvideRoutingScoreBuilder,
 	ProvideRoutingStrategyRuntime,
@@ -1080,6 +1081,14 @@ func ProvideChannelMonitorV2Service(repo ChannelMonitorV2Repository, settingServ
 	svc := NewChannelMonitorV2Service(repo)
 	svc.SetRuntimeReader(settingService)
 	svc.SetProbeReader(probeReader)
+	return svc
+}
+
+// ProvideChannelMonitorV2ProbeReader 把 V1 渠道监控服务绑定为 V2 卡片所需的
+// BazaarLink 投影读取接口（按分组名返回最新探测结论）。
+// wire 需要显式的 interface provider，否则 ProvideChannelMonitorV2Service 的
+// probeReader 参数无法解析。
+func ProvideChannelMonitorV2ProbeReader(svc *ChannelMonitorService) ChannelMonitorV2ProbeReader {
 	return svc
 }
 
