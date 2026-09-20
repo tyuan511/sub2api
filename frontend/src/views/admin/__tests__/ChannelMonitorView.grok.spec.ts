@@ -101,7 +101,7 @@ describe('channel monitor Grok provider', () => {
 
     expect(PROVIDERS).toContain(PROVIDER_GROK)
     const providerButtons = wrapper.findAll('[data-testid^="monitor-provider-"]')
-    // 与 constants/channelMonitor.ts 的 PROVIDERS 保持一致（上游新增 minimax / opencode_go）。
+    // 与 constants/channelMonitor.ts 的 PROVIDERS 保持一致。
     expect(providerButtons).toHaveLength(PROVIDERS.length)
     expect(providerButtons[0].element.parentElement?.className).toContain('grid-cols-2')
     expect(providerButtons[0].element.parentElement?.className).toContain('sm:grid-cols-4')
