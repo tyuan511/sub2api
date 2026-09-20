@@ -282,6 +282,7 @@ interface FeaturedModel {
   outputPrice: number | null
   requestPrice: number | null
   discount: number | null
+  comparisonPrice: number | null
 }
 
 const plazaGroups = computed<ModelPlazaGroup[]>(() => modelPlaza.value?.groups ?? [])
@@ -296,6 +297,10 @@ function effectiveGroupRate(group: ModelPlazaGroup, model: PlazaModel): number {
     ? group.image_rate_multiplier
     : (group.user_rate_multiplier ?? group.rate_multiplier)
   return typeof baseRate === 'number' && Number.isFinite(baseRate) && baseRate > 0 ? baseRate : 1
+}
+
+function isCnGroup(group: ModelPlazaGroup): boolean {
+  return group.name.trim().toLowerCase() === 'cn'
 }
 
 function lowerPrice(current: number | null, candidate: number | null): number | null {
@@ -317,7 +322,10 @@ const featuredModels = computed<FeaturedModel[]>(() => {
       const inputPrice = pricing?.input_price == null ? null : pricing.input_price * rate
       const outputPrice = pricing?.output_price == null ? null : pricing.output_price * rate
       const requestPrice = pricing?.per_request_price == null ? null : pricing.per_request_price * rate
-      const discount = rate / EXCHANGE_RATE * 10
+      const comparisonPrice = mode === BILLING_MODE_TOKEN
+        ? [inputPrice, outputPrice].filter((price): price is number => price != null).sort((a, b) => a - b)[0] ?? null
+        : requestPrice
+      const discount = rate / (isCnGroup(group) ? 1 : EXCHANGE_RATE) * 10
       if (!current) {
         merged.set(key, {
           model,
@@ -327,14 +335,18 @@ const featuredModels = computed<FeaturedModel[]>(() => {
           inputPrice,
           outputPrice,
           requestPrice,
-          discount
+          discount,
+          comparisonPrice
         })
         continue
       }
       current.inputPrice = lowerPrice(current.inputPrice, inputPrice)
       current.outputPrice = lowerPrice(current.outputPrice, outputPrice)
       current.requestPrice = lowerPrice(current.requestPrice, requestPrice)
-      current.discount = lowerPrice(current.discount, discount)
+      if (comparisonPrice != null && (current.comparisonPrice == null || comparisonPrice < current.comparisonPrice)) {
+        current.discount = discount
+        current.comparisonPrice = comparisonPrice
+      }
     }
   }
   return [...merged.values()].slice(0, 9)

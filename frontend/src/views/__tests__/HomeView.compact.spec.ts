@@ -236,6 +236,27 @@ describe('HomeView compact mode', () => {
             },
           }],
         },
+        {
+          id: 3,
+          name: 'CN',
+          platform: 'openai',
+          rate_multiplier: 0.12,
+          models: [{
+            name: 'gpt-test',
+            platform: 'openai',
+            pricing: {
+              billing_mode: 'token',
+              input_price: 0.0000005,
+              output_price: 0.000005,
+              cache_write_price: null,
+              cache_read_price: null,
+              image_input_price: null,
+              image_output_price: null,
+              per_request_price: null,
+              intervals: [],
+            },
+          }],
+        },
       ],
     })
 
@@ -246,9 +267,9 @@ describe('HomeView compact mode', () => {
     const cards = wrapper.findAll('article')
     expect(cards).toHaveLength(1)
     expect(cards[0].text()).toContain('gpt-test')
-    expect(cards[0].text()).toContain('$0.20')
-    expect(cards[0].text()).toContain('$2')
-    expect(cards[0].text()).toContain('0.3')
+    expect(cards[0].text()).toContain('$0.06')
+    expect(cards[0].text()).toContain('$0.60')
+    expect(cards[0].text()).toContain('1.2')
     expect(cards[0].text()).not.toContain('expensive-route')
     expect(cards[0].text()).not.toContain('cheap-route')
   })
