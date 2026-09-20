@@ -11,15 +11,15 @@
             <div class="flex h-9 min-w-0 flex-1 overflow-hidden rounded-md bg-white ring-1 ring-inset ring-gray-200 transition focus-within:ring-2 focus-within:ring-primary-500 dark:bg-dark-900 dark:ring-dark-700">
               <div class="relative min-w-0 flex-1">
                 <Icon name="search" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input v-model="search" class="h-full w-full border-0 bg-transparent pl-9 pr-2 text-sm text-gray-800 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="搜索用户名或邮箱" @keyup.enter="searchUsers()" />
+                <input v-model="search" class="h-full w-full border-0 bg-transparent pl-9 pr-2 text-sm text-gray-800 outline-none placeholder:text-gray-400 dark:text-dark-100" :placeholder="t('common.supportAdmin.searchUsers')" @keyup.enter="searchUsers()" />
               </div>
             </div>
           </div>
 
           <div class="min-h-0 flex-1 overflow-y-auto">
             <template v-if="search.trim()">
-              <div v-if="searchingUsers" class="flex h-40 items-center justify-center text-sm text-gray-500 dark:text-dark-400">正在搜索...</div>
-              <div v-else-if="!userSearchResults.length" class="flex h-40 items-center justify-center px-6 text-center text-sm text-gray-500 dark:text-dark-400">未找到用户</div>
+              <div v-if="searchingUsers" class="flex h-40 items-center justify-center text-sm text-gray-500 dark:text-dark-400">{{ t('common.supportAdmin.searchingUsers') }}</div>
+              <div v-else-if="!userSearchResults.length" class="flex h-40 items-center justify-center px-6 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('common.supportAdmin.userNotFound') }}</div>
               <div v-else>
                 <button
                   v-for="item in userSearchResults"
@@ -32,16 +32,16 @@
                   <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm font-semibold text-white shadow-sm" :class="avatarClass(item.user_id)">{{ userInitial(item) }}</span>
                   <span class="min-w-0 flex-1">
                     <span class="flex items-center justify-between gap-2">
-                      <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ item.user_email || `用户 #${item.user_id}` }}</span>
+                      <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ item.user_email || t('common.supportAdmin.userLabel', { id: item.user_id }) }}</span>
                       <span v-if="item.last_message_at" class="shrink-0 text-[11px] text-gray-400 dark:text-dark-500">{{ formatListTime(item.last_message_at) }}</span>
                     </span>
-                    <span class="mt-1 block truncate text-xs text-gray-500 dark:text-dark-400">{{ item.last_message_preview || '尚无消息' }}</span>
+                    <span class="mt-1 block truncate text-xs text-gray-500 dark:text-dark-400">{{ item.last_message_preview || t('common.supportAdmin.noMessage') }}</span>
                   </span>
                 </button>
               </div>
             </template>
-            <div v-else-if="loading" class="flex h-40 items-center justify-center text-sm text-gray-500 dark:text-dark-400">正在加载...</div>
-            <div v-else-if="!conversationItems.length" class="flex h-40 items-center justify-center px-6 text-center text-sm text-gray-500 dark:text-dark-400">暂无会话</div>
+            <div v-else-if="loading" class="flex h-40 items-center justify-center text-sm text-gray-500 dark:text-dark-400">{{ t('common.supportAdmin.loading') }}</div>
+            <div v-else-if="!conversationItems.length" class="flex h-40 items-center justify-center px-6 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('common.supportAdmin.noConversations') }}</div>
             <div v-else>
               <button
                 v-for="item in conversationItems"
@@ -54,11 +54,11 @@
                 <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm font-semibold text-white shadow-sm" :class="avatarClass(item.user_id)">{{ userInitial(item) }}</span>
                 <span class="min-w-0 flex-1">
                   <span class="flex items-center justify-between gap-2">
-                    <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ item.user_email || `用户 #${item.user_id}` }}</span>
+                    <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ item.user_email || t('common.supportAdmin.userLabel', { id: item.user_id }) }}</span>
                     <span class="shrink-0 text-[11px] text-gray-400 dark:text-dark-500">{{ formatListTime(item.last_message_at) }}</span>
                   </span>
                   <span class="mt-1 flex items-center justify-between gap-2">
-                    <span class="min-w-0 truncate text-xs text-gray-500 dark:text-dark-400">{{ item.last_message_preview || '尚无消息' }}</span>
+                    <span class="min-w-0 truncate text-xs text-gray-500 dark:text-dark-400">{{ item.last_message_preview || t('common.supportAdmin.noMessage') }}</span>
                     <span v-if="item.unread_count" class="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{{ Math.min(item.unread_count, 99) }}</span>
                   </span>
                 </span>
@@ -67,9 +67,9 @@
           </div>
 
           <footer v-if="!search.trim() && result.pages > 1" class="flex shrink-0 items-center justify-between border-t border-gray-200 px-3 py-2 text-xs text-gray-500 dark:border-dark-700 dark:text-dark-400">
-            <button class="btn btn-secondary btn-sm" :disabled="page <= 1" @click="page--; load()">上一页</button>
+            <button class="btn btn-secondary btn-sm" :disabled="page <= 1" @click="page--; load()">{{ t('common.supportAdmin.previousPage') }}</button>
             <span>{{ page }} / {{ result.pages }}</span>
-            <button class="btn btn-secondary btn-sm" :disabled="page >= result.pages" @click="page++; load()">下一页</button>
+            <button class="btn btn-secondary btn-sm" :disabled="page >= result.pages" @click="page++; load()">{{ t('common.supportAdmin.nextPage') }}</button>
           </footer>
         </aside>
 
@@ -79,18 +79,18 @@
               <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-semibold text-white shadow-sm lg:hidden" :class="avatarClass(activeUser.user_id)">{{ userInitial(activeUser) }}</span>
               <div class="min-w-0 flex-1">
                 <h2 class="flex min-w-0 items-center gap-2 text-[17px] font-semibold text-gray-900 dark:text-white">
-                  <span class="truncate">{{ activeUser.user_email || `用户 #${activeUser.user_id}` }}</span>
+                  <span class="truncate">{{ activeUser.user_email || t('common.supportAdmin.userLabel', { id: activeUser.user_id }) }}</span>
                   <span class="shrink-0 rounded bg-primary-600 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-white dark:bg-primary-700">ID: {{ activeUser.user_id }}</span>
                 </h2>
               </div>
-              <button v-if="ticket" type="button" class="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white" title="刷新当前对话" aria-label="刷新当前对话" @click="loadTicket(ticket.id)">
+              <button v-if="ticket" type="button" class="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white" :title="t('common.supportAdmin.refreshConversation')" :aria-label="t('common.supportAdmin.refreshConversation')" @click="loadTicket(ticket.id)">
                 <Icon name="refresh" size="sm" :class="detailLoading ? 'animate-spin' : ''" />
               </button>
             </header>
 
             <div ref="messageStream" class="chat-message-stream min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-5 sm:px-6 lg:px-8">
-              <div v-if="detailLoading" class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-dark-400">正在加载...</div>
-              <div v-else-if="!messages.length" class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-dark-400">暂无消息</div>
+              <div v-if="detailLoading" class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-dark-400">{{ t('common.supportAdmin.loading') }}</div>
+              <div v-else-if="!messages.length" class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-dark-400">{{ t('common.supportAdmin.noMessages') }}</div>
               <article v-for="message in messages" v-else :key="message.id" class="flex items-start gap-2.5" :class="message.sender_role === 'admin' ? 'justify-end' : 'justify-start'">
                 <span v-if="message.sender_role !== 'admin'" class="mt-[18px] flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-xs font-semibold text-white shadow-sm" :class="avatarClass(activeUser.user_id)">{{ userInitial(activeUser) }}</span>
                 <div :class="message.sender_role === 'admin' ? 'max-w-[84%] sm:max-w-[74%]' : 'max-w-[calc(100%_-_3.25rem)] sm:max-w-[74%]'">
@@ -99,9 +99,9 @@
                   </div>
                   <div v-if="message.attachments?.length" class="mb-2 flex flex-col gap-2" :class="message.sender_role === 'admin' ? 'items-end' : 'items-start'">
                     <div v-for="attachment in message.attachments" :key="attachment.id" class="max-w-full overflow-hidden rounded-md bg-gray-200 dark:bg-dark-800">
-                      <button type="button" class="block max-w-full cursor-zoom-in" :aria-label="`放大预览 ${attachment.original_name}`" @click="openImage(attachment.id, attachment.original_name)">
+                      <button type="button" class="block max-w-full cursor-zoom-in" :aria-label="t('common.support.previewAttachment', { name: attachment.original_name })" @click="openImage(attachment.id, attachment.original_name)">
                         <img v-if="imageURLs[attachment.id]" :src="imageURLs[attachment.id]" :alt="attachment.original_name" data-support-attachment class="block max-h-[320px] max-w-full object-contain sm:max-w-[280px]" />
-                        <span v-else class="flex h-32 w-48 items-center justify-center text-xs text-gray-500">加载图片...</span>
+                        <span v-else class="flex h-32 w-48 items-center justify-center text-xs text-gray-500">{{ t('common.supportAdmin.loadingImage') }}</span>
                       </button>
                     </div>
                   </div>
@@ -110,42 +110,42 @@
                     class="chat-bubble whitespace-pre-wrap break-words px-3.5 py-2.5 text-sm leading-6"
                     :class="message.sender_role === 'admin' ? 'chat-bubble-out bg-primary-600 text-white dark:bg-primary-700 dark:text-white' : 'chat-bubble-in text-gray-900 dark:text-dark-100'"
                   >{{ message.content }}</div>
-                  <div v-if="message.sender_role === 'admin' && message.user_read_at" class="mt-1 text-right text-[11px] text-gray-400 dark:text-dark-500">已读</div>
+                  <div v-if="message.sender_role === 'admin' && message.user_read_at" class="mt-1 text-right text-[11px] text-gray-400 dark:text-dark-500">{{ t('common.supportAdmin.read') }}</div>
                 </div>
               </article>
             </div>
 
             <form class="chat-composer flex h-[176px] shrink-0 flex-col border-t border-gray-200 dark:border-dark-700" @submit.prevent="sendReply">
               <div class="flex h-11 shrink-0 items-center gap-1 px-3 sm:px-4">
-                <label class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white" :class="sending ? 'pointer-events-none opacity-50' : ''" title="发送图片">
+                <label class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-dark-300 dark:hover:bg-dark-800 dark:hover:text-white" :class="sending ? 'pointer-events-none opacity-50' : ''" :title="t('common.support.sendImage')">
                   <Icon name="photo" size="md" />
-                  <span class="sr-only">添加图片</span>
+                  <span class="sr-only">{{ t('common.support.addImage') }}</span>
                   <input ref="fileInput" type="file" class="hidden" multiple accept="image/jpeg,image/png,image/webp" :disabled="sending" @change="selectFiles" />
                 </label>
-                <span v-if="files.length" class="text-xs text-gray-500 dark:text-dark-400">{{ files.length }} 张图片待发送</span>
-                <button v-if="files.length" type="button" class="ml-1 flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-800 dark:hover:text-white" title="清除图片" aria-label="清除图片" @click="clearFiles">
+                <span v-if="files.length" class="text-xs text-gray-500 dark:text-dark-400">{{ t('common.support.pendingImages', { count: files.length }) }}</span>
+                <button v-if="files.length" type="button" class="ml-1 flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-800 dark:hover:text-white" :title="t('common.support.clearImages')" :aria-label="t('common.support.clearImages')" @click="clearFiles">
                   <Icon name="x" size="sm" />
                 </button>
               </div>
               <div v-if="filePreviews.length" class="flex h-14 shrink-0 gap-2 overflow-x-auto px-4 pb-2">
                 <div v-for="(preview, index) in filePreviews" :key="preview.url" class="group/preview relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100 dark:border-dark-700 dark:bg-dark-800">
                   <img :src="preview.url" :alt="preview.file.name" class="h-full w-full object-cover" />
-                  <button type="button" class="absolute right-0 top-0 flex h-5 w-5 items-center justify-center bg-black/65 text-white opacity-0 transition group-hover/preview:opacity-100 focus:opacity-100" title="移除图片" aria-label="移除图片" @click="removeFile(index)">
+                  <button type="button" class="absolute right-0 top-0 flex h-5 w-5 items-center justify-center bg-black/65 text-white opacity-0 transition group-hover/preview:opacity-100 focus:opacity-100" :title="t('common.support.removeImage')" :aria-label="t('common.support.removeImage')" @click="removeFile(index)">
                     <Icon name="x" size="xs" />
                   </button>
                 </div>
               </div>
               <div class="relative min-h-0 flex-1">
-                <textarea ref="replyInput" v-model="reply" maxlength="10000" class="h-full w-full resize-none border-0 bg-transparent px-4 pb-12 pt-1 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100" placeholder="输入消息，Enter 发送" :disabled="sending" @keydown.enter.exact="handleReplyEnter"></textarea>
+                <textarea ref="replyInput" v-model="reply" maxlength="10000" class="h-full w-full resize-none border-0 bg-transparent px-4 pb-12 pt-1 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-dark-100" :placeholder="t('common.support.inputPlaceholder')" :disabled="sending" @keydown.enter.exact="handleReplyEnter"></textarea>
                 <button class="chat-send-button absolute bottom-3 right-4 rounded-md px-5 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50" type="submit" :disabled="sending || (!reply.trim() && !files.length)">
-                  {{ sending ? '发送中...' : '发送' }}
+                  {{ sending ? t('common.support.sending') : t('common.support.send') }}
                 </button>
               </div>
             </form>
           </template>
           <div v-else class="flex flex-1 flex-col items-center justify-center px-6 text-center text-gray-500 dark:text-dark-400">
             <span class="flex h-14 w-14 items-center justify-center rounded-md bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-dark-300"><Icon name="chatBubble" size="lg" /></span>
-            <p class="mt-4 text-sm font-medium text-gray-800 dark:text-dark-100">选择一个用户开始对话</p>
+            <p class="mt-4 text-sm font-medium text-gray-800 dark:text-dark-100">{{ t('common.supportAdmin.selectUser') }}</p>
           </div>
         </main>
       </section>
@@ -155,28 +155,28 @@
 
     <BaseDialog
       :show="showTelegram"
-      title="Telegram 客服通知"
+      :title="t('common.supportAdmin.telegramTitle')"
       width="wide"
       :z-index="90"
       @close="showTelegram = false"
     >
       <div class="space-y-6">
         <section class="space-y-4">
-          <div class="flex items-center justify-between"><div><h4 class="font-medium text-gray-900 dark:text-white">通知机器人</h4><p class="text-sm text-gray-500">配置全局 Bot，并通过 webhook 接收管理员绑定。</p></div><label class="flex items-center gap-2 text-sm"><input v-model="telegramForm.enabled" type="checkbox" class="h-4 w-4" />启用</label></div>
-          <div><label class="input-label">Bot Token</label><input v-model="telegramForm.bot_token" type="password" class="input" :placeholder="telegramConfig?.token_set ? '已配置，留空保持不变' : '123456:ABC...'" autocomplete="off" /></div>
-          <div><label class="input-label">Webhook 公网地址</label><input v-model="telegramForm.webhook_base_url" type="url" class="input" placeholder="https://api.example.com" /><p class="mt-1 text-xs text-gray-500">必须是能访问当前 Sub2API 的 HTTPS 地址，系统会自动注册 webhook。</p></div>
-          <div class="flex items-center gap-2"><button class="btn btn-primary" :disabled="telegramSaving" @click="saveTelegram">保存配置</button><span v-if="telegramConfig?.bot_username" class="text-sm text-gray-500">@{{ telegramConfig.bot_username }} · {{ telegramConfig.webhook_set ? 'Webhook 已注册' : 'Webhook 未注册' }}</span></div>
+          <div class="flex items-center justify-between"><div><h4 class="font-medium text-gray-900 dark:text-white">{{ t('common.supportAdmin.notificationBot') }}</h4><p class="text-sm text-gray-500">{{ t('common.supportAdmin.notificationBotDescription') }}</p></div><label class="flex items-center gap-2 text-sm"><input v-model="telegramForm.enabled" type="checkbox" class="h-4 w-4" />{{ t('common.supportAdmin.enabled') }}</label></div>
+          <div><label class="input-label">Bot Token</label><input v-model="telegramForm.bot_token" type="password" class="input" :placeholder="telegramConfig?.token_set ? t('common.supportAdmin.tokenConfigured') : '123456:ABC...'" autocomplete="off" /></div>
+          <div><label class="input-label">{{ t('common.supportAdmin.webhookPublicUrl') }}</label><input v-model="telegramForm.webhook_base_url" type="url" class="input" placeholder="https://api.example.com" /><p class="mt-1 text-xs text-gray-500">{{ t('common.supportAdmin.webhookDescription') }}</p></div>
+          <div class="flex items-center gap-2"><button class="btn btn-primary" :disabled="telegramSaving" @click="saveTelegram">{{ t('common.supportAdmin.saveConfig') }}</button><span v-if="telegramConfig?.bot_username" class="text-sm text-gray-500">@{{ telegramConfig.bot_username }} · {{ telegramConfig.webhook_set ? t('common.supportAdmin.webhookRegistered') : t('common.supportAdmin.webhookNotRegistered') }}</span></div>
         </section>
         <section class="border-t border-gray-200 pt-5 dark:border-dark-700">
-          <div class="flex flex-wrap items-center justify-between gap-2"><div><h4 class="font-medium text-gray-900 dark:text-white">我的通知绑定</h4><p class="text-sm text-gray-500">每个管理员绑定自己的 Telegram 私聊。</p></div><div class="flex gap-2"><button v-if="binding?.bound" class="btn btn-secondary" @click="testBinding">发送测试</button><button v-if="!binding?.bound" class="btn btn-primary" @click="bindTelegram">生成绑定链接</button></div></div>
+          <div class="flex flex-wrap items-center justify-between gap-2"><div><h4 class="font-medium text-gray-900 dark:text-white">{{ t('common.supportAdmin.myNotificationBinding') }}</h4><p class="text-sm text-gray-500">{{ t('common.supportAdmin.myNotificationBindingDescription') }}</p></div><div class="flex gap-2"><button v-if="binding?.bound" class="btn btn-secondary" @click="testBinding">{{ t('common.supportAdmin.testSend') }}</button><button v-if="!binding?.bound" class="btn btn-primary" @click="bindTelegram">{{ t('common.supportAdmin.generateBindLink') }}</button></div></div>
           <div v-if="binding?.bound" class="mt-4 grid gap-3 sm:grid-cols-2">
-            <label class="flex items-center gap-2 text-sm"><input v-model="binding.enabled" type="checkbox" @change="saveBinding" />启用通知</label>
-            <label class="flex items-center gap-2 text-sm"><input v-model="binding.notify_new_ticket" type="checkbox" @change="saveBinding" />新消息</label>
-            <label class="flex items-center gap-2 text-sm"><input v-model="binding.notify_user_reply" type="checkbox" @change="saveBinding" />用户回复</label>
-            <div class="flex items-center justify-between text-sm text-gray-500 sm:col-span-2"><span>已绑定 @{{ binding.telegram_username || 'Telegram 用户' }}</span><button class="text-red-600 hover:underline" @click="unbindTelegram">解除绑定</button></div>
-            <p v-if="binding.last_error" class="text-sm text-red-600 sm:col-span-2">最近错误：{{ binding.last_error }}</p>
+            <label class="flex items-center gap-2 text-sm"><input v-model="binding.enabled" type="checkbox" @change="saveBinding" />{{ t('common.supportAdmin.enableNotifications') }}</label>
+            <label class="flex items-center gap-2 text-sm"><input v-model="binding.notify_new_ticket" type="checkbox" @change="saveBinding" />{{ t('common.supportAdmin.newMessages') }}</label>
+            <label class="flex items-center gap-2 text-sm"><input v-model="binding.notify_user_reply" type="checkbox" @change="saveBinding" />{{ t('common.supportAdmin.userReplies') }}</label>
+            <div class="flex items-center justify-between text-sm text-gray-500 sm:col-span-2"><span>{{ t('common.supportAdmin.boundAs', { username: `@${binding.telegram_username || t('common.supportAdmin.telegramUser')}` }) }}</span><button class="text-red-600 hover:underline" @click="unbindTelegram">{{ t('common.supportAdmin.unbind') }}</button></div>
+            <p v-if="binding.last_error" class="text-sm text-red-600 sm:col-span-2">{{ t('common.supportAdmin.latestError', { error: binding.last_error }) }}</p>
           </div>
-          <p v-else class="mt-4 text-sm text-gray-500">尚未绑定。保存并启用机器人后生成链接，在 Telegram 中点击 Start 即可。</p>
+          <p v-else class="mt-4 text-sm text-gray-500">{{ t('common.supportAdmin.notBound') }}</p>
         </section>
       </div>
     </BaseDialog>
@@ -185,6 +185,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import SupportImagePreview from '@/components/support/SupportImagePreview.vue'
@@ -194,6 +195,7 @@ import { useAppStore } from '@/stores/app'
 import { useSupportStore } from '@/stores/support'
 import { isIMECompositionKeyEvent } from '@/utils/keyboard'
 
+const { t } = useI18n()
 const appStore = useAppStore()
 const supportStore = useSupportStore()
 const loading = ref(false)
@@ -285,7 +287,7 @@ async function loadTicket(id: number, silent = false) {
     await loadImages()
     await supportStore.refreshUnread(true)
   } catch (error: any) {
-    appStore.showError(error?.message || '加载对话失败')
+    appStore.showError(error?.message || t('common.supportAdmin.loadConversationFailed'))
   } finally {
     if (!silent) detailLoading.value = false
     await scrollToBottom()
@@ -308,7 +310,7 @@ async function load(silent: boolean | Event = false) {
       revokeImages()
     }
   } catch (error: any) {
-    appStore.showError(error?.message || '加载客服消息失败')
+    appStore.showError(error?.message || t('common.supportAdmin.loadMessagesFailed'))
   } finally {
     if (!isSilent) loading.value = false
   }
@@ -349,7 +351,7 @@ async function searchUsers(silent = false) {
     const items = await searchAdminSupportUsers(query)
     if (request === searchRequest) userSearchResults.value = items
   } catch (error: any) {
-    if (request === searchRequest) appStore.showError(error?.message || '搜索用户失败')
+    if (request === searchRequest) appStore.showError(error?.message || t('common.supportAdmin.searchUsersFailed'))
   } finally {
     if (request === searchRequest) searchingUsers.value = false
   }
@@ -367,7 +369,7 @@ function selectFiles(event: Event) {
   const input = event.target as HTMLInputElement
   const selected = Array.from(input.files || [])
   if (selected.length > 2 || selected.some((file) => file.size > 3 * 1024 * 1024)) {
-    appStore.showError('最多选择 2 张图片，单张不能超过 3 MB')
+    appStore.showError(t('common.supportAdmin.tooManyImages'))
     input.value = ''
     return
   }
@@ -418,7 +420,7 @@ async function sendReply() {
     await scrollToBottom()
     void load(true)
   } catch (error: any) {
-    appStore.showError(error?.message || '发送失败')
+    appStore.showError(error?.message || t('common.supportAdmin.sendFailed'))
   } finally {
     sending.value = false
     await nextTick()
@@ -439,7 +441,7 @@ function closeImagePreview() {
 }
 
 function userInitial(item: Pick<SupportTicket, 'user_name' | 'user_id'>) {
-  const value = (item.user_name || `用户${item.user_id}`).trim()
+  const value = (item.user_name || t('common.supportAdmin.userLabel', { id: item.user_id })).trim()
   return Array.from(value).slice(0, 2).join('')
 }
 
@@ -477,7 +479,7 @@ async function openTelegram() {
     telegramForm.stats_cron_enabled = telegramConfig.value.stats_cron_enabled
     telegramForm.stats_cron = telegramConfig.value.stats_cron
   } catch (error: any) {
-    appStore.showError(error?.message || '加载 Telegram 配置失败')
+    appStore.showError(error?.message || t('common.supportAdmin.loadTelegramFailed'))
   }
 }
 
@@ -486,9 +488,9 @@ async function saveTelegram() {
   try {
     telegramConfig.value = await saveTelegramConfig(telegramForm)
     telegramForm.bot_token = ''
-    appStore.showSuccess('Telegram 配置已保存')
+    appStore.showSuccess(t('common.supportAdmin.telegramSaved'))
   } catch (error: any) {
-    appStore.showError(error?.message || '保存失败')
+    appStore.showError(error?.message || t('common.supportAdmin.saveFailed'))
   } finally {
     telegramSaving.value = false
   }
@@ -498,9 +500,9 @@ async function bindTelegram() {
   try {
     const link = await createTelegramBindLink()
     window.open(link.url, '_blank', 'noopener,noreferrer')
-    appStore.showInfo('绑定链接 10 分钟内有效，完成后重新打开此面板查看状态')
+    appStore.showInfo(t('common.supportAdmin.bindLinkInfo'))
   } catch (error: any) {
-    appStore.showError(error?.message || '生成绑定链接失败')
+    appStore.showError(error?.message || t('common.supportAdmin.bindLinkFailed'))
   }
 }
 
@@ -509,16 +511,16 @@ async function saveBinding() {
   try {
     binding.value = await updateTelegramBinding({ enabled: binding.value.enabled, notify_new_ticket: binding.value.notify_new_ticket, notify_user_reply: binding.value.notify_user_reply, notify_balance_recharge: binding.value.notify_balance_recharge, notify_redeem: binding.value.notify_redeem })
   } catch (error: any) {
-    appStore.showError(error?.message || '更新绑定失败')
+    appStore.showError(error?.message || t('common.supportAdmin.bindingUpdateFailed'))
   }
 }
 
 async function testBinding() {
   try {
     await testTelegramBinding()
-    appStore.showSuccess('测试通知已发送')
+    appStore.showSuccess(t('common.supportAdmin.testSent'))
   } catch (error: any) {
-    appStore.showError(error?.message || '测试发送失败')
+    appStore.showError(error?.message || t('common.supportAdmin.testFailed'))
   }
 }
 
@@ -527,7 +529,7 @@ async function unbindTelegram() {
     await deleteTelegramBinding()
     binding.value = await getTelegramBinding()
   } catch (error: any) {
-    appStore.showError(error?.message || '解除绑定失败')
+    appStore.showError(error?.message || t('common.supportAdmin.unbindFailed'))
   }
 }
 

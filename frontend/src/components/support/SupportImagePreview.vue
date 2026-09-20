@@ -6,22 +6,22 @@
         class="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
-        :aria-label="alt || '图片预览'"
+        :aria-label="alt || t('common.support.imagePreview')"
         @click.self="emit('close')"
       >
         <button
           ref="closeButton"
           type="button"
           class="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-md bg-black/45 text-white transition hover:bg-black/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-          title="关闭预览"
-          aria-label="关闭预览"
+          :title="t('common.support.closePreview')"
+          :aria-label="t('common.support.closePreview')"
           @click="emit('close')"
         >
           <Icon name="x" size="lg" />
         </button>
         <img
           :src="src"
-          :alt="alt || '图片预览'"
+          :alt="alt || t('common.support.imagePreview')"
           class="max-h-[calc(100dvh-3rem)] max-w-[calc(100vw-3rem)] rounded-md object-contain shadow-2xl"
           @click.stop
         />
@@ -32,7 +32,10 @@
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   src: string

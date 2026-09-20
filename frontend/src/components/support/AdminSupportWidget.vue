@@ -3,12 +3,12 @@
     type="button"
     class="admin-support-launcher relative flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
     :aria-expanded="open"
-    :aria-label="open ? '关闭客服工作台' : '打开客服工作台'"
-    :title="open ? '关闭客服工作台' : '客服工作台'"
+    :aria-label="open ? t('common.supportAdmin.closeWorkspace') : t('common.supportAdmin.openWorkspace')"
+    :title="open ? t('common.supportAdmin.closeWorkspace') : t('common.supportAdmin.workspaceTitle')"
     @click="toggle"
   >
     <Icon :name="open ? 'x' : 'chatBubble'" size="md" />
-    <span class="hidden xl:inline">客服工作台</span>
+    <span class="hidden xl:inline">{{ t('common.supportAdmin.workspaceTitle') }}</span>
     <span
       v-if="supportStore.unreadCount && !open"
       class="admin-support-unread absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
@@ -28,21 +28,21 @@
             : 'h-[min(760px,calc(100dvh-6rem))] w-[min(1120px,calc(100vw-2rem))] rounded-md'"
           role="dialog"
           aria-modal="false"
-          aria-label="客服工作台"
+          :aria-label="t('common.supportAdmin.workspaceLabel')"
         >
           <header class="admin-support-window-header flex h-14 shrink-0 items-center gap-3 border-b px-3.5">
             <span class="admin-support-window-brand flex h-8 w-8 items-center justify-center rounded text-white">
               <Icon name="chatBubble" size="sm" />
             </span>
             <div class="min-w-0 flex-1">
-              <h2 class="truncate text-sm font-semibold text-gray-900 dark:text-white">客服工作台</h2>
-              <p class="truncate text-[11px] text-gray-500 dark:text-dark-400">用户消息与 Telegram 回复</p>
+              <h2 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ t('common.supportAdmin.workspaceTitle') }}</h2>
+              <p class="truncate text-[11px] text-gray-500 dark:text-dark-400">{{ t('common.supportAdmin.workspaceSubtitle') }}</p>
             </div>
             <button
               type="button"
               class="admin-support-window-action flex h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none"
-              aria-label="Telegram 通知"
-              title="Telegram 通知"
+              :aria-label="t('common.supportAdmin.telegramNotifications')"
+              :title="t('common.supportAdmin.telegramNotifications')"
               @click="openTelegramSettings"
             >
               <Icon name="paperPlane" size="sm" />
@@ -50,8 +50,8 @@
             <button
               type="button"
               class="admin-support-window-action flex h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none disabled:cursor-wait disabled:opacity-60"
-              aria-label="刷新全部对话"
-              title="刷新全部对话"
+              :aria-label="t('common.supportAdmin.refreshConversations')"
+              :title="t('common.supportAdmin.refreshConversations')"
               :disabled="refreshing"
               @click="refreshConversations"
             >
@@ -60,8 +60,8 @@
             <button
               type="button"
               class="admin-support-window-action hidden h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none sm:flex"
-              :aria-label="maximized ? '还原客服窗口' : '全屏显示客服窗口'"
-              :title="maximized ? '还原' : '放大'"
+              :aria-label="maximized ? t('common.supportAdmin.restoreWindow') : t('common.supportAdmin.fullscreenWindow')"
+              :title="maximized ? t('common.supportAdmin.restore') : t('common.supportAdmin.enlarge')"
               @click="maximized = !maximized"
             >
               <Icon :name="maximized ? 'collapse' : 'expand'" size="sm" />
@@ -69,8 +69,8 @@
             <button
               type="button"
               class="admin-support-window-action flex h-8 w-8 items-center justify-center rounded transition focus-visible:outline-none"
-              aria-label="关闭客服工作台"
-              title="关闭"
+              :aria-label="t('common.supportAdmin.closeWorkspace')"
+              :title="t('common.close')"
               @click="close"
             >
               <Icon name="x" size="sm" />
@@ -88,10 +88,12 @@
 
 <script setup lang="ts">
 import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useSupportStore } from '@/stores/support'
 
 const SupportView = defineAsyncComponent(() => import('@/views/admin/SupportView.vue'))
+const { t } = useI18n()
 const supportStore = useSupportStore()
 const open = ref(false)
 const maximized = ref(false)

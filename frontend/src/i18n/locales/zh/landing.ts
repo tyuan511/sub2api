@@ -6,6 +6,8 @@ export default {
   // Home Page
   home: {
     viewOnGithub: '在 GitHub 上查看',
+    logoAlt: 'Logo',
+    defaultSubtitle: 'AI API 网关平台',
     viewDocs: '查看文档',
     docs: '文档',
     switchToLight: '切换到浅色模式',
@@ -92,6 +94,10 @@ export default {
           us: '可设配额、查明细'
         }
       }
+    },
+    terminal: {
+      title: '终端',
+      routing: '# 正在路由到上游...'
     },
     providers: {
       title: '已支持的 AI 模型',

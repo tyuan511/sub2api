@@ -3,6 +3,24 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import AdminSupportWidget from '../AdminSupportWidget.vue'
 
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => ({
+      'common.supportAdmin.openWorkspace': '打开客服工作台',
+      'common.supportAdmin.closeWorkspace': '关闭客服工作台',
+      'common.supportAdmin.workspaceTitle': '客服工作台',
+      'common.supportAdmin.workspaceLabel': '客服工作台',
+      'common.supportAdmin.telegramNotifications': 'Telegram 通知',
+      'common.supportAdmin.refreshConversations': '刷新全部对话',
+      'common.supportAdmin.restoreWindow': '还原客服窗口',
+      'common.supportAdmin.fullscreenWindow': '全屏显示客服窗口',
+      'common.supportAdmin.restore': '还原',
+      'common.supportAdmin.enlarge': '放大',
+      'common.close': '关闭',
+    }[key] ?? key),
+  }),
+}))
+
 vi.mock('@/stores/support', () => ({
   useSupportStore: () => ({ unreadCount: 7 })
 }))
