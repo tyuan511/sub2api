@@ -13,6 +13,7 @@ import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { trackPageView } from '@/utils/analytics'
 
 /**
  * Route definitions with lazy loading
@@ -1029,6 +1030,9 @@ router.afterEach((to) => {
   }
   // 触发路由预加载（在浏览器空闲时执行）
   routePrefetch.triggerPrefetch(to)
+
+  // Vue Router 是 SPA 导航，手动补发 GA4 页面访问事件。
+  trackPageView(to.path, document.title)
 })
 
 /**
