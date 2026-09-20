@@ -190,20 +190,20 @@
             <div v-for="index in 6" :key="index" class="rounded-2xl border border-gray-900/5 bg-white/70 p-5 shadow-sm dark:border-white/5 dark:bg-dark-800/50" :class="index ? 'h-40' : ''"><div class="h-3 w-20 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div><div class="mt-5 h-5 w-36 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div><div class="mt-4 h-3 w-full animate-pulse rounded bg-gray-100 dark:bg-dark-800"></div></div>
           </div>
           <div v-else-if="featuredModels.length" class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <article v-for="entry in featuredModels" :key="`${entry.groupId}-${entry.platform}-${entry.name}`" class="group relative overflow-hidden rounded-2xl border border-gray-900/5 bg-white/80 p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 dark:border-white/5 dark:bg-dark-800/55 dark:hover:shadow-black/20">
+            <article v-for="entry in featuredModels" :key="`${entry.platform}-${entry.name}`" class="group relative overflow-hidden rounded-2xl border border-gray-900/5 bg-white/80 p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 dark:border-white/5 dark:bg-dark-800/55 dark:hover:shadow-black/20">
               <div :class="['absolute inset-x-0 top-0 h-1', platformAccentBarClass(entry.platform)]"></div>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                   <span :class="['inline-flex rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider', platformBadgeLightClass(entry.platform)]">{{ platformLabel(entry.platform) }}</span>
                   <h3 class="mt-4 truncate text-base font-semibold text-gray-950 dark:text-white" :title="entry.name">{{ entry.name }}</h3>
-                  <p class="mt-1 truncate text-xs text-gray-400 dark:text-dark-500" :title="entry.groupName">{{ entry.groupName }}</p>
+                  <p class="mt-1 truncate text-xs text-gray-400 dark:text-dark-500">{{ t('home.catalog.lowestPrice') }}</p>
                 </div>
                 <Icon name="externalLink" size="sm" class="shrink-0 text-gray-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary-500 dark:text-dark-600" />
               </div>
               <div class="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4 dark:border-dark-700">
-                <div v-if="isTokenModel(entry.model)"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ t('home.catalog.input') }}</div><div class="mt-1 font-mono text-sm font-semibold text-gray-800 dark:text-dark-100">{{ modelPrice(entry.model, 'input') }}</div></div>
-                <div v-if="isTokenModel(entry.model)"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ t('home.catalog.output') }}</div><div class="mt-1 font-mono text-sm font-semibold text-gray-800 dark:text-dark-100">{{ modelPrice(entry.model, 'output') }}</div></div>
-                <div v-else class="col-span-2"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ billingLabel(entry.model) }}</div><div class="mt-1 font-mono text-lg font-semibold text-gray-800 dark:text-dark-100">{{ modelPrice(entry.model, 'request') }}</div></div>
+                <div v-if="entry.billingMode === BILLING_MODE_TOKEN"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ t('home.catalog.input') }}</div><div class="mt-1 font-mono text-sm font-semibold text-gray-800 dark:text-dark-100">{{ formatPrice(entry.inputPrice, 1_000_000) }}</div></div>
+                <div v-if="entry.billingMode === BILLING_MODE_TOKEN"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ t('home.catalog.output') }}</div><div class="mt-1 font-mono text-sm font-semibold text-gray-800 dark:text-dark-100">{{ formatPrice(entry.outputPrice, 1_000_000) }}</div></div>
+                <div v-else class="col-span-2"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ billingLabel(entry.model) }}</div><div class="mt-1 font-mono text-lg font-semibold text-gray-800 dark:text-dark-100">{{ formatPrice(entry.requestPrice, 1) }}</div></div>
               </div>
             </article>
           </div>
@@ -271,20 +271,54 @@ const modelPlazaLoading = ref(false)
 const modelPlazaFailed = ref(false)
 
 interface FeaturedModel {
-  groupId: number
-  groupName: string
   model: PlazaModel
   platform: string
   name: string
+  billingMode: BillingMode
+  inputPrice: number | null
+  outputPrice: number | null
+  requestPrice: number | null
 }
 
 const plazaGroups = computed<ModelPlazaGroup[]>(() => modelPlaza.value?.groups ?? [])
 const modelCount = computed(() => new Set(plazaGroups.value.flatMap((group) => group.models.map((model) => model.name))).size)
 const platformCount = computed(() => new Set(plazaGroups.value.map((group) => group.platform).filter(Boolean)).size)
 const groupCount = computed(() => plazaGroups.value.length)
-const featuredModels = computed<FeaturedModel[]>(() => plazaGroups.value
-  .flatMap((group) => group.models.map((model) => ({ groupId: group.id, groupName: group.name, model, platform: model.platform || group.platform, name: model.name })))
-  .slice(0, 9))
+
+function lowerPrice(current: number | null, candidate: number | null): number | null {
+  if (current == null) return candidate
+  if (candidate == null) return current
+  return Math.min(current, candidate)
+}
+
+const featuredModels = computed<FeaturedModel[]>(() => {
+  const merged = new Map<string, FeaturedModel>()
+  for (const group of plazaGroups.value) {
+    for (const model of group.models) {
+      const platform = model.platform || group.platform
+      const key = `${platform}-${model.name}`
+      const pricing = effectivePricing(model)
+      const mode = billingMode(model)
+      const current = merged.get(key)
+      if (!current) {
+        merged.set(key, {
+          model,
+          platform,
+          name: model.name,
+          billingMode: mode,
+          inputPrice: pricing?.input_price ?? null,
+          outputPrice: pricing?.output_price ?? null,
+          requestPrice: pricing?.per_request_price ?? null
+        })
+        continue
+      }
+      current.inputPrice = lowerPrice(current.inputPrice, pricing?.input_price ?? null)
+      current.outputPrice = lowerPrice(current.outputPrice, pricing?.output_price ?? null)
+      current.requestPrice = lowerPrice(current.requestPrice, pricing?.per_request_price ?? null)
+    }
+  }
+  return [...merged.values()].slice(0, 9)
+})
 
 const valueProps = [
   { icon: 'key', title: 'home.valueProps.singleKey', description: 'home.valueProps.singleKeyDesc' },
@@ -302,22 +336,11 @@ function billingMode(model: PlazaModel): BillingMode {
   return (model.pricing?.billing_mode || BILLING_MODE_TOKEN) as BillingMode
 }
 
-function isTokenModel(model: PlazaModel) {
-  return billingMode(model) === BILLING_MODE_TOKEN
-}
-
 function billingLabel(model: PlazaModel) {
   const mode = billingMode(model)
   if (mode === BILLING_MODE_IMAGE) return t('home.catalog.perImage')
   if (mode === BILLING_MODE_VIDEO) return t('home.catalog.perVideo')
   return t('home.catalog.perRequest')
-}
-
-function modelPrice(model: PlazaModel, kind: 'input' | 'output' | 'request') {
-  const pricing = effectivePricing(model)
-  if (!pricing) return t('home.catalog.notAvailable')
-  if (kind === 'request') return formatPrice(pricing.per_request_price, 1)
-  return formatPrice(kind === 'input' ? pricing.input_price : pricing.output_price, 1_000_000)
 }
 
 function formatPrice(value: number | null | undefined, scale: number) {

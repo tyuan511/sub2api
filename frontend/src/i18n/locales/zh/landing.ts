@@ -40,6 +40,7 @@ export default {
       title: '模型与价格，一目了然',
       description: '浏览当前网关配置的模型和实时价格，数据来自模型广场。',
       viewAll: '查看全部模型',
+      lowestPrice: '当前最低价格',
       input: '输入 / 百万 Token',
       output: '输出 / 百万 Token',
       perRequest: '每次请求',
