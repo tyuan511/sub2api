@@ -29,6 +29,10 @@ vi.mock('@/stores/app', () => ({
   useAppStore: () => appStore,
 }))
 
+vi.mock('@/api/modelPlaza', () => ({
+  getModelPlaza: vi.fn().mockResolvedValue({ description: '', groups: [] }),
+}))
+
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {

@@ -16,9 +16,50 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    eyebrow: '一个入口，连接你的 AI 工作流',
+    heroDescription: '通过清晰、可靠的统一 API，接入你需要的模型，让应用保持简单。',
+    viewModels: '浏览模型',
+    trust: {
+      singleKey: '一个 API 密钥',
+      smartRouting: '智能路由',
+      livePricing: '实时价格'
+    },
+    console: {
+      title: 'request.preview',
+      routing: '// 正在选择最佳可用路由...',
+      response: '响应',
+      responseText: '随时准备就绪。'
+    },
+    stats: {
+      models: '模型',
+      platforms: '平台',
+      groups: '路由'
+    },
+    catalog: {
+      kicker: '模型广场',
+      title: '模型与价格，一目了然',
+      description: '浏览当前网关配置的模型和实时价格，数据来自模型广场。',
+      viewAll: '查看全部模型',
+      input: '输入 / 百万 Token',
+      output: '输出 / 百万 Token',
+      perRequest: '每次请求',
+      perImage: '每张图片',
+      perVideo: '每段视频',
+      notAvailable: '—',
+      unavailable: '模型广场暂时不可用。',
+      empty: '暂时没有可展示的公开模型。'
+    },
+    valueProps: {
+      singleKey: '统一而熟悉的接口',
+      singleKeyDesc: '使用一个 API 接口，同时保留灵活的模型选择。',
+      smartRouting: '安静可靠的智能路由',
+      smartRoutingDesc: '在团队配置的路由之间保持请求顺畅运行。',
+      clearUsage: '清晰可懂的用量',
+      clearUsageDesc: '发送下一次请求前，先查看当前模型价格。'
+    },
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
-    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
+    // Legacy content retained for other landing surfaces.
     tags: {
       subscriptionToApi: '订阅转 API',
       stickySession: '会话保持',
@@ -104,7 +145,6 @@ export default {
       description: '一个 API，多种选择',
       supported: '已支持',
       soon: '即将推出',
-      claude: 'Claude',
       gemini: 'Gemini',
       antigravity: 'Antigravity',
       more: '更多'

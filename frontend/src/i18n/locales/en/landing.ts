@@ -16,9 +16,50 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    eyebrow: 'One gateway for your AI stack',
+    heroDescription: 'Connect your applications to the models you need through one clear, reliable API.',
+    viewModels: 'Explore models',
+    trust: {
+      singleKey: 'One API key',
+      smartRouting: 'Smart routing',
+      livePricing: 'Live pricing'
+    },
+    console: {
+      title: 'request.preview',
+      routing: '// selecting the best available route...',
+      response: 'response',
+      responseText: 'Ready when you are.'
+    },
+    stats: {
+      models: 'models',
+      platforms: 'platforms',
+      groups: 'routes'
+    },
+    catalog: {
+      kicker: 'Model plaza',
+      title: 'Models, clearly presented',
+      description: 'Browse the models and current pricing configured for this gateway. Data is loaded live from the model plaza.',
+      viewAll: 'View all models',
+      input: 'Input / 1M',
+      output: 'Output / 1M',
+      perRequest: 'Per request',
+      perImage: 'Per image',
+      perVideo: 'Per video',
+      notAvailable: '—',
+      unavailable: 'Model plaza is temporarily unavailable.',
+      empty: 'No public models are available yet.'
+    },
+    valueProps: {
+      singleKey: 'A single, familiar interface',
+      singleKeyDesc: 'Use one API surface while your model choices stay flexible.',
+      smartRouting: 'Routing that stays out of your way',
+      smartRoutingDesc: 'Keep requests moving across the routes configured by your team.',
+      clearUsage: 'Usage you can understand',
+      clearUsageDesc: 'See current model pricing before you send the next request.'
+    },
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
-    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    // Legacy content retained for other landing surfaces.
     tags: {
       subscriptionToApi: 'Subscription to API',
       stickySession: 'Session Persistence',
@@ -104,7 +145,6 @@ export default {
       description: 'One API, Multiple Choices',
       supported: 'Supported',
       soon: 'Soon',
-      claude: 'Claude',
       gemini: 'Gemini',
       antigravity: 'Antigravity',
       more: 'More'
