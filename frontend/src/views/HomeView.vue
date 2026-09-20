@@ -19,7 +19,7 @@
     <header class="border-b border-gray-200 px-4 py-4 sm:px-6 dark:border-dark-800">
       <nav class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div class="flex min-w-0 flex-1 items-center gap-3">
-          <img :src="siteLogo || '/logo.svg'" :alt="t('home.logoAlt')" class="h-9 w-9 shrink-0 rounded-lg object-contain" />
+          <img :src="siteLogo || '/logo.png'" :alt="t('home.logoAlt')" class="h-9 w-9 shrink-0 rounded-lg object-contain" />
           <span class="min-w-0 truncate text-base font-semibold">{{ siteName }}</span>
         </div>
         <div class="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
@@ -53,7 +53,7 @@
 
     <main class="flex min-w-0 flex-1 items-center justify-center px-4 py-16 sm:px-6">
       <div class="min-w-0 max-w-2xl text-center">
-        <img :src="siteLogo || '/logo.svg'" :alt="t('home.logoAlt')" class="mx-auto mb-6 h-20 w-20 rounded-2xl object-contain" />
+        <img :src="siteLogo || '/logo.png'" :alt="t('home.logoAlt')" class="mx-auto mb-6 h-20 w-20 rounded-2xl object-contain" />
         <h1 class="[overflow-wrap:anywhere] text-3xl font-bold md:text-4xl">{{ siteName }}</h1>
         <p class="mt-4 whitespace-pre-wrap [overflow-wrap:anywhere] text-base text-gray-600 dark:text-dark-300">{{ siteSubtitle }}</p>
         <router-link
@@ -84,7 +84,7 @@
       <nav class="mx-auto flex max-w-7xl items-center justify-between gap-4">
         <router-link to="/" class="flex min-w-0 items-center gap-3" aria-label="Home">
           <span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10">
-            <img :src="siteLogo || '/logo.svg'" :alt="t('home.logoAlt')" class="h-full w-full object-contain" />
+            <img :src="siteLogo || '/logo.png'" :alt="t('home.logoAlt')" class="h-full w-full object-contain" />
           </span>
           <span class="hidden min-w-0 truncate text-sm font-semibold tracking-tight sm:block">{{ siteName }}</span>
         </router-link>

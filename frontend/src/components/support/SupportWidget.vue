@@ -39,7 +39,7 @@
           <article v-for="message in messages" :key="message.id" class="flex items-start gap-2" :class="message.sender_role === 'user' ? 'justify-end' : 'justify-start'">
             <img
               v-if="message.sender_role !== 'user'"
-              src="/fastvibe-support-logo.png"
+              src="/logo.png"
               :alt="t('common.support.agentAlt')"
               class="mt-[18px] h-8 w-8 shrink-0 rounded-md border border-gray-200 bg-white object-cover shadow-sm dark:border-dark-600"
             />

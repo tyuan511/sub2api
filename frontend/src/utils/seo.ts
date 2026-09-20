@@ -73,11 +73,11 @@ export function updateSeoMetadata(options: SeoOptions): void {
   upsertMeta('property', 'og:title', document.title)
   upsertMeta('property', 'og:description', description)
   upsertMeta('property', 'og:url', canonicalUrl)
-  upsertMeta('property', 'og:image', new URL('/fastvibe-support-logo.png', SEO_ORIGIN).toString())
+  upsertMeta('property', 'og:image', new URL('/logo.png', SEO_ORIGIN).toString())
   upsertMeta('name', 'twitter:card', 'summary')
   upsertMeta('name', 'twitter:title', document.title)
   upsertMeta('name', 'twitter:description', description)
-  upsertMeta('name', 'twitter:image', new URL('/fastvibe-support-logo.png', SEO_ORIGIN).toString())
+  upsertMeta('name', 'twitter:image', new URL('/logo.png', SEO_ORIGIN).toString())
   upsertLink('canonical', canonicalUrl)
   upsertStructuredData(siteName, description, canonicalUrl)
 }

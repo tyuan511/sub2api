@@ -16,6 +16,11 @@ export function updateFavicon(logoUrl: string): void {
     document.head.appendChild(link)
   }
 
-  link.type = sanitizedLogoUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/x-icon'
+  const logoPath = sanitizedLogoUrl.split('?')[0].toLowerCase()
+  link.type = logoPath.endsWith('.svg')
+    ? 'image/svg+xml'
+    : logoPath.endsWith('.png')
+      ? 'image/png'
+      : 'image/x-icon'
   link.href = sanitizedLogoUrl
 }
