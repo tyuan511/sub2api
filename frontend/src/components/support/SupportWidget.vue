@@ -3,12 +3,12 @@
     type="button"
     class="support-launcher relative flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white"
     :aria-expanded="open"
-    aria-label="联系客服"
-    title="联系客服"
+    :aria-label="t('common.contactSupport')"
+    :title="t('common.contactSupport')"
     @click="toggle"
   >
     <Icon :name="open ? 'x' : 'chatBubble'" size="md" />
-    <span class="hidden xl:inline">联系客服</span>
+    <span class="hidden xl:inline">{{ t('common.contactSupport') }}</span>
     <span v-if="supportStore.unreadCount && !open" class="support-unread absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{{ Math.min(supportStore.unreadCount, 99) }}</span>
   </button>
 
@@ -17,7 +17,7 @@
       <section
         v-if="open"
         class="support-chat fixed right-4 top-20 z-40 flex h-[min(620px,calc(100dvh-6rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden border"
-        aria-label="联系客服"
+        :aria-label="t('common.contactSupport')"
       >
         <header class="support-chat-header flex h-14 shrink-0 items-center justify-between border-b border-gray-200 px-3.5 dark:border-dark-700">
           <h2 class="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white">FastVibe 客服</h2>
@@ -106,6 +106,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import SupportImagePreview from '@/components/support/SupportImagePreview.vue'
 import { createSupportTicket, getSupportAttachmentBlob, getSupportTicket, listSupport, replySupportTicket, type SupportMessage, type SupportTicket } from '@/api/support'
@@ -113,6 +114,7 @@ import { useAppStore } from '@/stores/app'
 import { useSupportStore } from '@/stores/support'
 import { isIMECompositionKeyEvent } from '@/utils/keyboard'
 
+const { t } = useI18n()
 const appStore = useAppStore()
 const supportStore = useSupportStore()
 const open = ref(false)
