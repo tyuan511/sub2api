@@ -41,6 +41,7 @@ export default {
       description: 'Browse the models and current pricing configured for this gateway. Data is loaded live from the model plaza.',
       viewAll: 'View all models',
       lowestPrice: 'Lowest available price',
+      discountSuffix: 'x',
       input: 'Input / 1M',
       output: 'Output / 1M',
       perRequest: 'Per request',

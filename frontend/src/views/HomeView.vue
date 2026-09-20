@@ -194,7 +194,10 @@
               <div :class="['absolute inset-x-0 top-0 h-1', platformAccentBarClass(entry.platform)]"></div>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                  <span :class="['inline-flex rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider', platformBadgeLightClass(entry.platform)]">{{ platformLabel(entry.platform) }}</span>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span :class="['inline-flex rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider', platformBadgeLightClass(entry.platform)]">{{ platformLabel(entry.platform) }}</span>
+                    <span class="inline-flex rounded-md bg-primary-500/10 px-2 py-1 text-[10px] font-semibold tracking-wider text-primary-700 dark:text-primary-300">{{ formatDiscount(entry.discount) }}</span>
+                  </div>
                   <h3 class="mt-4 truncate text-base font-semibold text-gray-950 dark:text-white" :title="entry.name">{{ entry.name }}</h3>
                   <p class="mt-1 truncate text-xs text-gray-400 dark:text-dark-500">{{ t('home.catalog.lowestPrice') }}</p>
                 </div>
@@ -278,12 +281,22 @@ interface FeaturedModel {
   inputPrice: number | null
   outputPrice: number | null
   requestPrice: number | null
+  discount: number | null
 }
 
 const plazaGroups = computed<ModelPlazaGroup[]>(() => modelPlaza.value?.groups ?? [])
 const modelCount = computed(() => new Set(plazaGroups.value.flatMap((group) => group.models.map((model) => model.name))).size)
 const platformCount = computed(() => new Set(plazaGroups.value.map((group) => group.platform).filter(Boolean)).size)
 const groupCount = computed(() => plazaGroups.value.length)
+
+const EXCHANGE_RATE = 6.7
+
+function effectiveGroupRate(group: ModelPlazaGroup, model: PlazaModel): number {
+  const baseRate = billingMode(model) === BILLING_MODE_IMAGE && group.image_rate_independent
+    ? group.image_rate_multiplier
+    : (group.user_rate_multiplier ?? group.rate_multiplier)
+  return typeof baseRate === 'number' && Number.isFinite(baseRate) && baseRate > 0 ? baseRate : 1
+}
 
 function lowerPrice(current: number | null, candidate: number | null): number | null {
   if (current == null) return candidate
@@ -299,22 +312,29 @@ const featuredModels = computed<FeaturedModel[]>(() => {
       const key = `${platform}-${model.name}`
       const pricing = effectivePricing(model)
       const mode = billingMode(model)
+      const rate = effectiveGroupRate(group, model)
       const current = merged.get(key)
+      const inputPrice = pricing?.input_price == null ? null : pricing.input_price * rate
+      const outputPrice = pricing?.output_price == null ? null : pricing.output_price * rate
+      const requestPrice = pricing?.per_request_price == null ? null : pricing.per_request_price * rate
+      const discount = rate / EXCHANGE_RATE * 10
       if (!current) {
         merged.set(key, {
           model,
           platform,
           name: model.name,
           billingMode: mode,
-          inputPrice: pricing?.input_price ?? null,
-          outputPrice: pricing?.output_price ?? null,
-          requestPrice: pricing?.per_request_price ?? null
+          inputPrice,
+          outputPrice,
+          requestPrice,
+          discount
         })
         continue
       }
-      current.inputPrice = lowerPrice(current.inputPrice, pricing?.input_price ?? null)
-      current.outputPrice = lowerPrice(current.outputPrice, pricing?.output_price ?? null)
-      current.requestPrice = lowerPrice(current.requestPrice, pricing?.per_request_price ?? null)
+      current.inputPrice = lowerPrice(current.inputPrice, inputPrice)
+      current.outputPrice = lowerPrice(current.outputPrice, outputPrice)
+      current.requestPrice = lowerPrice(current.requestPrice, requestPrice)
+      current.discount = lowerPrice(current.discount, discount)
     }
   }
   return [...merged.values()].slice(0, 9)
@@ -347,6 +367,11 @@ function formatPrice(value: number | null | undefined, scale: number) {
   if (value == null) return t('home.catalog.notAvailable')
   const amount = value * scale
   return `$${amount < 0.01 ? amount.toPrecision(3) : amount.toFixed(amount >= 100 ? 0 : 2).replace(/\.00$/, '')}`
+}
+
+function formatDiscount(value: number | null | undefined) {
+  if (value == null) return t('home.catalog.notAvailable')
+  return `${value.toFixed(1)}${t('home.catalog.discountSuffix')}`
 }
 
 function toggleTheme() {
