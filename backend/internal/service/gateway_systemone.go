@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/typesafe"
@@ -34,6 +36,20 @@ func (s *GatewayService) ForwardSystemOne(ctx context.Context, c *gin.Context, a
 	if account == nil || !account.IsTypeSafe() || account.Type != AccountTypeAPIKey {
 		return nil, errors.New("invalid typesafe account")
 	}
+	model := typesafe.JevLatestModel
+	modelPresent := false
+	var envelope struct {
+		Model string `json:"model"`
+	}
+	if json.Unmarshal(body, &envelope) == nil && strings.TrimSpace(envelope.Model) != "" {
+		model = strings.TrimSpace(envelope.Model)
+		modelPresent = true
+	}
+	mappedModel := account.GetMappedModel(model)
+	upstreamBody := body
+	if modelPresent {
+		upstreamBody = ReplaceModelInBody(body, mappedModel)
+	}
 	key := account.GetTypeSafeAPIKey()
 	if key == "" {
 		return nil, errors.New("typesafe api key is missing")
@@ -42,7 +58,7 @@ func (s *GatewayService) ForwardSystemOne(ctx context.Context, c *gin.Context, a
 	if err != nil {
 		return nil, err
 	}
-	req, err := typesafe.NewSystemOneRequest(ctx, baseURL, key, body)
+	req, err := typesafe.NewSystemOneRequest(ctx, baseURL, key, upstreamBody)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +82,7 @@ func (s *GatewayService) ForwardSystemOne(ctx context.Context, c *gin.Context, a
 		}
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == 529 || resp.StatusCode >= 500 {
 			if s.rateLimitService != nil {
-				s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, nil, typesafe.JevLatestModel)
+				s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, nil, mappedModel)
 			}
 			failoverErr := &UpstreamFailoverError{
 				StatusCode:       resp.StatusCode,
@@ -90,19 +106,26 @@ func (s *GatewayService) ForwardSystemOne(ctx context.Context, c *gin.Context, a
 		return nil, err
 	}
 	// The body has been validated as JSON; do not reflect an upstream content
-	// type such as text/html back to clients.
+	// type such as text/html back to clients. Keep the public response model on
+	// the requested alias while retaining the actual upstream model for billing
+	// and diagnostics.
 	contentType := "application/json"
+	responseBody := decoded.Body
+	if strings.TrimSpace(decoded.Model) != "" {
+		responseBody = ReplaceModelInBody(responseBody, model)
+	}
 	return &SystemOneForwardResult{
 		ForwardResult: ForwardResult{
 			RequestID:             resp.Header.Get("x-request-id"),
 			UpstreamHeaders:       resp.Header.Clone(),
 			Usage:                 ClaudeUsage{InputTokens: decoded.Usage.InputTokens, OutputTokens: decoded.Usage.OutputTokens},
-			Model:                 typesafe.JevLatestModel,
+			Model:                 model,
+			UpstreamModel:         mappedModel,
 			UpstreamResponseModel: decoded.Model,
 			Duration:              time.Since(started),
 		},
 		StatusCode:  resp.StatusCode,
-		Body:        decoded.Body,
+		Body:        responseBody,
 		ContentType: contentType,
 	}, nil
 }

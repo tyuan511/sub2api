@@ -32,8 +32,8 @@ func ValidateSystemOneRequest(body []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if model != JevLatestModel {
-		return "", fmt.Errorf("model must be %s", JevLatestModel)
+	if !IsSupportedModel(model) {
+		return "", fmt.Errorf("unsupported model %q", model)
 	}
 	if err := validateStringObjectOrArray(envelope.State, "state"); err != nil {
 		return "", err

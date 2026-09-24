@@ -8,6 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateSystemOneRequestSupportsAllModels(t *testing.T) {
+	for _, model := range SupportedModels() {
+		body := []byte(`{"model":"` + model + `","state":"sample","questions":{"safety":{"type":"noul","instructions":"Evaluate safety"}}}`)
+		got, err := ValidateSystemOneRequest(body)
+		require.NoError(t, err)
+		require.Equal(t, model, got)
+	}
+}
+
 func TestValidateSystemOneRequestValidQuestionTypes(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -47,7 +56,7 @@ func TestValidateSystemOneRequestRejectsInvalidRequests(t *testing.T) {
 	}{
 		{"invalid json", `{`, "invalid JSON"},
 		{"missing model", `{"state":"x","questions":{"q":{"type":"noul","instructions":"x"}}}`, "model"},
-		{"illegal model", `{"model":"jev-old","state":"x","questions":{"q":{"type":"noul","instructions":"x"}}}`, "jev-latest"},
+		{"illegal model", `{"model":"jev-old","state":"x","questions":{"q":{"type":"noul","instructions":"x"}}}`, "unsupported model"},
 		{"model with whitespace", `{"model":" jev-latest ","state":"x","questions":{"q":{"type":"noul","instructions":"x"}}}`, "jev-latest"},
 		{"missing state", `{"model":"jev-latest","questions":{"q":{"type":"noul","instructions":"x"}}}`, "state"},
 		{"scalar state", `{"model":"jev-latest","state":42,"questions":{"q":{"type":"noul","instructions":"x"}}}`, "state"},

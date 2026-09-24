@@ -1403,7 +1403,7 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		return
 	}
 	if platform == service.PlatformTypeSafe {
-		writeModelsList(c, platform, []string{typesafe.JevLatestModel})
+		writeModelsList(c, platform, typesafe.SupportedModels())
 		return
 	}
 
@@ -1811,7 +1811,7 @@ func defaultModelIDsForPlatform(platform string) []string {
 	case service.PlatformOpenCodeGo:
 		return service.DefaultOpenCodeGoModelIDs()
 	case service.PlatformTypeSafe:
-		return []string{"jev-latest"}
+		return typesafe.SupportedModels()
 	case service.PlatformComposite:
 		ids := make([]string, 0)
 		seen := make(map[string]struct{})

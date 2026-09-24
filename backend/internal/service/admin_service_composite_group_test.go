@@ -209,7 +209,7 @@ func TestAdminService_CompositeModelsListCandidatesIncludeConcreteAccountMapping
 // 独立 CN 分组的模型列表候选沿用 default 分支的 Claude 默认列表；
 // composite 支持不得改变独立分组的候选语义。
 func TestAdminService_TypeSafeModelsListCandidatesUseJevLatest(t *testing.T) {
-	require.Equal(t, []string{"jev-latest"}, defaultModelsListCandidateIDs(PlatformTypeSafe))
+	require.Equal(t, []string{"jev-latest", "jev-1.13.0", "jev-1.13", "jev-1.13-free"}, defaultModelsListCandidateIDs(PlatformTypeSafe))
 }
 
 func TestAdminService_CNProviderModelsListCandidatesKeepClaudeDefaults(t *testing.T) {

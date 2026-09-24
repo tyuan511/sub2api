@@ -90,14 +90,47 @@ func TestForwardSystemOneForwardsNativeProtocolAndUsage(t *testing.T) {
 	account := &Account{ID: 7, Platform: PlatformTypeSafe, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": server.URL, "api_key": "ts-secret"}}
 	result, err := svc.ForwardSystemOne(context.Background(), newSystemOneTestContext(), account, requestBody)
 	require.NoError(t, err)
-	require.Equal(t, responseBody, result.Body)
+	require.Equal(t, []byte(`{"model":"jev-latest","answers":{"q":{"type":"choice","choice":"a"}},"usage":{"input_tokens":123,"output_tokens":7},"provider_extension":{"kept":true}}`), result.Body)
 	require.Equal(t, http.StatusOK, result.StatusCode)
 	require.Equal(t, "application/json", result.ContentType)
 	require.Equal(t, "req-jev", result.RequestID)
 	require.Equal(t, "jev-latest", result.Model)
+	require.Equal(t, "jev-latest", result.UpstreamModel)
 	require.Equal(t, "jev-1.13.0", result.UpstreamResponseModel)
 	require.Equal(t, 123, result.Usage.InputTokens)
 	require.Equal(t, 7, result.Usage.OutputTokens)
+}
+
+func TestForwardSystemOneAppliesAccountModelMappingAndRestoresResponseModel(t *testing.T) {
+	requestBody := []byte(`{"model":"jev-latest","state":"sample","questions":{"q":{"type":"noul","instructions":"Evaluate"}}}`)
+	responseBody := []byte(`{"model":"jev-1.13-free","answers":{"q":{"type":"noul","noul":0.1}},"usage":{"input_tokens":3,"output_tokens":1}}`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.Equal(t, `{"model":"jev-1.13-free","state":"sample","questions":{"q":{"type":"noul","instructions":"Evaluate"}}}`, string(got))
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(responseBody)
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	svc := newSystemOneTestService(&systemOneHTTPUpstream{do: server.Client().Do})
+	account := &Account{
+		ID:       12,
+		Platform: PlatformTypeSafe,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"base_url":      server.URL,
+			"api_key":       "ts-secret",
+			"model_mapping": map[string]any{"jev-latest": "jev-1.13-free"},
+		},
+	}
+	result, err := svc.ForwardSystemOne(context.Background(), newSystemOneTestContext(), account, requestBody)
+	require.NoError(t, err)
+	require.Equal(t, `{"model":"jev-latest","answers":{"q":{"type":"noul","noul":0.1}},"usage":{"input_tokens":3,"output_tokens":1}}`, string(result.Body))
+	require.Equal(t, "jev-latest", result.Model)
+	require.Equal(t, "jev-1.13-free", result.UpstreamModel)
+	require.Equal(t, "jev-1.13-free", result.UpstreamResponseModel)
 }
 
 func TestForwardSystemOneAllowsSuccessfulResponseWithoutModel(t *testing.T) {

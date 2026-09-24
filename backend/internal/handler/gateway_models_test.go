@@ -986,7 +986,7 @@ func TestDefaultCodexModelIDsForPlatform_DeepSeekUsesDeepSeekModels(t *testing.T
 }
 
 func TestDefaultModelIDsForPlatform_TypeSafeUsesJev(t *testing.T) {
-	require.Equal(t, []string{"jev-latest"}, defaultModelIDsForPlatform(service.PlatformTypeSafe))
+	require.Equal(t, []string{"jev-latest", "jev-1.13.0", "jev-1.13", "jev-1.13-free"}, defaultModelIDsForPlatform(service.PlatformTypeSafe))
 }
 
 func TestGatewayCodexModels_DeepSeekWithoutMappingUsesDeepSeekDefaults(t *testing.T) {

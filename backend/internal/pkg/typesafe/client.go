@@ -16,8 +16,33 @@ import (
 const (
 	DefaultBaseURL = "https://api.typesafe.ai"
 	SystemOnePath  = "/v1/systemone"
-	JevLatestModel = "jev-latest"
+
+	JevLatestModel  = "jev-latest"
+	Jev1130Model    = "jev-1.13.0"
+	Jev113Model     = "jev-1.13"
+	Jev113FreeModel = "jev-1.13-free"
 )
+
+var supportedModels = []string{
+	JevLatestModel,
+	Jev1130Model,
+	Jev113Model,
+	Jev113FreeModel,
+}
+
+// SupportedModels returns the TypeSafe models accepted by System One.
+func SupportedModels() []string {
+	return append([]string(nil), supportedModels...)
+}
+
+func IsSupportedModel(model string) bool {
+	for _, supported := range supportedModels {
+		if model == supported {
+			return true
+		}
+	}
+	return false
+}
 
 type Question struct {
 	Type         string `json:"type"`

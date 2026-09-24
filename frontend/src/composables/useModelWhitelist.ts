@@ -471,7 +471,7 @@ export function getModelsByPlatform(platform: string): string[] {
       'qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-plus',
       'hy4-preview', 'hy3', 'omen-alpha'
     ]
-    case 'typesafe': return ['jev-latest']
+    case 'typesafe': return ['jev-latest', 'jev-1.13.0', 'jev-1.13', 'jev-1.13-free']
     case 'doubao': return doubaoModels
     case 'minimax': return minimaxModels
     case 'baidu': return baiduModels

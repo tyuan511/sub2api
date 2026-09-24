@@ -4333,7 +4333,7 @@ function selectTypeSafePlatform() {
   form.type = 'apikey'
   accountCategory.value = 'apikey'
   apiKeyBaseUrl.value = 'https://api.typesafe.ai'
-  allowedModels.value = ['jev-latest']
+  allowedModels.value = ['jev-latest', 'jev-1.13.0', 'jev-1.13', 'jev-1.13-free']
 }
 // 账号类型 / 协议变更时同步默认 base url。
 watch(openCodeAccountMode, (mode, previousMode) => {
@@ -4956,7 +4956,7 @@ watch(
     modelMappings.value = []
     if (newPlatform === 'typesafe') {
       accountCategory.value = 'apikey'
-      allowedModels.value = ['jev-latest']
+      allowedModels.value = ['jev-latest', 'jev-1.13.0', 'jev-1.13', 'jev-1.13-free']
     }
     // Antigravity: 默认使用映射模式并填充默认映射
     if (newPlatform === 'antigravity') {

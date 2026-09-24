@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/typesafe"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
@@ -696,9 +697,12 @@ func (s *BillingService) initFallbackPricing() {
 	}
 
 	// TypeSafe Jev bills input tokens only: $0.042 per million tokens.
-	s.fallbackPrices["jev-latest"] = &ModelPricing{
+	jevPricing := &ModelPricing{
 		InputPricePerToken:  0.042 / 1_000_000,
 		OutputPricePerToken: 0,
+	}
+	for _, model := range typesafe.SupportedModels() {
+		s.fallbackPrices[model] = jevPricing
 	}
 
 	// ---- 智谱 GLM（Z.AI）----
@@ -997,8 +1001,8 @@ func (s *BillingService) initFallbackPricing() {
 // getFallbackPricing 根据模型系列获取回退价格
 func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	modelLower := strings.ToLower(model)
-	if modelLower == "jev-latest" {
-		return s.fallbackPrices["jev-latest"]
+	if typesafe.IsSupportedModel(modelLower) {
+		return s.fallbackPrices[modelLower]
 	}
 
 	// 按模型系列匹配

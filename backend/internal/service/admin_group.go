@@ -298,7 +298,7 @@ func defaultModelsListCandidateIDs(platform string) []string {
 	case PlatformOpenCodeGo:
 		return DefaultOpenCodeGoModelIDs()
 	case PlatformTypeSafe:
-		return []string{typesafe.JevLatestModel}
+		return typesafe.SupportedModels()
 	case PlatformComposite:
 		return compositeDefaultModelsListCandidateIDs()
 	default:
