@@ -723,6 +723,10 @@ export default {
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: '您的 Claude Console API Key',
+      typesafe: {
+        baseUrlHint: '留空使用官方 TypeSafe API',
+        apiKeyHint: '您的 TypeSafe API Key'
+      },
       upstreamRequestIdHeader: '上游ID',
       upstreamRequestIdHeaderPlaceholder: '留空不记录',
       upstreamRequestIdHeaderHelp: {

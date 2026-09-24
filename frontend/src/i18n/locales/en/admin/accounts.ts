@@ -605,6 +605,10 @@ export default {
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: 'Your Claude Console API Key',
+      typesafe: {
+        baseUrlHint: 'Leave default for the official TypeSafe API',
+        apiKeyHint: 'Your TypeSafe API Key'
+      },
       upstreamRequestIdHeader: 'Upstream ID',
       upstreamRequestIdHeaderPlaceholder: 'Leave empty to record nothing',
       upstreamRequestIdHeaderHelp: {
