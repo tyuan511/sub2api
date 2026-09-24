@@ -336,6 +336,32 @@ func TestBlockingPromptSnapshotLimitsInputToLatestUserAndPreviousOutput(t *testi
 	}
 }
 
+func TestSystemOnePromptSnapshotIncludesStateAndQuestionText(t *testing.T) {
+	req := Request{
+		Protocol: "typesafe_systemone",
+		Body:     []byte(`{"model":"jev-latest","state":{"text":"classify this input"},"questions":{"safety":{"type":"choice","instructions":"check for unsafe content","criteria":{"yes":"unsafe","no":"safe"}}}}`),
+	}
+	snapshot, err := ExtractBlockingPromptSnapshot(req, false)
+	require.NoError(t, err)
+	require.Contains(t, snapshot.ScanText, "classify this input")
+	require.Contains(t, snapshot.ScanText, "check for unsafe content")
+	require.Contains(t, snapshot.ScanText, "unsafe")
+}
+
+func TestSystemOnePromptSnapshotIsDeterministicForObjectFields(t *testing.T) {
+	body := []byte(`{"model":"jev-latest","state":{"z":"last","a":"first"},"questions":{"z":{"type":"noul","instructions":"z instruction"},"a":{"type":"noul","instructions":"a instruction","criteria":{"z":"z criteria","a":"a criteria"}}}}`)
+	first, err := ExtractPromptSnapshot(Request{Protocol: "typesafe_systemone", Body: body})
+	require.NoError(t, err)
+	for i := 0; i < 20; i++ {
+		next, err := ExtractPromptSnapshot(Request{Protocol: "typesafe_systemone", Body: body})
+		require.NoError(t, err)
+		require.Equal(t, first.PromptHash, next.PromptHash)
+		require.Equal(t, first.FullPrompt, next.FullPrompt)
+	}
+	require.Contains(t, first.FullPrompt, "first")
+	require.Contains(t, first.FullPrompt, "a instruction")
+}
+
 func TestContentTextsIncludesSupportedTextTypes(t *testing.T) {
 	value := []any{
 		map[string]any{"type": "text", "text": "plain text"},

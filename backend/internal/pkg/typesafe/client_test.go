@@ -53,6 +53,21 @@ func TestEvaluateContract(t *testing.T) {
 	}
 }
 
+func TestDecodeSystemOneResponseRejectsInvalidUsage(t *testing.T) {
+	for _, body := range []string{
+		`{"answers":{},"usage":{"input_tokens":-1,"output_tokens":0}}`,
+		`{"answers":{},"usage":{"input_tokens":1073741825,"output_tokens":0}}`,
+		`{"answers":{}}`,
+	} {
+		_, err := DecodeSystemOneResponse(strings.NewReader(body))
+		require.Error(t, err)
+	}
+
+	result, err := DecodeSystemOneResponse(strings.NewReader(`{"answers":{},"usage":{"input_tokens":12}}`))
+	require.NoError(t, err)
+	require.Equal(t, 12, result.Usage.InputTokens)
+}
+
 func TestEvaluateHTTPAndTimeoutDoNotExposePayload(t *testing.T) {
 	for _, status := range []int{401, 429, 500, 529} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

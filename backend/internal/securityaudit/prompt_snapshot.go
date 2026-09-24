@@ -106,6 +106,8 @@ func extractProtocolSegments(protocol string, document any) []promptSegment {
 		return append(extractInstructions(root["instructions"]), extractResponses(root["input"])...)
 	case "openai_images", "grok_media", "media", "images":
 		return userPromptSegments(extractMediaPrompts(root))
+	case "typesafe_systemone", "systemone":
+		return extractSystemOneSegments(root)
 	default:
 		if segments := extractChatLikeSegments(root); len(segments) > 0 {
 			return segments
@@ -130,6 +132,58 @@ func extractChatLikeSegments(root map[string]any) []promptSegment {
 		return nil
 	}
 	return extractMessages(root["messages"], clientInstructionRoles...)
+}
+
+func extractSystemOneSegments(root map[string]any) []promptSegment {
+	if root == nil {
+		return nil
+	}
+	segments := make([]promptSegment, 0)
+	for _, text := range systemOneValueTexts(root["state"]) {
+		segments = append(segments, promptSegment{text: text, user: true, role: "user"})
+	}
+	questions, _ := root["questions"].(map[string]any)
+	questionIDs := make([]string, 0, len(questions))
+	for id := range questions {
+		questionIDs = append(questionIDs, id)
+	}
+	sort.Strings(questionIDs)
+	for _, id := range questionIDs {
+		questionObject, _ := questions[id].(map[string]any)
+		for _, key := range []string{"instructions", "criteria"} {
+			for _, text := range systemOneValueTexts(questionObject[key]) {
+				segments = append(segments, promptSegment{text: text, role: "system"})
+			}
+		}
+	}
+	return segments
+}
+
+func systemOneValueTexts(value any) []string {
+	switch typed := value.(type) {
+	case string:
+		if text := strings.TrimSpace(typed); text != "" {
+			return []string{text}
+		}
+	case []any:
+		result := make([]string, 0, len(typed))
+		for _, item := range typed {
+			result = append(result, systemOneValueTexts(item)...)
+		}
+		return result
+	case map[string]any:
+		result := make([]string, 0, len(typed))
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			result = append(result, systemOneValueTexts(typed[key])...)
+		}
+		return result
+	}
+	return nil
 }
 
 func extractMessages(value any, wantedRoles ...string) []promptSegment {
