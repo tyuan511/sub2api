@@ -271,11 +271,12 @@ type Account struct {
 	Type     string  `json:"type"`
 	// Credentials 经 RedactCredentials 处理后只含非敏感子键；敏感 token / api_key / 私钥
 	// 的存在性通过 CredentialsStatus（has_<key>）暴露，原始值不返回前端。
-	Credentials       map[string]any                 `json:"credentials"`
-	CredentialsStatus map[string]bool                `json:"credentials_status,omitempty"`
-	Extra             map[string]any                 `json:"extra"`
-	OllamaCloudUsage  *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
-	ProxyID           *int64                         `json:"proxy_id"`
+	Credentials             map[string]any                 `json:"credentials"`
+	CredentialsStatus       map[string]bool                `json:"credentials_status,omitempty"`
+	Extra                   map[string]any                 `json:"extra"`
+	OllamaCloudUsage        *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
+	OpenCodeGoUsage         *service.OpenCodeGoUsageState  `json:"opencode_go_usage,omitempty"`
+	ProxyID                 *int64                         `json:"proxy_id"`
 	// Proxies 是账号绑定的多代理池；为空表示账号只用 proxy_id 的单代理。
 	Proxies                 []AccountProxy `json:"proxies,omitempty"`
 	ProxyFallbackOriginID   *int64         `json:"proxy_fallback_origin_id"`
@@ -401,6 +402,7 @@ type AccountListItem struct {
 	CredentialsStatus map[string]bool                `json:"credentials_status,omitempty"`
 	Extra             map[string]any                 `json:"extra,omitempty"`
 	OllamaCloudUsage  *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
+	OpenCodeGoUsage   *service.OpenCodeGoUsageState  `json:"opencode_go_usage,omitempty"`
 
 	ProxyID                 *int64         `json:"proxy_id"`
 	Proxies                 []AccountProxy `json:"proxies,omitempty"`

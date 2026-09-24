@@ -126,10 +126,10 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 		return err
 	}
 
-	// Transport attempt reached the network path; count as Ollama Cloud activity.
-	// Monitor probes use a synthetic account and must not mutate account state.
+	// Transport attempt reached the network path; monitor probes must not mutate account state.
 	if s != nil && !IsChannelMonitorContext(ctx) {
 		scheduleOllamaCloudUsageActivity(s.deferredService, account)
+		scheduleOpenCodeGoUsageActivity(s.deferredService, account)
 	}
 
 	// 插件已把请求交给上游时，自动切换账号可能造成重复扣费或重复执行。
