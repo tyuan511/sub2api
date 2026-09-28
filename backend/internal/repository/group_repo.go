@@ -956,6 +956,32 @@ func (r *groupRepository) deleteCascade(ctx context.Context, id int64, requireEm
 	// Route rows are not removed by the group's soft delete. Remove them in the
 	// same transaction and repair the compatibility mirror so auth never sees a
 	// deleted primary group or a route set that points at a missing group.
+	// Capture affected keys before deleting the route rows: PostgreSQL data-
+	// modifying CTEs use one statement snapshot, so a sibling UPDATE cannot
+	// reliably discover the rows removed by a preceding DELETE.
+	affectedAPIKeyIDs := make([]int64, 0)
+	routeRows, err := exec.QueryContext(ctx, `
+		SELECT DISTINCT api_key_id
+		FROM api_key_group_routes
+		WHERE group_id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	for routeRows.Next() {
+		var apiKeyID int64
+		if err := routeRows.Scan(&apiKeyID); err != nil {
+			_ = routeRows.Close()
+			return nil, err
+		}
+		affectedAPIKeyIDs = append(affectedAPIKeyIDs, apiKeyID)
+	}
+	if err := routeRows.Close(); err != nil {
+		return nil, err
+	}
+	if err := routeRows.Err(); err != nil {
+		return nil, err
+	}
+
 	// Update dependent keys before deleting the route rows. A data-modifying
 	// CTE cannot see the DELETE result in a sibling table scan under PostgreSQL's
 	// statement snapshot, which would leave a multi-group mirror pointing at the
@@ -985,6 +1011,31 @@ func (r *groupRepository) deleteCascade(ctx context.Context, id int64, requireEm
 		DELETE FROM api_key_group_routes
 		WHERE group_id = $1`, id); err != nil {
 		return nil, err
+	}
+	// Route priorities are a dense, zero-based contract consumed by
+	// APIKeyRouteCoordinator. Deleting a route at the front otherwise leaves
+	// priorities such as [1, 2], making every remaining candidate invalid at
+	// authentication time. Compact only the affected keys and preserve their
+	// existing priority order.
+	if len(affectedAPIKeyIDs) > 0 {
+		if _, err := exec.ExecContext(ctx, `
+			WITH ranked AS (
+				SELECT id,
+					   (ROW_NUMBER() OVER (
+						   PARTITION BY api_key_id
+						   ORDER BY priority ASC, id ASC
+					   ) - 1)::int AS new_priority
+				FROM api_key_group_routes
+				WHERE api_key_id = ANY($1)
+			)
+			UPDATE api_key_group_routes AS r
+			SET priority = ranked.new_priority,
+				updated_at = NOW()
+			FROM ranked
+			WHERE r.id = ranked.id
+			  AND r.priority <> ranked.new_priority`, pq.Array(affectedAPIKeyIDs)); err != nil {
+			return nil, err
+		}
 	}
 	// Legacy keys intentionally keep their compatibility group_id when their
 	// only group is deleted. Auth can then return the historical

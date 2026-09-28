@@ -92,6 +92,13 @@ func TestGroupRepository_DeleteCascade_CleansApiKeyRoutesAndRepairsMirror(t *tes
 	require.NoError(t, err)
 	otherGroup, err := entClient.Group.Create().
 		SetName(uniqueTestValue(t, "delete-cascade-other")).
+		SetPlatform(service.PlatformGrok).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+	thirdGroup, err := entClient.Group.Create().
+		SetName(uniqueTestValue(t, "delete-cascade-third")).
+		SetPlatform(service.PlatformOpenAI).
 		SetStatus(service.StatusActive).
 		Save(ctx)
 	require.NoError(t, err)
@@ -106,7 +113,7 @@ func TestGroupRepository_DeleteCascade_CleansApiKeyRoutesAndRepairsMirror(t *tes
 		Role:          service.RoleUser,
 		Status:        service.StatusActive,
 		Concurrency:   5,
-		AllowedGroups: []int64{targetGroup.ID, otherGroup.ID},
+		AllowedGroups: []int64{targetGroup.ID, otherGroup.ID, thirdGroup.ID},
 	}
 	require.NoError(t, userRepo.Create(ctx, u))
 
@@ -130,6 +137,7 @@ func TestGroupRepository_DeleteCascade_CleansApiKeyRoutesAndRepairsMirror(t *tes
 		GroupRoutes: []service.APIKeyGroupRoute{
 			{GroupID: targetGroup.ID, Priority: 0, Enabled: true},
 			{GroupID: otherGroup.ID, Priority: 1, Enabled: true},
+			{GroupID: thirdGroup.ID, Priority: 2, Enabled: true},
 		},
 	}
 	require.NoError(t, apiKeyRepo.Create(ctx, multiKey))
@@ -162,11 +170,24 @@ func TestGroupRepository_DeleteCascade_CleansApiKeyRoutesAndRepairsMirror(t *tes
 	require.Nil(t, keyAfter.Group)
 	require.Empty(t, keyAfter.GroupRoutes)
 
-	// A multi-group key keeps its remaining route as the compatibility mirror.
+	// A multi-group key keeps its first remaining route as the compatibility mirror.
 	multiAfter, err := apiKeyRepo.GetByID(ctx, multiKey.ID)
 	require.NoError(t, err)
 	require.NotNil(t, multiAfter.GroupID)
 	require.Equal(t, otherGroup.ID, *multiAfter.GroupID)
-	require.Len(t, multiAfter.GroupRoutes, 1)
+	require.Len(t, multiAfter.GroupRoutes, 2)
 	require.Equal(t, otherGroup.ID, multiAfter.GroupRoutes[0].GroupID)
+	require.Equal(t, 0, multiAfter.GroupRoutes[0].Priority)
+	require.Equal(t, thirdGroup.ID, multiAfter.GroupRoutes[1].GroupID)
+	require.Equal(t, 1, multiAfter.GroupRoutes[1].Priority)
+
+	// The repaired route set must remain usable by request-time routing. In
+	// particular, deleting the first group must not make the Grok candidate
+	// disappear or cause authentication to fail closed on sparse priorities.
+	plan, err := service.NewAPIKeyRouteCoordinator().BuildPlan(multiAfter, nil)
+	require.NoError(t, err)
+	require.Equal(t, []int64{otherGroup.ID, thirdGroup.ID}, []int64{
+		plan.Candidates[0].GroupID,
+		plan.Candidates[1].GroupID,
+	})
 }
