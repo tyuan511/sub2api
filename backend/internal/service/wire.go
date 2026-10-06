@@ -1130,16 +1130,13 @@ func ProvideChannelMonitorV2Aggregator(repo ChannelMonitorV2Repository, db *sql.
 }
 
 func ProvideRoutingFactRecorder(repo RoutingFactRepository, stream RoutingFactStream, cfg *config.Config) *RoutingFactRecorder {
-	sampleRate := 0.0
-	if cfg != nil && cfg.Gateway.APIKeyRoutingOptimizationEnabled {
-		sampleRate = 0.01
-		if cfg.Gateway.APIKeyRoutingFactSampleRate > 0 && cfg.Gateway.APIKeyRoutingFactSampleRate <= 1 {
-			sampleRate = cfg.Gateway.APIKeyRoutingFactSampleRate
-		}
+	sampleRate := 0.01
+	if cfg != nil && cfg.Gateway.APIKeyRoutingFactSampleRate > 0 && cfg.Gateway.APIKeyRoutingFactSampleRate <= 1 {
+		sampleRate = cfg.Gateway.APIKeyRoutingFactSampleRate
 	}
 	recorder := NewRoutingFactRecorder(repo, stream, sampleRate)
-	// Failed attempts feed baseline success rates even with learning/experiments
-	// disabled. Only ordinary decision sampling follows the optimization switch.
+	// Failures, group switches and capacity overflow are critical facts and are
+	// always retained. Only ordinary successful decisions are sampled.
 	recorder.Start()
 	return recorder
 }

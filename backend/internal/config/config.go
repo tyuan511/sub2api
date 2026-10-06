@@ -955,17 +955,10 @@ const (
 
 // GatewayConfig API网关相关配置
 type GatewayConfig struct {
-	// APIKeyRoutingOptimizationEnabled is the global kill switch for sampled
-	// decision facts, shadow/canary evaluation, and later learning components.
-	// It never disables deterministic candidate routing or its safety guards.
-	APIKeyRoutingOptimizationEnabled bool    `mapstructure:"api_key_routing_optimization_enabled"`
-	APIKeyRoutingFactSampleRate      float64 `mapstructure:"api_key_routing_fact_sample_rate"`
-	// Learning extensions have independent kill switches and default to off.
-	// When enabled they only consume validated local artifacts and retain the
-	// deterministic score path as their request-local fallback.
-	APIKeyRoutingPersonalizationEnabled bool `mapstructure:"api_key_routing_personalization_enabled"`
-	APIKeyRoutingModelPredictionEnabled bool `mapstructure:"api_key_routing_model_prediction_enabled"`
-	APIKeyRoutingExplorationEnabled     bool `mapstructure:"api_key_routing_exploration_enabled"`
+	// APIKeyRoutingFactSampleRate controls deterministic sampling of ordinary
+	// successful routing facts. Failures, group switches and capacity overflow
+	// are critical facts and are always persisted regardless of this rate.
+	APIKeyRoutingFactSampleRate float64 `mapstructure:"api_key_routing_fact_sample_rate"`
 	// APIKeyGroupStickyTTLSeconds keeps a logical session on the actual fallback
 	// group long enough to preserve upstream prompt-cache locality.
 	APIKeyGroupStickyTTLSeconds int `mapstructure:"api_key_group_sticky_ttl_seconds"`
@@ -2408,11 +2401,7 @@ func setDefaults() {
 
 	// Gateway
 	viper.SetDefault("gateway.response_header_timeout", 600) // 600秒(10分钟)等待上游响应头，LLM高负载时可能排队较久
-	viper.SetDefault("gateway.api_key_routing_optimization_enabled", false)
 	viper.SetDefault("gateway.api_key_routing_fact_sample_rate", 0.01)
-	viper.SetDefault("gateway.api_key_routing_personalization_enabled", false)
-	viper.SetDefault("gateway.api_key_routing_model_prediction_enabled", false)
-	viper.SetDefault("gateway.api_key_routing_exploration_enabled", false)
 	viper.SetDefault("gateway.api_key_group_sticky_ttl_seconds", 3600)
 	viper.SetDefault("gateway.api_key_group_breaker_window_seconds", 300)
 	viper.SetDefault("gateway.api_key_group_breaker_cooldown_seconds", 30)
@@ -2705,13 +2694,6 @@ func setEnvReachableDefaults() {
 func (c *Config) Validate() error {
 	if c.Gateway.APIKeyRoutingFactSampleRate < 0 || c.Gateway.APIKeyRoutingFactSampleRate > 1 {
 		return fmt.Errorf("gateway.api_key_routing_fact_sample_rate must be between 0 and 1")
-	}
-	if (c.Gateway.APIKeyRoutingPersonalizationEnabled || c.Gateway.APIKeyRoutingModelPredictionEnabled) &&
-		!c.Gateway.APIKeyRoutingOptimizationEnabled {
-		return fmt.Errorf("API key routing personalization/model prediction require routing optimization")
-	}
-	if c.Gateway.APIKeyRoutingExplorationEnabled {
-		return fmt.Errorf("API key routing exploration remains unavailable until propensity and traffic-budget controls are enabled")
 	}
 	forwardedClientIPHeaders, err := NormalizeForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders)
 	if err != nil {

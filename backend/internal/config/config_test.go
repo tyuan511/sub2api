@@ -30,24 +30,17 @@ func TestLoadDefaultModelsListReadMaxBytes(t *testing.T) {
 	require.Equal(t, DefaultModelsListReadMaxBytes, cfg.Gateway.ModelsListReadMaxBytes)
 }
 
-func TestLoadAPIKeyRoutingLearningExtensionsDisabledByDefault(t *testing.T) {
+func TestLoadAPIKeyRoutingFactSampleRateDefaults(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	cfg, err := Load()
 	require.NoError(t, err)
-	require.False(t, cfg.Gateway.APIKeyRoutingPersonalizationEnabled)
-	require.False(t, cfg.Gateway.APIKeyRoutingModelPredictionEnabled)
-	require.False(t, cfg.Gateway.APIKeyRoutingExplorationEnabled)
 	require.Equal(t, .01, cfg.Gateway.APIKeyRoutingFactSampleRate)
 	require.Equal(t, 3600, cfg.Gateway.APIKeyGroupStickyTTLSeconds)
 }
 
 func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
 	resetViperWithJWTSecret(t)
-	t.Setenv("GATEWAY_API_KEY_ROUTING_OPTIMIZATION_ENABLED", "true")
 	t.Setenv("GATEWAY_API_KEY_ROUTING_FACT_SAMPLE_RATE", "0.25")
-	t.Setenv("GATEWAY_API_KEY_ROUTING_PERSONALIZATION_ENABLED", "true")
-	t.Setenv("GATEWAY_API_KEY_ROUTING_MODEL_PREDICTION_ENABLED", "true")
-	t.Setenv("GATEWAY_API_KEY_ROUTING_EXPLORATION_ENABLED", "false")
 	t.Setenv("GATEWAY_API_KEY_GROUP_STICKY_TTL_SECONDS", "1800")
 	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_WINDOW_SECONDS", "240")
 	t.Setenv("GATEWAY_API_KEY_GROUP_BREAKER_COOLDOWN_SECONDS", "45")
@@ -55,34 +48,11 @@ func TestLoadAPIKeyRoutingEnvironmentOverrides(t *testing.T) {
 
 	cfg, err := Load()
 	require.NoError(t, err)
-	require.True(t, cfg.Gateway.APIKeyRoutingOptimizationEnabled)
 	require.Equal(t, 0.25, cfg.Gateway.APIKeyRoutingFactSampleRate)
-	require.True(t, cfg.Gateway.APIKeyRoutingPersonalizationEnabled)
-	require.True(t, cfg.Gateway.APIKeyRoutingModelPredictionEnabled)
-	require.False(t, cfg.Gateway.APIKeyRoutingExplorationEnabled)
 	require.Equal(t, 1800, cfg.Gateway.APIKeyGroupStickyTTLSeconds)
 	require.Equal(t, 240, cfg.Gateway.APIKeyGroupBreakerWindowSeconds)
 	require.Equal(t, 45, cfg.Gateway.APIKeyGroupBreakerCooldownSeconds)
 	require.Equal(t, 12, cfg.Gateway.APIKeyGroupBreakerMinSamples)
-}
-
-func TestValidateRejectsUngatedAPIKeyRoutingLearningExtension(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	cfg, err := Load()
-	require.NoError(t, err)
-	cfg.Gateway.APIKeyRoutingExplorationEnabled = true
-	require.ErrorContains(t, cfg.Validate(), "exploration remains unavailable")
-}
-
-func TestValidateAllowsGatedLocalRoutingLearningButRejectsMissingParentSwitches(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	cfg, err := Load()
-	require.NoError(t, err)
-	cfg.Gateway.APIKeyRoutingPersonalizationEnabled = true
-	require.ErrorContains(t, cfg.Validate(), "require routing optimization")
-	cfg.Gateway.APIKeyRoutingOptimizationEnabled = true
-	cfg.Gateway.APIKeyRoutingModelPredictionEnabled = true
-	require.NoError(t, cfg.Validate())
 }
 
 func TestLoadTimezonePrecedence(t *testing.T) {
