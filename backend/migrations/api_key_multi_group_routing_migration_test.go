@@ -35,6 +35,18 @@ func TestMigration248AddsBoundedUserControlsAndIndependentRuntimeVersion(t *test
 	require.Contains(t, sql, "ALTER TABLE routing_attempts")
 }
 
+func TestMigration256RewritesSmartKeysToSequential(t *testing.T) {
+	content, err := FS.ReadFile("256_api_key_schedule_mode_sequential.sql")
+	require.NoError(t, err)
+	sql := strings.Join(strings.Fields(string(content)), " ")
+	require.Contains(t, sql, "UPDATE api_keys")
+	require.Contains(t, sql, "schedule_mode = 'sequential'")
+	require.Contains(t, sql, "smart_preference = NULL")
+	require.Contains(t, sql, "smart_balance_bps = NULL")
+	require.NotContains(t, sql, "UPDATE usage_logs")
+	require.NotContains(t, sql, "UPDATE routing_attempts")
+}
+
 func TestMigration250BuildsUsageDecisionIndexConcurrently(t *testing.T) {
 	content, err := FS.ReadFile("250_api_key_routing_usage_decision_index_notx.sql")
 	require.NoError(t, err)

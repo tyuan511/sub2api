@@ -87,10 +87,10 @@ func (c *APIKeyRouteCoordinator) BuildPlan(apiKey *APIKey, eligible APIKeyRouteE
 	defer func() {
 		DefaultRoutingRuntimeMetrics().RecordPlan(len(plan.Candidates), len(plan.Excluded))
 	}()
-	if plan.ScheduleMode == "" {
-		plan.ScheduleMode = APIKeyScheduleModeSequential
-	}
-	if !plan.RoutingEnabled {
+	// Failover is always a fixed sequential order. A persisted legacy smart
+	// value must not leak into routing facts: the fact contract only accepts
+	// sequential, and a rejected fact would drop health signals for that key.
+	if plan.ScheduleMode != APIKeyScheduleModeSequential {
 		plan.ScheduleMode = APIKeyScheduleModeSequential
 	}
 

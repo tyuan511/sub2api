@@ -38,6 +38,26 @@ func TestAPIKeyRouteCoordinator_PreservesLegacyUnscopedKey(t *testing.T) {
 	require.Empty(t, plan.Candidates)
 }
 
+func TestAPIKeyRouteCoordinator_LegacySmartModeIsTreatedAsSequential(t *testing.T) {
+	first := routeTestGroup(10, PlatformOpenAI, SubscriptionTypeStandard, StatusActive)
+	second := routeTestGroup(20, PlatformOpenAI, SubscriptionTypeStandard, StatusActive)
+	firstID := first.ID
+	key := &APIKey{
+		ID: 7, GroupID: &firstID, Group: first, RouteVersion: 3, ScheduleMode: "smart",
+		GroupRoutes: []APIKeyGroupRoute{
+			{GroupID: 10, Priority: 0, Enabled: true, Group: first},
+			{GroupID: 20, Priority: 1, Enabled: true, Group: second},
+		},
+	}
+
+	plan, err := NewAPIKeyRouteCoordinator(true).BuildPlan(key, nil)
+	require.NoError(t, err)
+	require.True(t, plan.RoutingEnabled)
+	require.Equal(t, APIKeyScheduleModeSequential, plan.ScheduleMode)
+	require.Equal(t, []int64{10, 20}, []int64{plan.Candidates[0].GroupID, plan.Candidates[1].GroupID})
+	require.Equal(t, "smart", key.ScheduleMode, "the auth snapshot must not be mutated")
+}
+
 func TestAPIKeyRouteCoordinator_SequentialHardFiltersAndClonesActualGroup(t *testing.T) {
 	first := routeTestGroup(10, PlatformOpenAI, SubscriptionTypeStandard, StatusActive)
 	second := routeTestGroup(20, PlatformOpenAI, SubscriptionTypeStandard, StatusActive)
