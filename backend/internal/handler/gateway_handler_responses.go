@@ -173,7 +173,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	}
 	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, reqModel, routeEndpoint)
 	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash)
-	routeStateDegraded := stickyErr != nil
 	if stickyErr != nil {
 		reqLog.Warn("gateway.responses.api_key_group_route_state_degraded", zap.Error(stickyErr))
 	}
@@ -194,20 +193,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	}
 	if stickyRouteSelected {
 		middleware2.MarkAPIKeyRouteStickySelected(c)
-	}
-	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
-		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, routeEndpoint, sessionHash, responsesCandidateCheck)
-		if smartErr != nil {
-			h.responsesErrorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
-			return
-		}
-		if len(ranked) > 0 {
-			apiKey = smartAPIKey
-			subscription = smartSubscription
-			parsedReq.GroupID = apiKey.GroupID
-			state, _ := middleware2.GetAPIKeyRouteState(c)
-			reqLog.Info("gateway.responses.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
-		}
 	}
 	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, responsesCandidateCheck)
 	if err != nil {

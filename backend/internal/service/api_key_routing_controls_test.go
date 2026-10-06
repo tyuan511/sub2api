@@ -11,12 +11,10 @@ func routingControlInt(value int) *int { return &value }
 
 func TestNewAPIKeyRoutingDefaultsToEightyAndPreservesExplicitThresholds(t *testing.T) {
 	groupID := int64(1)
-	mode, preference := APIKeyScheduleModeSmart, APIKeySmartPreferenceBalanced
 	for _, request := range []CreateAPIKeyRequest{
 		{},
 		{GroupID: &groupID},
 		{GroupRoutes: routeInputs(APIKeyGroupRouteInput{GroupID: 1})},
-		{GroupRoutes: routeInputs(APIKeyGroupRouteInput{GroupID: 1}), ScheduleMode: &mode, SmartPreference: &preference},
 	} {
 		routing, err := normalizeCreateAPIKeyRouting(request)
 		require.NoError(t, err)
@@ -29,14 +27,28 @@ func TestNewAPIKeyRoutingDefaultsToEightyAndPreservesExplicitThresholds(t *testi
 	}
 }
 
+func TestNormalizeCreateAPIKeyRoutingAlwaysSequential(t *testing.T) {
+	// Smart routing has been removed: even a legacy client that still sends the
+	// old smart fields must be normalized to a fixed sequential order.
+	routing, err := normalizeCreateAPIKeyRouting(CreateAPIKeyRequest{
+		GroupRoutes:           routeInputs(APIKeyGroupRouteInput{GroupID: 1}),
+		RoutingMinSuccessRate: routingControlInt(85),
+	})
+	require.NoError(t, err)
+	require.Equal(t, APIKeyScheduleModeSequential, routing.ScheduleMode)
+	require.Equal(t, 85, routing.MinSuccessRate)
+}
+
 func TestAPIKeyRoutingNewDefaultDoesNotChangeExistingThresholds(t *testing.T) {
-	mode := APIKeyScheduleModeSequential
 	for _, stored := range []int{0, 50, 80, 95} {
-		key := &APIKey{ScheduleMode: mode, RoutingMinSuccessRate: stored,
+		key := &APIKey{ScheduleMode: APIKeyScheduleModeSequential, RoutingMinSuccessRate: stored,
 			GroupRoutes: []APIKeyGroupRoute{{GroupID: 1, Enabled: true}}}
-		routing, changed, err := normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{ScheduleMode: &mode})
+		// A route edit without an explicit threshold must preserve the stored
+		// value rather than resetting it to the creation default.
+		routes := routeInputs(APIKeyGroupRouteInput{GroupID: 2, Priority: 0})
+		routing, changed, err := normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{GroupRoutes: routes})
 		require.NoError(t, err)
-		require.False(t, changed)
+		require.True(t, changed)
 		expected := stored
 		if expected == 0 {
 			expected = 50 // Legacy objects without this field retain the old runtime contract.
@@ -72,90 +84,26 @@ func TestNormalizeUpdateAPIKeyRoutingDetectsActualConfigurationChanges(t *testin
 
 func TestAPIKeyRoutingControlsValidationAndLegacyCompatibility(t *testing.T) {
 	for minimum := 50; minimum <= 95; minimum += 5 {
-		require.NoError(t, ValidateAPIKeyRoutingControls(routingControlInt(0), &minimum))
-		require.NoError(t, ValidateAPIKeyRoutingControls(routingControlInt(10000), &minimum))
+		require.NoError(t, ValidateAPIKeyRoutingControls(&minimum))
 	}
 	for _, minimum := range []int{0, 49, 51, 94, 96, 100} {
-		require.ErrorIs(t, ValidateAPIKeyRoutingControls(nil, &minimum), ErrAPIKeyRoutesInvalid)
+		require.ErrorIs(t, ValidateAPIKeyRoutingControls(&minimum), ErrAPIKeyRoutesInvalid)
 	}
-	for _, balance := range []int{-1, 10001} {
-		require.ErrorIs(t, ValidateAPIKeyRoutingControls(&balance, nil), ErrAPIKeyRoutesInvalid)
-	}
-	mode := APIKeyScheduleModeSmart
 	created, err := normalizeCreateAPIKeyRouting(CreateAPIKeyRequest{
-		GroupRoutes: routeInputs(APIKeyGroupRouteInput{GroupID: 1}), ScheduleMode: &mode,
-		SmartBalanceBPS: routingControlInt(3000), RoutingMinSuccessRate: routingControlInt(85),
+		GroupRoutes: routeInputs(APIKeyGroupRouteInput{GroupID: 1}), RoutingMinSuccessRate: routingControlInt(85),
 	})
 	require.NoError(t, err)
-	require.Equal(t, APIKeySmartPreferencePrice, *created.SmartPreference)
-	require.Equal(t, 3000, *created.SmartBalanceBPS)
+	require.Equal(t, APIKeyScheduleModeSequential, created.ScheduleMode)
 	require.Equal(t, 85, created.MinSuccessRate)
-	key := &APIKey{ScheduleMode: mode, SmartPreference: created.SmartPreference, GroupRoutes: created.Routes,
-		SmartBalanceBPS: created.SmartBalanceBPS, RoutingMinSuccessRate: 85}
+	key := &APIKey{ScheduleMode: APIKeyScheduleModeSequential, GroupRoutes: created.Routes,
+		RoutingMinSuccessRate: 85}
 	_, changed, err := normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{})
 	require.NoError(t, err)
 	require.False(t, changed)
 	updated, changed, err := normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{RoutingMinSuccessRate: routingControlInt(95)})
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.Equal(t, 3000, *updated.SmartBalanceBPS)
 	require.Equal(t, 95, updated.MinSuccessRate)
-	legacy := APIKeySmartPreferenceSpeed
-	updated, _, err = normalizeUpdateAPIKeyRouting(key, UpdateAPIKeyRequest{SmartPreference: &legacy})
-	require.NoError(t, err)
-	require.Nil(t, updated.SmartBalanceBPS)
-	require.Equal(t, &legacy, updated.SmartPreference)
-}
-
-func TestAPIKeyRoutingControlsWeightsFollowPriceStabilitySlider(t *testing.T) {
-	for balance := 0; balance <= 10000; balance += 50 {
-		policy := ApplyAPIKeyRoutingControls(DefaultAPIKeyRoutingStrategyPolicy(APIKeySmartPreferenceBalanced),
-			&APIKey{SmartBalanceBPS: &balance, RoutingMinSuccessRate: 85})
-		require.NoError(t, ValidateAPIKeyRoutingStrategyPolicy(policy))
-		stability := float64(balance) / 10000
-		require.InDelta(t, 1-stability, policy.Weights.Price, 1e-12)
-		require.InDelta(t, stability*apiKeyRoutingStabilitySuccessShare, policy.Weights.Success, 1e-12)
-		require.InDelta(t, stability*apiKeyRoutingStabilityTTFTShare, policy.Weights.TTFT, 1e-12)
-		require.InDelta(t, stability*apiKeyRoutingStabilitySpeedShare, policy.Weights.Speed, 1e-12)
-		require.InDelta(t, 1, apiKeyRoutingWeightSum(policy.Weights), 1e-12)
-		require.Equal(t, .5, policy.SuccessRateHardGate, "user threshold is not projected into ranking")
-	}
-	weights := APIKeyRoutingBalanceWeights(3000)
-	require.InDelta(t, .7, weights.Price, 1e-12)
-	require.InDelta(t, .24, weights.Success, 1e-12)
-	require.InDelta(t, .06, weights.TTFT, 1e-12)
-	require.InDelta(t, 0, weights.Speed, 1e-12)
-	for preference, balance := range map[string]int{APIKeySmartPreferencePrice: 1250, APIKeySmartPreferenceSpeed: 8750, APIKeySmartPreferenceBalanced: 5000} {
-		old, actual := APIKeyRoutingWeights(preference), APIKeyRoutingBalanceWeights(balance)
-		require.InDelta(t, old.Price, actual.Price, 1e-12)
-		require.InDelta(t, old.Success, actual.Success, 1e-12)
-		require.InDelta(t, old.TTFT, actual.TTFT, 1e-12)
-		require.InDelta(t, old.Speed, actual.Speed, 1e-12)
-	}
-}
-
-func TestAPIKeyRoutingControlsChangeActualRankingWithoutSuccessGate(t *testing.T) {
-	candidates := []APIKeyRouteCandidate{{GroupID: 1}, {GroupID: 2, Priority: 1}}
-	snapshot := &APIKeyRoutingScoreSnapshot{Groups: map[int64]APIKeyRoutingGroupObservation{
-		1: {GroupID: 1, SuccessRequests: 85, FailedRequests: 15, NormalizedRate: 1, TTFTP50Ms: 1000, Confidence: 1, PriceConfidence: 1, CapacityScore: 1},
-		2: {GroupID: 2, SuccessRequests: 85, FailedRequests: 15, NormalizedRate: 2, TTFTP50Ms: 100, Confidence: 1, PriceConfidence: 1, CapacityScore: 1},
-	}}
-	for _, test := range []struct {
-		balance int
-		first   int64
-	}{{0, 1}, {3000, 1}, {9000, 2}, {10000, 2}} {
-		policy := ApplyAPIKeyRoutingControls(DefaultAPIKeyRoutingStrategyPolicy("balanced"), &APIKey{SmartBalanceBPS: &test.balance, RoutingMinSuccessRate: 85})
-		ranked := RankAPIKeyRoutingCandidatesWithPolicy(candidates, snapshot, policy)
-		require.True(t, ranked[0].Eligible)
-		require.True(t, ranked[1].Eligible)
-		require.Equal(t, test.first, ranked[0].GroupID)
-		policy.SuccessRateHardGate = .9
-		ranked = RankAPIKeyRoutingCandidatesWithPolicy(candidates, snapshot, policy)
-		for _, score := range ranked {
-			require.True(t, score.Eligible, "success-rate hard gate must not exclude candidates")
-			require.Empty(t, score.Exclusion)
-		}
-	}
 }
 
 func TestAPIKeyRoutingControlsRuntimeVersionAndStrictOutage(t *testing.T) {
@@ -184,20 +132,4 @@ func TestAPIKeyRoutingControlsProbeAdmissionIsRequestScoped(t *testing.T) {
 	breaker, found := APIKeyRoutePreloadedBreaker(ctx, "gpt-5", "responses", 11)
 	require.True(t, found)
 	require.Equal(t, APIKeyRouteBreakerHalfOpen, breaker.State)
-}
-
-func TestAPIKeyRoutingRecoveryOverrideIsSmartOnly(t *testing.T) {
-	sequential := &APIKeyRoutePlan{
-		APIKeyID: 7, RouteVersion: 3, RoutingEnabled: true, ScheduleMode: APIKeyScheduleModeSequential,
-		Candidates: []APIKeyRouteCandidate{{GroupID: 11, Group: &Group{ID: 11, Platform: PlatformOpenAI}}},
-	}
-	ctx := WithAPIKeyRouteRequestRuntimeState(context.Background(), sequential)
-	require.False(t, apiKeyRoutingRecoveryOverrideForContext(ctx, 11, "gpt-5", "responses", 50),
-		"sequential keys must not treat shared recovery as a CLOSED fast-path")
-
-	smart := *sequential
-	smart.ScheduleMode = APIKeyScheduleModeSmart
-	ctx = WithAPIKeyRouteRequestRuntimeState(context.Background(), &smart)
-	require.False(t, apiKeyRoutingRecoveryOverrideForContext(ctx, 11, "gpt-5", "responses", 50),
-		"missing snapshot stays unknown rather than fabricating recovery")
 }

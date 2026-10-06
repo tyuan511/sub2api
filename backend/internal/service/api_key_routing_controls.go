@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
 // Creation default only; legacy persisted keys and facts retain their 50% fallback.
@@ -29,24 +28,11 @@ func (k *APIKey) HasMultipleEnabledGroupRoutes() bool {
 
 // Basis points retain exact legacy preset weights (12.5/87.5), while new keys
 // can select any integer basis-point balance without multiplying shared caches.
-func ValidateAPIKeyRoutingControls(balance, minimum *int) error {
-	if balance != nil && (*balance < 0 || *balance > 10000) {
-		return fmt.Errorf("%w: smart_balance_bps must be between 0 and 10000", ErrAPIKeyRoutesInvalid)
-	}
+func ValidateAPIKeyRoutingControls(minimum *int) error {
 	if minimum != nil && (*minimum < 50 || *minimum > 95 || *minimum%5 != 0) {
 		return fmt.Errorf("%w: routing_min_success_rate must be 50 to 95 in steps of 5", ErrAPIKeyRoutesInvalid)
 	}
 	return nil
-}
-
-func APIKeyRoutingBalancePreference(balance int) string {
-	if balance < 5000 {
-		return APIKeySmartPreferencePrice
-	}
-	if balance > 5000 {
-		return APIKeySmartPreferenceSpeed
-	}
-	return APIKeySmartPreferenceBalanced
 }
 
 func (k *APIKey) EffectiveRoutingMinSuccessRate() int {
@@ -61,29 +47,6 @@ func (k *APIKey) EffectiveRoutingStateVersion() int64 {
 		return k.RoutingStateVersion
 	}
 	return k.RouteVersion
-}
-
-func APIKeyRoutingBalanceWeights(balance int) APIKeyRoutingScoreWeights {
-	stability := float64(max(0, min(10000, balance))) / 10000
-	return APIKeyRoutingScoreWeights{
-		Price:   1 - stability,
-		Success: stability * apiKeyRoutingStabilitySuccessShare,
-		TTFT:    stability * apiKeyRoutingStabilityTTFTShare,
-		Speed:   stability * apiKeyRoutingStabilitySpeedShare,
-	}
-}
-
-// Apply after selecting active/canary/shadow artifacts. Optimization may improve
-// component estimates, but cannot override the user's exact price/stability ratio.
-func ApplyAPIKeyRoutingControls(policy APIKeyRoutingStrategyPolicy, key *APIKey) APIKeyRoutingStrategyPolicy {
-	if key == nil {
-		return policy
-	}
-	if key.SmartBalanceBPS != nil {
-		policy.Weights = APIKeyRoutingBalanceWeights(*key.SmartBalanceBPS)
-		policy.Preference = APIKeyRoutingBalancePreference(*key.SmartBalanceBPS)
-	}
-	return policy
 }
 
 func sameAPIKeyRouteSet(a, b []APIKeyGroupRoute) bool {
@@ -114,28 +77,11 @@ func apiKeyRoutingConfigurationEquivalent(current *APIKey, next normalizedAPIKey
 	if currentMode != next.ScheduleMode || current.EffectiveRoutingMinSuccessRate() != next.MinSuccessRate {
 		return false
 	}
-	if !sameRouteStringPtr(current.SmartPreference, next.SmartPreference) || !sameRouteIntPtr(current.SmartBalanceBPS, next.SmartBalanceBPS) {
-		return false
-	}
 	currentRoutes := current.GroupRoutes
 	if len(currentRoutes) == 0 && current.GroupID != nil && *current.GroupID > 0 {
 		currentRoutes = []APIKeyGroupRoute{{GroupID: *current.GroupID, Priority: 0, Enabled: true}}
 	}
 	return sameAPIKeyRouteSet(currentRoutes, next.Routes)
-}
-
-func sameRouteStringPtr(a, b *string) bool {
-	if a == nil || b == nil {
-		return a == nil && b == nil
-	}
-	return *a == *b
-}
-
-func sameRouteIntPtr(a, b *int) bool {
-	if a == nil || b == nil {
-		return a == nil && b == nil
-	}
-	return *a == *b
 }
 
 func apiKeyRoutingRuntimeVersion(ctx context.Context, id, version int64) int64 {
@@ -159,23 +105,4 @@ func apiKeyRoutingMinimumFromContext(context.Context, int64, int64) int {
 // Success rate no longer force-opens a candidate; low success only lowers score.
 func apiKeyRoutingBelowSharedGate(context.Context, int64, string, string, int, int) bool {
 	return false
-}
-
-func apiKeyRoutingRecoveryOverride(observation APIKeyRoutingGroupObservation, minimum int) bool {
-	return observation.RecoveryEligible && observation.RecoveryTrafficBPS > 0 &&
-		observation.RecentSuccessRate >= float64(minimum)/100
-}
-
-func apiKeyRoutingRecoveryOverrideForContext(ctx context.Context, groupID int64, model, endpoint string, minimum int) bool {
-	state, ok := apiKeyRouteRequestRuntimeStateFromContext(ctx)
-	if !ok || groupID <= 0 || state.ScheduleMode != APIKeyScheduleModeSmart {
-		return false
-	}
-	scope := APIKeyRoutingScoreScope{Platform: state.Platform, ModelFamily: model, EndpointKind: endpoint}
-	snapshot, ok := DefaultAPIKeyRoutingScoreStore().Lookup(scope, 180*time.Second, time.Now())
-	if !ok {
-		return false
-	}
-	observation, ok := snapshot.Groups[groupID]
-	return ok && apiKeyRoutingRecoveryOverride(observation, minimum)
 }

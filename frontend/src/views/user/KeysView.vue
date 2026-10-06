@@ -161,7 +161,7 @@
                 :data-test="`api-key-groups-${row.id}`"
                 @click="openGroupSelector(row)"
                 class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
-                :title="routingEnabled && ((row.group_routes?.length ?? 0) > 1 || row.schedule_mode === 'smart')
+                :title="routingEnabled && (row.group_routes?.length ?? 0) > 1
                   ? t('keys.clickToEditRouting')
                   : t('keys.clickToChangeGroup')"
               >
@@ -182,12 +182,6 @@
                   class="rounded bg-primary-50 px-1.5 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/20 dark:text-primary-300"
                 >
                   +{{ enabledRouteCount(row) - 1 }}
-                </span>
-                <span
-                  v-if="enabledRouteCount(row) > 1 && row.schedule_mode === 'smart'"
-                  class="rounded bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/20 dark:text-violet-300"
-                >
-                  {{ t('keys.scheduleSmart') }}
                 </span>
                 <span v-if="!row.group" class="text-sm text-gray-400 dark:text-dark-500">{{
                   t('keys.noGroup')
@@ -560,10 +554,9 @@
                   <li>{{ t('keys.routeGroupsHelpModels') }}</li>
                   <li>{{ t('keys.routeGroupsHelpBilling') }}</li>
                 </ul>
-                <p class="mt-2 font-medium">{{ t('keys.scheduleModeLabel') }}</p>
+                <p class="mt-2 font-medium">{{ t('keys.routeGroupsLabel') }}</p>
                 <ul class="mt-1.5 list-disc space-y-1 pl-4">
                   <li>{{ t('keys.routeGroupsHelpSequential') }}</li>
-                  <li>{{ t('keys.routeGroupsHelpSmart') }}</li>
                 </ul>
               </HelpTooltip>
             </div>
@@ -606,30 +599,6 @@
                 :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier" />
             </template>
           </Select>
-        </div>
-
-        <div v-if="hasMultipleRouteGroups" class="space-y-2">
-          <label class="input-label">{{ t('keys.scheduleModeLabel') }}</label>
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              v-for="mode in scheduleModeOptions"
-              :key="mode.value"
-              type="button"
-              class="rounded-lg border px-3 py-2.5 text-left transition-colors"
-              :class="formData.schedule_mode === mode.value
-                ? 'border-primary-500 bg-primary-50 text-primary-800 ring-1 ring-primary-500 dark:bg-primary-900/20 dark:text-primary-200'
-                : 'border-gray-200 text-gray-700 hover:border-gray-300 dark:border-dark-600 dark:text-gray-300'"
-              :data-test="`schedule-mode-${mode.value}`"
-              @click="selectScheduleMode(mode.value)"
-            >
-              <span class="block text-sm font-medium">{{ mode.label }}</span>
-              <span class="mt-0.5 block text-xs opacity-75">{{ mode.description }}</span>
-            </button>
-          </div>
-        </div>
-
-        <div v-if="hasMultipleRouteGroups && formData.schedule_mode === 'smart'" class="space-y-2">
-          <RoutingPreferencePresets v-model="formData.smart_balance_bps" data-test="smart-balance-presets" />
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1275,13 +1244,10 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import ApiKeyGroupRouteSelector from '@/components/keys/ApiKeyGroupRouteSelector.vue'
-import RoutingPreferencePresets, { snapSmartBalanceBps } from '@/components/keys/RoutingPreferencePresets.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 	import type {
 	  ApiKey,
-	  ApiKeyScheduleMode,
-	  ApiKeySmartPreference,
 	  CreateApiKeyRequest,
 	  Group,
 	  PublicSettings,
@@ -1480,7 +1446,6 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
 }
 
 const routingEnabled = true
-const hasMultipleRouteGroups = computed(() => formData.value.group_routes.length > 1)
 const legacyGroupId = computed({
   get: () => formData.value.group_routes[0] ?? null,
   set: (value: string | number | boolean | null) => {
@@ -1492,8 +1457,6 @@ const legacyGroupId = computed({
 const formData = ref({
   name: '',
   group_routes: [] as number[],
-  schedule_mode: 'sequential' as ApiKeyScheduleMode,
-  smart_balance_bps: 5000,
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -1533,28 +1496,6 @@ const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
   { value: 'inactive', label: t('common.inactive') }
 ])
-
-const scheduleModeOptions = computed(() => [
-  {
-    value: 'sequential' as const,
-    label: t('keys.scheduleSequential'),
-    description: t('keys.scheduleSequentialDescription')
-  },
-  {
-    value: 'smart' as const,
-    label: t('keys.scheduleSmart'),
-    description: t('keys.scheduleSmartDescription')
-  }
-])
-
-const balancePreference = computed<ApiKeySmartPreference>(() => {
-  const stability = formData.value.smart_balance_bps / 100
-  return stability < 50 ? 'price' : stability > 50 ? 'speed' : 'balanced'
-})
-
-const selectScheduleMode = (mode: ApiKeyScheduleMode) => {
-  formData.value.schedule_mode = mode
-}
 
 const shouldSubmitEditStatus = (key: ApiKey, status: 'active' | 'inactive') => {
   if (key.status === 'quota_exhausted' || key.status === 'expired') {
@@ -1818,8 +1759,6 @@ const editKey = async (key: ApiKey) => {
   formData.value = {
     name: key.name,
     group_routes: routeGroupIds,
-    schedule_mode: key.schedule_mode || 'sequential',
-    smart_balance_bps: snapSmartBalanceBps(key.smart_balance_bps ?? (key.smart_preference === 'price' ? 1250 : key.smart_preference === 'speed' ? 8750 : 5000)),
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -1855,7 +1794,7 @@ const toggleKeyStatus = async (key: ApiKey) => {
 const openGroupSelector = (key: ApiKey) => {
   // The legacy quick switch represents a single group_id replacement. Opening
   // it for a route set would silently discard fallbacks and policy metadata.
-  if (routingEnabled && ((key.group_routes?.length ?? 0) > 1 || key.schedule_mode === 'smart')) {
+  if (routingEnabled && (key.group_routes?.length ?? 0) > 1) {
     editKey(key)
     return
   }
@@ -1989,19 +1928,12 @@ const handleSubmit = async () => {
       priority
     }))
     const primaryGroupId = groupRoutes[0]?.group_id
-    const scheduleMode = hasMultipleRouteGroups.value ? formData.value.schedule_mode : 'sequential'
-    const smartPreference = scheduleMode === 'smart'
-      ? balancePreference.value
-      : null
 
     if (showEditModal.value && selectedKey.value) {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
         group_id: primaryGroupId,
         group_routes: groupRoutes.length > 0 ? groupRoutes : undefined,
-        schedule_mode: groupRoutes.length > 1 ? scheduleMode : undefined,
-        smart_preference: groupRoutes.length > 1 ? smartPreference : undefined,
-        smart_balance_bps: scheduleMode === 'smart' ? formData.value.smart_balance_bps : undefined,
         expected_route_version: selectedKey.value.route_version,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
@@ -2022,9 +1954,6 @@ const handleSubmit = async () => {
         name: formData.value.name,
         group_id: primaryGroupId,
         group_routes: groupRoutes.length > 0 ? groupRoutes : undefined,
-        schedule_mode: groupRoutes.length > 1 ? scheduleMode : undefined,
-        smart_preference: groupRoutes.length > 1 ? smartPreference : undefined,
-        smart_balance_bps: scheduleMode === 'smart' ? formData.value.smart_balance_bps : undefined,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota,
@@ -2084,8 +2013,6 @@ const closeModals = () => {
   formData.value = {
     name: '',
     group_routes: [],
-    schedule_mode: 'sequential',
-    smart_balance_bps: 5000,
     status: 'active',
     use_custom_key: false,
     custom_key: '',

@@ -31,17 +31,15 @@ func TestAPIKeyRepositoryRoutingCreateAndCASUpdateSQLite(t *testing.T) {
 		Save(ctx)
 	require.NoError(t, err)
 
-	pref := service.APIKeySmartPreferenceBalanced
 	primaryID := primary.ID
 	key := &service.APIKey{
-		UserID:          user.ID,
-		Key:             "sk-routing-cas",
-		Name:            "routing",
-		GroupID:         &primaryID,
-		ScheduleMode:    service.APIKeyScheduleModeSmart,
-		SmartPreference: &pref,
-		RouteVersion:    1,
-		Status:          service.StatusActive,
+		UserID:       user.ID,
+		Key:          "sk-routing-cas",
+		Name:         "routing",
+		GroupID:      &primaryID,
+		ScheduleMode: service.APIKeyScheduleModeSequential,
+		RouteVersion: 1,
+		Status:       service.StatusActive,
 		GroupRoutes: []service.APIKeyGroupRoute{
 			{GroupID: primary.ID, Priority: 0, Enabled: true},
 			{GroupID: fallback.ID, Priority: 1, Enabled: true},
@@ -52,8 +50,7 @@ func TestAPIKeyRepositoryRoutingCreateAndCASUpdateSQLite(t *testing.T) {
 	got, err := repo.GetByKeyForAuth(ctx, key.Key)
 	require.NoError(t, err)
 	require.Equal(t, &primaryID, got.GroupID)
-	require.Equal(t, service.APIKeyScheduleModeSmart, got.ScheduleMode)
-	require.Equal(t, &pref, got.SmartPreference)
+	require.Equal(t, service.APIKeyScheduleModeSequential, got.ScheduleMode)
 	require.Equal(t, int64(1), got.RouteVersion)
 	require.Equal(t, int64(1), got.RoutingDependencyVersion)
 	require.Len(t, got.GroupRoutes, 2)
@@ -81,8 +78,6 @@ func TestAPIKeyRepositoryRoutingCreateAndCASUpdateSQLite(t *testing.T) {
 	expected := int64(1)
 	fallbackID := fallback.ID
 	got.GroupID = &fallbackID
-	got.ScheduleMode = service.APIKeyScheduleModeSequential
-	got.SmartPreference = nil
 	routes := []service.APIKeyGroupRoute{
 		{GroupID: fallback.ID, Priority: 0, Enabled: true},
 		{GroupID: primary.ID, Priority: 1, Enabled: true},

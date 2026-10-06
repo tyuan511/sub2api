@@ -119,7 +119,6 @@ const createApiKey = (): ApiKey => ({
   group_id: null,
   group_routes: [],
   schedule_mode: 'sequential',
-  smart_preference: null,
   route_version: 1,
   status: 'active',
   ip_whitelist: [],
@@ -697,10 +696,10 @@ describe('user KeysView column settings', () => {
     getAvailableGroups.mockResolvedValue([group, second])
     listKeys.mockResolvedValue({ items: [{ ...createApiKey(), group_id: 10, group,
       group_routes: [{ group_id: 10, priority: 0, enabled: true, group }, { group_id: 20, priority: 1, enabled: true, group: second }],
-      schedule_mode: 'smart', smart_preference: 'price', smart_balance_bps: 3000, routing_min_success_rate: 95 }],
+      routing_min_success_rate: 95 }],
       total: 1, page: 1, page_size: 20, pages: 1 })
     const wrapper = await mountView(true)
-    expect(wrapper.get('[data-test="api-key-groups-1"]').text()).toContain('keys.scheduleSmart')
+    expect(wrapper.get('[data-test="api-key-groups-1"]').text()).toContain('+1')
     await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="route-group-trigger"]').exists()).toBe(true)
@@ -710,10 +709,10 @@ describe('user KeysView column settings', () => {
     const payload = updateKey.mock.calls.at(-1)?.[1]
     expect(payload.name).toBe('renamed')
     expect(payload.group_routes).toEqual([{ group_id: 10, priority: 0 }, { group_id: 20, priority: 1 }])
-    expect(payload.schedule_mode).toBe('smart')
+    expect(payload.schedule_mode).toBeUndefined()
   })
 
-  it('creates an ordered smart route set with an explicit preference', async () => {
+  it('creates an ordered sequential route set without failover-mode controls', async () => {
     getAvailableGroups.mockResolvedValue([createGroup(10, 1.2), createGroup(20, 0.8)])
     const wrapper = await mountView(true)
 
@@ -724,8 +723,9 @@ describe('user KeysView column settings', () => {
     await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
     await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
     await wrapper.get('[data-test="drag-route-20"]').trigger('keydown', { key: 'ArrowUp' })
-    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    await wrapper.get('[data-test="smart-balance-preset-2500"]').trigger('click')
+    // Failover mode is no longer user-selectable; the order is the policy.
+    expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="schedule-mode-sequential"]').exists()).toBe(false)
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
 
@@ -736,86 +736,32 @@ describe('user KeysView column settings', () => {
         { group_id: 20, priority: 0 },
         { group_id: 10, priority: 1 },
       ],
-      schedule_mode: 'smart',
-      smart_preference: 'price',
-      smart_balance_bps: 2500,
     }))
-    expect(createKeyWithRequest.mock.calls.at(-1)?.[0].routing_min_success_rate).toBeUndefined()
-  })
-
-  it('defaults the smart preference to balanced', async () => {
-    getAvailableGroups.mockResolvedValue([createGroup(10), createGroup(20)])
-    const wrapper = await mountView(true)
-    await getButtonByText(wrapper, 'Create API Key').trigger('click')
-    await nextTick()
-    const selectTwoGroups = async () => {
-      await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
-      await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
-      await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
-    }
-    await selectTwoGroups()
-    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    expect(wrapper.get('[data-test="smart-balance-preset-5000"]').classes()).toContain('border-primary-500')
-    await wrapper.get('[data-test="smart-balance-preset-0"]').trigger('click')
-    await wrapper.get('[data-test="smart-balance-preset-5000"]').trigger('click')
-    await wrapper.get('[data-tour="key-form-name"]').setValue('default-balance-key')
-    await wrapper.get('#key-form').trigger('submit')
-    await flushPromises()
-    expect(createKeyWithRequest).toHaveBeenCalledWith(expect.objectContaining({ smart_balance_bps: 5000 }))
-    await getButtonByText(wrapper, 'Create API Key').trigger('click')
-    await nextTick()
-    await selectTwoGroups()
-    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    expect(wrapper.get('[data-test="smart-balance-preset-5000"]').classes()).toContain('border-primary-500')
-  })
-
-  it('shows controls only for multiple groups and does not submit hidden preferences', async () => {
-    getAvailableGroups.mockResolvedValue([createGroup(10), createGroup(20)])
-    const wrapper = await mountView(true)
-    await getButtonByText(wrapper, 'Create API Key').trigger('click')
-    const expectHidden = () => {
-      expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="smart-balance-presets"]').exists()).toBe(false)
-    }
-    expectHidden()
-    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
-    await wrapper.get('[data-test="route-group-option-10"]').trigger('click')
-    expectHidden()
-    await wrapper.get('[data-test="route-group-option-20"]').trigger('click')
-    expect(wrapper.find('[data-test="schedule-mode-smart"]').exists()).toBe(true)
-    await wrapper.get('[data-test="schedule-mode-smart"]').trigger('click')
-    await wrapper.get('[data-test="smart-balance-preset-10000"]').trigger('click')
-    await wrapper.get('[data-test="remove-route-group-20"]').trigger('click')
-    expectHidden()
-    await wrapper.get('[data-tour="key-form-name"]').setValue('fixed-group')
-    await wrapper.get('#key-form').trigger('submit')
-    await flushPromises()
     const payload = createKeyWithRequest.mock.calls.at(-1)?.[0]
-    expect(payload).toMatchObject({ group_routes: [{ group_id: 10, priority: 0 }] })
     expect(payload.schedule_mode).toBeUndefined()
     expect(payload.smart_preference).toBeUndefined()
     expect(payload.smart_balance_bps).toBeUndefined()
     expect(payload.routing_min_success_rate).toBeUndefined()
   })
 
-  it.each([0, 1, 2])('shows the smart badge only for multiple enabled groups (count=%s)', async (count) => {
-    const groups = [createGroup(10), createGroup(20)].slice(0, count)
+  it('shows the multi-group badge without any failover-mode badge', async () => {
+    const groups = [createGroup(10), createGroup(20)].slice(0, 2)
     listKeys.mockResolvedValue({ items: [{ ...createApiKey(),
       group_id: groups[0]?.id ?? null, group: groups[0] ?? null,
-      group_routes: groups.map((group, priority) => ({ group_id: group.id, priority, enabled: true, group })),
-      schedule_mode: 'smart' }], total: 1, page: 1, page_size: 20, pages: 1 })
+      group_routes: groups.map((group, priority) => ({ group_id: group.id, priority, enabled: true, group })) }],
+      total: 1, page: 1, page_size: 20, pages: 1 })
     const wrapper = await mountView()
     const groupCell = wrapper.get('[data-test="api-key-groups-1"]')
-    expect(groupCell.text().includes('keys.scheduleSmart')).toBe(count > 1)
-    expect(groupCell.text().includes('keys.noGroup')).toBe(count === 0)
+    expect(groupCell.text()).toContain('+1')
+    expect(groupCell.text().includes('keys.scheduleSmart')).toBe(false)
   })
 
-  it('hides old single-group smart settings without overwriting its stored threshold', async () => {
+  it('hides failover-mode settings and does not submit routing policy fields', async () => {
     const group = createGroup(10)
     getAvailableGroups.mockResolvedValue([group])
     listKeys.mockResolvedValue({ items: [{ ...createApiKey(), group_id: 10, group,
       group_routes: [{ group_id: 10, priority: 0, enabled: true, group }],
-      schedule_mode: 'smart', smart_preference: 'price', smart_balance_bps: 3000, routing_min_success_rate: 95 }],
+      routing_min_success_rate: 95 }],
       total: 1, page: 1, page_size: 20, pages: 1 })
     const wrapper = await mountView(true)
     await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
@@ -827,34 +773,6 @@ describe('user KeysView column settings', () => {
     expect(payload.schedule_mode).toBeUndefined()
     expect(payload.smart_preference).toBeUndefined()
     expect(payload.routing_min_success_rate).toBeUndefined()
-  })
-
-  it.each([
-    { preference: 'price', stored: null, expected: 0 },
-    { preference: 'speed', stored: null, expected: 10000 },
-    { preference: 'price', stored: 0, expected: 0 },
-    { preference: 'speed', stored: 7350, expected: 5000 },
-  ])('restores exact controls and compatible legacy preference $preference/$stored', async ({ preference, stored, expected }) => {
-    const group = createGroup(10)
-    const second = createGroup(20)
-    listKeys.mockResolvedValue({
-      items: [{ ...createApiKey(), group_id: 10, group,
-        group_routes: [{ group_id: 10, priority: 0, enabled: true, group }, { group_id: 20, priority: 1, enabled: true, group: second }],
-        schedule_mode: 'smart', smart_preference: preference, smart_balance_bps: stored,
-        route_version: 8 }],
-      total: 1, page: 1, page_size: 20, pages: 1,
-    })
-    getAvailableGroups.mockResolvedValue([group, second])
-    const wrapper = await mountView(true)
-    await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
-    await nextTick()
-    expect(wrapper.get(`[data-test="smart-balance-preset-${expected}"]`).classes()).toContain('border-primary-500')
-    await wrapper.get('#key-form').trigger('submit')
-    await flushPromises()
-    expect(updateKey).toHaveBeenCalledWith(1, expect.objectContaining({
-      smart_balance_bps: expected, expected_route_version: 8,
-    }))
-    expect(updateKey.mock.calls.at(-1)?.[1].routing_min_success_rate).toBeUndefined()
   })
 
   it('uses route-version CAS and reloads after an edit conflict', async () => {

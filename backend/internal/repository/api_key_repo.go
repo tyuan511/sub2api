@@ -93,8 +93,6 @@ func (r *apiKeyRepository) createWithClient(ctx context.Context, client *dbent.C
 		SetStatus(key.Status).
 		SetNillableGroupID(key.GroupID).
 		SetScheduleMode(key.ScheduleMode).
-		SetNillableSmartPreference(key.SmartPreference).
-		SetNillableSmartBalanceBps(key.SmartBalanceBPS).
 		SetRoutingMinSuccessRate(minimum).
 		SetRoutingStateVersion(key.EffectiveRoutingStateVersion()).
 		SetRouteVersion(key.RouteVersion).
@@ -263,8 +261,6 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldUserID,
 			apikey.FieldGroupID,
 			apikey.FieldScheduleMode,
-			apikey.FieldSmartPreference,
-			apikey.FieldSmartBalanceBps,
 			apikey.FieldRoutingMinSuccessRate,
 			apikey.FieldRoutingStateVersion,
 			apikey.FieldRouteVersion,
@@ -390,8 +386,6 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fiel
 	// the new relation can never diverge.
 	if fields.GroupID && fields.Routing == nil {
 		key.ScheduleMode = service.APIKeyScheduleModeSequential
-		key.SmartPreference = nil
-		key.SmartBalanceBPS = nil
 		key.GroupRoutes = nil
 		if key.GroupID != nil && *key.GroupID > 0 {
 			key.GroupRoutes = []service.APIKeyGroupRoute{{
@@ -491,18 +485,8 @@ func (r *apiKeyRepository) updateWithClient(ctx context.Context, client *dbent.C
 	if fields.Routing != nil {
 		builder.SetScheduleMode(key.ScheduleMode)
 		builder.SetRoutingMinSuccessRate(key.EffectiveRoutingMinSuccessRate())
-		if key.SmartBalanceBPS != nil {
-			builder.SetSmartBalanceBps(*key.SmartBalanceBPS)
-		} else {
-			builder.ClearSmartBalanceBps()
-		}
 		if !fields.Routing.PreserveRuntimeState {
 			builder.AddRoutingStateVersion(1)
-		}
-		if key.SmartPreference != nil {
-			builder.SetSmartPreference(*key.SmartPreference)
-		} else {
-			builder.ClearSmartPreference()
 		}
 		builder.AddRouteVersion(1)
 	}
@@ -1217,8 +1201,6 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		Name:                     m.Name,
 		GroupID:                  m.GroupID,
 		ScheduleMode:             m.ScheduleMode,
-		SmartPreference:          m.SmartPreference,
-		SmartBalanceBPS:          m.SmartBalanceBps,
 		RoutingMinSuccessRate:    m.RoutingMinSuccessRate,
 		RoutingStateVersion:      m.RoutingStateVersion,
 		RouteVersion:             m.RouteVersion,

@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
-	"time"
 
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -158,19 +156,6 @@ func apiKeyMultiGroupRoutingActive(c *gin.Context) bool {
 	return ok && !state.Locked && state.Plan.RoutingEnabled && state.Plan.Len() > 1
 }
 
-// shouldActivateSmartRoute is the session-isolation gate shared by every text
-// protocol: sequential keys, sticky sessions, and Redis-degraded requests stay
-// on the frozen candidate order. Recovery reordering is smart-only.
-func shouldActivateSmartRoute(c *gin.Context, stickyRouteSelected, routeStateDegraded bool) bool {
-	if stickyRouteSelected || routeStateDegraded || !apiKeyMultiGroupRoutingActive(c) {
-		return false
-	}
-	state, ok := middleware2.GetAPIKeyRouteState(c)
-	return ok && state != nil && state.Plan != nil &&
-		state.Plan.ScheduleMode == service.APIKeyScheduleModeSmart &&
-		state.Plan.SmartPreference != nil
-}
-
 type apiKeyRouteFailureObserver func(ctx context.Context, apiKeyID, routeVersion, groupID int64, model, endpoint string, cause error) (string, error)
 
 // observeAPIKeyRouteFailure records a group-health failure even when semantic
@@ -182,56 +167,6 @@ func observeAPIKeyRouteFailure(c *gin.Context, apiKey *service.APIKey, model, en
 	}
 	middleware2.MarkAPIKeyRouteStickyBroken(c)
 	return observe(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, *apiKey.GroupID, model, endpoint, routeErr)
-}
-
-// applyAPIKeyRoutingRecoveryTrafficBudget keeps a recovering candidate from
-// taking every new session at once. Existing sticky sessions never call this
-// path. If every candidate is recovering, retain the ranked order so a bounded
-// route set can still make a best-effort request instead of turning recovery
-// into an availability outage.
-func applyAPIKeyRoutingRecoveryTrafficBudget(apiKeyID int64, sessionHash string, ranked []service.APIKeyRoutingCandidateScore) []service.APIKeyRoutingCandidateScore {
-	hasStableCandidate := false
-	for _, score := range ranked {
-		if score.Eligible && !score.Recovery {
-			hasStableCandidate = true
-			break
-		}
-	}
-	if !hasStableCandidate {
-		return ranked
-	}
-	for index := range ranked {
-		if !ranked[index].Eligible || !ranked[index].Recovery || ranked[index].RecoveryTrafficBPS <= 0 {
-			continue
-		}
-		if service.APIKeyRoutingRecoveryTrafficAllowed(apiKeyID, ranked[index].GroupID, sessionHash, ranked[index].RecoveryTrafficBPS) {
-			continue
-		}
-		ranked[index].Eligible = false
-		ranked[index].Exclusion = "recovery_traffic_budget"
-	}
-	return ranked
-}
-
-func prioritizeAPIKeyRoutingRecoveryForPrice(ranked []service.APIKeyRoutingCandidateScore) []service.APIKeyRoutingCandidateScore {
-	result := append([]service.APIKeyRoutingCandidateScore(nil), ranked...)
-	minStableRate := 0.0
-	hasStableRate := false
-	for _, score := range result {
-		if score.Eligible && !score.Recovery && score.NormalizedRate >= 0 && (!hasStableRate || score.NormalizedRate < minStableRate) {
-			minStableRate = score.NormalizedRate
-			hasStableRate = true
-		}
-	}
-	if !hasStableRate {
-		return result
-	}
-	sort.SliceStable(result, func(i, j int) bool {
-		iRecovery := result[i].Eligible && result[i].Recovery && result[i].NormalizedRate < minStableRate
-		jRecovery := result[j].Eligible && result[j].Recovery && result[j].NormalizedRate < minStableRate
-		return iRecovery && !jRecovery
-	})
-	return result
 }
 
 // apiKeyRouteFailureAllowsAdvanceBeforeSemanticOutput is the shared HTTP/SSE
@@ -371,140 +306,6 @@ func (r apiKeyRouteRuntime) activateSticky(c *gin.Context, groupID int64, candid
 	return actual, subscription, true, nil
 }
 
-// activateSmart freezes one score version and chooses the first request-valid
-// group before billing/account selection. A missing or stale snapshot is a
-// deterministic sequential fallback, not a request failure.
-func (r apiKeyRouteRuntime) activateSmart(c *gin.Context, apiKey *service.APIKey, model, endpoint, sessionHash string, candidateCheck apiKeyRouteCandidateCheck) (*service.APIKey, *service.UserSubscription, []service.APIKeyRoutingCandidateScore, bool, error) {
-	state, ok := middleware2.GetAPIKeyRouteState(c)
-	if !ok || !state.Plan.RoutingEnabled || apiKey == nil || apiKey.Group == nil || state.Plan.ScheduleMode != service.APIKeyScheduleModeSmart || state.Plan.SmartPreference == nil {
-		return apiKey, nil, nil, false, nil
-	}
-	scope := service.APIKeyRoutingScoreScope{
-		Platform:     apiKey.Group.Platform,
-		ModelFamily:  service.NormalizeAPIKeyRoutingModelFamily(apiKey.Group.Platform, model),
-		EndpointKind: service.NormalizeAPIKeyRoutingEndpointKind(endpoint),
-	}
-	strategyScope := service.RoutingArtifactScope{
-		ArtifactKind: service.RoutingArtifactStrategy, Platform: scope.Platform, ModelFamily: scope.ModelFamily,
-		EndpointKind: scope.EndpointKind, Preference: state.Plan.SmartPreference,
-	}
-	userID := int64(0)
-	if apiKey.User != nil {
-		userID = apiKey.User.ID
-	}
-	selection := service.SelectDefaultAPIKeyRoutingStrategy(strategyScope, userID, apiKey.ID)
-	selection.Policy = service.ApplyAPIKeyRoutingControls(selection.Policy, apiKey)
-	if selection.ShadowPolicy != nil {
-		shadow := service.ApplyAPIKeyRoutingControls(*selection.ShadowPolicy, apiKey)
-		selection.ShadowPolicy = &shadow
-	}
-	snapshot, found := service.DefaultAPIKeyRoutingScoreStore().Lookup(scope, time.Duration(selection.Policy.MaxSnapshotAgeSeconds)*time.Second, time.Now())
-	if found {
-		service.DefaultRoutingRuntimeMetrics().RecordScoreSnapshot(true, time.Since(snapshot.GeneratedAt))
-	} else {
-		service.DefaultRoutingRuntimeMetrics().RecordScoreSnapshot(false, 0)
-	}
-	if !found {
-		return apiKey, nil, nil, false, nil
-	}
-	rankingStarted := time.Now()
-	var userRates map[int64]float64
-	if apiKey.User != nil {
-		userRates = apiKey.User.GroupRates
-	}
-	projectedSnapshot := service.ProjectAPIKeyRoutingScoreSnapshot(state.Plan.Candidates, snapshot, userRates)
-	eligibleGroups := apiKeyRoutingScoreEligibility(c, state.Plan.Candidates, candidateCheck, scope.ModelFamily, scope.EndpointKind)
-	baselineRanked := service.RankAPIKeyRoutingCandidatesWithEligibility(state.Plan.Candidates, projectedSnapshot, selection.Policy, eligibleGroups)
-	baselineRanked = applyAPIKeyRoutingCandidateCheck(c, baselineRanked, candidateCheck)
-	baselineRanked = applyAPIKeyRoutingBreakerEligibility(c, scope.ModelFamily, scope.EndpointKind, baselineRanked)
-	baselineRanked = applyAPIKeyRoutingRecoveryTrafficBudget(apiKey.ID, sessionHash, baselineRanked)
-	eligible := make(map[int64]bool, len(baselineRanked))
-	for _, score := range baselineRanked {
-		if score.Eligible {
-			if breaker, found := service.APIKeyRoutePreloadedBreaker(c.Request.Context(), scope.ModelFamily, scope.EndpointKind, score.GroupID); found && breaker.State == service.APIKeyRouteBreakerHalfOpen {
-				// HALF_OPEN remains a rule candidate so the later atomic admission
-				// can grant one probe, but an ungranted probe is not model input.
-				continue
-			}
-			eligible[score.GroupID] = true
-		}
-	}
-	learning := service.ApplyDefaultAPIKeyRoutingLearning(strategyScope, apiKey.ID, userID, selection.ExperimentID, projectedSnapshot, eligible, time.Now())
-	ranked := service.RankAPIKeyRoutingCandidatesWithEligibility(state.Plan.Candidates, learning.Snapshot, selection.Policy, eligibleGroups)
-	ranked = applyAPIKeyRoutingBaselineEligibility(ranked, baselineRanked)
-	ranked = annotateAPIKeyRoutingLearning(ranked, baselineRanked, learning.Personalization.AppliedGroups)
-	ranked = service.DefaultAPIKeyRoutingOrderStabilizer().Stabilize(
-		apiKey.ID, apiKey.RouteVersion, scope, *state.Plan.SmartPreference, sessionHash,
-		ranked, selection.Policy.Stability, time.Now(),
-	)
-	ranked = applyAPIKeyRoutingRecoveryTrafficBudget(apiKey.ID, sessionHash, ranked)
-	if *state.Plan.SmartPreference == service.APIKeySmartPreferencePrice {
-		ranked = prioritizeAPIKeyRoutingRecoveryForPrice(ranked)
-	}
-	// Consume a granted recovery admission rather than leaving an unused probe
-	// lease behind. activateSmart only runs for new/non-sticky sessions.
-	isRecovery := func(score service.APIKeyRoutingCandidateScore) bool {
-		return score.Eligible && service.APIKeyRouteRecoveryAdmitted(c.Request.Context(), scope.ModelFamily, scope.EndpointKind, score.GroupID)
-	}
-	sort.SliceStable(ranked, func(i, j int) bool { return isRecovery(ranked[i]) && !isRecovery(ranked[j]) })
-	middleware2.SetAPIKeyRouteScoreFacts(c, ranked)
-	var shadowRanked []service.APIKeyRoutingCandidateScore
-	shadowPolicy := selection.Policy
-	if selection.ShadowPolicy != nil {
-		shadowPolicy = *selection.ShadowPolicy
-	}
-	shadowSnapshot := learning.ShadowSnapshot
-	if shadowSnapshot == nil && selection.ShadowPolicy != nil && selection.ShadowPolicy.Version != selection.Policy.Version {
-		shadowSnapshot = projectedSnapshot
-	}
-	if shadowSnapshot != nil {
-		shadowRanked = service.RankAPIKeyRoutingCandidatesWithEligibility(state.Plan.Candidates, shadowSnapshot, shadowPolicy, eligibleGroups)
-		shadowRanked = applyAPIKeyRoutingBaselineEligibility(shadowRanked, baselineRanked)
-	}
-	service.DefaultRoutingRuntimeMetrics().RecordPhaseLatency(service.RoutingLatencyPhaseSmartRanking, time.Since(rankingStarted))
-	ordered := make([]int64, 0, len(ranked))
-	for _, score := range ranked {
-		if !score.Eligible {
-			continue
-		}
-		_, _, exists := middleware2.FindAPIKeyRouteGroup(c, score.GroupID)
-		if !exists {
-			continue
-		}
-		ordered = append(ordered, score.GroupID)
-	}
-	if len(ordered) == 0 {
-		return nil, nil, ranked, false, service.ErrNoEligibleAPIKeyRoute
-	}
-
-	for len(ordered) > 0 {
-		actual, applied := middleware2.ApplyAPIKeyRouteOrder(c, ordered, snapshot.Version, selection.Policy.Version, snapshot.FeatureVersion, snapshot.GeneratedAt)
-		if !applied {
-			return nil, nil, ranked, false, service.ErrNoEligibleAPIKeyRoute
-		}
-		subscription, err := r.subscriptionForCandidate(c.Request.Context(), actual)
-		if err != nil {
-			ordered = ordered[1:]
-			continue
-		}
-		middleware2.SetSubscriptionInContext(c, subscription)
-		c.Request = c.Request.WithContext(service.WithGatewayTokenRequestBillingGroup(c.Request.Context(), actual.Group))
-		middleware2.SetAPIKeyRouteStrategyAssignment(c, selection, learning.Snapshot.ModelVersion)
-		recovery := service.APIKeyRouteRecoveryAdmitted(c.Request.Context(), scope.ModelFamily, scope.EndpointKind, actual.Group.ID)
-		// Probes are health interventions, not normal scoring-policy decisions.
-		// Keep their outcome/usage facts, but exclude them from policy replay data.
-		if !recovery {
-			service.RecordAPIKeyRoutingDecision(c.Request.Context(), snapshot.ModelFamily, snapshot.EndpointKind)
-		}
-		if !recovery && len(shadowRanked) > 0 {
-			service.RecordAPIKeyRoutingShadowDecision(c.Request.Context(), shadowPolicy, shadowSnapshot, shadowRanked)
-		}
-		changed := apiKey.GroupID == nil || actual.GroupID == nil || *apiKey.GroupID != *actual.GroupID
-		return actual, subscription, ranked, changed, nil
-	}
-	return nil, nil, ranked, false, service.ErrNoEligibleAPIKeyRoute
-}
-
 func routingPlatformFromContext(c *gin.Context) string {
 	if c == nil {
 		return "unknown"
@@ -521,118 +322,6 @@ func apiKeyRouteStickyScope(apiKey *service.APIKey, model, endpoint string) (str
 		platform = apiKey.Group.Platform
 	}
 	return service.NormalizeAPIKeyRoutingModelFamily(platform, model), service.NormalizeAPIKeyRoutingEndpointKind(endpoint)
-}
-
-func apiKeyRoutingScoreEligibility(c *gin.Context, candidates []service.APIKeyRouteCandidate, candidateCheck apiKeyRouteCandidateCheck, modelFamily, endpointKind string) map[int64]bool {
-	eligible := make(map[int64]bool, len(candidates))
-	for _, candidate := range candidates {
-		apiKey, _, exists := middleware2.FindAPIKeyRouteGroup(c, candidate.GroupID)
-		if !exists {
-			continue
-		}
-		if candidateCheck != nil {
-			if err := candidateCheck(apiKey); err != nil {
-				continue
-			}
-		}
-		if c != nil && c.Request != nil {
-			if breaker, found := service.APIKeyRoutePreloadedBreaker(c.Request.Context(), modelFamily, endpointKind, candidate.GroupID); found && breaker.State == service.APIKeyRouteBreakerOpen {
-				continue
-			}
-		}
-		eligible[candidate.GroupID] = true
-	}
-	return eligible
-}
-
-func applyAPIKeyRoutingCandidateCheck(c *gin.Context, ranked []service.APIKeyRoutingCandidateScore, candidateCheck apiKeyRouteCandidateCheck) []service.APIKeyRoutingCandidateScore {
-	if candidateCheck == nil {
-		return ranked
-	}
-	for index := range ranked {
-		candidate, _, exists := middleware2.FindAPIKeyRouteGroup(c, ranked[index].GroupID)
-		if !exists {
-			ranked[index].Eligible = false
-			ranked[index].Exclusion = "candidate_not_configured"
-			continue
-		}
-		if err := candidateCheck(candidate); err != nil {
-			ranked[index].Eligible = false
-			ranked[index].Exclusion = "request_capability_rejected"
-		}
-	}
-	sort.SliceStable(ranked, func(i, j int) bool {
-		return ranked[i].Eligible && !ranked[j].Eligible
-	})
-	return ranked
-}
-
-func applyAPIKeyRoutingBreakerEligibility(c *gin.Context, modelFamily, endpointKind string, ranked []service.APIKeyRoutingCandidateScore) []service.APIKeyRoutingCandidateScore {
-	if c == nil || c.Request == nil {
-		return ranked
-	}
-	for index := range ranked {
-		if !ranked[index].Eligible {
-			continue
-		}
-		breaker, found := service.APIKeyRoutePreloadedBreaker(c.Request.Context(), modelFamily, endpointKind, ranked[index].GroupID)
-		if !found {
-			continue
-		}
-		if breaker.State == service.APIKeyRouteBreakerOpen {
-			ranked[index].Eligible = false
-			ranked[index].Exclusion = "breaker_" + breaker.State
-		}
-	}
-	sort.SliceStable(ranked, func(i, j int) bool { return ranked[i].Eligible && !ranked[j].Eligible })
-	return ranked
-}
-
-// applyAPIKeyRoutingBaselineEligibility preserves every rule/capability hard
-// rejection computed before local learning. A model can change component values,
-// but it can never put an excluded group back into the candidate set.
-func applyAPIKeyRoutingBaselineEligibility(ranked, baseline []service.APIKeyRoutingCandidateScore) []service.APIKeyRoutingCandidateScore {
-	baselineByGroup := make(map[int64]service.APIKeyRoutingCandidateScore, len(baseline))
-	for _, score := range baseline {
-		baselineByGroup[score.GroupID] = score
-	}
-	for index := range ranked {
-		base, exists := baselineByGroup[ranked[index].GroupID]
-		if !exists || !base.Eligible {
-			ranked[index].Eligible = false
-			if exists {
-				ranked[index].Exclusion = base.Exclusion
-			} else {
-				ranked[index].Exclusion = "candidate_not_in_baseline"
-			}
-		}
-	}
-	sort.SliceStable(ranked, func(i, j int) bool {
-		return ranked[i].Eligible && !ranked[j].Eligible
-	})
-	return ranked
-}
-
-func annotateAPIKeyRoutingLearning(ranked, baseline []service.APIKeyRoutingCandidateScore, personalizationWeights map[int64]float64) []service.APIKeyRoutingCandidateScore {
-	baselineByGroup := make(map[int64]float64, len(baseline))
-	for _, score := range baseline {
-		baselineByGroup[score.GroupID] = score.Score
-	}
-	for index := range ranked {
-		base, exists := baselineByGroup[ranked[index].GroupID]
-		if !exists {
-			continue
-		}
-		baseCopy := base
-		adjustment := ranked[index].Score - base
-		ranked[index].SharedBaselineScore = &baseCopy
-		ranked[index].LearningAdjustment = &adjustment
-		if weight, applied := personalizationWeights[ranked[index].GroupID]; applied {
-			weightCopy := weight
-			ranked[index].PersonalizationWeight = &weightCopy
-		}
-	}
-	return ranked
 }
 
 func (h *GatewayHandler) apiKeyRouteRuntime() apiKeyRouteRuntime {

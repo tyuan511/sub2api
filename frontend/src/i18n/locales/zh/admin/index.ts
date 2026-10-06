@@ -7,7 +7,6 @@ import settings from './settings'
 import audit from './audit'
 import promptAudit from './promptAudit'
 import plugins from './plugins'
-import routingOptimization from './routingOptimization'
 
 export default {
   ...overview,
@@ -19,5 +18,4 @@ export default {
   ...audit,
   ...promptAudit,
   ...plugins,
-  ...routingOptimization,
 }

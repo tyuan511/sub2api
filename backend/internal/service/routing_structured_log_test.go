@@ -18,11 +18,10 @@ func TestRoutingStructuredLogIsCorrelatedAndContainsNoSensitivePayload(t *testin
 	requestID := "request-1"
 	apiKeyID, initialGroup, effectiveGroup := int64(7), int64(11), int64(12)
 	outcome := RoutingFactOutcomeSuccess
-	preference := APIKeySmartPreferenceBalanced
 	logAPIKeyRoutingOutcome(context.Background(), &RoutingAttemptFact{
 		RoutingDecisionID: "decision-1", RequestID: &requestID, APIKeyID: &apiKeyID,
 		RouteVersion: 4, InitialGroupID: &initialGroup, EffectiveGroupID: &effectiveGroup,
-		ScheduleMode: APIKeyScheduleModeSmart, SmartPreference: &preference, AttemptIndex: 1,
+		ScheduleMode: APIKeyScheduleModeSequential, AttemptIndex: 1,
 		Platform: PlatformOpenAI, ModelFamily: "gpt-5", EndpointKind: "responses",
 		OutcomeCategory: &outcome, StickyBroken: true,
 	})

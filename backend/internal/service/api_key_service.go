@@ -141,10 +141,6 @@ type apiKeyAllByUserIDLister interface {
 	ListAllByUserID(ctx context.Context, userID int64, filters APIKeyListFilters) ([]APIKey, error)
 }
 
-type apiKeyRoutingSelectionLoader interface {
-	LoadRecentAPIKeyRoutingSelectionObservations(ctx context.Context, apiKeyIDs []int64, since time.Time) ([]APIKeyRoutingSelectionObservation, error)
-}
-
 // APIKeyRateLimitData holds rate limit usage and window state for an API key.
 type APIKeyRateLimitData struct {
 	Usage5h       float64
@@ -256,9 +252,6 @@ type CreateAPIKeyRequest struct {
 	Name                  string                   `json:"name"`
 	GroupID               *int64                   `json:"group_id"`
 	GroupRoutes           *[]APIKeyGroupRouteInput `json:"group_routes"`
-	ScheduleMode          *string                  `json:"schedule_mode"`
-	SmartPreference       *string                  `json:"smart_preference"`
-	SmartBalanceBPS       *int                     `json:"smart_balance_bps"`
 	RoutingMinSuccessRate *int                     `json:"routing_min_success_rate"`
 	CustomKey             *string                  `json:"custom_key"`   // 可选的自定义key
 	IPWhitelist           []string                 `json:"ip_whitelist"` // IP 白名单
@@ -279,9 +272,6 @@ type UpdateAPIKeyRequest struct {
 	Name                  *string                  `json:"name"`
 	GroupID               *int64                   `json:"group_id"`
 	GroupRoutes           *[]APIKeyGroupRouteInput `json:"group_routes"`
-	ScheduleMode          *string                  `json:"schedule_mode"`
-	SmartPreference       *string                  `json:"smart_preference"`
-	SmartBalanceBPS       *int                     `json:"smart_balance_bps"`
 	RoutingMinSuccessRate *int                     `json:"routing_min_success_rate"`
 	ExpectedRouteVersion  *int64                   `json:"expected_route_version"`
 	Status                *string                  `json:"status"`
@@ -588,8 +578,6 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		Key:                   key,
 		Name:                  html.EscapeString(req.Name),
 		ScheduleMode:          routing.ScheduleMode,
-		SmartPreference:       routing.SmartPreference,
-		SmartBalanceBPS:       routing.SmartBalanceBPS,
 		RoutingMinSuccessRate: routing.MinSuccessRate,
 		RoutingStateVersion:   1,
 		RouteVersion:          1,
@@ -639,7 +627,6 @@ func (s *APIKeyService) List(ctx context.Context, userID int64, params paginatio
 	}
 	s.fillCurrentConcurrency(ctx, keys)
 	s.hydrateAPIKeyUserGroupRatesForList(ctx, keys)
-	s.hydrateAPIKeyRoutingSelectionObservations(ctx, keys)
 	return keys, pagination, nil
 }
 
@@ -655,7 +642,6 @@ func (s *APIKeyService) listByCurrentConcurrency(ctx context.Context, userID int
 	}
 	s.fillCurrentConcurrency(ctx, keys)
 	s.hydrateAPIKeyUserGroupRatesForList(ctx, keys)
-	s.hydrateAPIKeyRoutingSelectionObservations(ctx, keys)
 	sortAPIKeysByCurrentConcurrency(keys, params.NormalizedSortOrder(pagination.SortOrderDesc))
 	return paginateAPIKeys(keys, params), apiKeyPaginationResult(int64(len(keys)), params), nil
 }
@@ -744,34 +730,6 @@ func (s *APIKeyService) currentConcurrencyForAPIKey(ctx context.Context, apiKeyI
 	return counts[apiKeyID]
 }
 
-func (s *APIKeyService) hydrateAPIKeyRoutingSelectionObservations(ctx context.Context, keys []APIKey) {
-	loader, ok := s.apiKeyRepo.(apiKeyRoutingSelectionLoader)
-	if !ok || len(keys) == 0 {
-		return
-	}
-	ids := make([]int64, 0, len(keys))
-	byID := make(map[int64]*APIKey, len(keys))
-	for index := range keys {
-		if keys[index].ID <= 0 || len(ids) >= 500 || !keys[index].HasMultipleEnabledGroupRoutes() {
-			continue
-		}
-		ids = append(ids, keys[index].ID)
-		byID[keys[index].ID] = &keys[index]
-	}
-	if len(ids) == 0 {
-		return
-	}
-	observations, err := loader.LoadRecentAPIKeyRoutingSelectionObservations(ctx, ids, time.Now().UTC().Add(-24*time.Hour))
-	if err != nil {
-		return
-	}
-	for _, observation := range observations {
-		if key := byID[observation.APIKeyID]; key != nil && observation.RouteVersion == key.RouteVersion {
-			key.RoutingSelectionObservations = append(key.RoutingSelectionObservations, observation)
-		}
-	}
-}
-
 func (s *APIKeyService) VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error) {
 	if len(apiKeyIDs) == 0 {
 		return []int64{}, nil
@@ -794,9 +752,6 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	if apiKey != nil {
 		apiKey.CurrentConcurrency = s.currentConcurrencyForAPIKey(ctx, apiKey.ID)
 		s.hydrateAPIKeyUserGroupRates(ctx, apiKey)
-		keys := []APIKey{*apiKey}
-		s.hydrateAPIKeyRoutingSelectionObservations(ctx, keys)
-		apiKey.RoutingSelectionObservations = keys[0].RoutingSelectionObservations
 	}
 	return apiKey, nil
 }
@@ -919,8 +874,6 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		preserveState := sameAPIKeyRouteSet(apiKey.GroupRoutes, routing.Routes)
 		apiKey.GroupRoutes = routing.Routes
 		apiKey.ScheduleMode = routing.ScheduleMode
-		apiKey.SmartPreference = routing.SmartPreference
-		apiKey.SmartBalanceBPS = routing.SmartBalanceBPS
 		apiKey.RoutingMinSuccessRate = routing.MinSuccessRate
 		fields.GroupID = true
 		fields.Routing = &APIKeyRoutingMutation{

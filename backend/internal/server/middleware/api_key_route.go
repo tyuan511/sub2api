@@ -54,20 +54,11 @@ type APIKeyRouteState struct {
 	Index            int
 	InitialGroupID   int64
 	SwitchCount      int
-	ScoreVersion     string
-	StrategyVersion  string
-	FeatureVersion   string
-	ModelVersion     *string
-	ExperimentID     *string
-	ExperimentBucket *int
-	AssignmentReason string
 	StickySelected   bool
 	StickyBroken     bool
 	Locked           bool
 	AttemptStartedAt time.Time
-	ScoreGeneratedAt time.Time
 	DecisionID       string
-	ScoreFacts       map[int64]service.APIKeyRoutingCandidateScore
 }
 
 // MarkAPIKeyRouteStickySelected records that this request started from a
@@ -368,64 +359,6 @@ func RejectInitialAPIKeyRoute(c *gin.Context) (*service.APIKey, bool) {
 	return activateAPIKeyRouteIndex(c, order[cursor], true)
 }
 
-// ApplyAPIKeyRouteOrder freezes a scored subset/order before the first
-// upstream attempt. groupIDs may omit hard-rejected candidates, but may not
-// introduce a group outside the configured request plan.
-func ApplyAPIKeyRouteOrder(c *gin.Context, groupIDs []int64, scoreVersion, strategyVersion, featureVersion string, generatedAt time.Time) (*service.APIKey, bool) {
-	state, ok := GetAPIKeyRouteState(c)
-	if !ok || state.Locked || len(groupIDs) == 0 {
-		return nil, false
-	}
-	indexes := make([]int, 0, len(groupIDs))
-	seen := make(map[int64]struct{}, len(groupIDs))
-	for _, groupID := range groupIDs {
-		if _, duplicate := seen[groupID]; duplicate {
-			return nil, false
-		}
-		seen[groupID] = struct{}{}
-		_, index, found := FindAPIKeyRouteGroup(c, groupID)
-		if !found {
-			return nil, false
-		}
-		indexes = append(indexes, index)
-	}
-	state.Order = indexes
-	state.Cursor = 0
-	state.SwitchCount = 0
-	state.ScoreVersion = scoreVersion
-	state.StrategyVersion = strategyVersion
-	state.FeatureVersion = featureVersion
-	state.ScoreGeneratedAt = generatedAt
-	return activateAPIKeyRouteIndex(c, indexes[0], true)
-}
-
-// SetAPIKeyRouteScoreFacts freezes the numeric explanation used by this
-// request. A later background score refresh cannot change the replay record.
-func SetAPIKeyRouteScoreFacts(c *gin.Context, ranked []service.APIKeyRoutingCandidateScore) {
-	state, ok := GetAPIKeyRouteState(c)
-	if !ok {
-		return
-	}
-	state.ScoreFacts = make(map[int64]service.APIKeyRoutingCandidateScore, len(ranked))
-	for _, score := range ranked {
-		state.ScoreFacts[score.GroupID] = score
-	}
-	bindAPIKeyRoutingUsageContext(c, state)
-}
-
-func SetAPIKeyRouteStrategyAssignment(c *gin.Context, selection service.APIKeyRoutingStrategySelection, modelVersion *string) {
-	state, ok := GetAPIKeyRouteState(c)
-	if !ok {
-		return
-	}
-	state.StrategyVersion = selection.Policy.Version
-	state.AssignmentReason = selection.AssignmentReason
-	state.ExperimentID = cloneRouteStringPtr(selection.ExperimentID)
-	state.ExperimentBucket = cloneRouteIntPtr(selection.ExperimentBucket)
-	state.ModelVersion = cloneRouteStringPtr(modelVersion)
-	bindAPIKeyRoutingUsageContext(c, state)
-}
-
 func activateAPIKeyRouteIndex(c *gin.Context, nextIndex int, initial bool) (*service.APIKey, bool) {
 	state, ok := GetAPIKeyRouteState(c)
 	if !ok || state.Locked || nextIndex < 0 || nextIndex >= state.Plan.Len() {
@@ -488,18 +421,9 @@ func bindAPIKeyRoutingUsageContext(c *gin.Context, state *APIKeyRouteState) {
 		EffectiveGroupID:      effectiveGroupID,
 		Platform:              platform,
 		ScheduleMode:          state.Plan.ScheduleMode,
-		SmartPreference:       state.Plan.SmartPreference,
-		SmartBalanceBPS:       state.Plan.SmartBalanceBPS,
 		RoutingMinSuccessRate: state.Plan.RoutingMinSuccessRate,
 		RoutingStateVersion:   state.Plan.RoutingStateVersion,
 		SwitchCount:           state.SwitchCount,
-		StrategyVersion:       state.StrategyVersion,
-		ScoreVersion:          state.ScoreVersion,
-		FeatureVersion:        state.FeatureVersion,
-		ModelVersion:          state.ModelVersion,
-		ExperimentID:          state.ExperimentID,
-		ExperimentBucket:      state.ExperimentBucket,
-		AssignmentReason:      state.AssignmentReason,
 		StickyBroken:          state.StickyBroken,
 		AttemptStartedAt:      state.AttemptStartedAt,
 		Candidates:            apiKeyRoutingDecisionCandidates(state, effectiveGroupID),
@@ -516,14 +440,6 @@ func cloneRouteStringPtr(value *string) *string {
 }
 
 func cloneRouteIntPtr(value *int) *int {
-	if value == nil {
-		return nil
-	}
-	copy := *value
-	return &copy
-}
-
-func cloneRouteFloat64Ptr(value *float64) *float64 {
 	if value == nil {
 		return nil
 	}
@@ -548,23 +464,6 @@ func apiKeyRoutingDecisionCandidates(state *APIKeyRouteState, effectiveGroupID i
 		if rank, ok := ranks[index]; ok {
 			rankCopy := rank
 			item.Rank = &rankCopy
-		}
-		if score, ok := state.ScoreFacts[candidate.GroupID]; ok {
-			item.Recovery, item.RecoveryTrafficBPS = score.Recovery, score.RecoveryTrafficBPS
-			success, smoothedSuccess, confidence, total, breakdown := score.SuccessRate, score.SmoothedSuccessRate, score.Confidence, score.Score, score.Breakdown
-			item.SuccessRate, item.SmoothedSuccessRate, item.Confidence, item.Score, item.ScoreBreakdown = &success, &smoothedSuccess, &confidence, &total, &breakdown
-			normalizedRate, ttft, duration := score.NormalizedRate, score.TTFTMS, score.DurationMS
-			capacity, cacheHit := score.CapacityScore, score.CacheHitRate
-			item.NormalizedRate, item.TTFTMS, item.DurationMS = &normalizedRate, &ttft, &duration
-			item.CapacityScore, item.CacheHitRate, item.ObservationWindow = &capacity, &cacheHit, score.ObservationWindow
-			item.DependencyDomains = append([]string(nil), score.DependencyDomains...)
-			item.SharedBaselineScore = cloneRouteFloat64Ptr(score.SharedBaselineScore)
-			item.LearningAdjustment = cloneRouteFloat64Ptr(score.LearningAdjustment)
-			item.PersonalizationWeight = cloneRouteFloat64Ptr(score.PersonalizationWeight)
-			if !score.Eligible {
-				item.Admitted = false
-				item.ExclusionReason = score.Exclusion
-			}
 		}
 		if candidate.GroupID == effectiveGroupID {
 			item.OutcomeVisibility = "observed"

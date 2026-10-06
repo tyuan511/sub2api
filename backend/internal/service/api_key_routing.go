@@ -4,30 +4,26 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 )
 
 type normalizedAPIKeyRouting struct {
-	Routes          []APIKeyGroupRoute
-	ScheduleMode    string
-	SmartPreference *string
-	SmartBalanceBPS *int
-	MinSuccessRate  int
-	LegacyUnscoped  bool
+	Routes         []APIKeyGroupRoute
+	ScheduleMode   string
+	MinSuccessRate int
+	LegacyUnscoped bool
 }
 
+// API key failover is always a fixed sequential order. Smart routing has been
+// removed, so every write path normalizes to sequential and drops the legacy
+// smart policy fields.
 func normalizeCreateAPIKeyRouting(req CreateAPIKeyRequest) (normalizedAPIKeyRouting, error) {
-	if err := ValidateAPIKeyRoutingControls(req.SmartBalanceBPS, req.RoutingMinSuccessRate); err != nil {
+	if err := ValidateAPIKeyRoutingControls(req.RoutingMinSuccessRate); err != nil {
 		return normalizedAPIKeyRouting{}, err
-	}
-	mode := APIKeyScheduleModeSequential
-	if req.ScheduleMode != nil {
-		mode = strings.TrimSpace(*req.ScheduleMode)
 	}
 
 	// Preserve the pre-existing null group_id contract only when the caller did
 	// not opt into the new route-set fields.
-	if req.GroupRoutes == nil && req.GroupID == nil && req.ScheduleMode == nil && req.SmartPreference == nil && req.SmartBalanceBPS == nil && req.RoutingMinSuccessRate == nil {
+	if req.GroupRoutes == nil && req.GroupID == nil && req.RoutingMinSuccessRate == nil {
 		return normalizedAPIKeyRouting{
 			ScheduleMode:   APIKeyScheduleModeSequential,
 			LegacyUnscoped: true,
@@ -39,31 +35,18 @@ func normalizeCreateAPIKeyRouting(req CreateAPIKeyRequest) (normalizedAPIKeyRout
 	if err != nil {
 		return normalizedAPIKeyRouting{}, err
 	}
-	preference := req.SmartPreference
-	if req.SmartBalanceBPS != nil && mode == APIKeyScheduleModeSmart {
-		value := APIKeyRoutingBalancePreference(*req.SmartBalanceBPS)
-		preference = &value
-	}
-	pref, err := normalizeAPIKeyRoutingPolicy(mode, preference)
-	if err != nil {
-		return normalizedAPIKeyRouting{}, err
-	}
-	balance := cloneIntPtr(req.SmartBalanceBPS)
-	if mode != APIKeyScheduleModeSmart {
-		balance = nil
-	}
 	minimum := DefaultNewAPIKeyRoutingMinSuccessRate
 	if req.RoutingMinSuccessRate != nil {
 		minimum = *req.RoutingMinSuccessRate
 	}
-	return normalizedAPIKeyRouting{Routes: routes, ScheduleMode: mode, SmartPreference: pref, SmartBalanceBPS: balance, MinSuccessRate: minimum}, nil
+	return normalizedAPIKeyRouting{Routes: routes, ScheduleMode: APIKeyScheduleModeSequential, MinSuccessRate: minimum}, nil
 }
 
 func normalizeUpdateAPIKeyRouting(current *APIKey, req UpdateAPIKeyRequest) (normalizedAPIKeyRouting, bool, error) {
-	if err := ValidateAPIKeyRoutingControls(req.SmartBalanceBPS, req.RoutingMinSuccessRate); err != nil {
+	if err := ValidateAPIKeyRoutingControls(req.RoutingMinSuccessRate); err != nil {
 		return normalizedAPIKeyRouting{}, false, err
 	}
-	changed := req.GroupRoutes != nil || req.GroupID != nil || req.ScheduleMode != nil || req.SmartPreference != nil || req.SmartBalanceBPS != nil || req.RoutingMinSuccessRate != nil
+	changed := req.GroupRoutes != nil || req.GroupID != nil || req.RoutingMinSuccessRate != nil
 	if !changed {
 		return normalizedAPIKeyRouting{}, false, nil
 	}
@@ -71,29 +54,9 @@ func normalizeUpdateAPIKeyRouting(current *APIKey, req UpdateAPIKeyRequest) (nor
 		return normalizedAPIKeyRouting{}, false, ErrAPIKeyNotFound
 	}
 
-	mode := current.ScheduleMode
-	if mode == "" {
-		mode = APIKeyScheduleModeSequential
-	}
-	pref := current.SmartPreference
-	balance := cloneIntPtr(current.SmartBalanceBPS)
 	minimum := current.EffectiveRoutingMinSuccessRate()
 	if req.RoutingMinSuccessRate != nil {
 		minimum = *req.RoutingMinSuccessRate
-	}
-	if req.ScheduleMode != nil {
-		mode = strings.TrimSpace(*req.ScheduleMode)
-		if mode == APIKeyScheduleModeSequential && req.SmartPreference == nil {
-			pref = nil
-		}
-	}
-	if req.SmartPreference != nil {
-		pref = req.SmartPreference
-		// An old client explicitly selecting a preset restores that preset.
-		balance = nil
-	}
-	if req.SmartBalanceBPS != nil {
-		balance = cloneIntPtr(req.SmartBalanceBPS)
 	}
 
 	var routes []APIKeyGroupRoute
@@ -103,31 +66,14 @@ func normalizeUpdateAPIKeyRouting(current *APIKey, req UpdateAPIKeyRequest) (nor
 		if err != nil {
 			return normalizedAPIKeyRouting{}, false, err
 		}
-		// A legacy group_id-only update has always meant a single explicit group.
-		// Normalize its policy as sequential even if the previous route was smart.
-		if req.GroupRoutes == nil && req.GroupID != nil && req.ScheduleMode == nil {
-			mode = APIKeyScheduleModeSequential
-			pref = nil
-		}
 	} else {
 		routes = append([]APIKeyGroupRoute(nil), current.GroupRoutes...)
 	}
 
-	if mode == APIKeyScheduleModeSmart && balance != nil {
-		value := APIKeyRoutingBalancePreference(*balance)
-		pref = &value
-	}
-	if mode != APIKeyScheduleModeSmart {
-		balance = nil
-	}
-	pref, err := normalizeAPIKeyRoutingPolicy(mode, pref)
-	if err != nil {
-		return normalizedAPIKeyRouting{}, false, err
-	}
 	if len(routes) == 0 {
 		return normalizedAPIKeyRouting{}, false, fmt.Errorf("%w: an explicit route configuration requires at least one group", ErrAPIKeyRoutesInvalid)
 	}
-	normalized := normalizedAPIKeyRouting{Routes: routes, ScheduleMode: mode, SmartPreference: pref, SmartBalanceBPS: balance, MinSuccessRate: minimum}
+	normalized := normalizedAPIKeyRouting{Routes: routes, ScheduleMode: APIKeyScheduleModeSequential, MinSuccessRate: minimum}
 	if apiKeyRoutingConfigurationEquivalent(current, normalized) {
 		return normalized, false, nil
 	}
@@ -163,29 +109,6 @@ func normalizeAPIKeyRouteInputs(inputs *[]APIKeyGroupRouteInput, legacyGroupID *
 		return nil, ErrAPIKeyRouteMismatch
 	}
 	return routes, nil
-}
-
-func normalizeAPIKeyRoutingPolicy(mode string, preference *string) (*string, error) {
-	switch mode {
-	case APIKeyScheduleModeSequential:
-		if preference != nil && strings.TrimSpace(*preference) != "" {
-			return nil, fmt.Errorf("%w: smart_preference must be empty for sequential mode", ErrAPIKeyRoutesInvalid)
-		}
-		return nil, nil
-	case APIKeyScheduleModeSmart:
-		if preference == nil {
-			return nil, fmt.Errorf("%w: smart_preference is required for smart mode", ErrAPIKeyRoutesInvalid)
-		}
-		value := strings.TrimSpace(*preference)
-		switch value {
-		case APIKeySmartPreferencePrice, APIKeySmartPreferenceSpeed, APIKeySmartPreferenceBalanced:
-			return &value, nil
-		default:
-			return nil, fmt.Errorf("%w: unsupported smart_preference %q", ErrAPIKeyRoutesInvalid, value)
-		}
-	default:
-		return nil, fmt.Errorf("%w: unsupported schedule_mode %q", ErrAPIKeyRoutesInvalid, mode)
-	}
 }
 
 func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []APIKeyGroupRoute) ([]APIKeyGroupRoute, error) {

@@ -91,16 +91,6 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 		if stickySelected {
 			middleware.MarkAPIKeyRouteStickySelected(c)
 		}
-		if shouldActivateSmartRoute(c, stickySelected, stickyErr != nil) {
-			smartAPIKey, _, ranked, _, smartErr := h.openAI.apiKeyRouteRuntime().activateSmart(c, apiKey, req.Model, routeEndpoint, routeSessionHash, batchCandidateCheck)
-			if smartErr != nil {
-				batchImageError(c, service.ErrBatchImageNoAccountAvailable)
-				return
-			}
-			if len(ranked) > 0 {
-				apiKey = smartAPIKey
-			}
-		}
 		actualAPIKey, _, changed, routeErr := h.openAI.apiKeyRouteRuntime().ensureInitial(c, batchCandidateCheck)
 		if routeErr != nil {
 			batchImageError(c, service.ErrBatchImageNoAccountAvailable)

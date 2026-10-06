@@ -77,17 +77,6 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	if stickyRouteSelected {
 		middleware2.MarkAPIKeyRouteStickySelected(c)
 	}
-	if shouldActivateSmartRoute(c, stickyRouteSelected, stickyErr != nil) {
-		smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, model, routeEndpoint, routeSessionHash, grokRealtimeCandidateCheck)
-		if smartErr != nil {
-			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
-			return
-		}
-		if len(ranked) > 0 {
-			apiKey = smartAPIKey
-			subscription = smartSubscription
-		}
-	}
 	if apiKeyMultiGroupRoutingActive(c) {
 		actualAPIKey, actualSubscription, changed, routeErr := h.apiKeyRouteRuntime().ensureInitial(c, grokRealtimeCandidateCheck)
 		if routeErr != nil {
@@ -305,17 +294,6 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 	}
 	if stickyRouteSelected {
 		middleware2.MarkAPIKeyRouteStickySelected(c)
-	}
-	if shouldActivateSmartRoute(c, stickyRouteSelected, stickyErr != nil) {
-		smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, selectionModel, routeEndpoint, routeSessionHash, grokVoiceCandidateCheck)
-		if smartErr != nil {
-			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
-			return
-		}
-		if len(ranked) > 0 {
-			apiKey = smartAPIKey
-			subscription = smartSubscription
-		}
 	}
 	if apiKeyMultiGroupRoutingActive(c) {
 		actualAPIKey, actualSubscription, changed, routeErr := h.apiKeyRouteRuntime().ensureInitial(c, grokVoiceCandidateCheck)

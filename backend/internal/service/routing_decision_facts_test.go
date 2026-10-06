@@ -20,10 +20,9 @@ func (s *routingFactListSink) RecordRoutingFact(fact *RoutingAttemptFact) {
 }
 
 func TestApplyAPIKeyRoutingUsageSeparatesActualAndBillableFacts(t *testing.T) {
-	preference := APIKeySmartPreferencePrice
 	ctx := WithAPIKeyRoutingUsageContext(context.Background(), APIKeyRoutingUsageContext{
 		DecisionID: "decision-1", RouteVersion: 7, InitialGroupID: 10, EffectiveGroupID: 20,
-		Platform: PlatformAnthropic, ScheduleMode: APIKeyScheduleModeSmart, SmartPreference: &preference,
+		Platform: PlatformAnthropic, ScheduleMode: APIKeyScheduleModeSequential,
 		SwitchCount: 1, StrategyVersion: "strategy-3", ScoreVersion: "score-9", FeatureVersion: "features-2", StickyBroken: true,
 	})
 	groupID := int64(20)
@@ -133,37 +132,6 @@ func TestRoutingFactContractRejectsOutOfRangeCriticalCandidateFeature(t *testing
 	require.ErrorIs(t, ValidateRoutingAttemptFact(fact), ErrRoutingFactInvalid)
 }
 
-func TestRoutingDecisionFactFreezesPointInTimeCandidatesAndVersions(t *testing.T) {
-	sink := &routingFactCaptureSink{}
-	SetDefaultRoutingFactSink(sink)
-	defer SetDefaultRoutingFactSink(nil)
-	preference := APIKeySmartPreferencePrice
-	score := 0.91
-	candidates := []APIKeyRoutingDecisionCandidate{{
-		GroupID: 9, ConfiguredPriority: 0, Admitted: true, Score: &score, OutcomeVisibility: RoutingOutcomeObserved,
-	}}
-	ctx := WithAPIKeyRoutingUsageContext(context.Background(), APIKeyRoutingUsageContext{
-		DecisionID: "decision-point-in-time", APIKeyID: 8, RouteVersion: 4, InitialGroupID: 9, EffectiveGroupID: 9,
-		Platform: PlatformOpenAI, ScheduleMode: APIKeyScheduleModeSmart, SmartPreference: &preference,
-		StrategyVersion: "strategy-at-decision", ScoreVersion: "score-at-decision", FeatureVersion: "features-at-decision",
-		Candidates: candidates,
-	})
-	// Mutating the caller-owned slice after context creation must not leak future
-	// state into a replay fact.
-	*candidates[0].Score = 0.01
-	candidates[0].GroupID = 999
-	RecordAPIKeyRoutingDecision(ctx, "gpt-5", "responses")
-
-	require.NotNil(t, sink.fact)
-	require.Equal(t, RoutingFactOutcomeDecision, *sink.fact.OutcomeCategory)
-	require.Equal(t, int64(4), sink.fact.RouteVersion)
-	require.Equal(t, "strategy-at-decision", sink.fact.StrategyVersion)
-	require.Equal(t, "score-at-decision", sink.fact.ScoreVersion)
-	require.Equal(t, "features-at-decision", sink.fact.FeatureSchemaVersion)
-	require.Equal(t, int64(9), sink.fact.Candidates[0].GroupID)
-	require.Equal(t, 0.91, *sink.fact.Candidates[0].Score)
-}
-
 func TestRoutingTerminalFailureEventIsIdempotentlyAddressed(t *testing.T) {
 	sink := &routingFactListSink{}
 	SetDefaultRoutingFactSink(sink)
@@ -202,38 +170,6 @@ func TestRecordAPIKeyRouteFailureEmitsReplayFact(t *testing.T) {
 	require.NotNil(t, sink.fact.DurationMS)
 	require.GreaterOrEqual(t, *sink.fact.DurationMS, 20)
 	require.Equal(t, RoutingEventPriorityCritical, sink.fact.EventPriority)
-}
-
-func TestRecordAPIKeyRoutingShadowDecisionIsUnobservedAndSideEffectFree(t *testing.T) {
-	sink := &routingFactCaptureSink{}
-	SetDefaultRoutingFactSink(sink)
-	defer SetDefaultRoutingFactSink(nil)
-	preference := APIKeySmartPreferenceBalanced
-	ctx := WithAPIKeyRoutingUsageContext(context.Background(), APIKeyRoutingUsageContext{
-		DecisionID: "decision-shadow", APIKeyID: 7, RouteVersion: 3, InitialGroupID: 11, EffectiveGroupID: 11,
-		Platform: PlatformOpenAI, ScheduleMode: APIKeyScheduleModeSmart, SmartPreference: &preference,
-		StrategyVersion: "baseline-v1", ScoreVersion: "score-v1", FeatureVersion: "features-v1",
-	})
-	snapshot := &APIKeyRoutingScoreSnapshot{
-		Version: "score-v1", FeatureVersion: "features-v1", Platform: PlatformOpenAI,
-		ModelFamily: "gpt-5", EndpointKind: "responses",
-	}
-	shadow := DefaultAPIKeyRoutingStrategyPolicy(preference)
-	shadow.Version = "shadow-v2"
-	RecordAPIKeyRoutingShadowDecision(ctx, shadow, snapshot, []APIKeyRoutingCandidateScore{
-		{GroupID: 12, Priority: 1, Eligible: true, Score: 0.8, SuccessRate: 0.9, Confidence: 1},
-		{GroupID: 11, Priority: 0, Eligible: true, Score: 0.7, SuccessRate: 0.9, Confidence: 1},
-	})
-
-	require.NotNil(t, sink.fact)
-	require.Equal(t, "decision-shadow", sink.fact.RoutingDecisionID)
-	require.Equal(t, RoutingAssignmentShadow, sink.fact.AssignmentReason)
-	require.Equal(t, RoutingOutcomeUnobserved, sink.fact.OutcomeVisibility)
-	require.Equal(t, int64(12), *sink.fact.SelectedGroupID)
-	require.Nil(t, sink.fact.AttemptedGroupID)
-	require.Nil(t, sink.fact.EffectiveGroupID)
-	require.False(t, sink.fact.SwitchedGroup)
-	require.False(t, sink.fact.SemanticOutput)
 }
 
 func validRoutingAttemptFactForTest() *RoutingAttemptFact {

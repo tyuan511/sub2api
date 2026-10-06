@@ -54,30 +54,24 @@ type AdminUser struct {
 }
 
 type APIKey struct {
-	ID                    int64                `json:"id"`
-	UserID                int64                `json:"user_id"`
-	Key                   string               `json:"key"`
-	Name                  string               `json:"name"`
-	GroupID               *int64               `json:"group_id"`
-	GroupRoutes           []APIKeyGroupRoute   `json:"group_routes"`
-	ScheduleMode          string               `json:"schedule_mode"`
-	SmartPreference       *string              `json:"smart_preference"`
-	SmartBalanceBPS       *int                 `json:"smart_balance_bps"`
-	RoutingMinSuccessRate int                  `json:"routing_min_success_rate"`
-	RoutingStateVersion   int64                `json:"routing_state_version"`
-	RouteVersion          int64                `json:"route_version"`
-	RoutingPolicy         *APIKeyRoutingPolicy `json:"routing_policy,omitempty"`
-	EstimatedRate         *APIKeyEstimatedRate `json:"estimated_rate,omitempty"`
-	Status                string               `json:"status"`
-	IPWhitelist           []string             `json:"ip_whitelist"`
-	IPBlacklist           []string             `json:"ip_blacklist"`
-	LastUsedAt            *time.Time           `json:"last_used_at"`
-	LastUsedIP            *string              `json:"last_used_ip"`
-	Quota                 float64              `json:"quota"`      // Quota limit in USD (0 = unlimited)
-	QuotaUsed             float64              `json:"quota_used"` // Used quota amount in USD
-	ExpiresAt             *time.Time           `json:"expires_at"` // Expiration time (nil = never expires)
-	CreatedAt             time.Time            `json:"created_at"`
-	UpdatedAt             time.Time            `json:"updated_at"`
+	ID           int64              `json:"id"`
+	UserID       int64              `json:"user_id"`
+	Key          string             `json:"key"`
+	Name         string             `json:"name"`
+	GroupID      *int64             `json:"group_id"`
+	GroupRoutes  []APIKeyGroupRoute `json:"group_routes"`
+	ScheduleMode string             `json:"schedule_mode"`
+	RouteVersion int64              `json:"route_version"`
+	Status       string             `json:"status"`
+	IPWhitelist  []string           `json:"ip_whitelist"`
+	IPBlacklist  []string           `json:"ip_blacklist"`
+	LastUsedAt   *time.Time         `json:"last_used_at"`
+	LastUsedIP   *string            `json:"last_used_ip"`
+	Quota        float64            `json:"quota"`      // Quota limit in USD (0 = unlimited)
+	QuotaUsed    float64            `json:"quota_used"` // Used quota amount in USD
+	ExpiresAt    *time.Time         `json:"expires_at"` // Expiration time (nil = never expires)
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
 	// CurrentConcurrency is the real-time active request count for this API key.
 	CurrentConcurrency int `json:"current_concurrency"`
 
@@ -100,53 +94,11 @@ type APIKey struct {
 }
 
 type APIKeyGroupRoute struct {
-	GroupID                 int64                              `json:"group_id"`
-	Priority                int                                `json:"priority"`
-	Enabled                 bool                               `json:"enabled"`
-	CurrentRank             *int                               `json:"current_rank,omitempty"`
-	CurrentRate             *float64                           `json:"current_rate,omitempty"`
-	NormalizedEffectiveRate *float64                           `json:"normalized_effective_rate,omitempty"`
-	CacheHitRate            *float64                           `json:"cache_hit_rate,omitempty"`
-	PriceWindow             string                             `json:"price_window,omitempty"`
-	PriceConfidence         string                             `json:"price_confidence,omitempty"`
-	LogicalInputTokens      int64                              `json:"logical_input_tokens,omitempty"`
-	OutputTokens            int64                              `json:"output_tokens,omitempty"`
-	Health                  string                             `json:"health,omitempty"`
-	SuccessRate             *float64                           `json:"success_rate,omitempty"`
-	TTFTMS                  *float64                           `json:"ttft_ms,omitempty"`
-	DurationMS              *float64                           `json:"duration_ms,omitempty"`
-	CapacityScore           *float64                           `json:"capacity_score,omitempty"`
-	PredictedShare          *float64                           `json:"predicted_share,omitempty"`
-	Score                   *float64                           `json:"score,omitempty"`
-	ScoreBreakdown          *service.APIKeyRoutingScoreWeights `json:"score_breakdown,omitempty"`
-	Group                   *Group                             `json:"group,omitempty"`
-}
-
-type APIKeyRoutingPolicy struct {
-	StrategyVersion string    `json:"strategy_version"`
-	ScoreVersion    string    `json:"score_version"`
-	FeatureVersion  string    `json:"feature_version"`
-	UpdatedAt       time.Time `json:"updated_at"`
-}
-
-type APIKeyEstimatedRate struct {
-	Value               float64   `json:"value"`
-	Low                 float64   `json:"low"`
-	High                float64   `json:"high"`
-	Reference           string    `json:"reference"`
-	Window              string    `json:"window"`
-	Confidence          string    `json:"confidence"`
-	UpdatedAt           time.Time `json:"updated_at"`
-	ModelFamily         string    `json:"model_family,omitempty"`
-	CacheHitRate        float64   `json:"cache_hit_rate,omitempty"`
-	LogicalInputTokens  int64     `json:"logical_input_tokens,omitempty"`
-	OutputTokens        int64     `json:"output_tokens,omitempty"`
-	SelectionSource     string    `json:"selection_source"`
-	SelectionWindow     string    `json:"selection_window"`
-	SelectionSamples    int64     `json:"selection_samples"`
-	SelectionEffectiveN float64   `json:"selection_effective_n"`
-	Guaranteed          bool      `json:"guaranteed"`
-	Settlement          string    `json:"settlement"`
+	GroupID     int64    `json:"group_id"`
+	Priority    int      `json:"priority"`
+	Enabled     bool     `json:"enabled"`
+	CurrentRate *float64 `json:"current_rate,omitempty"`
+	Group       *Group   `json:"group,omitempty"`
 }
 
 type Group struct {
@@ -271,12 +223,12 @@ type Account struct {
 	Type     string  `json:"type"`
 	// Credentials 经 RedactCredentials 处理后只含非敏感子键；敏感 token / api_key / 私钥
 	// 的存在性通过 CredentialsStatus（has_<key>）暴露，原始值不返回前端。
-	Credentials             map[string]any                 `json:"credentials"`
-	CredentialsStatus       map[string]bool                `json:"credentials_status,omitempty"`
-	Extra                   map[string]any                 `json:"extra"`
-	OllamaCloudUsage        *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
-	OpenCodeGoUsage         *service.OpenCodeGoUsageState  `json:"opencode_go_usage,omitempty"`
-	ProxyID                 *int64                         `json:"proxy_id"`
+	Credentials       map[string]any                 `json:"credentials"`
+	CredentialsStatus map[string]bool                `json:"credentials_status,omitempty"`
+	Extra             map[string]any                 `json:"extra"`
+	OllamaCloudUsage  *service.OllamaCloudUsageState `json:"ollama_cloud_usage,omitempty"`
+	OpenCodeGoUsage   *service.OpenCodeGoUsageState  `json:"opencode_go_usage,omitempty"`
+	ProxyID           *int64                         `json:"proxy_id"`
 	// Proxies 是账号绑定的多代理池；为空表示账号只用 proxy_id 的单代理。
 	Proxies                 []AccountProxy `json:"proxies,omitempty"`
 	ProxyFallbackOriginID   *int64         `json:"proxy_fallback_origin_id"`

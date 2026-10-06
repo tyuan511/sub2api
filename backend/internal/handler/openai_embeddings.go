@@ -122,19 +122,6 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		}
 		return nil
 	}
-	if shouldActivateSmartRoute(c, false, false) {
-		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, reqModel, routeEndpoint, "", embeddingsCandidateCheck)
-		if smartErr != nil {
-			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
-			return
-		}
-		if len(ranked) > 0 {
-			apiKey = smartAPIKey
-			subscription = smartSubscription
-			state, _ := middleware2.GetAPIKeyRouteState(c)
-			reqLog.Info("openai_embeddings.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
-		}
-	}
 	apiKey, subscription, _, err = h.apiKeyRouteRuntime().ensureInitial(c, embeddingsCandidateCheck)
 	if err != nil {
 		if isAPIKeyRouteAdvanceBillingError(err) {

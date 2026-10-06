@@ -85,7 +85,6 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 	routeSessionHash := h.gatewayService.GenerateExplicitSessionHash(c, request.Session)
 	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, model, routeEndpoint)
 	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
-	routeStateDegraded := stickyErr != nil
 	if stickyErr != nil {
 		reqLog.Warn("openai.live.api_key_group_route_state_degraded", zap.Error(stickyErr))
 	}
@@ -104,17 +103,6 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 	}
 	if stickyRouteSelected {
 		middleware2.MarkAPIKeyRouteStickySelected(c)
-	}
-	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
-		smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, model, routeEndpoint, routeSessionHash, liveCandidateCheck)
-		if smartErr != nil {
-			h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No eligible candidate groups")
-			return
-		}
-		if len(ranked) > 0 {
-			apiKey = smartAPIKey
-			subscription = smartSubscription
-		}
 	}
 	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, liveCandidateCheck)
 	if err != nil {

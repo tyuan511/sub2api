@@ -105,8 +105,8 @@ func allowAPIKeyRoute(ctx context.Context, cache GatewayCache, policy APIKeyRout
 func allowAPIKeyRouteOnce(ctx context.Context, cache GatewayCache, policy APIKeyRouteHealthPolicy, apiKeyID, routeVersion, groupID int64, model, endpoint string) (bool, string, error) {
 	model, endpoint = normalizeAPIKeyRouteRuntimeScope(ctx, model, endpoint)
 	minimum := apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion)
-	recoveryOverride := apiKeyRoutingRecoveryOverrideForContext(ctx, groupID, model, endpoint, minimum)
-	belowSharedGate := !recoveryOverride && apiKeyRoutingBelowSharedGate(ctx, groupID, model, endpoint, minimum, policy.MinimumSamples)
+	recoveryOverride := false
+	belowSharedGate := apiKeyRoutingBelowSharedGate(ctx, groupID, model, endpoint, minimum, policy.MinimumSamples)
 	if snapshot, used, err := prefetchedAPIKeyRouteBreaker(ctx, cache, apiKeyID, routeVersion, groupID, model, endpoint); used {
 		if err != nil {
 			DefaultRoutingRuntimeMetrics().RecordBreaker(APIKeyRouteBreakerClosed, false, true)
@@ -188,7 +188,7 @@ func recordAPIKeyRouteResult(ctx context.Context, cache GatewayCache, policy API
 	key := APIKeyRouteHealthKey(apiKeyID, apiKeyRoutingRuntimeVersion(ctx, apiKeyID, routeVersion), groupID, model, endpoint)
 	var err error
 	if recoveryCache, supported := cache.(APIKeyRouteRecoveryHealthCache); supported {
-		state, err = recoveryCache.RecordAPIKeyRouteRecoveryResult(ctx, key, success, time.Now(), policy.Window, policy.MinimumSamples, policy.RecoverySuccesses, apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion), routeVersion, apiKeyRoutingRecoveryOverrideForContext(ctx, groupID, model, endpoint, apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion)))
+		state, err = recoveryCache.RecordAPIKeyRouteRecoveryResult(ctx, key, success, time.Now(), policy.Window, policy.MinimumSamples, policy.RecoverySuccesses, apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion), routeVersion, false)
 	} else if thresholds, supported := cache.(APIKeyRouteThresholdHealthCache); supported {
 		state, err = thresholds.RecordAPIKeyRouteResultWithThreshold(ctx, key, success, time.Now(), policy.Window, policy.MinimumSamples, policy.RecoverySuccesses, apiKeyRoutingMinimumFromContext(ctx, apiKeyID, routeVersion), routeVersion)
 	} else {

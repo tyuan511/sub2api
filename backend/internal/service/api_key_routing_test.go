@@ -46,24 +46,6 @@ func TestNormalizeCreateAPIKeyRoutingRejectsMismatchAndInvalidOrder(t *testing.T
 	require.ErrorIs(t, err, ErrAPIKeyRoutesInvalid)
 }
 
-func TestNormalizeCreateAPIKeyRoutingSmartRequiresPreference(t *testing.T) {
-	mode := APIKeyScheduleModeSmart
-	_, err := normalizeCreateAPIKeyRouting(CreateAPIKeyRequest{
-		GroupRoutes:  routeInputs(APIKeyGroupRouteInput{GroupID: 7, Priority: 0}),
-		ScheduleMode: &mode,
-	})
-	require.ErrorIs(t, err, ErrAPIKeyRoutesInvalid)
-
-	pref := APIKeySmartPreferencePrice
-	routing, err := normalizeCreateAPIKeyRouting(CreateAPIKeyRequest{
-		GroupRoutes:     routeInputs(APIKeyGroupRouteInput{GroupID: 7, Priority: 0}),
-		ScheduleMode:    &mode,
-		SmartPreference: &pref,
-	})
-	require.NoError(t, err)
-	require.Equal(t, &pref, routing.SmartPreference)
-}
-
 type apiKeyRoutingGroupRepo struct {
 	groups map[int64]*Group
 	GroupRepository
@@ -102,11 +84,10 @@ func TestValidateAPIKeyRouteGroupsAllowsMixedPlatformsAndRequiresBillingType(t *
 
 func TestAPIKeyAuthSnapshotMultiGroupRoutingRoundTrip(t *testing.T) {
 	primaryID := int64(10)
-	pref := APIKeySmartPreferenceBalanced
 	key := &APIKey{
 		ID: 1, UserID: 2, Key: "sk-routes", GroupID: &primaryID,
-		ScheduleMode: APIKeyScheduleModeSmart, SmartPreference: &pref, RouteVersion: 4,
-		SmartBalanceBPS: routingControlInt(3000), RoutingMinSuccessRate: 85, RoutingStateVersion: 2,
+		ScheduleMode: APIKeyScheduleModeSequential, RouteVersion: 4,
+		RoutingMinSuccessRate: 85, RoutingStateVersion: 2,
 		User:  &User{ID: 2, Status: StatusActive},
 		Group: &Group{ID: 10, Name: "primary", Platform: PlatformOpenAI, Status: StatusActive},
 		GroupRoutes: []APIKeyGroupRoute{
@@ -122,11 +103,7 @@ func TestAPIKeyAuthSnapshotMultiGroupRoutingRoundTrip(t *testing.T) {
 	require.Equal(t, int64(4), restored.RouteVersion)
 	require.Equal(t, int64(2), restored.RoutingStateVersion)
 	require.Equal(t, 85, restored.RoutingMinSuccessRate)
-	require.Equal(t, 3000, *restored.SmartBalanceBPS)
-	*key.SmartBalanceBPS = 9000
-	require.Equal(t, 3000, *restored.SmartBalanceBPS, "cached balance is not a shared mutable pointer")
-	require.Equal(t, APIKeyScheduleModeSmart, restored.ScheduleMode)
-	require.Equal(t, &pref, restored.SmartPreference)
+	require.Equal(t, APIKeyScheduleModeSequential, restored.ScheduleMode)
 	require.Len(t, restored.GroupRoutes, 2)
 	require.Equal(t, int64(20), restored.GroupRoutes[1].GroupID)
 	require.Equal(t, "fallback", restored.GroupRoutes[1].Group.Name)

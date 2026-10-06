@@ -40,8 +40,6 @@ type APIKeyRoutePlan struct {
 	APIKeyID              int64
 	RouteVersion          int64
 	ScheduleMode          string
-	SmartPreference       *string
-	SmartBalanceBPS       *int
 	RoutingMinSuccessRate int
 	RoutingStateVersion   int64
 	Candidates            []APIKeyRouteCandidate
@@ -81,8 +79,6 @@ func (c *APIKeyRouteCoordinator) BuildPlan(apiKey *APIKey, eligible APIKeyRouteE
 		APIKeyID:              apiKey.ID,
 		RouteVersion:          apiKey.RouteVersion,
 		ScheduleMode:          apiKey.ScheduleMode,
-		SmartPreference:       cloneStringPtr(apiKey.SmartPreference),
-		SmartBalanceBPS:       cloneIntPtr(apiKey.SmartBalanceBPS),
 		RoutingMinSuccessRate: apiKey.EffectiveRoutingMinSuccessRate(),
 		RoutingStateVersion:   apiKey.EffectiveRoutingStateVersion(),
 		RoutingEnabled:        c.Enabled() && apiKey.HasMultipleEnabledGroupRoutes(),
@@ -96,8 +92,6 @@ func (c *APIKeyRouteCoordinator) BuildPlan(apiKey *APIKey, eligible APIKeyRouteE
 	}
 	if !plan.RoutingEnabled {
 		plan.ScheduleMode = APIKeyScheduleModeSequential
-		plan.SmartPreference = nil
-		plan.SmartBalanceBPS = nil
 	}
 
 	// Pre-migration paths deliberately retain the old behavior, including the

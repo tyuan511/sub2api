@@ -125,9 +125,6 @@ func provideCleanup(
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	bazaarLinkProbeRunner *service.BazaarLinkProbeRunner,
 	channelMonitorV2Aggregator *service.ChannelMonitorV2Aggregator,
-	routingScoreBuilder *service.RoutingScoreBuilder,
-	routingStrategyRuntime *service.RoutingStrategyRuntime,
-	routingCanaryMonitor *service.RoutingCanaryMonitor,
 	routingFactRecorder *service.RoutingFactRecorder,
 	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
@@ -155,28 +152,9 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"RoutingCanaryMonitor", func() error {
-				if routingCanaryMonitor != nil {
-					routingCanaryMonitor.Stop()
-				}
-				return nil
-			}},
-			{"RoutingStrategyRuntime", func() error {
-				if routingStrategyRuntime != nil {
-					routingStrategyRuntime.Stop()
-					service.SetDefaultRoutingStrategyRuntime(nil)
-				}
-				return nil
-			}},
 			{"RoutingFactRecorder", func() error {
 				if routingFactRecorder != nil {
 					routingFactRecorder.Stop()
-				}
-				return nil
-			}},
-			{"RoutingScoreBuilder", func() error {
-				if routingScoreBuilder != nil {
-					routingScoreBuilder.Stop()
 				}
 				return nil
 			}},

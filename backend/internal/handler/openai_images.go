@@ -162,7 +162,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	}
 	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, requestModel, routeEndpoint)
 	stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, routeSessionHash)
-	routeStateDegraded := stickyErr != nil
 	if stickyErr != nil {
 		reqLog.Warn("openai.images.api_key_group_route_state_degraded", zap.Error(stickyErr))
 	}
@@ -182,19 +181,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	}
 	if stickyRouteSelected {
 		middleware2.MarkAPIKeyRouteStickySelected(c)
-	}
-	if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
-		smartAPIKey, smartSubscription, ranked, activated, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, requestModel, routeEndpoint, routeSessionHash, imagesCandidateCheck)
-		if smartErr != nil {
-			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
-			return
-		}
-		if len(ranked) > 0 {
-			apiKey = smartAPIKey
-			subscription = smartSubscription
-			state, _ := middleware2.GetAPIKeyRouteState(c)
-			reqLog.Info("openai.images.api_key_group_smart_order_applied", zap.Bool("initial_group_changed", activated), zap.String("score_version", state.ScoreVersion), zap.Int("candidate_count", len(ranked)))
-		}
 	}
 	apiKey, subscription, initialRouteChanged, err := h.apiKeyRouteRuntime().ensureInitial(c, imagesCandidateCheck)
 	if err != nil {

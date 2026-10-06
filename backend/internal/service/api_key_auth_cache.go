@@ -12,8 +12,6 @@ type APIKeyAuthSnapshot struct {
 	UserID                   int64                          `json:"user_id"`
 	GroupID                  *int64                         `json:"group_id,omitempty"`
 	ScheduleMode             string                         `json:"schedule_mode"`
-	SmartPreference          *string                        `json:"smart_preference,omitempty"`
-	SmartBalanceBPS          *int                           `json:"smart_balance_bps"`
 	RoutingMinSuccessRate    int                            `json:"routing_min_success_rate"`
 	RoutingStateVersion      int64                          `json:"routing_state_version"`
 	RouteVersion             int64                          `json:"route_version"`

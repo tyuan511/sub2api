@@ -33,19 +33,19 @@ type BazaarLinkProbeGroupInfo struct {
 
 // BazaarLinkProbeBatchResult summarizes a multi-group manual probe submission.
 type BazaarLinkProbeBatchResult struct {
-	Total     int                         `json:"total"`
-	Submitted int                         `json:"submitted"`
-	Skipped   int                         `json:"skipped"`
-	Failed    int                         `json:"failed"`
-	Items     []BazaarLinkProbeBatchItem  `json:"items"`
+	Total     int                        `json:"total"`
+	Submitted int                        `json:"submitted"`
+	Skipped   int                        `json:"skipped"`
+	Failed    int                        `json:"failed"`
+	Items     []BazaarLinkProbeBatchItem `json:"items"`
 }
 
 // BazaarLinkProbeBatchItem is one monitor outcome inside a batch submission.
 type BazaarLinkProbeBatchItem struct {
-	MonitorID int64                       `json:"monitor_id"`
-	GroupName string                      `json:"group_name"`
-	Status    string                      `json:"status"` // submitted | skipped | failed
-	Error     string                      `json:"error,omitempty"`
+	MonitorID int64                         `json:"monitor_id"`
+	GroupName string                        `json:"group_name"`
+	Status    string                        `json:"status"` // submitted | skipped | failed
+	Error     string                        `json:"error,omitempty"`
 	Result    *domain.BazaarLinkProbeResult `json:"result,omitempty"`
 }
 

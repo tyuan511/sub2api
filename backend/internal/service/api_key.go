@@ -16,11 +16,6 @@ const (
 
 const (
 	APIKeyScheduleModeSequential = "sequential"
-	APIKeyScheduleModeSmart      = "smart"
-
-	APIKeySmartPreferencePrice    = "price"
-	APIKeySmartPreferenceSpeed    = "speed"
-	APIKeySmartPreferenceBalanced = "balanced"
 
 	DefaultMaxAPIKeyGroupRoutes = 8
 )
@@ -64,9 +59,9 @@ type APIKey struct {
 	Name    string
 	GroupID *int64
 	// GroupID remains the compatibility mirror of priority 0 during rollout.
+	// ScheduleMode is retained for the persisted compatibility column; API key
+	// failover is always a fixed sequential order now.
 	ScheduleMode             string
-	SmartPreference          *string
-	SmartBalanceBPS          *int
 	RoutingMinSuccessRate    int
 	RoutingStateVersion      int64
 	RouteVersion             int64
@@ -85,9 +80,6 @@ type APIKey struct {
 	User                *User
 	Group               *Group
 	CurrentConcurrency  int
-	// RoutingSelectionObservations is a control-plane-only, bounded projection
-	// of recent successful route facts. It is never loaded by the auth hot path.
-	RoutingSelectionObservations []APIKeyRoutingSelectionObservation
 
 	// Quota fields
 	Quota     float64    // Quota limit in USD (0 = unlimited)
@@ -104,24 +96,6 @@ type APIKey struct {
 	Window5hStart *time.Time // Start of current 5h window
 	Window1dStart *time.Time // Start of current 1d window
 	Window7dStart *time.Time // Start of current 7d window
-}
-
-// APIKeyRoutingSelectionObservation contains one inverse-probability-weighted
-// successful landing bucket. Route/config and strategy versions remain part of
-// the key so stale traffic never influences a newly edited route set.
-type APIKeyRoutingSelectionObservation struct {
-	APIKeyID           int64
-	RouteVersion       int64
-	Platform           string
-	ModelFamily        string
-	EndpointKind       string
-	StrategyVersion    string
-	SmartPreference    string
-	GroupID            int64
-	SampledSelections  int64
-	WeightedSelections float64
-	WeightSquares      float64
-	DataThrough        time.Time
 }
 
 func (k *APIKey) IsActive() bool {

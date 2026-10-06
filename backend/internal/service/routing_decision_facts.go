@@ -53,8 +53,6 @@ type RoutingAttemptFact struct {
 	EffectiveGroupID       *int64                           `json:"effective_group_id,omitempty"`
 	SelectedGroupID        *int64                           `json:"selected_group_id,omitempty"`
 	ScheduleMode           string                           `json:"schedule_mode"`
-	SmartPreference        *string                          `json:"smart_preference,omitempty"`
-	SmartBalanceBPS        *int                             `json:"smart_balance_bps"`
 	RoutingMinSuccessRate  int                              `json:"routing_min_success_rate"`
 	RoutingStateVersion    int64                            `json:"routing_state_version"`
 	AttemptIndex           int                              `json:"attempt_index"`
@@ -138,7 +136,7 @@ func ValidateRoutingAttemptFact(fact *RoutingAttemptFact) error {
 		if fact.RoutingMinSuccessRate != 0 {
 			minimum = &fact.RoutingMinSuccessRate
 		}
-		if ValidateAPIKeyRoutingControls(fact.SmartBalanceBPS, minimum) != nil || fact.RoutingStateVersion < 0 {
+		if ValidateAPIKeyRoutingControls(minimum) != nil || fact.RoutingStateVersion < 0 {
 			return fmt.Errorf("%w: invalid routing controls", ErrRoutingFactInvalid)
 		}
 	}
@@ -147,9 +145,7 @@ func ValidateRoutingAttemptFact(fact *RoutingAttemptFact) error {
 		fact.RouteVersion < 1 || fact.AttemptIndex < 0 || fact.AttemptIndex >= DefaultMaxAPIKeyGroupRoutes {
 		return ErrRoutingFactInvalid
 	}
-	if !oneOf(fact.ScheduleMode, APIKeyScheduleModeSequential, APIKeyScheduleModeSmart) ||
-		(fact.ScheduleMode == APIKeyScheduleModeSmart && (fact.SmartPreference == nil || !oneOf(*fact.SmartPreference, APIKeySmartPreferencePrice, APIKeySmartPreferenceSpeed, APIKeySmartPreferenceBalanced))) ||
-		(fact.ScheduleMode == APIKeyScheduleModeSequential && fact.SmartPreference != nil) {
+	if !oneOf(fact.ScheduleMode, APIKeyScheduleModeSequential) {
 		return fmt.Errorf("%w: invalid scheduling policy", ErrRoutingFactInvalid)
 	}
 	if strings.TrimSpace(fact.Platform) == "" || strings.TrimSpace(fact.ModelFamily) == "" || strings.TrimSpace(fact.EndpointKind) == "" ||
@@ -270,8 +266,8 @@ func RoutingFactFromUsage(ctx context.Context, log *UsageLog) (*RoutingAttemptFa
 		APIKeyID: positiveInt64Ptr(log.APIKeyID), RouteVersion: meta.RouteVersion,
 		InitialGroupID: positiveInt64Ptr(meta.InitialGroupID), AttemptedGroupID: positiveInt64Ptr(*log.GroupID),
 		EffectiveGroupID: positiveInt64Ptr(*log.GroupID), SelectedGroupID: positiveInt64Ptr(*log.GroupID),
-		ScheduleMode: meta.ScheduleMode, SmartPreference: cloneStringPtr(meta.SmartPreference), AttemptIndex: minInt(meta.SwitchCount, DefaultMaxAPIKeyGroupRoutes-1),
-		SmartBalanceBPS: cloneIntPtr(meta.SmartBalanceBPS), RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
+		ScheduleMode: meta.ScheduleMode, AttemptIndex: minInt(meta.SwitchCount, DefaultMaxAPIKeyGroupRoutes-1),
+		RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
 		Platform: platform, ModelFamily: modelFamily, EndpointKind: NormalizeAPIKeyRoutingEndpointKind(endpoint),
 		StrategyVersion: strategyVersion, ScoreVersion: scoreVersion, FeatureSchemaVersion: featureVersion,
 		ModelVersion: cloneStringPtr(meta.ModelVersion), ExperimentID: cloneStringPtr(meta.ExperimentID), ExperimentBucket: cloneIntPtr(meta.ExperimentBucket),
@@ -340,8 +336,8 @@ func emitAPIKeyRoutingFailureFact(ctx context.Context, apiKeyID, routeVersion, g
 	emitRoutingFact(&RoutingAttemptFact{
 		EventID: uuid.NewString(), RoutingDecisionID: meta.DecisionID, APIKeyID: positiveInt64Ptr(apiKeyID),
 		RouteVersion: routeVersion, InitialGroupID: positiveInt64Ptr(meta.InitialGroupID), AttemptedGroupID: positiveInt64Ptr(groupID),
-		SelectedGroupID: positiveInt64Ptr(groupID), ScheduleMode: meta.ScheduleMode, SmartPreference: cloneStringPtr(meta.SmartPreference),
-		SmartBalanceBPS: cloneIntPtr(meta.SmartBalanceBPS), RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
+		SelectedGroupID: positiveInt64Ptr(groupID), ScheduleMode: meta.ScheduleMode,
+		RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
 		AttemptIndex: minInt(meta.SwitchCount, DefaultMaxAPIKeyGroupRoutes-1), Platform: platform,
 		ModelFamily: NormalizeAPIKeyRoutingModelFamily(platform, model), EndpointKind: NormalizeAPIKeyRoutingEndpointKind(endpoint),
 		StrategyVersion: strategyVersion, ScoreVersion: scoreVersion, FeatureSchemaVersion: featureVersion,
@@ -352,81 +348,6 @@ func emitAPIKeyRoutingFailureFact(ctx context.Context, apiKeyID, routeVersion, g
 		SwitchedGroup: meta.SwitchCount > 0, StickyBroken: meta.StickyBroken, BreakerTransition: transition, EventPriority: RoutingEventPriorityCritical,
 		DurationMS: durationMS,
 		OccurredAt: time.Now(),
-	})
-}
-
-func RecordAPIKeyRoutingShadowDecision(ctx context.Context, shadowPolicy APIKeyRoutingStrategyPolicy, snapshot *APIKeyRoutingScoreSnapshot, ranked []APIKeyRoutingCandidateScore) {
-	meta, ok := APIKeyRoutingUsageContextFromContext(ctx)
-	if !ok || snapshot == nil || meta.APIKeyID <= 0 || shadowPolicy.Version == "" || len(ranked) == 0 {
-		return
-	}
-	candidates := make([]APIKeyRoutingDecisionCandidate, 0, len(ranked))
-	var selectedGroupID *int64
-	for rank, score := range ranked {
-		rankCopy := rank
-		success, smoothedSuccess, confidence, total, breakdown := score.SuccessRate, score.SmoothedSuccessRate, score.Confidence, score.Score, score.Breakdown
-		candidate := APIKeyRoutingDecisionCandidate{
-			GroupID: score.GroupID, ConfiguredPriority: score.Priority, Admitted: score.Eligible, Rank: &rankCopy,
-			Recovery: score.Recovery, RecoveryTrafficBPS: score.RecoveryTrafficBPS,
-			SuccessRate: &success, SmoothedSuccessRate: &smoothedSuccess, Confidence: &confidence, Score: &total, ScoreBreakdown: &breakdown,
-			ExclusionReason: score.Exclusion, OutcomeVisibility: RoutingOutcomeUnobserved,
-		}
-		normalizedRate, ttft, duration := score.NormalizedRate, score.TTFTMS, score.DurationMS
-		capacity, cacheHit := score.CapacityScore, score.CacheHitRate
-		candidate.NormalizedRate, candidate.TTFTMS, candidate.DurationMS = &normalizedRate, &ttft, &duration
-		candidate.CapacityScore, candidate.CacheHitRate, candidate.ObservationWindow = &capacity, &cacheHit, score.ObservationWindow
-		candidate.DependencyDomains = append([]string(nil), score.DependencyDomains...)
-		candidate.SharedBaselineScore = cloneFloat64Ptr(score.SharedBaselineScore)
-		candidate.LearningAdjustment = cloneFloat64Ptr(score.LearningAdjustment)
-		candidate.PersonalizationWeight = cloneFloat64Ptr(score.PersonalizationWeight)
-		candidates = append(candidates, candidate)
-		if selectedGroupID == nil && score.Eligible {
-			selectedGroupID = positiveInt64Ptr(score.GroupID)
-		}
-	}
-	if selectedGroupID == nil {
-		return
-	}
-	emitRoutingFact(&RoutingAttemptFact{
-		EventID: uuid.NewString(), RoutingDecisionID: meta.DecisionID, APIKeyID: positiveInt64Ptr(meta.APIKeyID),
-		RouteVersion: meta.RouteVersion, InitialGroupID: positiveInt64Ptr(meta.InitialGroupID), SelectedGroupID: selectedGroupID,
-		ScheduleMode: meta.ScheduleMode, SmartPreference: cloneStringPtr(meta.SmartPreference), AttemptIndex: 0,
-		SmartBalanceBPS: cloneIntPtr(meta.SmartBalanceBPS), RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
-		Platform: snapshot.Platform, ModelFamily: snapshot.ModelFamily, EndpointKind: snapshot.EndpointKind,
-		StrategyVersion: shadowPolicy.Version, ScoreVersion: snapshot.Version, FeatureSchemaVersion: snapshot.FeatureVersion,
-		ModelVersion: cloneStringPtr(snapshot.ModelVersion), SampleProbability: 1, AssignmentReason: RoutingAssignmentShadow,
-		Candidates: candidates, SelectedReason: optionalStringPtr("shadow_top_rank"), OutcomeVisibility: RoutingOutcomeUnobserved,
-		OutcomeCategory: optionalStringPtr(RoutingFactOutcomeShadowDecision), EventPriority: RoutingEventPriorityDiagnostic, OccurredAt: time.Now(),
-	})
-}
-
-// RecordAPIKeyRoutingDecision emits the point-in-time input half of the event
-// chain. A final usage or terminal-failure fact with the same decision ID must
-// follow. Canary/control decisions are retained in full; ordinary baseline
-// traffic remains subject to deterministic sampling in RoutingFactRecorder.
-func RecordAPIKeyRoutingDecision(ctx context.Context, modelFamily, endpointKind string) {
-	meta, ok := APIKeyRoutingUsageContextFromContext(ctx)
-	if !ok || meta.APIKeyID <= 0 || len(meta.Candidates) == 0 {
-		return
-	}
-	selectedGroupID := positiveInt64Ptr(meta.EffectiveGroupID)
-	if selectedGroupID == nil {
-		return
-	}
-	strategyVersion, scoreVersion, featureVersion := routingFactVersions(meta)
-	emitRoutingFact(&RoutingAttemptFact{
-		EventID:           routingFactEventID(meta.DecisionID, RoutingFactOutcomeDecision, 0, meta.EffectiveGroupID),
-		RoutingDecisionID: meta.DecisionID, APIKeyID: positiveInt64Ptr(meta.APIKeyID), RouteVersion: meta.RouteVersion,
-		InitialGroupID: positiveInt64Ptr(meta.InitialGroupID), SelectedGroupID: selectedGroupID,
-		ScheduleMode: meta.ScheduleMode, SmartPreference: cloneStringPtr(meta.SmartPreference), AttemptIndex: 0,
-		SmartBalanceBPS: cloneIntPtr(meta.SmartBalanceBPS), RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
-		Platform: meta.Platform, ModelFamily: modelFamily, EndpointKind: endpointKind,
-		StrategyVersion: strategyVersion, ScoreVersion: scoreVersion, FeatureSchemaVersion: featureVersion,
-		ModelVersion: cloneStringPtr(meta.ModelVersion), ExperimentID: cloneStringPtr(meta.ExperimentID),
-		ExperimentBucket: cloneIntPtr(meta.ExperimentBucket), SampleProbability: 1,
-		AssignmentReason: routingAssignmentReason(meta.AssignmentReason), Candidates: cloneAPIKeyRoutingDecisionCandidates(meta.Candidates),
-		SelectedReason: optionalStringPtr("ranked_top_candidate"), OutcomeVisibility: RoutingOutcomeUnobserved,
-		OutcomeCategory: optionalStringPtr(RoutingFactOutcomeDecision), EventPriority: RoutingEventPriorityDiagnostic, OccurredAt: time.Now(),
 	})
 }
 
@@ -444,8 +365,8 @@ func RecordAPIKeyRoutingTerminalFailure(ctx context.Context, modelFamily, endpoi
 		RoutingDecisionID: meta.DecisionID, APIKeyID: positiveInt64Ptr(meta.APIKeyID), RouteVersion: meta.RouteVersion,
 		InitialGroupID: positiveInt64Ptr(meta.InitialGroupID), AttemptedGroupID: positiveInt64Ptr(meta.EffectiveGroupID),
 		SelectedGroupID: positiveInt64Ptr(meta.EffectiveGroupID), ScheduleMode: meta.ScheduleMode,
-		SmartPreference: cloneStringPtr(meta.SmartPreference), AttemptIndex: minInt(meta.SwitchCount, DefaultMaxAPIKeyGroupRoutes-1),
-		SmartBalanceBPS: cloneIntPtr(meta.SmartBalanceBPS), RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
+		AttemptIndex:          minInt(meta.SwitchCount, DefaultMaxAPIKeyGroupRoutes-1),
+		RoutingMinSuccessRate: meta.RoutingMinSuccessRate, RoutingStateVersion: meta.RoutingStateVersion,
 		Platform: meta.Platform, ModelFamily: modelFamily, EndpointKind: endpointKind,
 		StrategyVersion: strategyVersion, ScoreVersion: scoreVersion, FeatureSchemaVersion: featureVersion,
 		ModelVersion: cloneStringPtr(meta.ModelVersion), ExperimentID: cloneStringPtr(meta.ExperimentID),
@@ -484,9 +405,6 @@ func logAPIKeyRoutingOutcome(ctx context.Context, fact *RoutingAttemptFact) {
 	if fact.EffectiveGroupID != nil {
 		attributes = append(attributes, "effective_group_id", *fact.EffectiveGroupID)
 	}
-	if fact.SmartPreference != nil {
-		attributes = append(attributes, "smart_preference", *fact.SmartPreference)
-	}
 	slog.InfoContext(ctx, "API key routing decision finalized", attributes...)
 }
 
@@ -521,4 +439,18 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func oneOf(value string, options ...string) bool {
+	for _, option := range options {
+		if value == option {
+			return true
+		}
+	}
+	return false
+}
+
+func boundedRoutingDimension(value string) bool {
+	value = strings.TrimSpace(value)
+	return value != "" && len(value) <= 200 && !strings.ContainsRune(value, '\x00')
 }

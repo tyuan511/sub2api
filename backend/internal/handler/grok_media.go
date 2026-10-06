@@ -189,10 +189,8 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	}
 	stickyModelFamily, stickyEndpointKind := apiKeyRouteStickyScope(apiKey, routingModel, routeEndpoint)
 	stickyRouteSelected := false
-	routeStateDegraded := false
 	if !routeLocked {
 		stickyGroupID, stickyErr := h.gatewayService.GetAPIKeyGroupSticky(c.Request.Context(), apiKey.ID, apiKey.RouteVersion, stickyModelFamily, stickyEndpointKind, sessionHash)
-		routeStateDegraded = stickyErr != nil
 		if stickyErr != nil {
 			reqLog.Warn("grok_media.api_key_group_route_state_degraded", zap.String("reason", "sticky_read_failed"), zap.Error(stickyErr))
 		} else if stickyGroupID > 0 && apiKey.GroupID != nil && *apiKey.GroupID == stickyGroupID {
@@ -211,17 +209,6 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		}
 		if stickyRouteSelected {
 			middleware2.MarkAPIKeyRouteStickySelected(c)
-		}
-		if shouldActivateSmartRoute(c, stickyRouteSelected, routeStateDegraded) {
-			smartAPIKey, smartSubscription, ranked, _, smartErr := h.apiKeyRouteRuntime().activateSmart(c, apiKey, routingModel, routeEndpoint, sessionHash, grokMediaCandidateCheck)
-			if smartErr != nil {
-				h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
-				return
-			}
-			if len(ranked) > 0 {
-				apiKey = smartAPIKey
-				subscription = smartSubscription
-			}
 		}
 	}
 	if apiKeyMultiGroupRoutingActive(c) {

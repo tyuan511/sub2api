@@ -138,16 +138,6 @@ func (h *AsyncImageHandler) Submit(c *gin.Context) {
 		if stickySelected {
 			middleware2.MarkAPIKeyRouteStickySelected(c)
 		}
-		if shouldActivateSmartRoute(c, stickySelected, stickyErr != nil) {
-			smartAPIKey, _, ranked, _, smartErr := h.openAI.apiKeyRouteRuntime().activateSmart(c, apiKey, model, routeEndpoint, routeSessionHash, asyncCandidateCheck)
-			if smartErr != nil {
-				imageTaskJSONError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
-				return
-			}
-			if len(ranked) > 0 {
-				apiKey = smartAPIKey
-			}
-		}
 		actualAPIKey, _, changed, routeErr := h.openAI.apiKeyRouteRuntime().ensureInitial(c, asyncCandidateCheck)
 		if routeErr != nil {
 			imageTaskJSONError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
@@ -239,15 +229,6 @@ func (h *AsyncImageHandler) activateImageStudioRoute(c *gin.Context, apiKey *ser
 		}
 		if stickySelected {
 			middleware2.MarkAPIKeyRouteStickySelected(c)
-		}
-	}
-	if shouldActivateSmartRoute(c, stickySelected, stickyErr != nil) {
-		smartAPIKey, _, ranked, _, smartErr := h.openAI.apiKeyRouteRuntime().activateSmart(c, apiKey, model, routeEndpoint, routeSessionHash, check)
-		if smartErr != nil {
-			return nil, smartErr
-		}
-		if len(ranked) > 0 {
-			apiKey = smartAPIKey
 		}
 	}
 	actual, _, changed, err := h.openAI.apiKeyRouteRuntime().ensureInitial(c, check)

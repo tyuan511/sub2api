@@ -2,10 +2,8 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -281,156 +279,11 @@ func TestActivateAPIKeyRouteOwnedGroupPinsConfiguredPhysicalGroup(t *testing.T) 
 	require.Zero(t, state.SwitchCount)
 }
 
-func TestAPIKeyRouteRuntimeSmartOrderIsFrozenForRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	ids := []int64{31, 32}
-	preference := service.APIKeySmartPreferenceSpeed
-	routes := []service.APIKeyGroupRoute{
-		{GroupID: ids[0], Priority: 0, Enabled: true, Group: &service.Group{ID: ids[0], Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
-		{GroupID: ids[1], Priority: 1, Enabled: true, Group: &service.Group{ID: ids[1], Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
-	}
-	apiKey := &service.APIKey{
-		ID: 29, GroupID: &ids[0], Group: routes[0].Group, User: &service.User{ID: 27}, RouteVersion: 3,
-		ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &preference, GroupRoutes: routes,
-	}
-	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	store := service.DefaultAPIKeyRoutingScoreStore()
-	require.NoError(t, store.Replace([]*service.APIKeyRoutingScoreSnapshot{{
-		Version: "score-1", StrategyVersion: "strategy-1", FeatureVersion: "feature-1",
-		Platform: service.PlatformOpenAI, ModelFamily: "gpt-5", EndpointKind: "responses", GeneratedAt: now,
-		Groups: map[int64]service.APIKeyRoutingGroupObservation{
-			ids[0]: {GroupID: ids[0], SuccessRequests: 100, NormalizedRate: 1, TTFTP50Ms: 900, CapacityScore: 1, Confidence: 1},
-			ids[1]: {GroupID: ids[1], SuccessRequests: 100, NormalizedRate: 1, TTFTP50Ms: 100, CapacityScore: 1, Confidence: 1},
-		},
-	}}))
-	t.Cleanup(func() { _ = store.Replace(nil) })
-
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
-	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: ids[0]})
-	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
-
-	actual, _, ranked, changed, err := (apiKeyRouteRuntime{}).activateSmart(c, apiKey, "gpt-5.6-sol", "/v1/responses", "session-smart-order", nil)
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.NotEmpty(t, ranked)
-	require.Equal(t, ids[1], *actual.GroupID)
-	state, ok := middleware2.GetAPIKeyRouteState(c)
-	require.True(t, ok)
-	require.Equal(t, "score-1", state.ScoreVersion)
-	require.Equal(t, ids[1], state.InitialGroupID)
-	require.Zero(t, state.SwitchCount, "initial smart choice is not a failover")
-
-	next, ok := middleware2.AdvanceAPIKeyRoute(c)
-	require.True(t, ok)
-	require.Equal(t, ids[0], *next.GroupID)
-	require.Equal(t, 1, state.SwitchCount)
-}
-
-func TestAPIKeyRouteRuntimeUsesRecentRecoveryForCheaperNewSession(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	primaryID, recoveredID := int64(141), int64(142)
-	pref := service.APIKeySmartPreferencePrice
-	routes := []service.APIKeyGroupRoute{
-		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 1}},
-		{GroupID: recoveredID, Priority: 1, Enabled: true, Group: &service.Group{ID: recoveredID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 0.7}},
-	}
-	apiKey := &service.APIKey{ID: 139, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 137}, RouteVersion: 1,
-		ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref, GroupRoutes: routes}
-	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	store := service.DefaultAPIKeyRoutingScoreStore()
-	require.NoError(t, store.Replace([]*service.APIKeyRoutingScoreSnapshot{{
-		Version: "recovery-score", StrategyVersion: "recovery-strategy", FeatureVersion: "recovery-feature",
-		Platform: service.PlatformOpenAI, ModelFamily: "gpt-5", EndpointKind: "responses", GeneratedAt: now,
-		Groups: map[int64]service.APIKeyRoutingGroupObservation{
-			primaryID: {
-				GroupID: primaryID, SuccessRequests: 0, FailedRequests: 20, NormalizedRate: 1,
-				Confidence: 1, CapacityScore: 1, SmoothedSuccessRate: 0,
-			},
-			recoveredID: {
-				GroupID: recoveredID, SuccessRequests: 0, FailedRequests: 20, NormalizedRate: .7,
-				RecentSuccessRequests: 5, RecentSuccessRate: 1, RecoveryEligible: true,
-				RecoveryTrafficBPS: service.APIKeyRoutingRecoveryEarlyBPS, Confidence: 1, CapacityScore: 1,
-			},
-		},
-	}}))
-	t.Cleanup(func() { _ = store.Replace(nil) })
-
-	var sessionHash string
-	for index := 0; index < 10000; index++ {
-		candidate := fmt.Sprintf("recovery-session-%d", index)
-		if service.APIKeyRoutingRecoveryTrafficAllowed(apiKey.ID, recoveredID, candidate, service.APIKeyRoutingRecoveryEarlyBPS) {
-			sessionHash = candidate
-			break
-		}
-	}
-	require.NotEmpty(t, sessionHash)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
-	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
-	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
-
-	actual, _, ranked, changed, err := (apiKeyRouteRuntime{}).activateSmart(c, apiKey, "gpt-5", "/v1/responses", sessionHash, nil)
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.Equal(t, recoveredID, *actual.GroupID, "a recovered cheaper candidate should serve the admitted new-session subset")
-	for _, score := range ranked {
-		if score.GroupID == recoveredID {
-			require.True(t, score.Recovery)
-			require.True(t, score.Eligible)
-		}
-	}
-}
-
-func TestAPIKeyRouteSmartControlsDoNotHardExcludeBelowStoredThreshold(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	pref, balance := service.APIKeySmartPreferencePrice, 0
-	id := int64(81)
-	routes := []service.APIKeyGroupRoute{
-		{GroupID: 81, Enabled: true, Group: &service.Group{ID: 81, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 0.1}},
-		{GroupID: 82, Priority: 1, Enabled: true, Group: &service.Group{ID: 82, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 1}},
-	}
-	key := &service.APIKey{ID: 80, RouteVersion: 1, GroupID: &id, Group: routes[0].Group, GroupRoutes: routes,
-		User: &service.User{ID: 80}, ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref, SmartBalanceBPS: &balance, RoutingMinSuccessRate: 95}
-	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(key, nil)
-	require.NoError(t, err)
-	store := service.DefaultAPIKeyRoutingScoreStore()
-	require.NoError(t, store.Replace([]*service.APIKeyRoutingScoreSnapshot{{
-		Version: "controls-score", StrategyVersion: "controls-strategy", FeatureVersion: "controls-feature",
-		Platform: service.PlatformOpenAI, ModelFamily: "gpt-5", EndpointKind: "responses", GeneratedAt: time.Now(),
-		Groups: map[int64]service.APIKeyRoutingGroupObservation{
-			81: {GroupID: 81, SuccessRequests: 90, FailedRequests: 10, NormalizedRate: .1, Confidence: 1},
-			82: {GroupID: 82, SuccessRequests: 85, FailedRequests: 15, NormalizedRate: 1, Confidence: 1},
-		},
-	}}))
-	t.Cleanup(func() { _ = store.Replace(nil) })
-	for _, check := range []apiKeyRouteCandidateCheck{nil, func(*service.APIKey) error { return nil }} {
-		c, _ := gin.CreateTestContext(httptest.NewRecorder())
-		c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
-		middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: id})
-		c.Set(string(middleware2.ContextKeyAPIKey), key)
-		actual, _, ranked, changed, err := (apiKeyRouteRuntime{}).activateSmart(c, key, "gpt-5.6-sol", "/v1/responses", "controls-session", check)
-		require.NoError(t, err)
-		require.False(t, changed, "cheaper group 81 is already the initial candidate")
-		require.Equal(t, id, *actual.GroupID)
-		require.Len(t, ranked, 2)
-		for _, score := range ranked {
-			require.True(t, score.Eligible, "stored success threshold is not a hard intercept")
-			require.Empty(t, score.Exclusion)
-		}
-	}
-}
-
 func TestAPIKeyRouteSingleGroupPreservesLegacyRequestContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	group := &service.Group{ID: 81, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}
-	pref := service.APIKeySmartPreferencePrice
 	key := &service.APIKey{ID: 80, RouteVersion: 1, GroupID: &group.ID, Group: group, User: &service.User{ID: 80},
-		ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref, RoutingMinSuccessRate: 95,
+		ScheduleMode: service.APIKeyScheduleModeSequential, RoutingMinSuccessRate: 95,
 		GroupRoutes: []service.APIKeyGroupRoute{{GroupID: group.ID, Enabled: true, Group: group}}}
 	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(key, nil)
 	require.NoError(t, err)
@@ -438,12 +291,6 @@ func TestAPIKeyRouteSingleGroupPreservesLegacyRequestContext(t *testing.T) {
 	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
 	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0}, InitialGroupID: group.ID})
 	c.Set(string(middleware2.ContextKeyAPIKey), key)
-	require.False(t, shouldActivateSmartRoute(c, false, false))
-	actual, _, ranked, changed, err := (apiKeyRouteRuntime{}).activateSmart(c, key, "gpt-5", "responses", "session", nil)
-	require.NoError(t, err)
-	require.Same(t, key, actual)
-	require.False(t, changed)
-	require.Empty(t, ranked)
 	// Legacy endpoint checks remain in the handlers; the route runtime must
 	// neither repeat subscription checks nor add candidate-only restrictions.
 	subscription := &service.UserSubscription{ID: 19, DailyUsageUSD: 100}
@@ -458,96 +305,6 @@ func TestAPIKeyRouteSingleGroupPreservesLegacyRequestContext(t *testing.T) {
 	require.Same(t, subscription, gotSubscription)
 	require.Same(t, originalContext, c.Request.Context())
 	require.False(t, changed)
-}
-
-func TestAPIKeyRoutingLearningCannotResurrectHardExcludedCandidate(t *testing.T) {
-	baseline := []service.APIKeyRoutingCandidateScore{
-		{GroupID: 1, Eligible: true, Score: .70},
-		{GroupID: 2, Eligible: false, Exclusion: "success_rate_below_50_percent", Score: 0},
-	}
-	predicted := []service.APIKeyRoutingCandidateScore{
-		{GroupID: 2, Eligible: true, Score: .99},
-		{GroupID: 1, Eligible: true, Score: .69},
-	}
-	actual := applyAPIKeyRoutingBaselineEligibility(predicted, baseline)
-	require.Equal(t, int64(1), actual[0].GroupID)
-	require.True(t, actual[0].Eligible)
-	require.Equal(t, int64(2), actual[1].GroupID)
-	require.False(t, actual[1].Eligible)
-	require.Equal(t, "success_rate_below_50_percent", actual[1].Exclusion)
-}
-
-func TestSmartCanarySelectionOnlyAppliesToNewSession(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	groupIDs := []int64{41, 42}
-	preference := service.APIKeySmartPreferenceBalanced
-	apiKey := &service.APIKey{ID: 39, RouteVersion: 7, ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &preference,
-		GroupRoutes: []service.APIKeyGroupRoute{
-			{GroupID: groupIDs[0], Priority: 0, Enabled: true, Group: &service.Group{ID: groupIDs[0], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
-			{GroupID: groupIDs[1], Priority: 1, Enabled: true, Group: &service.Group{ID: groupIDs[1], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
-		},
-	}
-	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
-	require.NoError(t, err)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
-	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}})
-
-	require.False(t, shouldActivateSmartRoute(c, true, false), "accepted healthy sticky session must bypass canary strategy selection")
-	require.True(t, shouldActivateSmartRoute(c, false, false), "new session may use the active/canary strategy")
-	require.False(t, shouldActivateSmartRoute(c, false, true), "Redis route-state failure must degrade to frozen sequential order")
-}
-
-func TestSequentialScheduleNeverActivatesSmartOrRecoveryReorder(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	groupIDs := []int64{61, 62}
-	apiKey := &service.APIKey{ID: 59, RouteVersion: 3, ScheduleMode: service.APIKeyScheduleModeSequential,
-		GroupRoutes: []service.APIKeyGroupRoute{
-			{GroupID: groupIDs[0], Priority: 0, Enabled: true, Group: &service.Group{ID: groupIDs[0], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
-			{GroupID: groupIDs[1], Priority: 1, Enabled: true, Group: &service.Group{ID: groupIDs[1], Status: service.StatusActive, Platform: service.PlatformOpenAI}},
-		},
-	}
-	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
-	require.NoError(t, err)
-	require.Equal(t, service.APIKeyScheduleModeSequential, plan.ScheduleMode)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
-	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}})
-	require.False(t, shouldActivateSmartRoute(c, false, false), "sequential keys must keep configured priority, including during recovery")
-}
-
-func TestRecoveryTrafficBudgetKeepsRecoveredCheapRouteOnNewSessionSubset(t *testing.T) {
-	apiKeyID, recoveryGroupID := int64(91), int64(7)
-	ranked := []service.APIKeyRoutingCandidateScore{
-		{GroupID: recoveryGroupID, Eligible: true, Recovery: true, RecoveryTrafficBPS: service.APIKeyRoutingRecoveryEarlyBPS},
-		{GroupID: 8, Eligible: true},
-	}
-
-	var allowedHash, deniedHash string
-	for index := 0; index < 10000 && (allowedHash == "" || deniedHash == ""); index++ {
-		hash := fmt.Sprintf("new-session-%d", index)
-		if service.APIKeyRoutingRecoveryTrafficAllowed(apiKeyID, recoveryGroupID, hash, service.APIKeyRoutingRecoveryEarlyBPS) {
-			allowedHash = hash
-		} else {
-			deniedHash = hash
-		}
-	}
-	require.NotEmpty(t, allowedHash)
-	require.NotEmpty(t, deniedHash)
-
-	allowed := applyAPIKeyRoutingRecoveryTrafficBudget(apiKeyID, allowedHash, ranked)
-	require.True(t, allowed[0].Eligible)
-	require.True(t, allowed[0].Recovery)
-
-	denied := applyAPIKeyRoutingRecoveryTrafficBudget(apiKeyID, deniedHash, ranked)
-	require.False(t, denied[0].Eligible)
-	require.Equal(t, "recovery_traffic_budget", denied[0].Exclusion)
-	require.True(t, denied[1].Eligible, "a stable candidate remains available when the recovery subset is not selected")
-	prioritized := prioritizeAPIKeyRoutingRecoveryForPrice([]service.APIKeyRoutingCandidateScore{
-		{GroupID: 8, Eligible: true, NormalizedRate: 1},
-		{GroupID: recoveryGroupID, Eligible: true, Recovery: true, NormalizedRate: .7},
-	})
-	require.Equal(t, recoveryGroupID, prioritized[0].GroupID)
 }
 
 func TestActivateStickyIgnoresMissingGroupAndKeepsFailoverOrder(t *testing.T) {
@@ -586,8 +343,7 @@ func TestActivateStickyIgnoresMissingGroupAndKeepsFailoverOrder(t *testing.T) {
 func TestActiveFallbackStickyDrainsUntilThatRouteFails(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	primaryID, fallbackID := int64(51), int64(52)
-	preference := service.APIKeySmartPreferenceBalanced
-	apiKey := &service.APIKey{ID: 49, RouteVersion: 8, ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &preference,
+	apiKey := &service.APIKey{ID: 49, RouteVersion: 8, ScheduleMode: service.APIKeyScheduleModeSequential,
 		GroupRoutes: []service.APIKeyGroupRoute{
 			{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI}},
 			{GroupID: fallbackID, Priority: 1, Enabled: true, Group: &service.Group{ID: fallbackID, Status: service.StatusActive, Platform: service.PlatformOpenAI}},
@@ -603,7 +359,6 @@ func TestActiveFallbackStickyDrainsUntilThatRouteFails(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, fallbackID, *actual.GroupID)
 	middleware2.MarkAPIKeyRouteStickySelected(c)
-	require.False(t, shouldActivateSmartRoute(c, true, false), "a recovered primary must not re-rank an active fallback session")
 	state, _ := middleware2.GetAPIKeyRouteState(c)
 	require.Zero(t, state.SwitchCount)
 	require.False(t, state.StickyBroken)

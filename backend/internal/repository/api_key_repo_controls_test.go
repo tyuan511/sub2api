@@ -35,10 +35,9 @@ func TestAPIKeyRepositoryRoutingControlsRoundTripAndStateVersion(t *testing.T) {
 	user := mustCreateAPIKeyRepoUser(t, ctx, client, "key-controls@test.com")
 	group, err := client.Group.Create().SetName("controls").SetPlatform(service.PlatformOpenAI).Save(ctx)
 	require.NoError(t, err)
-	pref, balance := service.APIKeySmartPreferencePrice, 3000
 	key := &service.APIKey{UserID: user.ID, Key: "sk-controls", Name: "controls", Status: service.StatusActive,
-		GroupID: &group.ID, ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref,
-		SmartBalanceBPS: &balance, RoutingMinSuccessRate: 85, RouteVersion: 4, RoutingStateVersion: 2,
+		GroupID: &group.ID, ScheduleMode: service.APIKeyScheduleModeSequential,
+		RoutingMinSuccessRate: 85, RouteVersion: 4, RoutingStateVersion: 2,
 		GroupRoutes: []service.APIKeyGroupRoute{{GroupID: group.ID, Priority: 0, Enabled: true}}}
 	require.NoError(t, repo.Create(ctx, key))
 	rawKey := key.Key
@@ -47,19 +46,16 @@ func TestAPIKeyRepositoryRoutingControlsRoundTripAndStateVersion(t *testing.T) {
 	// Auth projections intentionally do not include the credential. Normal
 	// control-plane edits use GetByID, which includes it for invalidation.
 	key.Key = rawKey
-	require.Equal(t, 3000, *key.SmartBalanceBPS)
 	require.Equal(t, 85, key.RoutingMinSuccessRate)
 	require.Equal(t, int64(2), key.RoutingStateVersion)
 	version := key.RouteVersion
-	updatedBalance := 0
-	key.SmartBalanceBPS, key.RoutingMinSuccessRate = &updatedBalance, 95
+	key.RoutingMinSuccessRate = 95
 	require.NoError(t, repo.Update(ctx, key, service.APIKeyUpdateFields{Routing: &service.APIKeyRoutingMutation{
 		ExpectedRouteVersion: &version, Routes: key.GroupRoutes, PreserveRuntimeState: true}}))
 	require.Equal(t, int64(5), key.RouteVersion)
 	require.Equal(t, int64(2), key.RoutingStateVersion)
 	read, err := repo.GetByKeyForAuth(ctx, key.Key)
 	require.NoError(t, err)
-	require.Equal(t, 0, *read.SmartBalanceBPS)
 	require.Equal(t, 95, read.RoutingMinSuccessRate)
 	version = key.RouteVersion
 	require.NoError(t, repo.Update(ctx, key, service.APIKeyUpdateFields{Routing: &service.APIKeyRoutingMutation{
@@ -70,12 +66,11 @@ func TestAPIKeyRepositoryRoutingControlsRoundTripAndStateVersion(t *testing.T) {
 
 func TestRoutingFactPersistsDecisionTimeControls(t *testing.T) {
 	_, client := newAPIKeyRepoSQLite(t)
-	repo := &routingOptimizationRepository{client: client}
+	repo := &routingFactRepository{client: client}
 	ctx := context.Background()
-	pref, balance := service.APIKeySmartPreferencePrice, 3000
 	fact := &service.RoutingAttemptFact{
 		EventID: "controls-event", RoutingDecisionID: "controls-decision", RouteVersion: 9,
-		ScheduleMode: service.APIKeyScheduleModeSmart, SmartPreference: &pref, SmartBalanceBPS: &balance,
+		ScheduleMode: service.APIKeyScheduleModeSequential,
 		RoutingMinSuccessRate: 85, RoutingStateVersion: 3,
 		Platform: service.PlatformOpenAI, ModelFamily: "gpt-5", EndpointKind: "responses",
 		StrategyVersion: "strategy-v1", ScoreVersion: "score-v1", FeatureSchemaVersion: "feature-v1",
@@ -85,7 +80,6 @@ func TestRoutingFactPersistsDecisionTimeControls(t *testing.T) {
 	require.NoError(t, repo.CreateRoutingAttempts(ctx, []*service.RoutingAttemptFact{fact}))
 	stored, err := client.RoutingAttempt.Query().Only(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 3000, *stored.SmartBalanceBps)
 	require.Equal(t, 85, stored.RoutingMinSuccessRate)
 	require.Equal(t, int64(3), *stored.RoutingStateVersion)
 }

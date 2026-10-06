@@ -38,9 +38,8 @@ func TestSingleGroupKeyBypassesGroupControlsWithoutRedisIO(t *testing.T) {
 	for _, shape := range []string{"explicit", "legacy", "one-enabled"} {
 		t.Run(shape, func(t *testing.T) {
 			group := routeTestGroup(11, PlatformOpenAI, SubscriptionTypeStandard, StatusActive)
-			preference := APIKeySmartPreferencePrice
 			key := &APIKey{ID: 9, RouteVersion: 4, RoutingStateVersion: 2, GroupID: &group.ID, Group: group,
-				ScheduleMode: APIKeyScheduleModeSmart, SmartPreference: &preference, RoutingMinSuccessRate: 95,
+				ScheduleMode: APIKeyScheduleModeSequential, RoutingMinSuccessRate: 95,
 				GroupRoutes: []APIKeyGroupRoute{{GroupID: group.ID, Group: group, Enabled: true}}}
 			if shape == "legacy" {
 				key.GroupRoutes = nil
@@ -51,10 +50,8 @@ func TestSingleGroupKeyBypassesGroupControlsWithoutRedisIO(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, plan.RoutingEnabled)
 			require.Equal(t, APIKeyScheduleModeSequential, plan.ScheduleMode)
-			require.Nil(t, plan.SmartPreference)
 			require.Len(t, plan.Candidates, 1)
 			require.Equal(t, int64(11), plan.Candidates[0].GroupID)
-			require.Equal(t, APIKeyScheduleModeSmart, key.ScheduleMode, "do not mutate the auth snapshot")
 			ctx := WithAPIKeyRouteRequestRuntimeState(context.Background(), plan)
 			require.True(t, apiKeyRouteControlsDisabled(ctx, 9, 4))
 			require.False(t, apiKeyRouteControlsDisabled(ctx, 10, 4))

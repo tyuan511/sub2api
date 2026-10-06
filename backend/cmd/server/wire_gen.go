@@ -212,8 +212,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	pluginRepository := repository.NewPluginRepository(db)
 	pluginHostInfo := providePluginHostInfo(buildInfo)
 	pluginKVStore := repository.NewPluginKVStore(redisClient)
-	pluginManager := service.NewPluginManager(pluginRepository, secretEncryptor, configConfig, pluginHostInfo, pluginKVStore)
-	pluginManager.SetAccountDirectory(openAIGatewayService)
+	pluginManager := service.ProvidePluginManager(pluginRepository, secretEncryptor, configConfig, pluginHostInfo, pluginKVStore, openAIGatewayService)
 	accountTestService := service.ProvideAccountTestService(accountRepository, geminiTokenProvider, claudeTokenProvider, grokTokenProvider, antigravityGatewayService, httpUpstream, configConfig, tlsFingerprintProfileService, openAIGatewayService, settingService, pluginManager)
 	crsSyncService := service.NewCRSSyncService(accountRepository, proxyRepository, oAuthService, openAIOAuthService, geminiOAuthService, configConfig)
 	accountHandler := admin.ProvideAccountHandler(configConfig, adminService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, rateLimitService, accountUsageService, accountTestService, concurrencyService, crsSyncService, sessionLimitCache, rpmCache, compositeTokenCacheInvalidator, grokQuotaService)
@@ -301,18 +300,9 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	supportService := service.NewSupportService(client, redisClient, supportAttachmentStore)
 	supportTelegramService := service.ProvideSupportTelegramService(client, redisClient, supportService, settingRepository, secretEncryptor, opsService, channelMonitorV2Service, dashboardService)
 	supportHandler := admin.NewSupportHandler(supportService, supportTelegramService)
-	routingBackgroundDB, err := repository.ProvideRoutingBackgroundDB(configConfig)
-	if err != nil {
-		return nil, err
-	}
-	routingOptimizationRepository := repository.NewRoutingOptimizationRepository(routingBackgroundDB)
-	routingArtifactCache := repository.NewGatewayRoutingArtifactCache(redisClient)
-	routingArtifactManager := service.NewRoutingArtifactManager(routingOptimizationRepository, routingArtifactCache)
-	apiKeyRouteOperationsService := service.NewAPIKeyRouteOperationsService(apiKeyService, gatewayCache)
-	routingOptimizationHandler := admin.NewRoutingOptimizationHandler(routingArtifactManager, apiKeyRouteOperationsService)
 	upstreamBillingProbeService := service.ProvideUpstreamBillingProbeService(accountRepository, accountTestService, settingService, leaderLockCache, db)
 	openCodeGoUsageService := service.ProvideOpenCodeGoUsageService(accountRepository, httpUpstream, settingService, leaderLockCache, db)
-	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, cnProviderHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, pluginHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, bazaarLinkProbeService, channelMonitorRequestTemplateHandler, contentModerationHandler, promptAdminHandler, paymentHandler, affiliateHandler, complianceHandler, auditLogHandler, supportHandler, routingOptimizationHandler, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService)
+	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, cnProviderHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, pluginHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, bazaarLinkProbeService, channelMonitorRequestTemplateHandler, contentModerationHandler, promptAdminHandler, paymentHandler, affiliateHandler, complianceHandler, auditLogHandler, supportHandler, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService)
 	usageRecordWorkerPool := service.NewUsageRecordWorkerPool(configConfig)
 	userMsgQueueCache := repository.NewUserMsgQueueCache(redisClient)
 	userMessageQueueService := service.ProvideUserMessageQueueService(userMsgQueueCache, rpmCache, configConfig)
@@ -361,6 +351,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	stepUpAuthMiddleware := middleware.NewStepUpAuthMiddleware(totpService, userService, settingService)
 	engine := server.ProvideRouter(configConfig, handlers, jwtAuthMiddleware, optionalJWTAuthMiddleware, adminAuthMiddleware, apiKeyAuthMiddleware, auditLogMiddleware, stepUpAuthMiddleware, apiKeyService, subscriptionService, opsService, settingService, compositeRouteResolver, redisClient)
 	httpServer := server.ProvideHTTPServer(configConfig, engine)
+	routingBackgroundDB, err := repository.ProvideRoutingBackgroundDB(configConfig)
+	if err != nil {
+		return nil, err
+	}
 	opsMetricsCollector := service.ProvideOpsMetricsCollector(opsRepository, settingRepository, accountRepository, concurrencyService, db, redisClient, configConfig)
 	opsAggregationService := service.ProvideOpsAggregationService(opsRepository, settingRepository, db, redisClient, configConfig)
 	opsAlertEvaluatorService := service.ProvideOpsAlertEvaluatorService(opsService, opsRepository, emailService, redisClient, configConfig, proxyRepository)
@@ -380,14 +374,11 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService, channelMonitorQuotaFetcher)
 	bazaarLinkProbeRunner := service.ProvideBazaarLinkProbeRunner(bazaarLinkProbeService, settingService)
 	channelMonitorV2Aggregator := service.ProvideChannelMonitorV2Aggregator(channelMonitorV2Repository, db, settingService)
-	apiKeyRoutingScoreObservationSource := repository.NewRoutingScoreObservationSource(routingBackgroundDB, configConfig)
-	routingScoreBuilder := service.ProvideRoutingScoreBuilder(apiKeyRoutingScoreObservationSource, gatewayCache, leaderLockCache, routingBackgroundDB, billingService, modelPricingResolver, configConfig)
-	routingStrategyRuntime := service.ProvideRoutingStrategyRuntime(routingArtifactCache, configConfig)
-	routingCanaryMonitor := service.ProvideRoutingCanaryMonitor(routingOptimizationRepository, routingArtifactManager, configConfig)
+	routingFactRepository := repository.NewRoutingOptimizationRepository(routingBackgroundDB)
 	routingFactStream := repository.NewGatewayRoutingFactStream(redisClient)
-	routingFactRecorder := service.ProvideRoutingFactRecorder(routingOptimizationRepository, routingFactStream, configConfig)
+	routingFactRecorder := service.ProvideRoutingFactRecorder(routingFactRepository, routingFactStream, configConfig)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v := provideCleanup(client, routingBackgroundDB, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, apiKeyRouteConfigOutboxWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, bazaarLinkProbeRunner, channelMonitorV2Aggregator, routingScoreBuilder, routingStrategyRuntime, routingCanaryMonitor, routingFactRecorder, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager)
+	v := provideCleanup(client, routingBackgroundDB, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, apiKeyRouteConfigOutboxWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, cnProviderBalanceCheckService, openAICodexVersionSyncService, claudeCodeVersionSyncService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, bazaarLinkProbeRunner, channelMonitorV2Aggregator, routingFactRecorder, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, openCodeGoUsageService, auditLogService, openAIQuotaAutoResetService, promptService, pluginManager)
 	application := &Application{
 		Server:        httpServer,
 		PromptAudit:   promptService,
@@ -468,9 +459,6 @@ func provideCleanup(
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	bazaarLinkProbeRunner *service.BazaarLinkProbeRunner,
 	channelMonitorV2Aggregator *service.ChannelMonitorV2Aggregator,
-	routingScoreBuilder *service.RoutingScoreBuilder,
-	routingStrategyRuntime *service.RoutingStrategyRuntime,
-	routingCanaryMonitor *service.RoutingCanaryMonitor,
 	routingFactRecorder *service.RoutingFactRecorder,
 	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
@@ -497,28 +485,9 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"RoutingCanaryMonitor", func() error {
-				if routingCanaryMonitor != nil {
-					routingCanaryMonitor.Stop()
-				}
-				return nil
-			}},
-			{"RoutingStrategyRuntime", func() error {
-				if routingStrategyRuntime != nil {
-					routingStrategyRuntime.Stop()
-					service.SetDefaultRoutingStrategyRuntime(nil)
-				}
-				return nil
-			}},
 			{"RoutingFactRecorder", func() error {
 				if routingFactRecorder != nil {
 					routingFactRecorder.Stop()
-				}
-				return nil
-			}},
-			{"RoutingScoreBuilder", func() error {
-				if routingScoreBuilder != nil {
-					routingScoreBuilder.Stop()
 				}
 				return nil
 			}},
@@ -660,6 +629,10 @@ func provideCleanup(
 				codexVersionSync.Stop()
 				return nil
 			}},
+			{"ClaudeCodeVersionSyncService", func() error {
+				claudeCodeVersionSync.Stop()
+				return nil
+			}},
 			{"ProxyExpiryService", func() error {
 				proxyExpiry.Stop()
 				return nil
@@ -771,12 +744,6 @@ func provideCleanup(
 			{"OpenCodeGoUsageService", func() error {
 				if opencodeGoUsage != nil {
 					opencodeGoUsage.Stop()
-				}
-				return nil
-			}},
-			{"ClaudeCodeVersionSyncService", func() error {
-				if claudeCodeVersionSync != nil {
-					claudeCodeVersionSync.Stop()
 				}
 				return nil
 			}},
