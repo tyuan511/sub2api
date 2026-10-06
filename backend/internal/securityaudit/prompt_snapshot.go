@@ -106,7 +106,7 @@ func extractProtocolSegments(protocol string, document any) []promptSegment {
 		return append(extractInstructions(root["instructions"]), extractResponses(root["input"])...)
 	case "openai_images", "grok_media", "media", "images":
 		return userPromptSegments(extractMediaPrompts(root))
-	case "typesafe_systemone", "systemone":
+	case "typesafe_systemone":
 		return extractSystemOneSegments(root)
 	default:
 		if segments := extractChatLikeSegments(root); len(segments) > 0 {
@@ -122,6 +122,79 @@ func extractProtocolSegments(protocol string, document any) []promptSegment {
 	}
 }
 
+// extractSystemOneSegments collects every client-controlled text of a TypeSafe
+// System One request: question IDs, every question field except the validated
+// type, unknown top-level extension fields, and the evaluated state. Object keys
+// are text too (Jev reads the whole JSON), so they are collected with values.
+// The state comes last so it is the prioritized segment, and keys are visited
+// in sorted order to keep the prompt hash stable across requests.
+func extractSystemOneSegments(root map[string]any) []promptSegment {
+	if root == nil {
+		return nil
+	}
+	texts := make([]string, 0, 4)
+	questions, isObject := root["questions"].(map[string]any)
+	if !isObject {
+		texts = appendJSONStringLeaves(texts, root["questions"])
+	}
+	for _, id := range sortedJSONKeys(questions) {
+		texts = appendJSONStringLeaves(texts, id)
+		question, ok := questions[id].(map[string]any)
+		if !ok {
+			texts = appendJSONStringLeaves(texts, questions[id])
+			continue
+		}
+		for _, field := range sortedJSONKeys(question) {
+			switch field {
+			case "type":
+				continue
+			case "instructions", "criteria":
+			default:
+				texts = appendJSONStringLeaves(texts, field)
+			}
+			texts = appendJSONStringLeaves(texts, question[field])
+		}
+	}
+	for _, field := range sortedJSONKeys(root) {
+		switch field {
+		case "model", "stream", "state", "questions":
+			continue
+		}
+		texts = appendJSONStringLeaves(texts, field)
+		texts = appendJSONStringLeaves(texts, root[field])
+	}
+	texts = appendJSONStringLeaves(texts, root["state"])
+	return userPromptSegments(texts)
+}
+
+func appendJSONStringLeaves(texts []string, value any) []string {
+	switch typed := value.(type) {
+	case string:
+		if text := strings.TrimSpace(typed); text != "" {
+			texts = append(texts, text)
+		}
+	case []any:
+		for _, item := range typed {
+			texts = appendJSONStringLeaves(texts, item)
+		}
+	case map[string]any:
+		for _, key := range sortedJSONKeys(typed) {
+			texts = appendJSONStringLeaves(texts, key)
+			texts = appendJSONStringLeaves(texts, typed[key])
+		}
+	}
+	return texts
+}
+
+func sortedJSONKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 // clientInstructionRoles are roles a client may freely populate. Attackers can
 // place jailbreak/PII text in assistant/tool turns, so blocking audit must scan
 // them too—not only user/system/developer instructions.
@@ -132,31 +205,6 @@ func extractChatLikeSegments(root map[string]any) []promptSegment {
 		return nil
 	}
 	return extractMessages(root["messages"], clientInstructionRoles...)
-}
-
-func extractSystemOneSegments(root map[string]any) []promptSegment {
-	if root == nil {
-		return nil
-	}
-	segments := make([]promptSegment, 0)
-	for _, text := range systemOneValueTexts(root["state"]) {
-		segments = append(segments, promptSegment{text: text, user: true, role: "user"})
-	}
-	questions, _ := root["questions"].(map[string]any)
-	questionIDs := make([]string, 0, len(questions))
-	for id := range questions {
-		questionIDs = append(questionIDs, id)
-	}
-	sort.Strings(questionIDs)
-	for _, id := range questionIDs {
-		questionObject, _ := questions[id].(map[string]any)
-		for _, key := range []string{"instructions", "criteria"} {
-			for _, text := range systemOneValueTexts(questionObject[key]) {
-				segments = append(segments, promptSegment{text: text, role: "system"})
-			}
-		}
-	}
-	return segments
 }
 
 func systemOneValueTexts(value any) []string {

@@ -1432,9 +1432,8 @@
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
 
-        <!-- TypeSafe 没有 Sub2API billing probe 端点，不展示上游倍率自动探测。 -->
+        <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
         <div
-          v-if="form.platform !== 'typesafe'"
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         >
           <div>
@@ -1532,6 +1531,7 @@
             <div v-if="modelRestrictionMode === 'whitelist'">
               <ModelWhitelistSelector
                 v-model="allowedModels"
+                :model-mappings="modelMappings"
                 :platform="form.platform"
                 :sync-credentials="syncPreviewCredentials"
                 @upstream-synced="upstreamModelsPreviewed = true"
@@ -2019,6 +2019,7 @@
           <div v-if="modelRestrictionMode === 'whitelist'">
             <ModelWhitelistSelector
               v-model="allowedModels"
+              :model-mappings="modelMappings"
               platform="anthropic"
               :sync-credentials="syncPreviewCredentials"
               @upstream-synced="upstreamModelsPreviewed = true"
@@ -2360,6 +2361,7 @@
           <div v-if="modelRestrictionMode === 'whitelist'">
             <ModelWhitelistSelector
               v-model="allowedModels"
+              :model-mappings="modelMappings"
               :platform="form.platform"
               :sync-credentials="syncPreviewCredentials"
               @upstream-synced="upstreamModelsPreviewed = true"
@@ -4071,7 +4073,6 @@ const baseUrlHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (form.platform === 'grok') return ''
-  if (form.platform === 'typesafe') return t('admin.accounts.typesafe.baseUrlHint')
   return t('admin.accounts.baseUrlHint')
 })
 
@@ -4079,7 +4080,6 @@ const apiKeyHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
   if (form.platform === 'grok') return ''
-  if (form.platform === 'typesafe') return t('admin.accounts.typesafe.apiKeyHint')
   return t('admin.accounts.apiKeyHint')
 })
 
@@ -4333,7 +4333,7 @@ function selectTypeSafePlatform() {
   form.type = 'apikey'
   accountCategory.value = 'apikey'
   apiKeyBaseUrl.value = 'https://api.typesafe.ai'
-  allowedModels.value = ['jev-latest', 'jev-1.13.0', 'jev-1.13', 'jev-1.13-free']
+  allowedModels.value = ['jev-latest']
 }
 // 账号类型 / 协议变更时同步默认 base url。
 watch(openCodeAccountMode, (mode, previousMode) => {
@@ -4956,7 +4956,9 @@ watch(
     modelMappings.value = []
     if (newPlatform === 'typesafe') {
       accountCategory.value = 'apikey'
-      allowedModels.value = ['jev-latest', 'jev-1.13.0', 'jev-1.13', 'jev-1.13-free']
+      // Grok 等平台会把模式切到映射；TypeSafe 只用白名单写入。
+      modelRestrictionMode.value = 'whitelist'
+      allowedModels.value = ['jev-latest']
     }
     // Antigravity: 默认使用映射模式并填充默认映射
     if (newPlatform === 'antigravity') {
@@ -5990,7 +5992,7 @@ const handleSubmit = async () => {
     ...form,
     group_ids: form.group_ids,
     extra: withUpstreamRequestIdHeader(extra),
-    upstream_billing_probe_enabled: form.platform === 'typesafe' ? undefined : upstreamBillingAutoProbeEnabled.value,
+    upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }
@@ -6120,11 +6122,9 @@ const createAccountAndFinish = async (
     rate_multiplier: form.rate_multiplier,
     group_ids: form.group_ids,
     expires_at: form.expires_at,
-    // TypeSafe 的 System One 上游没有 Sub2API billing probe 端点；
-    // 仅对支持该端点的 API-key 平台发送探测开关。
-    upstream_billing_probe_enabled: type === 'apikey' && platform !== 'typesafe'
-      ? upstreamBillingAutoProbeEnabled.value
-      : undefined,
+    // 上游倍率探测对全部 API-key 平台开放（antigravity upstream 走本 helper）；
+    // 非 apikey 类型（bedrock/oauth）不传，后端不动作。
+    upstream_billing_probe_enabled: type === 'apikey' ? upstreamBillingAutoProbeEnabled.value : undefined,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
 }

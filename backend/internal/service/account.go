@@ -992,6 +992,10 @@ func (a *Account) GetBaseURL() string {
 	}
 	baseURL := a.GetCredential("base_url")
 	if baseURL == "" {
+		// TypeSafe keys must never fall back to the Anthropic host.
+		if a.Platform == PlatformTypeSafe {
+			return typesafe.DefaultBaseURL
+		}
 		return "https://api.anthropic.com"
 	}
 	if a.Platform == PlatformAntigravity {
@@ -1017,10 +1021,15 @@ func (a *Account) GetTypeSafeBaseURL() string {
 	if a == nil || !a.IsTypeSafe() || a.Type != AccountTypeAPIKey {
 		return ""
 	}
-	if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
-		return strings.TrimRight(baseURL, "/")
+	baseURL := strings.TrimRight(strings.TrimSpace(a.GetCredential("base_url")), "/")
+	// The System One path already carries /v1; accept a base URL pasted with it.
+	if len(baseURL) >= 3 && strings.EqualFold(baseURL[len(baseURL)-3:], "/v1") {
+		baseURL = strings.TrimRight(baseURL[:len(baseURL)-3], "/")
 	}
-	return typesafe.DefaultBaseURL
+	if baseURL == "" {
+		return typesafe.DefaultBaseURL
+	}
+	return baseURL
 }
 
 func (a *Account) GetTypeSafeAPIKey() string {

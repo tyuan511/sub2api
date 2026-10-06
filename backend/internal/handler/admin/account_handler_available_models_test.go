@@ -478,42 +478,6 @@ func TestAccountHandlerSyncUpstreamModels_UpstreamErrorDoesNotExposeBody(t *test
 	require.NotContains(t, rec.Body.String(), "SECRET_TOKEN")
 }
 
-func TestAccountHandlerGetAvailableModels_TypeSafeUsesSystemOneModel(t *testing.T) {
-	svc := &availableModelsAdminService{
-		stubAdminService: newStubAdminService(),
-		account: service.Account{
-			ID:       49,
-			Name:     "typesafe",
-			Platform: service.PlatformTypeSafe,
-			Type:     service.AccountTypeAPIKey,
-			Status:   service.StatusActive,
-			Credentials: map[string]any{
-				"api_key": "typesafe-key",
-			},
-		},
-	}
-	router := setupAvailableModelsRouter(svc)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/49/models", nil)
-	router.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	var resp struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	require.Len(t, resp.Data, 4)
-	require.Equal(t, []string{"jev-latest", "jev-1.13.0", "jev-1.13", "jev-1.13-free"}, []string{
-		resp.Data[0].ID,
-		resp.Data[1].ID,
-		resp.Data[2].ID,
-		resp.Data[3].ID,
-	})
-}
-
 // Scenario: 能力补全失败显示部分成功。
 func TestAccountHandlerSyncUpstreamModels_MetadataEnrichmentFailureReturnsWarning(t *testing.T) {
 	svc := &availableModelsAdminService{
@@ -561,4 +525,37 @@ func TestAccountHandlerSyncUpstreamModels_MetadataEnrichmentFailureReturnsWarnin
 	require.Equal(t, []string{"x-preview-f-free"}, resp.Data.Models)
 	require.Len(t, resp.Data.Warnings, 1)
 	require.Equal(t, "upstream_model_metadata_incomplete", resp.Data.Warnings[0].Code)
+}
+
+func TestAccountHandlerGetAvailableModels_TypeSafeOnlyReturnsJev(t *testing.T) {
+	for _, credentials := range []map[string]any{
+		{"api_key": "ts-secret"},
+		{"api_key": "ts-secret", "model_mapping": map[string]any{"jev-latest": "jev-latest"}},
+	} {
+		svc := &availableModelsAdminService{
+			stubAdminService: newStubAdminService(),
+			account: service.Account{
+				ID:          46,
+				Name:        "typesafe",
+				Platform:    service.PlatformTypeSafe,
+				Type:        service.AccountTypeAPIKey,
+				Status:      service.StatusActive,
+				Credentials: credentials,
+			},
+		}
+		router := setupAvailableModelsRouter(svc)
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/46/models", nil))
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var resp struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.Len(t, resp.Data, 1)
+		require.Equal(t, "jev-latest", resp.Data[0].ID)
+	}
 }

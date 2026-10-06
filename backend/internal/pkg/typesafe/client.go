@@ -16,33 +16,8 @@ import (
 const (
 	DefaultBaseURL = "https://api.typesafe.ai"
 	SystemOnePath  = "/v1/systemone"
-
-	JevLatestModel  = "jev-latest"
-	Jev1130Model    = "jev-1.13.0"
-	Jev113Model     = "jev-1.13"
-	Jev113FreeModel = "jev-1.13-free"
+	JevLatestModel = "jev-latest"
 )
-
-var supportedModels = []string{
-	JevLatestModel,
-	Jev1130Model,
-	Jev113Model,
-	Jev113FreeModel,
-}
-
-// SupportedModels returns the TypeSafe models accepted by System One.
-func SupportedModels() []string {
-	return append([]string(nil), supportedModels...)
-}
-
-func IsSupportedModel(model string) bool {
-	for _, supported := range supportedModels {
-		if model == supported {
-			return true
-		}
-	}
-	return false
-}
 
 type Question struct {
 	Type         string `json:"type"`
@@ -66,16 +41,6 @@ type Usage struct {
 	OutputTokens int `json:"output_tokens"`
 }
 
-const maxUsageTokens = 1 << 30
-
-func validateUsage(usage Usage) error {
-	if usage.InputTokens < 0 || usage.OutputTokens < 0 ||
-		usage.InputTokens > maxUsageTokens || usage.OutputTokens > maxUsageTokens {
-		return errors.New("typesafe invalid usage")
-	}
-	return nil
-}
-
 type SystemOneResponse struct {
 	Body  []byte
 	Model string
@@ -96,22 +61,71 @@ func NewSystemOneRequest(ctx context.Context, baseURL, key string, body []byte) 
 	return req, nil
 }
 
+// MaxSystemOneResponseBytes bounds a buffered System One response body.
+const MaxSystemOneResponseBytes = 4 << 20
+
+var ErrSystemOneResponseTooLarge = errors.New("typesafe response exceeds size limit")
+
 func DecodeSystemOneResponse(r io.Reader) (*SystemOneResponse, error) {
-	body, err := io.ReadAll(io.LimitReader(r, 4<<20))
-	if err != nil || !json.Valid(body) {
+	body, err := io.ReadAll(io.LimitReader(r, MaxSystemOneResponseBytes+1))
+	if err != nil {
 		return nil, errors.New("typesafe invalid response")
 	}
-	var envelope struct {
-		Model string `json:"model"`
-		Usage *Usage `json:"usage"`
+	// A truncated body would otherwise surface as a misleading "invalid JSON".
+	if len(body) > MaxSystemOneResponseBytes {
+		return nil, ErrSystemOneResponseTooLarge
 	}
-	if err := json.Unmarshal(body, &envelope); err != nil || envelope.Usage == nil {
+	if !json.Valid(body) {
 		return nil, errors.New("typesafe invalid response")
 	}
-	if err := validateUsage(*envelope.Usage); err != nil {
-		return nil, err
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil || envelope == nil {
+		return nil, errors.New("typesafe invalid response")
 	}
-	return &SystemOneResponse{Body: body, Model: envelope.Model, Usage: *envelope.Usage}, nil
+	// The upstream already answered (and charged); an unexpected model or usage
+	// shape must not discard the answer, so both are decoded leniently.
+	var model string
+	_ = json.Unmarshal(envelope["model"], &model)
+	var usage map[string]json.RawMessage
+	_ = json.Unmarshal(envelope["usage"], &usage)
+	return &SystemOneResponse{
+		Body:  body,
+		Model: model,
+		Usage: Usage{
+			InputTokens:  systemOneTokenCount(usage["input_tokens"]),
+			OutputTokens: systemOneTokenCount(usage["output_tokens"]),
+		},
+	}, nil
+}
+
+// maxSystemOneTokenCount bounds a reported token count before int conversion.
+const maxSystemOneTokenCount = 1 << 40
+
+// systemOneTokenCount accepts integer, float, or numeric-string token counts.
+func systemOneTokenCount(raw json.RawMessage) int {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 {
+		return 0
+	}
+	if raw[0] == '"' {
+		var text string
+		if json.Unmarshal(raw, &text) != nil {
+			return 0
+		}
+		raw = json.RawMessage(strings.TrimSpace(text))
+	}
+	var number json.Number
+	if json.Unmarshal(raw, &number) != nil {
+		return 0
+	}
+	value, err := number.Float64()
+	if err != nil || math.IsNaN(value) || value <= 0 {
+		return 0
+	}
+	if value > maxSystemOneTokenCount {
+		value = maxSystemOneTokenCount
+	}
+	return int(math.Round(value))
 }
 
 // Evaluate performs one attempt. The caller owns timeouts, retries and key rotation.
@@ -146,9 +160,6 @@ func Evaluate(ctx context.Context, client *http.Client, baseURL, key string, inp
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil || strings.TrimSpace(out.Model) == "" {
 		return nil, resp.StatusCode, errors.New("typesafe invalid response")
-	}
-	if err := validateUsage(out.Usage); err != nil {
-		return nil, resp.StatusCode, err
 	}
 	result := &Result{Model: out.Model, Usage: out.Usage, Scores: make(map[string]float64, len(input.Questions))}
 	for id := range input.Questions {
