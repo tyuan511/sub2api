@@ -139,14 +139,14 @@ describe('HelpTooltip', () => {
     await trigger.trigger('mouseenter')
     await nextTick()
     const tooltip = getTooltipElement()
-    expect(tooltip.style.top).toBe('calc(112px)')
+    expect(tooltip.style.top).toMatch(/^(calc\(112px\)|112px)$/)
     expect(tooltip.style.left).toBe('50px')
 
     top = 40
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 80 })
     window.dispatchEvent(new Event('scroll'))
     await nextTick()
-    expect(tooltip.style.top).toBe('calc(32px)')
+    expect(tooltip.style.top).toMatch(/^(calc\(32px\)|32px)$/)
     expect(tooltip.style.left).toBe('50px')
 
     wrapper.unmount()
