@@ -68,14 +68,10 @@ func TestGatewayRoutesGroupModelAllowlistMountedOnEveryGatewayRoute(t *testing.T
 	require.NoError(t, err)
 	source := string(routeSource)
 
-	// rootRoute helper：apiKeyAuth 之后、compositeTarget 之前。
-	// 本 fork 在 compositeTarget 之后额外挂了 apiKeyMixedRouteTargetMiddleware（混台路由目标），
-	// 故以可选组的方式允许它存在，但不允许允许名单位置变动。
-	rootHelper := regexp.MustCompile(regexp.QuoteMeta(`r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), groupModelAllowlist, compositeTarget, `) +
-		`(?:apiKeyMixedRouteTargetMiddleware\(h\.Gateway\)(?:, )?)?` +
-		regexp.QuoteMeta(`requireGroupAnthropic, handler)`))
-	require.Regexp(t, rootHelper, source,
-		"root alias helper must place the allowlist between apiKeyAuth and compositeTarget")
+	// 白名单和分组选择都必须读取客户端模型，合成模型改写必须最后执行。
+	require.Contains(t, source,
+		`r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), groupModelAllowlist, mixedRouteTarget, compositeTarget, requireGroupAnthropic, handler)`,
+		"root alias helper must apply the allowlist and select the group before composite model rewriting")
 
 	chains := []struct {
 		group     string
@@ -96,12 +92,10 @@ func TestGatewayRoutesGroupModelAllowlistMountedOnEveryGatewayRoute(t *testing.T
 		require.Regexp(t, re, source,
 			"%s chain must mount groupModelAllowlist after auth and before %s", chain.group, chain.composite)
 	}
-
-	// codexDirect 链是一条 Use 调用，直接断言顺序（允许 fork 追加的混台路由中间件）。
-	codexDirect := regexp.MustCompile(regexp.QuoteMeta(`codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), groupModelAllowlist, compositeTarget, `) +
-		`(?:apiKeyMixedRouteTargetMiddleware\(h\.Gateway\)(?:, )?)?` +
-		regexp.QuoteMeta(`requireGroupAnthropic)`))
-	require.Regexp(t, codexDirect, source, "codexDirect chain must mount the allowlist after auth and before compositeTarget")
+	// codexDirect 链与根路径别名保持相同顺序。
+	require.Contains(t, source,
+		`codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), groupModelAllowlist, mixedRouteTarget, compositeTarget, requireGroupAnthropic)`,
+		"codexDirect must apply the allowlist and select the group before composite model rewriting")
 
 	// 所有带 apiKeyAuth 的根路径路由必须收敛到 rootRoute，避免漏挂。
 	stray := regexp.MustCompile(`\br\.(GET|POST|PUT|PATCH|DELETE)\("[^"]+",[^(]*apiKeyAuth`)
