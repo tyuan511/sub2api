@@ -1528,7 +1528,7 @@ func (h *GatewayHandler) advertisedModelIDsForGroup(ctx context.Context, group *
 	}
 	var availableModels []string
 	if platform == service.PlatformComposite {
-		availableModels = h.compositeAvailableModels(ctx, groupID, true)
+		availableModels = h.compositeAvailableModels(ctx, groupID, "", true)
 	} else {
 		availableModels = h.gatewayService.GetAvailableModels(ctx, groupID, platform)
 	}
