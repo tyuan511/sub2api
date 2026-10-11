@@ -495,7 +495,7 @@
           />
         </div>
 
-        <fieldset v-if="!showEditModal" data-tour="key-form-provider">
+        <fieldset data-tour="key-form-provider">
           <legend class="input-label">{{ t('keys.providerLabel') }}</legend>
           <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <label
@@ -539,7 +539,11 @@
             </label>
           </div>
           <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400" aria-live="polite">
-            {{ groups.length === 0 ? t('common.noGroupsAvailable') : t(`keys.providerHints.${createProvider}`) }}
+            <template v-if="groups.length === 0">{{ t('common.noGroupsAvailable') }}</template>
+            <template v-else>
+              {{ t(`keys.providerHints.${createProvider}`) }}
+              {{ t('keys.providerKeepsSelection') }}
+            </template>
           </p>
         </fieldset>
 
@@ -566,7 +570,8 @@
           </div>
           <ApiKeyGroupRouteSelector
             v-model="formData.group_routes"
-            :groups="formRouteSelectableGroups"
+            :groups="routeSelectableGroups"
+            :list-filter="matchesSelectedProvider"
             :user-group-rates="userGroupRates"
             :max-groups="8"
             data-tour="key-form-group"
@@ -1582,29 +1587,32 @@ const createProviderOptions = computed(() => KEY_GROUP_PROVIDERS.map((value) => 
   count: groups.value.filter((group) => getKeyGroupProvider(group.platform) === value).length
 })))
 
-// New keys are constrained to one provider family at a time. Existing keys
-// keep the full route list so editing never hides a previously configured route.
-const formRouteSelectableGroups = computed(() => showEditModal.value
-  ? routeSelectableGroups.value
-  : routeSelectableGroups.value.filter((group) => getKeyGroupProvider(group.platform) === createProvider.value)
-)
+// The provider control only filters which groups can be added next. Selections
+// from other providers stay on the key, so one key can route across vendors.
+const matchesSelectedProvider = (group: Group) => getKeyGroupProvider(group.platform) === createProvider.value
 
 const selectCreateProvider = (provider: KeyGroupProvider) => {
-  if (createProvider.value === provider) return
   createProvider.value = provider
-  formData.value.group_routes = []
+}
+
+const focusProviderForGroup = (group?: { platform: Group['platform'] } | null) => {
+  if (!group) return
+  createProvider.value = getKeyGroupProvider(group.platform)
 }
 
 // Pick the first available provider when the create dialog opens or groups
-// finish loading, and discard routes that are no longer valid for that family.
+// finish loading. Discard only groups that are actually gone, never groups
+// that merely belong to a different provider.
 watch([showCreateModal, createProviderOptions], ([isOpen, providers], [wasOpen]) => {
   if (!isOpen) return
-  if (!wasOpen || !providers.some((provider) => provider.value === createProvider.value && provider.count > 0)) {
-    const firstAvailable = providers.find((provider) => provider.count > 0)?.value ?? 'anthropic'
+  const firstAvailable = providers.find((provider) => provider.count > 0)?.value ?? 'anthropic'
+  if (!wasOpen) {
     createProvider.value = firstAvailable
     formData.value.group_routes = []
+  } else if (!providers.some((provider) => provider.value === createProvider.value && provider.count > 0)) {
+    createProvider.value = firstAvailable
   }
-  const availableGroupIds = new Set(formRouteSelectableGroups.value.map((group) => group.id))
+  const availableGroupIds = new Set(routeSelectableGroups.value.map((group) => group.id))
   const validRoutes = formData.value.group_routes.filter((groupId) => availableGroupIds.has(groupId))
   if (validRoutes.length !== formData.value.group_routes.length) {
     formData.value.group_routes = validRoutes
@@ -1758,6 +1766,11 @@ const editKey = async (key: ApiKey) => {
     .sort((a, b) => a.priority - b.priority)
     .map((route) => route.group_id)
   if (!routeGroupIds.length && key.group_id) routeGroupIds.push(key.group_id)
+  const firstBoundGroup = (key.group_routes ?? [])
+    .slice()
+    .sort((left, right) => left.priority - right.priority)
+    .find((route) => route.group)?.group ?? key.group
+  focusProviderForGroup(firstBoundGroup)
   formData.value = {
     name: key.name,
     group_routes: routeGroupIds,

@@ -195,6 +195,9 @@ const props = withDefaults(defineProps<{
   groups: Group[]
   userGroupRates?: Record<number, number>
   maxGroups?: number
+  // Narrows the dropdown only. Already selected groups stay visible and
+  // removable even when they are outside the current filter.
+  listFilter?: (group: Group) => boolean
 }>(), {
   userGroupRates: () => ({}),
   maxGroups: 8
@@ -245,7 +248,8 @@ function compareGroupsByPlatformAndName(left: Group, right: Group): number {
 
 const filteredGroups = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  const groups = [...props.groups].sort(compareGroupsByPlatformAndName)
+  const source = props.listFilter ? props.groups.filter(props.listFilter) : props.groups
+  const groups = [...source].sort(compareGroupsByPlatformAndName)
   if (!query) return groups
   return groups.filter((group) =>
     group.name.toLowerCase().includes(query) ||

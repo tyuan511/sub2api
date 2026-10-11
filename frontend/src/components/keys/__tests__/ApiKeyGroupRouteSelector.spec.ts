@@ -77,6 +77,24 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[1, 2]])
   })
 
+  it('filters the dropdown without dropping selections that are outside the filter', async () => {
+    const wrapper = mount(ApiKeyGroupRouteSelector, {
+      props: {
+        modelValue: [1],
+        groups: [makeGroup(1, 'anthropic'), makeGroup(2, 'openai')],
+        listFilter: (group: Group) => group.platform === 'openai',
+      }
+    })
+
+    expect(wrapper.get('[data-test="selected-route-group-1"]').text()).toContain('group-1')
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    expect(wrapper.find('[data-test="route-group-option-1"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="route-group-option-2"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="route-group-option-2"]').trigger('click')
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[1, 2]])
+  })
+
   it('sorts dropdown options by platform and then group name', async () => {
     const openaiZ = makeGroup(1, 'openai')
     openaiZ.name = 'zeta'

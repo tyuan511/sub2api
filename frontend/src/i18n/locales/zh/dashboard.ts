@@ -124,11 +124,12 @@ export default {
       other: '其他'
     },
     providerHints: {
-      anthropic: '选择 Anthropic / Claude 的可用分组',
-      openai: '选择 OpenAI / GPT 的可用分组',
-      domestic: '包含 DeepSeek、Kimi、智谱 GLM、MiniMax',
-      other: '包含 Gemini、Grok、Antigravity、OpenCode 和混合分组'
+      anthropic: '选择 Anthropic / Claude 的可用分组。',
+      openai: '选择 OpenAI / GPT 的可用分组。',
+      domestic: '包含 DeepSeek、Kimi、智谱 GLM、MiniMax。',
+      other: '包含 Gemini、Grok、Antigravity、OpenCode 和混合分组。'
     },
+    providerKeepsSelection: '已选分组会保留，切换厂商后可以继续追加其他厂商的分组。',
     selectGroup: '选择分组',
     statusLabel: '状态',
     selectStatus: '选择状态',

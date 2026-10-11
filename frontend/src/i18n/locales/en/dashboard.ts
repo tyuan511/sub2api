@@ -124,11 +124,12 @@ export default {
       other: 'Other'
     },
     providerHints: {
-      anthropic: 'Choose an available Anthropic / Claude group',
-      openai: 'Choose an available OpenAI / GPT group',
-      domestic: 'Includes DeepSeek, Kimi, Zhipu GLM and MiniMax',
-      other: 'Includes Gemini, Grok, Antigravity, OpenCode and mixed groups'
+      anthropic: 'Choose an available Anthropic / Claude group.',
+      openai: 'Choose an available OpenAI / GPT group.',
+      domestic: 'Includes DeepSeek, Kimi, Zhipu GLM and MiniMax.',
+      other: 'Includes Gemini, Grok, Antigravity, OpenCode and mixed groups.'
     },
+    providerKeepsSelection: 'Selected groups stay. Switch provider to add groups from another vendor.',
     selectGroup: 'Select a group',
     statusLabel: 'Status',
     selectStatus: 'Select status',

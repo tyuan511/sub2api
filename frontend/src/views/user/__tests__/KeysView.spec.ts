@@ -618,69 +618,89 @@ describe('user KeysView column settings', () => {
 
     const routeSelector = (wrapper: VueWrapper) =>
       wrapper.findComponent({ name: 'ApiKeyGroupRouteSelector' })
-    const routeGroupIds = (wrapper: VueWrapper) =>
-      (routeSelector(wrapper).props('groups') as Group[]).map((group) => group.id)
+    const visibleRouteGroupIds = async (wrapper: VueWrapper) => {
+      if (!wrapper.find('[data-test="route-group-options"]').exists()) {
+        await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+      }
+      return wrapper.findAll('[role="option"]').map((option) =>
+        Number(option.attributes('data-test')?.replace('route-group-option-', ''))
+      )
+    }
 
     beforeEach(() => {
       getAvailableGroups.mockResolvedValue(availableGroups)
     })
 
-    it('filters route groups by provider family and classifies configured platforms', async () => {
+    it('filters the addable list by provider family without hiding other platforms from the catalog', async () => {
       const wrapper = await mountView(true)
       await getButtonByText(wrapper, 'Create API Key').trigger('click')
       await nextTick()
 
       expect(wrapper.findAll('input[name="key-provider"]')).toHaveLength(4)
-      expect(routeGroupIds(wrapper)).toEqual([1])
+      expect(await visibleRouteGroupIds(wrapper)).toEqual([1])
 
       await wrapper.get('input[name="key-provider"][value="openai"]').setValue()
-      expect(routeGroupIds(wrapper)).toEqual([2])
+      expect(await visibleRouteGroupIds(wrapper)).toEqual([2])
 
       await wrapper.get('input[name="key-provider"][value="domestic"]').setValue()
-      expect(routeGroupIds(wrapper).sort((a, b) => a - b)).toEqual([3, 4, 5, 6])
+      expect((await visibleRouteGroupIds(wrapper)).sort((a, b) => a - b)).toEqual([3, 4, 5, 6])
 
       await wrapper.get('input[name="key-provider"][value="other"]').setValue()
-      expect(routeGroupIds(wrapper).sort((a, b) => a - b)).toEqual([7, 8, 9, 10, 11, 12])
+      expect((await visibleRouteGroupIds(wrapper)).sort((a, b) => a - b)).toEqual([7, 8, 9, 10, 11, 12])
+      expect((routeSelector(wrapper).props('groups') as Group[]).map((group) => group.id).sort((a, b) => a - b))
+        .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     })
 
-    it('clears routes when switching provider and submits only the selected family', async () => {
+    it('keeps routes from other providers when switching and submits the mixed set', async () => {
       const wrapper = await mountView(true)
       await getButtonByText(wrapper, 'Create API Key').trigger('click')
       await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
       await wrapper.get('[data-test="route-group-option-1"]').trigger('click')
       await wrapper.get('input[name="key-provider"][value="openai"]').setValue()
 
-      expect(routeSelector(wrapper).props('modelValue')).toEqual([])
-      await wrapper.get('[data-tour="key-form-name"]').setValue('openai-key')
-      await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+      expect(routeSelector(wrapper).props('modelValue')).toEqual([1])
+      expect(wrapper.get('[data-test="selected-route-group-1"]').text()).toContain('group-anthropic-1')
+      await wrapper.get('[data-tour="key-form-name"]').setValue('mixed-key')
+      if (!wrapper.find('[data-test="route-group-options"]').exists()) {
+        await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+      }
       await wrapper.get('[data-test="route-group-option-2"]').trigger('click')
       await wrapper.get('#key-form').trigger('submit')
       await flushPromises()
 
       expect(createKeyWithRequest).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'openai-key',
-        group_id: 2,
-        group_routes: [{ group_id: 2, priority: 0 }],
+        name: 'mixed-key',
+        group_id: 1,
+        group_routes: [{ group_id: 1, priority: 0 }, { group_id: 2, priority: 1 }],
       }))
     })
 
-    it('defaults to an available provider and keeps all groups while editing', async () => {
+    it('defaults to an available provider and keeps selections while editing across providers', async () => {
       getAvailableGroups.mockResolvedValue([groupFor(2, 'openai'), groupFor(3, 'kimi')])
+      listKeys.mockResolvedValue({
+        items: [{ ...createApiKey(), group_id: 2, group: groupFor(2, 'openai'),
+          group_routes: [
+            { group_id: 2, priority: 0, enabled: true, group: groupFor(2, 'openai') },
+            { group_id: 3, priority: 1, enabled: true, group: groupFor(3, 'kimi') },
+          ] }],
+        total: 1, page: 1, page_size: 20, pages: 1,
+      })
       const wrapper = await mountView(true)
       await getButtonByText(wrapper, 'Create API Key').trigger('click')
       expect(wrapper.get<HTMLInputElement>('input[name="key-provider"][value="openai"]').element.checked).toBe(true)
       expect(wrapper.get<HTMLInputElement>('input[name="key-provider"][value="anthropic"]').element.disabled).toBe(true)
-      expect(routeGroupIds(wrapper)).toEqual([2])
+      expect(await visibleRouteGroupIds(wrapper)).toEqual([2])
 
-      listKeys.mockResolvedValue({
-        items: [{ ...createApiKey(), group_id: 2, group: groupFor(2, 'openai'),
-          group_routes: [{ group_id: 2, priority: 0, enabled: true, group: groupFor(2, 'openai') }] }],
-        total: 1, page: 1, page_size: 20, pages: 1,
-      })
       await getButtonByText(wrapper, 'common.cancel').trigger('click')
       await wrapper.get('[data-test="edit-api-key-1"]').trigger('click')
-      expect(wrapper.find('[data-tour="key-form-provider"]').exists()).toBe(false)
-      expect(routeGroupIds(wrapper).sort((a, b) => a - b)).toEqual([2, 3])
+      expect(wrapper.find('[data-tour="key-form-provider"]').exists()).toBe(true)
+      expect(routeSelector(wrapper).props('modelValue')).toEqual([2, 3])
+      expect(wrapper.get('[data-test="selected-route-group-3"]').text()).toContain('group-kimi-3')
+
+      await wrapper.get('input[name="key-provider"][value="domestic"]').setValue()
+      expect(routeSelector(wrapper).props('modelValue')).toEqual([2, 3])
+      expect(wrapper.get('[data-test="selected-route-group-2"]').text()).toContain('group-openai-2')
+      expect(await visibleRouteGroupIds(wrapper)).toEqual([3])
     })
   })
 
