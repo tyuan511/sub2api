@@ -114,6 +114,7 @@ func RegisterAdminRoutes(
 
 		// 渠道管理
 		registerChannelRoutes(admin, h)
+		registerUpstreamRoutes(admin, h)
 
 		// 渠道监控
 		registerChannelMonitorRoutes(admin, h, settingService)

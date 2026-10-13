@@ -15,6 +15,7 @@ const {
   importCodexSessionMock,
   createOpenAICodexPATMock,
   authIsSimpleMode,
+  listUpstreamsMock,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
   probeUpstreamBillingMock: vi.fn(),
@@ -23,6 +24,7 @@ const {
   importCodexSessionMock: vi.fn(),
   createOpenAICodexPATMock: vi.fn(),
   authIsSimpleMode: { value: true },
+  listUpstreamsMock: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('@/stores/app', () => ({
@@ -43,6 +45,7 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
+    upstreams: { list: listUpstreamsMock },
     accounts: {
       create: createAccountMock,
       probeUpstreamBilling: probeUpstreamBillingMock,
@@ -201,6 +204,7 @@ async function openCodexImportStep(toggleClicks = 0) {
 
 describe('CreateAccountModal OpenAI long-context billing', () => {
   beforeEach(() => {
+    listUpstreamsMock.mockReset().mockResolvedValue([])
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'openai', type: 'apikey' })
     probeUpstreamBillingMock.mockReset().mockResolvedValue({})
@@ -218,6 +222,60 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
   })
 
   afterEach(() => vi.useRealTimers())
+
+  it('fills the selected upstream Base URL while preserving the manually entered API key', async () => {
+    listUpstreamsMock.mockResolvedValue([{ id: 9, name: 'Fixture upstream', type: 'sub2api', base_url: 'https://upstream.example.com', enabled: true }])
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await flushPromises()
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('linked account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('manual-api-key')
+    await wrapper.get('select[id^="upstream-picker-"]').setValue('9')
+    expect(wrapper.get('form#create-account-form input[type="password"]').element).toHaveProperty('value', 'manual-api-key')
+    expect(wrapper.findAll('input').some(input => input.element.value === 'https://upstream.example.com')).toBe(true)
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccountMock).toHaveBeenCalledWith(expect.objectContaining({ upstream_id: 9, credentials: expect.objectContaining({ base_url: 'https://upstream.example.com', api_key: 'manual-api-key' }) }))
+    wrapper.unmount()
+  })
+
+  it('preserves the adaptive protocol while filling upstream endpoint addresses', async () => {
+    listUpstreamsMock.mockResolvedValue([{ id: 9, name: 'Fixture upstream', type: 'other', base_url: 'https://upstream.example.com', enabled: true }])
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('adaptive account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('manual-api-key')
+    await wrapper.get('select[id^="upstream-picker-"]').setValue('9')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccountMock).toHaveBeenCalledWith(expect.objectContaining({ upstream_id: 9, credentials: expect.objectContaining({
+      api_protocol: 'adaptive', base_url: 'https://upstream.example.com', api_key: 'manual-api-key',
+      api_base_urls: { chat_completions: 'https://upstream.example.com', anthropic: 'https://upstream.example.com', responses: 'https://upstream.example.com' }
+    }) }))
+    wrapper.unmount()
+  })
+
+  it('returns to manual mode when the linked Base URL is edited', async () => {
+    listUpstreamsMock.mockResolvedValue([{ id: 9, name: 'Fixture upstream', type: 'sub2api', base_url: 'https://upstream.example.com', enabled: true }])
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await flushPromises()
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('manual account')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('manual-api-key')
+    await wrapper.get('select[id^="upstream-picker-"]').setValue('9')
+    const baseInput = wrapper.findAll('input').find(input => input.element.value === 'https://upstream.example.com')
+    expect(baseInput).toBeDefined()
+    await baseInput!.setValue('https://manual.example.com')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    const payload = createAccountMock.mock.calls[0][0]
+    expect(payload.upstream_id).toBeUndefined()
+    expect(payload.credentials.base_url).toBe('https://manual.example.com')
+    wrapper.unmount()
+  })
 
   it('sets month and year expiry presets without submitting the account form', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })

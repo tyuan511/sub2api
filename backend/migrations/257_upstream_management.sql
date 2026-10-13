@@ -1,0 +1,25 @@
+CREATE TABLE upstreams (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('sub2api', 'newapi', 'other')),
+    website_url TEXT NOT NULL DEFAULT '',
+    base_url TEXT NOT NULL,
+    balance_api_key_encrypted TEXT NOT NULL DEFAULT '',
+    access_token_encrypted TEXT NOT NULL DEFAULT '',
+    user_id BIGINT NOT NULL DEFAULT 0,
+    balance_threshold NUMERIC(20, 8) NOT NULL DEFAULT 10 CHECK (balance_threshold >= 0),
+    balance_multiplier NUMERIC(20, 8) NOT NULL DEFAULT 1 CHECK (balance_multiplier > 0),
+    quota_per_unit NUMERIC(20, 8) NOT NULL DEFAULT 500000 CHECK (quota_per_unit > 0),
+    check_interval_seconds INTEGER NOT NULL DEFAULT 300 CHECK (check_interval_seconds BETWEEN 60 AND 86400),
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    balance NUMERIC(20, 8),
+    balance_checked_at TIMESTAMPTZ,
+    last_check_at TIMESTAMPTZ,
+    last_error TEXT NOT NULL DEFAULT '',
+    low_balance_notified BOOLEAN NOT NULL DEFAULT FALSE,
+    next_check_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revision BIGINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX upstreams_due_idx ON upstreams(next_check_at) WHERE enabled AND type <> 'other';

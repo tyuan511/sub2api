@@ -66,10 +66,13 @@ type AccountHandler struct {
 	tokenCacheInvalidator   service.TokenCacheInvalidator
 	grokImportProber        grokImportProber
 	upstreamBillingProbe    *service.UpstreamBillingProbeService
+	upstreamService         *service.UpstreamService
 	ollamaCloudUsage        *service.OllamaCloudUsageService
 	cfg                     *config.Config
 	opencodeGoUsage         *service.OpenCodeGoUsageService
 }
+
+func (h *AccountHandler) SetUpstreamService(s *service.UpstreamService) { h.upstreamService = s }
 
 // SetUpstreamBillingProbeService attaches the optional remote billing probe service.
 func (h *AccountHandler) SetUpstreamBillingProbeService(probe *service.UpstreamBillingProbeService) {
@@ -143,6 +146,7 @@ func toServiceAccountProxies(in []AccountProxyRequest) []service.AccountProxy {
 
 // CreateAccountRequest represents create account request
 type CreateAccountRequest struct {
+	UpstreamID              *int64                `json:"upstream_id"`
 	Name                    string                `json:"name" binding:"required"`
 	Notes                   *string               `json:"notes"`
 	Platform                string                `json:"platform" binding:"required"`
@@ -1074,6 +1078,17 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	}
 
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		if req.UpstreamID != nil {
+			if h.upstreamService == nil || *req.UpstreamID <= 0 || req.Type != "apikey" {
+				return nil, service.ErrUpstreamInvalid
+			}
+			if req.Extra == nil {
+				req.Extra = map[string]any{}
+			}
+			if err := h.upstreamService.BindAccount(ctx, *req.UpstreamID, req.Credentials, req.Extra); err != nil {
+				return nil, err
+			}
+		}
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 			Name:                  req.Name,
 			Notes:                 req.Notes,

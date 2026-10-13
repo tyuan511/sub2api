@@ -1573,6 +1573,7 @@ export interface OpenAIResponsesState {
 }
 
 export interface CreateAccountRequest {
+  upstream_id?: number
   name: string
   notes?: string | null
   platform: AccountPlatform

@@ -1175,6 +1175,10 @@
 
       <!-- Upstream config (only for Antigravity upstream type) -->
       <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'upstream'" class="space-y-4">
+        <UpstreamPicker
+          :selected-id="selectedUpstreamID"
+          @select="applySelectedUpstream"
+        />
         <div>
           <label class="input-label">{{ t('admin.accounts.upstream.baseUrl') }}</label>
           <input
@@ -1423,6 +1427,10 @@
 
       <!-- API Key input (only for apikey type, excluding Antigravity which has its own fields) -->
       <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
+        <UpstreamPicker
+          :selected-id="selectedUpstreamID"
+          @select="applySelectedUpstream"
+        />
         <div v-if="!isMultiProtocolPlatform || apiProtocol !== 'adaptive'">
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
@@ -4040,6 +4048,8 @@ import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import Toggle from '@/components/common/Toggle.vue'
+import UpstreamPicker from '@/components/account/UpstreamPicker.vue'
+import type { Upstream } from '@/api/admin/upstreams'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
 import OpenCodeGoProtocolRulesEditor from '@/components/account/OpenCodeGoProtocolRulesEditor.vue'
@@ -4269,6 +4279,25 @@ const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_acco
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
+const selectedUpstreamID = ref<number | null>(null)
+let selectedUpstreamBaseURL = ''
+function applySelectedUpstream(upstream: Upstream | null) {
+  selectedUpstreamID.value = upstream?.id ?? null
+  selectedUpstreamBaseURL = upstream?.base_url ?? ''
+  if (!upstream) return
+  if (form.platform === 'antigravity') {
+    upstreamBaseUrl.value = upstream.base_url
+    return
+  }
+  apiKeyBaseUrl.value = upstream.base_url
+  if (isMultiProtocolApiKeyPlatform(form.platform) && apiProtocol.value === 'adaptive') {
+    adaptiveBaseUrls.value = { chat_completions: upstream.base_url, anthropic: upstream.base_url, responses: upstream.base_url }
+  }
+}
+watch(apiKeyBaseUrl, value => {
+  if (form.platform !== 'antigravity' && selectedUpstreamID.value !== null && value.trim() !== selectedUpstreamBaseURL) selectedUpstreamID.value = null
+})
+
 const upstreamBillingAutoProbeEnabled = ref(true)
 
 // ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型、API 协议与端点 ──
@@ -4289,6 +4318,9 @@ const adaptiveBaseUrls = ref<Record<CnNativeApiProtocol, string>>({
   anthropic: '',
   responses: ''
 })
+watch(adaptiveBaseUrls, urls => {
+  if (selectedUpstreamID.value !== null && apiProtocol.value === 'adaptive' && Object.values(urls).some(url => url.trim() !== selectedUpstreamBaseURL)) selectedUpstreamID.value = null
+}, { deep: true })
 const isCNPlatform = computed(() => isCNProviderPlatform(form.platform))
 const isOpenCodeGoPlatform = computed(() => form.platform === 'opencode_go')
 const isMultiProtocolPlatform = computed(() => isMultiProtocolApiKeyPlatform(form.platform))
@@ -4426,7 +4458,7 @@ watch(openCodeAccountMode, (mode, previousMode) => {
     }
     apiKeyBaseUrl.value = adaptiveBaseUrls.value.chat_completions
   } else {
-    apiKeyBaseUrl.value = defaultCNBaseUrl('opencode_go', mode, apiProtocol.value)
+    apiKeyBaseUrl.value = selectedUpstreamID.value !== null ? selectedUpstreamBaseURL : defaultCNBaseUrl('opencode_go', mode, apiProtocol.value)
   }
   const previousRules = JSON.stringify(defaultOpenCodeProtocolRules(previousMode))
   if (JSON.stringify(openCodeGoProtocolRules.value) === previousRules) {
@@ -4452,7 +4484,7 @@ watch(accountMode, (mode, previousMode) => {
     apiKeyBaseUrl.value = adaptiveBaseUrls.value.chat_completions
     return
   }
-  apiKeyBaseUrl.value = defaultCNBaseUrl(form.platform, mode, apiProtocol.value)
+  apiKeyBaseUrl.value = selectedUpstreamID.value !== null ? selectedUpstreamBaseURL : defaultCNBaseUrl(form.platform, mode, apiProtocol.value)
 })
 watch(apiProtocol, (protocol) => {
   if (!isMultiProtocolPlatform.value) return
@@ -4464,7 +4496,7 @@ watch(apiProtocol, (protocol) => {
     apiKeyBaseUrl.value = adaptiveBaseUrls.value.chat_completions
     return
   }
-  apiKeyBaseUrl.value = defaultCNBaseUrl(form.platform, currentOpenCodeOrCNMode(), protocol)
+  apiKeyBaseUrl.value = selectedUpstreamID.value !== null ? selectedUpstreamBaseURL : defaultCNBaseUrl(form.platform, currentOpenCodeOrCNMode(), protocol)
 })
 // 点击预设端点：同时回填 base url、账号类型与协议。
 function onCnPresetSelect(preset: { mode: CnAccountMode; protocol: CnApiProtocol; url: string }) {
@@ -4624,6 +4656,9 @@ const antigravityAccountType = ref<'oauth' | 'upstream'>('oauth') // For antigra
 const antigravityProjectId = ref('')
 const upstreamBaseUrl = ref('') // For upstream type: base URL
 const upstreamApiKey = ref('') // For upstream type: API key
+watch(upstreamBaseUrl, value => {
+  if (form.platform === 'antigravity' && selectedUpstreamID.value !== null && value.trim() !== selectedUpstreamBaseURL) selectedUpstreamID.value = null
+})
 const antigravityModelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
 const antigravityWhitelistModels = ref<string[]>([])
 const antigravityModelMappings = ref<ModelMapping[]>([])
@@ -5018,6 +5053,7 @@ watch(
 watch(
   () => form.platform,
   (newPlatform) => {
+    selectedUpstreamID.value = null
     // Reset base URL based on platform
     if (isMultiProtocolApiKeyPlatform(newPlatform)) {
       const mode = newPlatform === 'opencode_go' ? openCodeAccountMode.value : accountMode.value
@@ -5433,6 +5469,9 @@ const ensureAntigravityMixedChannelConfirmed = async (onConfirm: () => Promise<v
 }
 
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
+  if (payload.type === 'apikey' && selectedUpstreamID.value !== null) {
+    payload = { ...payload, upstream_id: selectedUpstreamID.value }
+  }
   submitting.value = true
   try {
     const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
@@ -5488,6 +5527,8 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
 
 // Methods
 const resetForm = () => {
+  selectedUpstreamID.value = null
+  selectedUpstreamBaseURL = ''
   step.value = 1
   form.name = ''
   form.notes = ''

@@ -128,6 +128,7 @@ func provideCleanup(
 	routingFactRecorder *service.RoutingFactRecorder,
 	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
+	upstreamService *service.UpstreamService,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
 	opencodeGoUsage *service.OpenCodeGoUsageService,
 	auditLog *service.AuditLogService,
@@ -146,6 +147,12 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"UpstreamService", func() error {
+				if upstreamService != nil {
+					upstreamService.Stop()
+				}
+				return nil
+			}},
 			{"BazaarLinkProbeRunner", func() error {
 				if bazaarLinkProbeRunner != nil {
 					bazaarLinkProbeRunner.Stop()

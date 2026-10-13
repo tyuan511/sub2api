@@ -408,6 +408,15 @@ func formatSupportTelegramNotification(eventType string, payload supportTelegram
 // notifications (recharge/redeem) carry a different payload than support
 // tickets, so they are re-decoded from the raw payload.
 func formatTelegramOutboxText(eventType, raw string, supportPayload supportTelegramNotificationPayload) string {
+	if eventType == UpstreamLowBalanceEvent {
+		var notification UpstreamBalanceNotification
+		if json.Unmarshal([]byte(raw), &notification) != nil {
+			return "[上游余额不足]"
+		}
+		return fmt.Sprintf("[上游余额不足]\n上游：%s (#%d)\n余额：¥%.2f\n阈值：¥%.2f\n官网：%s\n时间：%s",
+			notification.Name, notification.UpstreamID, notification.Balance, notification.Threshold,
+			notification.WebsiteURL, notification.At.Format("2006-01-02 15:04:05"))
+	}
 	if isActivityEventType(eventType) {
 		var notification ActivityNotification
 		if err := json.Unmarshal([]byte(raw), &notification); err != nil {

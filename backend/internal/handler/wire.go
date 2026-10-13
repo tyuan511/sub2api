@@ -39,6 +39,8 @@ func ProvideAdminHandlers(
 	apiKeyHandler *admin.AdminAPIKeyHandler,
 	scheduledTestHandler *admin.ScheduledTestHandler,
 	channelHandler *admin.ChannelHandler,
+	upstreamHandler *admin.UpstreamHandler,
+	upstreamService *service.UpstreamService,
 	channelMonitorHandler *admin.ChannelMonitorHandler,
 	bazaarLinkProbeService *service.BazaarLinkProbeService,
 	channelMonitorTemplateHandler *admin.ChannelMonitorRequestTemplateHandler,
@@ -55,6 +57,7 @@ func ProvideAdminHandlers(
 	claudeResetCredits *service.ClaudeResetCreditService,
 ) *AdminHandlers {
 	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
+	accountHandler.SetUpstreamService(upstreamService)
 	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
 	channelMonitorHandler.SetBazaarLinkProbeService(bazaarLinkProbeService)
 	accountHandler.SetOpenCodeGoUsageService(opencodeGoUsage)
@@ -88,6 +91,7 @@ func ProvideAdminHandlers(
 		APIKey:                 apiKeyHandler,
 		ScheduledTest:          scheduledTestHandler,
 		Channel:                channelHandler,
+		Upstream:               upstreamHandler,
 		ChannelMonitor:         channelMonitorHandler,
 		ChannelMonitorTemplate: channelMonitorTemplateHandler,
 		ContentModeration:      contentModerationHandler,
@@ -294,6 +298,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewAdminAPIKeyHandler,
 	admin.NewScheduledTestHandler,
 	admin.NewChannelHandler,
+	admin.NewUpstreamHandler,
 	admin.NewChannelMonitorHandler,
 	admin.NewChannelMonitorRequestTemplateHandler,
 	admin.NewContentModerationHandler,
