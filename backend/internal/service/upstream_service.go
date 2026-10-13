@@ -95,6 +95,11 @@ func (s *UpstreamService) Save(ctx context.Context, id int64, input UpstreamInpu
 	if u.WebsiteURL, err = upstreamURL(input.WebsiteURL, false); err != nil {
 		return nil, err
 	}
+	if u.Type == "newapi" && u.WebsiteURL != "" {
+		if _, err := cnValidateProbeURL(s.cfg, u.WebsiteURL); err != nil {
+			return nil, upstreamInvalid("Management URL is rejected by the outbound URL policy")
+		}
+	}
 	if previousType != "" && previousType != u.Type {
 		u.AccessTokenEncrypted = ""
 		u.BalanceAPIKeyEncrypted = ""
@@ -131,6 +136,12 @@ func (s *UpstreamService) Save(ctx context.Context, id int64, input UpstreamInpu
 			continue
 		}
 		plain := strings.TrimSpace(*item.plain)
+		if u.Type == "newapi" && item.encrypted == &u.AccessTokenEncrypted && plain != "" {
+			plain, err = normalizeNewAPIAccessToken(plain)
+			if err != nil {
+				return nil, err
+			}
+		}
 		if strings.ContainsAny(plain, "\r\n") || len(plain) > 8192 {
 			return nil, upstreamInvalid("Invalid credential")
 		}
@@ -172,8 +183,27 @@ func upstreamEndpoint(base, path string) string {
 	return root + path
 }
 
+// Both legacy system tokens and scoped PATs use the same authorization protocol.
+// Accept a copied Authorization value without adding a second Bearer prefix.
+func normalizeNewAPIAccessToken(raw string) (string, error) {
+	parts := strings.Fields(strings.TrimSpace(raw))
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		return parts[1], nil
+	}
+	if len(parts) != 1 || strings.EqualFold(parts[0], "Bearer") {
+		return "", upstreamInvalid("Enter a newapi system access token or scoped personal access token")
+	}
+	return parts[0], nil
+}
+
 func (s *UpstreamService) request(ctx context.Context, u *Upstream, path string, out any) error {
-	endpoint, err := cnValidateProbeURL(s.cfg, upstreamEndpoint(u.BaseURL, path))
+	baseURL := u.BaseURL
+	// Newapi's console and relay can be separate hosts. Management credentials
+	// must be sent to the console, while account creation keeps the relay URL.
+	if u.Type == "newapi" && u.WebsiteURL != "" {
+		baseURL = u.WebsiteURL
+	}
+	endpoint, err := cnValidateProbeURL(s.cfg, upstreamEndpoint(baseURL, path))
 	if err != nil {
 		return ErrUpstreamQuery.WithCause(errors.New("URL rejected by outbound policy"))
 	}
@@ -187,6 +217,12 @@ func (s *UpstreamService) request(ctx context.Context, u *Upstream, path string,
 	secret, err := s.encryptor.Decrypt(encrypted)
 	if err != nil {
 		return ErrUpstreamQuery.WithCause(errors.New("Cannot decrypt upstream credential"))
+	}
+	if u.Type == "newapi" {
+		secret, err = normalizeNewAPIAccessToken(secret)
+		if err != nil {
+			return err
+		}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

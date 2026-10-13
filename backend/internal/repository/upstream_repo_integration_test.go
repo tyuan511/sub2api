@@ -71,6 +71,27 @@ func TestUpstreamManagementPostgres(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, edited.Balance)
 	require.Equal(t, 2, countAlerts())
+	// Newapi queries move with the console URL; changing it invalidates the old
+	// balance and also rejects a result started before the console was edited.
+	edited.Type = "newapi"
+	edited.WebsiteURL = "https://console.example.com"
+	edited.AccessTokenEncrypted = "fixture-encrypted-pat"
+	edited.BalanceAPIKeyEncrypted = ""
+	edited.UserID = 12
+	edited, err = repo.Save(ctx, edited)
+	require.NoError(t, err)
+	require.NoError(t, repo.RecordBalance(ctx, edited, floatPointer(50), "", false))
+	oldConsole := *edited
+	edited.WebsiteURL = "https://other-console.example.com"
+	edited, err = repo.Save(ctx, edited)
+	require.NoError(t, err)
+	require.Nil(t, edited.Balance)
+	require.Nil(t, edited.BalanceCheckedAt)
+	require.NoError(t, repo.RecordBalance(ctx, &oldConsole, floatPointer(1), "", true))
+	edited, err = repo.Get(ctx, u.ID)
+	require.NoError(t, err)
+	require.Nil(t, edited.Balance)
+	require.Equal(t, 2, countAlerts())
 	edited.Name = "renamed"
 	edited, err = repo.Save(ctx, edited)
 	require.NoError(t, err)

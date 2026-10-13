@@ -57,7 +57,7 @@
           <div><label for="upstream-name" class="input-label">{{ t('common.name') }}</label><input id="upstream-name" v-model="form.name" class="input" required maxlength="100" /></div>
           <div><label for="upstream-type" class="input-label">{{ t('admin.upstreams.type') }}</label><select id="upstream-type" v-model="form.type" class="input"><option v-for="type in types" :key="type" :value="type">{{ typeLabel(type) }}</option></select></div>
         </div>
-        <div><label for="upstream-website" class="input-label">{{ t('admin.upstreams.websiteUrl') }}</label><input id="upstream-website" v-model="form.website_url" class="input" type="url" placeholder="https://example.com" /></div>
+        <div><label for="upstream-website" class="input-label">{{ t(form.type === 'newapi' ? 'admin.upstreams.managementUrl' : 'admin.upstreams.websiteUrl') }}</label><input id="upstream-website" v-model="form.website_url" class="input" type="url" placeholder="https://example.com" /><p v-if="form.type === 'newapi'" class="input-hint">{{ t('admin.upstreams.managementUrlHint') }}</p></div>
         <div><label for="upstream-base-url" class="input-label">Base URL</label><input id="upstream-base-url" v-model="form.base_url" class="input" type="url" required placeholder="https://api.example.com" /></div>
         <template v-if="form.type === 'sub2api'">
           <div><label for="upstream-balance-key" class="input-label">{{ t('admin.upstreams.balanceKey') }}</label><input id="upstream-balance-key" v-model="balanceKey" class="input" type="password" autocomplete="new-password" :required="!editing?.has_balance_api_key || editing.type !== form.type" :placeholder="secretPlaceholder" /><p class="input-hint">{{ t('admin.upstreams.balanceKeyHint') }}</p></div>

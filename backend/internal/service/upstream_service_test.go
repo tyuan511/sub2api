@@ -106,6 +106,68 @@ func TestUpstreamBalanceAdapters(t *testing.T) {
 	}
 }
 
+func TestNewAPIManagementHostAndCompatibleTokens(t *testing.T) {
+	for _, input := range []string{"legacy+fixture", "Bearer legacy+fixture", "nap_scoped_fixture", "bearer nap_scoped_fixture"} {
+		t.Run(input, func(t *testing.T) {
+			expected := strings.TrimPrefix(strings.TrimPrefix(input, "Bearer "), "bearer ")
+			console := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "/console/api/user/self", r.URL.Path)
+				require.Equal(t, "Bearer "+expected, r.Header.Get("Authorization"))
+				require.Equal(t, "12", r.Header.Get("New-Api-User"))
+				fmt.Fprint(w, `{"success":true,"data":{"quota":3588193}}`)
+			}))
+			defer console.Close()
+			svc, repo := upstreamTestService(t, func(http.ResponseWriter, *http.Request) {
+				t.Error("A management credential must never be sent to the relay host")
+			}, "newapi")
+			repo.u.WebsiteURL = console.URL + "/console"
+			repo.u.AccessTokenEncrypted = "encrypted:" + input
+			balance, err := svc.queryBalance(context.Background(), &repo.u)
+			require.NoError(t, err)
+			require.InDelta(t, 7.176386, balance, 1e-8)
+			credentials := map[string]any{"api_key": "manual-relay-key"}
+			require.NoError(t, svc.BindAccount(context.Background(), 1, credentials, map[string]any{}))
+			require.Equal(t, repo.u.BaseURL, credentials["base_url"])
+			require.Equal(t, "manual-relay-key", credentials["api_key"])
+		})
+	}
+}
+
+func TestNewAPIManagementFailureDoesNotFallBackToRelay(t *testing.T) {
+	console := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprint(w, `{"message":"nap_fixture_secret"}`)
+	}))
+	defer console.Close()
+	svc, repo := upstreamTestService(t, func(http.ResponseWriter, *http.Request) {
+		t.Error("Console failure must not leak the token to another host")
+	}, "newapi")
+	repo.u.WebsiteURL = console.URL
+	_, err := svc.queryBalance(context.Background(), &repo.u)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "HTTP 403")
+	require.NotContains(t, err.Error(), "nap_fixture_secret")
+}
+
+func TestNewAPIAccessTokenSaveNormalizesBearerAndPreservesSavedSecrets(t *testing.T) {
+	svc, repo := upstreamTestService(t, func(http.ResponseWriter, *http.Request) {}, "newapi")
+	token := " Bearer nap_fixture_token "
+	input := UpstreamInput{Name: "console", Type: "newapi", BaseURL: repo.u.BaseURL,
+		WebsiteURL: "https://console.example.com", UserID: 12, AccessToken: &token}
+	u, err := svc.Save(context.Background(), 1, input)
+	require.NoError(t, err)
+	require.Equal(t, "encrypted:nap_fixture_token", u.AccessTokenEncrypted)
+	input.AccessToken = nil
+	u, err = svc.Save(context.Background(), 1, input)
+	require.NoError(t, err)
+	require.Equal(t, "encrypted:nap_fixture_token", u.AccessTokenEncrypted)
+	for _, invalid := range []string{"Bearer", "Bearer token\r\nX-Injected: value", "token with spaces"} {
+		input.AccessToken = &invalid
+		_, err := svc.Save(context.Background(), 1, input)
+		require.Error(t, err)
+	}
+}
+
 func TestUpstreamRefreshKeepsLastBalanceAndHidesCredentials(t *testing.T) {
 	svc, repo := upstreamTestService(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)

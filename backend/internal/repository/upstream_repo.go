@@ -74,11 +74,11 @@ func (r *upstreamRepository) Save(ctx context.Context, u *service.Upstream) (*se
         name=$1,type=$2::text,website_url=$3,base_url=$4,balance_api_key_encrypted=$5,access_token_encrypted=$6,
         user_id=$7,balance_threshold=$8,balance_multiplier=$9,quota_per_unit=$10,
         check_interval_seconds=$11,enabled=$12,updated_at=NOW(),revision=revision+1,next_check_at=NOW(),
-        balance=CASE WHEN type<>$2 OR base_url<>$4 OR balance_api_key_encrypted<>$5 OR access_token_encrypted<>$6
+        balance=CASE WHEN type<>$2 OR base_url<>$4 OR (type='newapi' AND website_url<>$3) OR balance_api_key_encrypted<>$5 OR access_token_encrypted<>$6
             OR user_id<>$7 OR balance_multiplier<>$9 OR quota_per_unit<>$10 THEN NULL ELSE balance END,
-        balance_checked_at=CASE WHEN type<>$2 OR base_url<>$4 OR balance_api_key_encrypted<>$5 OR access_token_encrypted<>$6
+        balance_checked_at=CASE WHEN type<>$2 OR base_url<>$4 OR (type='newapi' AND website_url<>$3) OR balance_api_key_encrypted<>$5 OR access_token_encrypted<>$6
             OR user_id<>$7 OR balance_multiplier<>$9 OR quota_per_unit<>$10 THEN NULL ELSE balance_checked_at END,
-        last_error='', low_balance_notified=CASE WHEN balance_threshold<>$8 OR type<>$2 OR base_url<>$4
+        last_error='', low_balance_notified=CASE WHEN balance_threshold<>$8 OR type<>$2 OR base_url<>$4 OR (type='newapi' AND website_url<>$3)
             OR balance_api_key_encrypted<>$5 OR access_token_encrypted<>$6 OR user_id<>$7
             OR balance_multiplier<>$9 OR quota_per_unit<>$10 THEN FALSE ELSE low_balance_notified END
         WHERE id=$13 AND revision=$14 RETURNING `+upstreamColumns, args...))
