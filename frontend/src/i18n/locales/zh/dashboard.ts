@@ -116,20 +116,6 @@ export default {
     nameLabel: '名称',
     namePlaceholder: '我的 API 密钥',
     groupLabel: '分组',
-    providerLabel: '厂商',
-    providers: {
-      anthropic: 'Anthropic',
-      openai: 'OpenAI',
-      domestic: '国产模型',
-      other: '其他'
-    },
-    providerHints: {
-      anthropic: '选择 Anthropic / Claude 的可用分组。',
-      openai: '选择 OpenAI / GPT 的可用分组。',
-      domestic: '包含 DeepSeek、Kimi、智谱 GLM、MiniMax。',
-      other: '包含 Gemini、Grok、Antigravity、OpenCode 和混合分组。'
-    },
-    providerKeepsSelection: '已选分组会保留，切换厂商后可以继续追加其他厂商的分组。',
     selectGroup: '选择分组',
     statusLabel: '状态',
     selectStatus: '选择状态',
@@ -160,7 +146,7 @@ export default {
     routeGroupHint: '最多选择 {max} 个同计费类型分组，可跨平台；请求会进入实际支持该模型的分组。实际请求依然会被路由到具体分组，并按实际路由到的分组计费。拖动列表即可调整故障转移顺序。',
     routePrimaryGroup: '首选分组',
     routeFallbackGroup: '备用分组',
-    routeGroupRate: '当前倍率 ×{rate}',
+    routeGroupRate: '×{rate}',
     routeGroupUnavailable: '不可用',
     routeGroupUnavailableReason: '该分组当前不可用于新增绑定',
     routeGroupLimitReached: '最多只能选择 {max} 个候选分组',

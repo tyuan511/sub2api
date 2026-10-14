@@ -88,9 +88,12 @@
                 <span v-if="disabledReason(group)" class="mt-0.5 block text-xs text-amber-600 dark:text-amber-400">
                   {{ disabledReason(group) }}
                 </span>
-                <span v-else class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('keys.routeGroupRate', { rate: effectiveRate(group).toFixed(2) }) }}
+                <span v-else-if="group.description" class="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
+                  {{ group.description }}
                 </span>
+              </span>
+              <span class="flex-none text-xs font-medium tabular-nums">
+                {{ t('keys.routeGroupRate', { rate: effectiveRate(group).toFixed(2) }) }}
               </span>
             </button>
 

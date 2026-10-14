@@ -116,20 +116,6 @@ export default {
     nameLabel: 'Name',
     namePlaceholder: 'My API Key',
     groupLabel: 'Group',
-    providerLabel: 'Provider',
-    providers: {
-      anthropic: 'Anthropic',
-      openai: 'OpenAI',
-      domestic: 'Chinese AI',
-      other: 'Other'
-    },
-    providerHints: {
-      anthropic: 'Choose an available Anthropic / Claude group.',
-      openai: 'Choose an available OpenAI / GPT group.',
-      domestic: 'Includes DeepSeek, Kimi, Zhipu GLM and MiniMax.',
-      other: 'Includes Gemini, Grok, Antigravity, OpenCode and mixed groups.'
-    },
-    providerKeepsSelection: 'Selected groups stay. Switch provider to add groups from another vendor.',
     selectGroup: 'Select a group',
     statusLabel: 'Status',
     selectStatus: 'Select status',
@@ -160,7 +146,7 @@ export default {
     routeGroupHint: 'Choose up to {max} groups with the same billing type; platforms may differ. Requests go to a group that actually supports the model. Each request is still routed to one concrete group and billed at that group\'s rate. Drag the list to set failover order.',
     routePrimaryGroup: 'Primary group',
     routeFallbackGroup: 'Fallback group',
-    routeGroupRate: 'Current rate ×{rate}',
+    routeGroupRate: '×{rate}',
     routeGroupUnavailable: 'Unavailable',
     routeGroupUnavailableReason: 'This group is not available for new bindings',
     routeGroupLimitReached: 'You can select at most {max} candidate groups',

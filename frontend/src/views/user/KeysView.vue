@@ -495,58 +495,6 @@
           />
         </div>
 
-        <fieldset data-tour="key-form-provider">
-          <legend class="input-label">{{ t('keys.providerLabel') }}</legend>
-          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <label
-              v-for="provider in createProviderOptions"
-              :key="provider.value"
-              class="relative min-w-0"
-              :class="provider.count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'"
-            >
-              <input
-                type="radio"
-                name="key-provider"
-                :value="provider.value"
-                :checked="createProvider === provider.value"
-                :disabled="provider.count === 0"
-                class="peer sr-only"
-                @change="selectCreateProvider(provider.value)"
-              />
-              <span
-                class="flex h-full flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-3 text-center transition-colors peer-checked:border-primary-500 peer-checked:bg-primary-50/60 peer-checked:ring-1 peer-checked:ring-primary-500 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-500 peer-disabled:opacity-40 dark:border-dark-600 dark:bg-dark-800 dark:peer-checked:border-primary-500 dark:peer-checked:bg-primary-500/10"
-                :class="provider.count > 0 && 'hover:border-primary-300 dark:hover:border-primary-700'"
-              >
-                <span class="flex h-8 items-center justify-center gap-1.5" aria-hidden="true">
-                  <span
-                    v-for="platform in KEY_GROUP_PROVIDER_ICONS[provider.value]"
-                    :key="platform"
-                    class="flex h-8 w-8 items-center justify-center rounded-lg"
-                    :class="platformBadgeLightClass(platform)"
-                  >
-                    <PlatformIcon :platform="platform" size="lg" />
-                  </span>
-                </span>
-                <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ provider.label }}</span>
-              </span>
-              <span
-                v-if="createProvider === provider.value"
-                class="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-white"
-                aria-hidden="true"
-              >
-                <Icon name="check" size="xs" :stroke-width="3" />
-              </span>
-            </label>
-          </div>
-          <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400" aria-live="polite">
-            <template v-if="groups.length === 0">{{ t('common.noGroupsAvailable') }}</template>
-            <template v-else>
-              {{ t(`keys.providerHints.${createProvider}`) }}
-              {{ t('keys.providerKeepsSelection') }}
-            </template>
-          </p>
-        </fieldset>
-
         <div v-if="routingEnabled">
           <div class="mb-1.5 flex items-center justify-between gap-3">
             <div class="flex items-center">
@@ -571,7 +519,6 @@
           <ApiKeyGroupRouteSelector
             v-model="formData.group_routes"
             :groups="routeSelectableGroups"
-            :list-filter="matchesSelectedProvider"
             :user-group-rates="userGroupRates"
             :max-groups="8"
             data-tour="key-form-group"
@@ -1246,7 +1193,6 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import Select from '@/components/common/Select.vue'
 	import SearchInput from '@/components/common/SearchInput.vue'
 	import Icon from '@/components/icons/Icon.vue'
-	import PlatformIcon from '@/components/common/PlatformIcon.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import ApiKeyGroupRouteSelector from '@/components/keys/ApiKeyGroupRouteSelector.vue'
@@ -1263,8 +1209,6 @@ import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
-import { platformBadgeLightClass } from '@/utils/platformColors'
-import { KEY_GROUP_PROVIDERS, KEY_GROUP_PROVIDER_ICONS, getKeyGroupProvider, type KeyGroupProvider } from '@/utils/keyGroupProviders'
 import {
   CC_SWITCH_USAGE_SCRIPT,
   buildCcSwitchImportDeeplink,
@@ -1580,38 +1524,11 @@ const routeSelectableGroups = computed(() => {
   })
 })
 
-const createProvider = ref<KeyGroupProvider>('anthropic')
-const createProviderOptions = computed(() => KEY_GROUP_PROVIDERS.map((value) => ({
-  value,
-  label: t(`keys.providers.${value}`),
-  count: groups.value.filter((group) => getKeyGroupProvider(group.platform) === value).length
-})))
-
-// The provider control only filters which groups can be added next. Selections
-// from other providers stay on the key, so one key can route across vendors.
-const matchesSelectedProvider = (group: Group) => getKeyGroupProvider(group.platform) === createProvider.value
-
-const selectCreateProvider = (provider: KeyGroupProvider) => {
-  createProvider.value = provider
-}
-
-const focusProviderForGroup = (group?: { platform: Group['platform'] } | null) => {
-  if (!group) return
-  createProvider.value = getKeyGroupProvider(group.platform)
-}
-
-// Pick the first available provider when the create dialog opens or groups
-// finish loading. Discard only groups that are actually gone, never groups
-// that merely belong to a different provider.
-watch([showCreateModal, createProviderOptions], ([isOpen, providers], [wasOpen]) => {
+// Opening the create dialog starts from an empty route set; on any other pass
+// only drop groups that are actually gone, never groups the user still has.
+watch([showCreateModal], ([isOpen], [wasOpen]) => {
   if (!isOpen) return
-  const firstAvailable = providers.find((provider) => provider.count > 0)?.value ?? 'anthropic'
-  if (!wasOpen) {
-    createProvider.value = firstAvailable
-    formData.value.group_routes = []
-  } else if (!providers.some((provider) => provider.value === createProvider.value && provider.count > 0)) {
-    createProvider.value = firstAvailable
-  }
+  if (!wasOpen) formData.value.group_routes = []
   const availableGroupIds = new Set(routeSelectableGroups.value.map((group) => group.id))
   const validRoutes = formData.value.group_routes.filter((groupId) => availableGroupIds.has(groupId))
   if (validRoutes.length !== formData.value.group_routes.length) {
@@ -1766,11 +1683,6 @@ const editKey = async (key: ApiKey) => {
     .sort((a, b) => a.priority - b.priority)
     .map((route) => route.group_id)
   if (!routeGroupIds.length && key.group_id) routeGroupIds.push(key.group_id)
-  const firstBoundGroup = (key.group_routes ?? [])
-    .slice()
-    .sort((left, right) => left.priority - right.priority)
-    .find((route) => route.group)?.group ?? key.group
-  focusProviderForGroup(firstBoundGroup)
   formData.value = {
     name: key.name,
     group_routes: routeGroupIds,

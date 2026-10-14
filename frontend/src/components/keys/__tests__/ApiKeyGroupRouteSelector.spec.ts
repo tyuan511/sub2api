@@ -15,12 +15,13 @@ function makeGroup(
   id: number,
   platform = 'openai',
   subscriptionType = 'standard',
-  status = 'active'
+  status = 'active',
+  description = ''
 ): Group {
   return {
     id,
     name: `group-${id}`,
-    description: '',
+    description,
     platform,
     subscription_type: subscriptionType,
     status,
@@ -198,6 +199,41 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[1, 2]])
     await search.trigger('keydown', { key: 'Escape' })
     expect(wrapper.get('[data-test="route-group-trigger"]').attributes('aria-expanded')).toBe('false')
+  })
+
+  it('shows the group description under the name and the rate on the right', async () => {
+    const described = makeGroup(1, 'openai', 'standard', 'active', '稳定高速，按量计费')
+    const wrapper = mount(ApiKeyGroupRouteSelector, {
+      props: { modelValue: [], groups: [described] }
+    })
+
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    const option = wrapper.get('[data-test="route-group-option-1"]')
+
+    expect(option.text()).toContain('稳定高速，按量计费')
+    expect(option.text()).toContain('keys.routeGroupRate')
+
+    // The rate sits after the description column, not below the group name.
+    const children = [...option.element.children]
+    expect(children[children.length - 1].textContent).toContain('keys.routeGroupRate')
+    expect(children[children.length - 2].textContent).toContain('稳定高速，按量计费')
+  })
+
+  it('prefers the unavailable reason over the description in the same slot', async () => {
+    const wrapper = mount(ApiKeyGroupRouteSelector, {
+      props: {
+        modelValue: [1],
+        groups: [
+          makeGroup(1, 'openai', 'standard', 'active', '已选分组的描述'),
+          makeGroup(2, 'openai', 'standard', 'disabled', '被禁用的分组描述')
+        ]
+      }
+    })
+
+    await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    const disabled = wrapper.get('[data-test="route-group-option-2"]')
+    expect(disabled.text()).toContain('keys.routeGroupUnavailableReason')
+    expect(disabled.text()).not.toContain('被禁用的分组描述')
   })
 
   it('shows compact selected groups with platform color, name and rate', () => {
