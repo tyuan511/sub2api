@@ -279,7 +279,7 @@ func (r *channelMonitorV2Repository) GetSnapshot(ctx context.Context, filter ser
 		bucket, _ := time.Parse(time.RFC3339Nano, key)
 		m := byBucket[key].metric(filter.Bucket.Minutes(), admin)
 		applyIgnoredErrors(&m, ignoredByBucket[key])
-		result.Trend = append(result.Trend, service.ChannelMonitorV2TrendPoint{BucketStart: bucket, Metrics: m, Health: service.ChannelMonitorV2HealthForWithThresholds(m, cfg.HealthThresholds)})
+		result.Trend = append(result.Trend, service.ChannelMonitorV2TrendPoint{BucketStart: bucket, Metrics: m, Health: service.ChannelMonitorV2BucketHealthForWithThresholds(m, cfg.HealthThresholds)})
 	}
 	return result, nil
 }
@@ -475,7 +475,7 @@ func (r *channelMonitorV2Repository) GetMatrix(ctx context.Context, filter servi
 			}
 			bucketMetrics := acc.buckets[bucketKey].metric(filter.Bucket.Minutes(), admin)
 			applyIgnoredErrors(&bucketMetrics, ignoredByDimBucket[key][bucketKey])
-			row.Buckets = append(row.Buckets, service.ChannelMonitorV2TrendPoint{BucketStart: bucketStart, Metrics: bucketMetrics, Health: service.ChannelMonitorV2HealthForWithThresholds(bucketMetrics, cfg.HealthThresholds)})
+			row.Buckets = append(row.Buckets, service.ChannelMonitorV2TrendPoint{BucketStart: bucketStart, Metrics: bucketMetrics, Health: service.ChannelMonitorV2BucketHealthForWithThresholds(bucketMetrics, cfg.HealthThresholds)})
 		}
 		result.Items = append(result.Items, row)
 	}

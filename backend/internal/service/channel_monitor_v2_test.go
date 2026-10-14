@@ -285,11 +285,11 @@ func TestChannelMonitorV2HealthBlendsErrorAndTTFTNotCache(t *testing.T) {
 	// Hourly pulse buckets often have fewer than MinimumSample requests.
 	// Availability + TTFT must still color the bar (cache no longer fills that gap).
 	p50Small := int64(2000)
-	health = ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{
+	health = ChannelMonitorV2BucketHealthForWithThresholds(ChannelMonitorV2Metric{
 		RequestCount: 2,
 		ErrorRate:    0,
 		TTFT:         ChannelMonitorV2Latency{SampleCount: 2, P50Ms: &p50Small},
-	})
+	}, DefaultChannelMonitorV2HealthThresholds())
 	require.Equal(t, "healthy", health.Overall)
 	require.NotNil(t, health.Score)
 	require.InDelta(t, 100.0, *health.Score, 0.01)
@@ -298,6 +298,21 @@ func TestChannelMonitorV2HealthBlendsErrorAndTTFTNotCache(t *testing.T) {
 	health = ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{})
 	require.Equal(t, "unknown", health.Overall)
 	require.Nil(t, health.Score)
+}
+
+func TestChannelMonitorV2BucketHealthColorsBelowMinimumSample(t *testing.T) {
+	thresholds := DefaultChannelMonitorV2HealthThresholds()
+	thresholds.MinimumSample = 10
+	metrics := ChannelMonitorV2Metric{SuccessRequests: 3, RequestCount: 3, ErrorRate: 0}
+	window := ChannelMonitorV2HealthForWithThresholds(metrics, thresholds)
+	require.Equal(t, "unknown", window.Overall)
+	require.Nil(t, window.Score)
+
+	bucket := ChannelMonitorV2BucketHealthForWithThresholds(metrics, thresholds)
+	require.Equal(t, "healthy", bucket.ErrorRate)
+	require.Equal(t, "healthy", bucket.Overall)
+	require.NotNil(t, bucket.Score)
+	require.Equal(t, int64(10), bucket.MinimumSample)
 }
 
 func TestChannelMonitorV2HealthRequiresRequestSamples(t *testing.T) {
@@ -359,7 +374,7 @@ func TestChannelMonitorV2HealthMinimumSampleBoundaries(t *testing.T) {
 			require.NotNil(t, health.TTFTScore)
 			require.NotNil(t, health.CacheScore)
 			require.NotNil(t, health.Score)
-			require.InDelta(t, 80.0, *health.Score, 0.01)
+			require.InDelta(t, 100.0, *health.Score, 0.01)
 			require.Equal(t, "healthy", health.Overall)
 		})
 	}

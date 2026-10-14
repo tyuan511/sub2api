@@ -1025,12 +1025,23 @@ func ChannelMonitorV2HealthFor(metrics ChannelMonitorV2Metric) ChannelMonitorV2H
 }
 
 func ChannelMonitorV2HealthForWithThresholds(metrics ChannelMonitorV2Metric, thresholds ChannelMonitorV2HealthThresholds) ChannelMonitorV2Health {
+	return channelMonitorV2Health(metrics, thresholds, true)
+}
+
+// ChannelMonitorV2BucketHealthForWithThresholds colors one pulse or trend cell.
+// MinimumSample stays on the payload but does not blank the cell: one request
+// is enough, otherwise low-volume channels render as if they had no traffic.
+func ChannelMonitorV2BucketHealthForWithThresholds(metrics ChannelMonitorV2Metric, thresholds ChannelMonitorV2HealthThresholds) ChannelMonitorV2Health {
+	return channelMonitorV2Health(metrics, thresholds, false)
+}
+
+func channelMonitorV2Health(metrics ChannelMonitorV2Metric, thresholds ChannelMonitorV2HealthThresholds, applyMinimumSample bool) ChannelMonitorV2Health {
 	thresholds = NormalizeChannelMonitorV2HealthThresholds(thresholds)
 	result := ChannelMonitorV2Health{
 		Overall: "unknown", ErrorRate: "unknown", TTFT: "unknown", Cache: "unknown",
 		MinimumSample: thresholds.MinimumSample, Thresholds: thresholds,
 	}
-	if metrics.RequestCount < result.MinimumSample {
+	if applyMinimumSample && metrics.RequestCount < result.MinimumSample {
 		return result
 	}
 
