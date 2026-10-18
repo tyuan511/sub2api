@@ -127,8 +127,8 @@ const cacheHitRate = computed(() => {
 
   const inputTokens = props.stats.total_input_tokens || 0
   const cacheReadTokens = props.stats.total_cache_read_tokens || 0
-  // 分母只算 输入 + 缓存读取，不含缓存创建 Token
-  const promptTokens = inputTokens + cacheReadTokens
+  const cacheCreationTokens = props.stats.total_cache_creation_tokens || 0
+  const promptTokens = inputTokens + cacheReadTokens + cacheCreationTokens
 
   return promptTokens > 0 ? (cacheReadTokens / promptTokens) * 100 : null
 })

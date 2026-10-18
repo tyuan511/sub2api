@@ -24,8 +24,7 @@ func TestChannelMonitorRepositoryComputeCacheHitRatesForGroups(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, got, "gpt-pro-20x")
 	require.Equal(t, int64(12), got["gpt-pro-20x"].Requests)
-	// 命中率 = cache_read / (input + cache_read) = 30 / (20 + 30)，缓存创建 10 不参与分母
-	require.InDelta(t, 60.0, got["gpt-pro-20x"].CacheHitRatePct, 0.0001)
+	require.InDelta(t, 50.0, got["gpt-pro-20x"].CacheHitRatePct, 0.0001)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
