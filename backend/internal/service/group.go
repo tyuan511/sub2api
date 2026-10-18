@@ -12,6 +12,23 @@ import (
 )
 
 type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfig
+
+// GroupPlatformDisplayOrder 分组/渠道列表展示的平台定制顺序，
+// 与前端 frontend/src/utils/groupOrder.ts 的 PLATFORM_DISPLAY_ORDER 保持一致；
+// 不在这个列表里的平台排到末尾，按平台名字母序。
+var GroupPlatformDisplayOrder = []string{PlatformOpenAI, PlatformAnthropic, PlatformGrok, PlatformGemini}
+
+// GroupPlatformDisplayRank 返回平台的展示序号（越小越靠前）。
+func GroupPlatformDisplayRank(platform string) int {
+	normalized := strings.ToLower(strings.TrimSpace(platform))
+	for i, candidate := range GroupPlatformDisplayOrder {
+		if normalized == strings.ToLower(candidate) {
+			return i
+		}
+	}
+	return len(GroupPlatformDisplayOrder)
+}
+
 type GroupCodexModelsManifestConfig = domain.GroupCodexModelsManifestConfig
 type ReasoningEffortMapping = domain.ReasoningEffortMapping
 

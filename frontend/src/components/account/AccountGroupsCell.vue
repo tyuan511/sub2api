@@ -54,7 +54,7 @@
           </div>
           <div class="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto">
             <GroupBadge
-              v-for="group in groups"
+              v-for="group in sortedGroups"
               :key="group.id"
               :name="group.name"
               :platform="group.platform"
@@ -82,6 +82,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import type { Group } from '@/types'
+import { sortGroupsForDisplay } from '@/utils/groupOrder'
 
 interface Props {
   groups: Group[] | null | undefined
@@ -98,14 +99,17 @@ const moreButtonRef = ref<HTMLElement | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)
 const showPopover = ref(false)
 
+// 账号绑定的分组按统一展示顺序排（平台定制顺序 → 倍率从低到高）。
+const sortedGroups = computed(() => sortGroupsForDisplay(props.groups ?? []))
+
 // 显示的分组（最多显示 maxDisplay 个）
 const displayGroups = computed(() => {
   if (!props.groups) return []
   if (props.groups.length <= props.maxDisplay) {
-    return props.groups
+    return sortedGroups.value
   }
   // 留一个位置给 +N 按钮
-  return props.groups.slice(0, props.maxDisplay - 1)
+  return sortedGroups.value.slice(0, props.maxDisplay - 1)
 })
 
 // 隐藏的数量

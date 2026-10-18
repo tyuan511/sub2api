@@ -62,6 +62,7 @@ import { useI18n } from 'vue-i18n'
 import GroupBadge from './GroupBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import type { Group, GroupPlatform } from '@/types'
+import { sortGroupsForDisplay } from '@/utils/groupOrder'
 import { useAuthStore } from '@/stores'
 
 const { t } = useI18n()
@@ -111,7 +112,7 @@ const filteredGroups = computed(() => {
       (g) => g.name.toLowerCase().includes(q) || g.description?.toLowerCase().includes(q)
     )
   }
-  return result
+  return sortGroupsForDisplay(result)
 })
 
 watch(

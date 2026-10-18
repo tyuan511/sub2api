@@ -156,6 +156,7 @@ import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import type { ApiKey, Group, UpdateApiKeyRequest } from '@/types'
+import { sortGroupsForDisplay } from '@/utils/groupOrder'
 
 type SelectedKey = Pick<ApiKey, 'id' | 'name'>
 type LimitField = 'quota' | 'rate_limit_5h' | 'rate_limit_1d' | 'rate_limit_7d'
@@ -166,6 +167,7 @@ const props = defineProps<{
   show: boolean
   selectedKeys: SelectedKey[]
   groups: Group[]
+  userGroupRates?: Record<number, number>
 }>()
 const emit = defineEmits<{
   close: []
@@ -206,7 +208,8 @@ const ipFields: Array<{ key: IPField; label: string }> = [
   { key: 'ip_whitelist', label: 'keys.ipWhitelist' },
   { key: 'ip_blacklist', label: 'keys.ipBlacklist' }
 ]
-const groupOptions = computed(() => props.groups.map((group) => ({ value: group.id, label: group.name })))
+const groupOptions = computed(() =>
+  sortGroupsForDisplay(props.groups, { ratesByGroupId: props.userGroupRates }).map((group) => ({ value: group.id, label: group.name })))
 const statusOptions = computed(() => [
   { value: 'active', label: t('keys.enable') },
   { value: 'inactive', label: t('keys.disable') }

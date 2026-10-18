@@ -71,6 +71,7 @@ import Icon from '@/components/icons/Icon.vue'
 import PlazaFilterBar from './PlazaFilterBar.vue'
 import PlazaGroupSection from './PlazaGroupSection.vue'
 import type { ModelPlazaGroup, ModelPlazaResponse } from '@/api/modelPlaza'
+import { sortByPlatformDisplayOrder, sortGroupsForDisplay } from '@/utils/groupOrder'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
@@ -104,18 +105,19 @@ function effectiveRate(g: ModelPlazaGroup): number {
 }
 
 const platforms = computed(() =>
-  [...new Set((props.response?.groups ?? []).map((g) => g.platform).filter(Boolean))].sort()
+  sortByPlatformDisplayOrder([...new Set((props.response?.groups ?? []).map((g) => g.platform).filter(Boolean))])
 )
 
 const groupOptions = computed(() =>
-  (props.response?.groups ?? [])
-    .map((g) => ({
+  sortGroupsForDisplay(
+    (props.response?.groups ?? []).map((g) => ({
       id: g.id,
       name: g.name,
       platform: g.platform,
       rate: effectiveRate(g)
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    })),
+    { rateOf: (g) => g.rate }
+  )
 )
 
 /** 全量生效倍率;当前组合下不可用的项由 FilterBar 置灰而非隐藏。 */
@@ -149,9 +151,7 @@ const filteredGroups = computed(() => {
       .filter((g) => g.models.length > 0)
   }
   // 专属倍率会改变生效值,不能只依赖后端按默认倍率的排序。
-  return [...groups].sort(
-    (a, b) => effectiveRate(a) - effectiveRate(b) || a.name.localeCompare(b.name)
-  )
+  return sortGroupsForDisplay(groups, { rateOf: effectiveRate })
 })
 </script>
 

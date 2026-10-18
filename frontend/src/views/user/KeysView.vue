@@ -1002,6 +1002,7 @@
       :show="showBulkEditModal"
       :selected-keys="selectedApiKeys"
       :groups="groups"
+      :user-group-rates="userGroupRates"
       @close="showBulkEditModal = false"
       @updated="handleBulkUpdated"
     />
@@ -1209,6 +1210,7 @@ import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { sortGroupsForDisplay } from '@/utils/groupOrder'
 import {
   CC_SWITCH_USAGE_SCRIPT,
   buildCcSwitchImportDeeplink,
@@ -1459,7 +1461,7 @@ const shouldSubmitEditStatus = (key: ApiKey, status: 'active' | 'inactive') => {
 const groupFilterOptions = computed(() => [
   { value: '', label: t('keys.allGroups') },
   { value: 0, label: t('keys.noGroup') },
-  ...groups.value.map((g) => ({ value: g.id, label: g.name }))
+  ...sortGroupsForDisplay(groups.value, { ratesByGroupId: userGroupRates.value }).map((g) => ({ value: g.id, label: g.name }))
 ])
 
 const statusFilterOptions = computed(() => [
@@ -1487,13 +1489,9 @@ const onStatusFilterChange = (value: string | number | boolean | null) => {
 }
 
 // Convert groups to Select options format with rate multiplier and subscription type
-const compareGroupOptions = (left: { label: string; platform: string }, right: { label: string; platform: string }) => {
-  const platformOrder = left.platform.localeCompare(right.platform, undefined, { sensitivity: 'base' })
-  return platformOrder !== 0 ? platformOrder : left.label.localeCompare(right.label, undefined, { sensitivity: 'base', numeric: true })
-}
-
+// 分组下拉统一排序：平台定制顺序 → 生效倍率（用户专属优先）从低到高
 const groupOptions = computed(() =>
-  groups.value.map((group) => ({
+  sortGroupsForDisplay(groups.value, { ratesByGroupId: userGroupRates.value }).map((group) => ({
     value: group.id,
     label: group.name,
     description: group.description,
@@ -1505,7 +1503,7 @@ const groupOptions = computed(() =>
     peakRateMultiplier: group.peak_rate_multiplier,
     subscriptionType: group.subscription_type,
     platform: group.platform
-  })).sort(compareGroupOptions)
+  }))
 )
 type GroupOption = (typeof groupOptions.value)[number]
 
@@ -1518,10 +1516,7 @@ const routeSelectableGroups = computed(() => {
   for (const route of selectedKey.value?.group_routes ?? []) {
     if (route.group && !result.has(route.group_id)) result.set(route.group_id, route.group)
   }
-  return [...result.values()].sort((left, right) => {
-    const platformOrder = left.platform.localeCompare(right.platform, undefined, { sensitivity: 'base' })
-    return platformOrder !== 0 ? platformOrder : left.name.localeCompare(right.name, undefined, { sensitivity: 'base', numeric: true })
-  })
+  return sortGroupsForDisplay([...result.values()], { ratesByGroupId: userGroupRates.value })
 })
 
 // Opening the create dialog starts from an empty route set; on any other pass

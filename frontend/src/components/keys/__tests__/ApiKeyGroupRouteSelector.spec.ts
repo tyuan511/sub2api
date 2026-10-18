@@ -96,20 +96,30 @@ describe('ApiKeyGroupRouteSelector', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([[1, 2]])
   })
 
-  it('sorts dropdown options by platform and then group name', async () => {
-    const openaiZ = makeGroup(1, 'openai')
-    openaiZ.name = 'zeta'
+  it('sorts dropdown options by platform, then rate, then group name', async () => {
+    const openaiCheap = makeGroup(1, 'openai')
+    openaiCheap.name = 'zeta'
+    openaiCheap.rate_multiplier = 0.1
     const anthropic = makeGroup(2, 'anthropic')
     anthropic.name = 'alpha'
-    const openaiA = makeGroup(3, 'openai')
-    openaiA.name = 'alpha'
+    anthropic.rate_multiplier = 0.4
+    const openaiDear = makeGroup(3, 'openai')
+    openaiDear.name = 'alpha'
+    openaiDear.rate_multiplier = 0.5
     const wrapper = mount(ApiKeyGroupRouteSelector, {
-      props: { modelValue: [], groups: [openaiZ, anthropic, openaiA] }
+      props: { modelValue: [], groups: [openaiDear, anthropic, openaiCheap] }
     })
 
     await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+    // 平台定制顺序 openai 在 anthropic 前；同平台内低倍率优先，名称只作为倍率相同时的兜底排序。
     expect(wrapper.findAll('[role="option"]').map((option) => option.attributes('data-test'))).toEqual([
-      'route-group-option-2', 'route-group-option-3', 'route-group-option-1'
+      'route-group-option-1', 'route-group-option-3', 'route-group-option-2'
+    ])
+
+    // 用户专属倍率参与排序（而不是分组默认倍率）。
+    await wrapper.setProps({ userGroupRates: { 1: 0.9 } })
+    expect(wrapper.findAll('[role="option"]').map((option) => option.attributes('data-test'))).toEqual([
+      'route-group-option-3', 'route-group-option-1', 'route-group-option-2'
     ])
   })
 

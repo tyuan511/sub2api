@@ -192,6 +192,7 @@ import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import type { Group } from '@/types'
 import { platformBadgeLightClass, platformBorderClass, platformDiscountClass, platformIconClass } from '@/utils/platformColors'
+import { sortGroupsForDisplay } from '@/utils/groupOrder'
 
 const props = withDefaults(defineProps<{
   modelValue: number[]
@@ -243,16 +244,10 @@ const triggerLabel = computed(() => {
   return t('keys.routeGroupsSelected', { count: props.modelValue.length, max: props.maxGroups })
 })
 
-function compareGroupsByPlatformAndName(left: Group, right: Group): number {
-  const platformOrder = left.platform.localeCompare(right.platform, undefined, { sensitivity: 'base' })
-  if (platformOrder !== 0) return platformOrder
-  return left.name.localeCompare(right.name, undefined, { sensitivity: 'base', numeric: true })
-}
-
 const filteredGroups = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   const source = props.listFilter ? props.groups.filter(props.listFilter) : props.groups
-  const groups = [...source].sort(compareGroupsByPlatformAndName)
+  const groups = sortGroupsForDisplay(source, { ratesByGroupId: props.userGroupRates })
   if (!query) return groups
   return groups.filter((group) =>
     group.name.toLowerCase().includes(query) ||

@@ -643,6 +643,35 @@ describe('user KeysView column settings', () => {
         .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     })
 
+    const pricedGroups = () => [
+      // 故意让名称顺序与倍率顺序相反，才能区分“按倍率”还是“按名称”。
+      { ...groupFor(1, 'openai'), name: 'alpha-openai', rate_multiplier: 0.5 },
+      { ...groupFor(2, 'openai'), name: 'zeta-openai', rate_multiplier: 0.1 },
+      { ...groupFor(3, 'anthropic'), name: 'm-anthropic', rate_multiplier: 0.3 },
+      { ...groupFor(4, 'grok'), name: 'a-grok', rate_multiplier: 0.2 },
+    ]
+
+    it('orders the group dropdown by platform, then rate ascending', async () => {
+      getAvailableGroups.mockResolvedValue(pricedGroups())
+      getUserGroupRates.mockResolvedValue({})
+      const wrapper = await mountView(true)
+      await getButtonByText(wrapper, 'Create API Key').trigger('click')
+
+      expect((routeSelector(wrapper).props('groups') as Group[]).map((group) => group.id)).toEqual([2, 1, 3, 4])
+      await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+      expect(await visibleRouteGroupIds(wrapper)).toEqual([2, 1, 3, 4])
+    })
+
+    it('orders the group dropdown by the user-specific rate when one is set', async () => {
+      getAvailableGroups.mockResolvedValue(pricedGroups())
+      getUserGroupRates.mockResolvedValue({ 2: 0.9 })
+      const wrapper = await mountView(true)
+      await getButtonByText(wrapper, 'Create API Key').trigger('click')
+
+      await wrapper.get('[data-test="route-group-trigger"]').trigger('click')
+      expect(await visibleRouteGroupIds(wrapper)).toEqual([1, 2, 3, 4])
+    })
+
     it('keeps routes from other platforms and submits the mixed set', async () => {
       const wrapper = await mountView(true)
       await getButtonByText(wrapper, 'Create API Key').trigger('click')

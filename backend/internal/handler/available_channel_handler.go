@@ -227,7 +227,14 @@ func buildPlatformSections(
 	for p := range groupsByPlatform {
 		platforms = append(platforms, p)
 	}
-	sort.Strings(platforms)
+	// 平台 section 按展示定制顺序（与分组列表/下拉一致），其余按平台名字母序。
+	sort.SliceStable(platforms, func(i, j int) bool {
+		rankI, rankJ := service.GroupPlatformDisplayRank(platforms[i]), service.GroupPlatformDisplayRank(platforms[j])
+		if rankI != rankJ {
+			return rankI < rankJ
+		}
+		return platforms[i] < platforms[j]
+	})
 
 	sections := make([]userChannelPlatformSection, 0, len(platforms))
 	for _, platform := range platforms {

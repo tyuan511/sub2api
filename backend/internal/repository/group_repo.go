@@ -614,7 +614,36 @@ func (r *groupRepository) listWithAccountCountSort(ctx context.Context, q *dbent
 	return outGroups, paginationResultFromTotal(int64(total), params), nil
 }
 
-func groupListOrder(params pagination.PaginationParams) []func(*entsql.Selector) {
+// groupPlatformRankOrder 把平台映射成展示序号参与排序（CASE 表达式）；
+// 定制顺序本体见 service.GroupPlatformDisplayOrder（与前端 utils/groupOrder.ts 一致）。
+func groupPlatformRankOrder(asc bool) group.OrderOption {
+	whens := make([]string, 0, len(service.GroupPlatformDisplayOrder))
+	for i, platform := range service.GroupPlatformDisplayOrder {
+		whens = append(whens, fmt.Sprintf("WHEN '%s' THEN %d", strings.ReplaceAll(platform, "'", "''"), i))
+	}
+	direction := "ASC"
+	if !asc {
+		direction = "DESC"
+	}
+	return func(s *entsql.Selector) {
+		expression := fmt.Sprintf("CASE %s %s ELSE %d END", s.C(group.FieldPlatform), strings.Join(whens, " "), len(service.GroupPlatformDisplayOrder))
+		s.OrderExpr(entsql.Expr(expression + " " + direction))
+	}
+}
+
+// groupDisplayOrder 统一的分组展示顺序：手动排序 → 平台定制顺序 → 平台名 → 倍率升序 → ID。
+// 没有任何手动排序时（sort_order 全相等），结果就是“平台 → 倍率从低到高”。
+func groupDisplayOrder() []group.OrderOption {
+	return []group.OrderOption{
+		dbent.Asc(group.FieldSortOrder),
+		groupPlatformRankOrder(true),
+		dbent.Asc(group.FieldPlatform),
+		dbent.Asc(group.FieldRateMultiplier),
+		dbent.Asc(group.FieldID),
+	}
+}
+
+func groupListOrder(params pagination.PaginationParams) []group.OrderOption {
 	sortBy := strings.ToLower(strings.TrimSpace(params.SortBy))
 	sortOrder := params.NormalizedSortOrder(pagination.SortOrderAsc)
 
@@ -623,13 +652,37 @@ func groupListOrder(params pagination.PaginationParams) []func(*entsql.Selector)
 	defaultOrder := true
 	switch sortBy {
 	case "", "sort_order":
-		field = group.FieldSortOrder
+		// 默认视图：手动排序优先，同一 sort_order 内按平台定制顺序、倍率从低到高。
+		if sortOrder == pagination.SortOrderDesc {
+			return []group.OrderOption{
+				dbent.Desc(group.FieldSortOrder),
+				groupPlatformRankOrder(false),
+				dbent.Desc(group.FieldPlatform),
+				dbent.Desc(group.FieldRateMultiplier),
+				dbent.Desc(group.FieldID),
+			}
+		}
+		return groupDisplayOrder()
 	case "name":
 		field = group.FieldName
 		defaultOrder = false
 	case "platform":
-		field = group.FieldPlatform
-		defaultOrder = false
+		// 点“平台”列：平台定制顺序优先于手动排序，同平台内再按倍率升序，
+		// 保证分组页与各处下拉的分组内顺序一致。
+		if sortOrder == pagination.SortOrderDesc {
+			return []group.OrderOption{
+				groupPlatformRankOrder(false),
+				dbent.Desc(group.FieldPlatform),
+				dbent.Desc(group.FieldRateMultiplier),
+				dbent.Desc(group.FieldID),
+			}
+		}
+		return []group.OrderOption{
+			groupPlatformRankOrder(true),
+			dbent.Asc(group.FieldPlatform),
+			dbent.Asc(group.FieldRateMultiplier),
+			dbent.Asc(group.FieldID),
+		}
 	case "billing_type", "subscription_type":
 		field = group.FieldSubscriptionType
 		defaultOrder = false
@@ -655,23 +708,23 @@ func groupListOrder(params pagination.PaginationParams) []func(*entsql.Selector)
 
 	if sortOrder == pagination.SortOrderDesc && sortBy != "" {
 		if tieField == "" {
-			return []func(*entsql.Selector){dbent.Desc(field)}
+			return []group.OrderOption{dbent.Desc(field)}
 		}
-		return []func(*entsql.Selector){dbent.Desc(field), dbent.Desc(tieField)}
+		return []group.OrderOption{dbent.Desc(field), dbent.Desc(tieField)}
 	}
 	if defaultOrder {
-		return []func(*entsql.Selector){dbent.Asc(group.FieldSortOrder), dbent.Asc(group.FieldID)}
+		return []group.OrderOption{dbent.Asc(group.FieldSortOrder), dbent.Asc(group.FieldID)}
 	}
 	if tieField == "" {
-		return []func(*entsql.Selector){dbent.Asc(field)}
+		return []group.OrderOption{dbent.Asc(field)}
 	}
-	return []func(*entsql.Selector){dbent.Asc(field), dbent.Asc(tieField)}
+	return []group.OrderOption{dbent.Asc(field), dbent.Asc(tieField)}
 }
 
 func (r *groupRepository) ListActive(ctx context.Context) ([]service.Group, error) {
 	groups, err := r.client.Group.Query().
 		Where(group.StatusEQ(service.StatusActive)).
-		Order(dbent.Asc(group.FieldSortOrder), dbent.Asc(group.FieldID)).
+		Order(groupDisplayOrder()...).
 		All(ctx)
 	if err != nil {
 		return nil, err
@@ -744,7 +797,7 @@ func (r *groupRepository) ListActiveIDs(ctx context.Context) ([]int64, error) {
 func (r *groupRepository) ListActiveByPlatform(ctx context.Context, platform string) ([]service.Group, error) {
 	groups, err := r.client.Group.Query().
 		Where(group.StatusEQ(service.StatusActive), group.PlatformEQ(platform)).
-		Order(dbent.Asc(group.FieldSortOrder), dbent.Asc(group.FieldID)).
+		Order(groupDisplayOrder()...).
 		All(ctx)
 	if err != nil {
 		return nil, err

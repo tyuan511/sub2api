@@ -328,6 +328,7 @@ import SupportedModelChip from './SupportedModelChip.vue'
 import type { UserAvailableChannel, UserAvailableGroup, UserChannelPlatformSection } from '@/api/channels'
 import type { GroupPlatform, SubscriptionType } from '@/types'
 import { platformBadgeClass } from '@/utils/platformColors'
+import { sortGroupsForDisplay } from '@/utils/groupOrder'
 import { useAppStore } from '@/stores/app'
 import { hasPeakRate as groupHasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 
@@ -349,18 +350,15 @@ const props = defineProps<{
   userGroupRates: Record<number, number>
 }>()
 
-// Suppress unused warning — props is accessed via template automatically but
-// the explicit reference here keeps the linter from flagging userGroupRates.
-void props.userGroupRates
-
 const { t } = useI18n()
 
+// 同平台内按生效倍率（用户专属优先）从低到高排。
 function exclusiveGroups(section: UserChannelPlatformSection): UserAvailableGroup[] {
-  return section.groups.filter((g) => g.is_exclusive)
+  return sortGroupsForDisplay(section.groups.filter((g) => g.is_exclusive), { ratesByGroupId: props.userGroupRates })
 }
 
 function publicGroups(section: UserChannelPlatformSection): UserAvailableGroup[] {
-  return section.groups.filter((g) => !g.is_exclusive)
+  return sortGroupsForDisplay(section.groups.filter((g) => !g.is_exclusive), { ratesByGroupId: props.userGroupRates })
 }
 
 const appStore = useAppStore()
