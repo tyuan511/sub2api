@@ -85,7 +85,7 @@ func NewModelPlazaService(
 //   - token 模型的单价与阶梯按实收口径合成（见 ResolveContextPricingSchedule），
 //     图片计费模型的档位价按实收口径合成（见 plazaImageDisplayPricing）；
 //   - 每个模型附带官方参考价（查不到为 nil）；
-//   - 只返回 Models 非空的分组；分组按 RateMultiplier 升序（同倍率按名称），
+//   - 只返回 Models 非空的分组；分组按平台定制顺序 → RateMultiplier 升序（同倍率按名称），
 //     组内模型按名称排序。
 //
 // 可见性过滤（专属分组）不在此层做，由 handler 按登录态裁剪。
@@ -202,6 +202,14 @@ func (s *ModelPlazaService) ListGroups(ctx context.Context) ([]PlazaGroup, error
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
+		// 统一展示顺序：平台定制顺序 → 倍率升序 → 名称（与 utils/groupOrder.ts / group_repo.go 一致）。
+		rankI, rankJ := GroupPlatformDisplayRank(out[i].Platform), GroupPlatformDisplayRank(out[j].Platform)
+		if rankI != rankJ {
+			return rankI < rankJ
+		}
+		if out[i].Platform != out[j].Platform {
+			return strings.ToLower(out[i].Platform) < strings.ToLower(out[j].Platform)
+		}
 		if out[i].RateMultiplier != out[j].RateMultiplier {
 			return out[i].RateMultiplier < out[j].RateMultiplier
 		}
