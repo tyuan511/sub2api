@@ -882,6 +882,8 @@ func (r *channelMonitorRepository) ComputeAvailabilityForMonitors(ctx context.Co
 }
 
 // ComputeCacheHitRatesForGroups 批量计算分组在指定时间窗口内的缓存命中率。
+// 口径：缓存读取 ÷（输入 + 缓存创建 + 缓存读取），即逻辑输入全量作分母，
+// 与用量页「缓存命中率」保持一致。
 // 只返回当前未删除的分组；没有 usage_logs 的分组也会返回一条零统计记录，
 // 由 service 层将其转换为 nil，避免把“没有数据”误显示成 0%。
 func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
@@ -942,6 +944,7 @@ func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
 }
 
 // RefreshGroupCacheHitRateSnapshots 在监控周期内计算并持久化 3/7/15/30 天分组缓存命中率。
+// 口径与 ComputeCacheHitRatesForGroups 一致（分母含缓存创建 Token）。
 // 计算发生在 RunCheck 完成后，用户页面只读取结果快照，不会在请求路径扫描 usage_logs。
 func (r *channelMonitorRepository) RefreshGroupCacheHitRateSnapshots(
 	ctx context.Context,

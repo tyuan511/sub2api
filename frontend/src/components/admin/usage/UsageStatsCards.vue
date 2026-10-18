@@ -128,6 +128,8 @@ const cacheHitRate = computed(() => {
   const inputTokens = props.stats.total_input_tokens || 0
   const cacheReadTokens = props.stats.total_cache_read_tokens || 0
   const cacheCreationTokens = props.stats.total_cache_creation_tokens || 0
+  // 口径：缓存读取 ÷（输入 + 缓存创建 + 缓存读取），即逻辑输入全量作分母，
+  // 与 Anthropic 控制台的 cache hit rate 一致，不要把缓存创建从分母里去掉。
   const promptTokens = inputTokens + cacheReadTokens + cacheCreationTokens
 
   return promptTokens > 0 ? (cacheReadTokens / promptTokens) * 100 : null
