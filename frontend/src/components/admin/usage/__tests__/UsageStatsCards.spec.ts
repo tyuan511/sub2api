@@ -66,13 +66,13 @@ describe('UsageStatsCards', () => {
     expect(text).toContain('12')
     expect(text).toContain('Cache Read')
     expect(text).toContain('22')
-    expect(text).toContain('Hit rate: 16.42%')
+    expect(text).toContain('Hit rate: 18.03%')
   })
 
   it('shows a placeholder when there are no prompt tokens', () => {
     const wrapper = mount(UsageStatsCards, {
       props: {
-        stats: { ...stats, total_input_tokens: 0, total_cache_creation_tokens: 0, total_cache_read_tokens: 0 },
+        stats: { ...stats, total_input_tokens: 0, total_cache_read_tokens: 0 },
         showCacheHitRate: true,
       },
       global: {

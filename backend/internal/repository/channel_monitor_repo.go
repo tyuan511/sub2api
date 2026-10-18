@@ -882,6 +882,7 @@ func (r *channelMonitorRepository) ComputeAvailabilityForMonitors(ctx context.Co
 }
 
 // ComputeCacheHitRatesForGroups 批量计算分组在指定时间窗口内的缓存命中率。
+// 命中率 = 缓存读取 Token ÷（输入 Token + 缓存读取 Token），缓存创建 Token 不计入分母。
 // 只返回当前未删除的分组；没有 usage_logs 的分组也会返回一条零统计记录，
 // 由 service 层将其转换为 nil，避免把“没有数据”误显示成 0%。
 func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
@@ -929,7 +930,7 @@ func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
 		); err != nil {
 			return nil, fmt.Errorf("scan group cache hit rate: %w", err)
 		}
-		totalPromptTokens := stats.InputTokens + stats.CacheReadTokens + stats.CacheCreationTokens
+		totalPromptTokens := stats.InputTokens + stats.CacheReadTokens
 		if totalPromptTokens > 0 {
 			stats.CacheHitRatePct = float64(stats.CacheReadTokens) * 100.0 / float64(totalPromptTokens)
 		}
@@ -942,6 +943,7 @@ func (r *channelMonitorRepository) ComputeCacheHitRatesForGroups(
 }
 
 // RefreshGroupCacheHitRateSnapshots 在监控周期内计算并持久化 3/7/15/30 天分组缓存命中率。
+// 口径与 ComputeCacheHitRatesForGroups 一致：缓存读取 ÷（输入 + 缓存读取）。
 // 计算发生在 RunCheck 完成后，用户页面只读取结果快照，不会在请求路径扫描 usage_logs。
 func (r *channelMonitorRepository) RefreshGroupCacheHitRateSnapshots(
 	ctx context.Context,
@@ -981,9 +983,9 @@ func (r *channelMonitorRepository) RefreshGroupCacheHitRateSnapshots(
 		       cache_read_tokens,
 		       cache_creation_tokens,
 		       CASE
-			   WHEN input_tokens + cache_read_tokens + cache_creation_tokens > 0
+			   WHEN input_tokens + cache_read_tokens > 0
 			   THEN cache_read_tokens * 100.0 /
-				    (input_tokens + cache_read_tokens + cache_creation_tokens)
+				    (input_tokens + cache_read_tokens)
 			   ELSE 0
 		       END,
 		       NOW()
