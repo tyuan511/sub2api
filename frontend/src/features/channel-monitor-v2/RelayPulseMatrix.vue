@@ -92,14 +92,14 @@
                   :key="slot.start"
                   class="pulse-cell relay-pulse-cell relative"
                   :class="[
-                    slot.bucket ? cellClass(slot.bucket.health, slot.bucket.metrics.request_count) : 'health-unknown',
+                    cellClassFor(slot),
                     slot.bucket ? 'has-data' : 'is-empty',
                   ]"
                   :style="{ height: `${barHeight(slot)}%`, '--bar-delay': `${index * 28}ms` }"
-                  :title="slot.bucket ? bucketTooltip(slot.bucket) : formatBucketTime(slot.start)"
+                  :title="slotTooltip(slot)"
                   tabindex="0"
                   role="img"
-                  :aria-label="slot.bucket ? bucketTooltip(slot.bucket) : formatBucketTime(slot.start)"
+                  :aria-label="slotTooltip(slot)"
                   @mouseenter="showTooltip($event, slot)"
                   @mousemove="moveTooltip($event)"
                   @mouseleave="hideTooltip"
@@ -107,7 +107,7 @@
                   @blur="hideTooltip"
                 >
                   <span class="pulse-tooltip" role="tooltip">
-                    <span class="pulse-tooltip-line">{{ slot.bucket ? bucketTooltip(slot.bucket) : t('channelMonitorV2.matrix.noTraffic') }}</span>
+                    <span class="pulse-tooltip-line">{{ slotTooltip(slot) }}</span>
                   </span>
                 </span>
               </div>
@@ -156,12 +156,7 @@ import {
   useChannelMonitorFormat,
 } from '@/composables/useChannelMonitorFormat'
 import { formatMultiplier } from '@/utils/formatters'
-import {
-  PROVIDER_ANTHROPIC,
-  PROVIDER_GEMINI,
-  PROVIDER_GROK,
-  PROVIDER_OPENAI,
-} from '@/constants/channelMonitor'
+import { platformDisplayRank } from '@/utils/groupOrder'
 import {
   formatMonitorMs,
   formatMonitorPercent,
@@ -175,13 +170,6 @@ const PULSE_RECORD_COUNT = 18
 type HealthMode = 'overall' | 'success' | 'ttft' | 'cache'
 const { t } = useI18n()
 const { providerLabel, providerBadgeClass } = useChannelMonitorFormat()
-
-const PLATFORM_ORDER = [
-  PROVIDER_OPENAI,
-  PROVIDER_ANTHROPIC,
-  PROVIDER_GROK,
-  PROVIDER_GEMINI,
-] as const
 
 const PROVIDER_TINT: Record<string, string> = {
   openai: 'text-emerald-600 dark:text-emerald-300',
@@ -279,6 +267,8 @@ const platformGroups = computed(() => {
   }
   return Array.from(groups, ([platform, rows]) => {
     const provider = normalizeProvider(platform)
+    // 同一平台内按倍率从低到高排；无倍率的行(聚合行/倍率未加载)保持原顺序垫底。
+    rows.sort(compareByRate)
     return {
       platform,
       provider,
@@ -286,11 +276,9 @@ const platformGroups = computed(() => {
       rows,
     }
   }).sort((a, b) => {
-    const ai = PLATFORM_ORDER.indexOf(a.provider as (typeof PLATFORM_ORDER)[number])
-    const bi = PLATFORM_ORDER.indexOf(b.provider as (typeof PLATFORM_ORDER)[number])
-    const aRank = ai === -1 ? PLATFORM_ORDER.length : ai
-    const bRank = bi === -1 ? PLATFORM_ORDER.length : bi
-    if (aRank !== bRank) return aRank - bRank
+    // 平台定制顺序（与分组列表/下拉一致），同序号再按显示名排序。
+    const rank = platformDisplayRank(a.platform) - platformDisplayRank(b.platform)
+    if (rank !== 0) return rank
     return a.label.localeCompare(b.label)
   })
 })
@@ -303,12 +291,29 @@ function providerTint(provider: string): string {
   return PROVIDER_TINT[provider] ?? 'text-gray-500 dark:text-gray-300'
 }
 
-function rateLabel(row: MonitorMatrixRow): string {
+/** 该行的生效倍率;取不到(无 group_id 或倍率尚未加载)时返回 null。 */
+function rateOf(row: MonitorMatrixRow): number | null {
   const id = row.group_id
-  if (id == null) return ''
+  if (id == null) return null
   const rate = props.ratesByGroupId?.[id]
-  if (rate == null || Number.isNaN(Number(rate))) return ''
-  return t('channelMonitorV2.userRate', { value: formatMultiplier(Number(rate)) })
+  if (rate == null || !Number.isFinite(Number(rate))) return null
+  return Number(rate)
+}
+
+function rateLabel(row: MonitorMatrixRow): string {
+  const rate = rateOf(row)
+  if (rate == null) return ''
+  return t('channelMonitorV2.userRate', { value: formatMultiplier(rate) })
+}
+
+/** 稳定排序:倍率升序,倍率相同的保持后端原有顺序,取不到倍率的排最后。 */
+function compareByRate(a: AlignedRow, b: AlignedRow): number {
+  const ar = rateOf(a.row)
+  const br = rateOf(b.row)
+  if (ar == null && br == null) return 0
+  if (ar == null) return 1
+  if (br == null) return -1
+  return ar - br
 }
 
 function cellClass(health: MonitorHealth, requestCount: number): string {
@@ -362,6 +367,7 @@ function metricTone(state: string | undefined): string {
 }
 
 function barHeight(slot: AlignedSlot): number {
+  if (isIdleSlot(slot)) return 100
   if (!slot.bucket) return 18
   const score = healthModeScore(slot.bucket.health, props.healthMode)
   if (score != null && !Number.isNaN(score)) {
@@ -391,10 +397,35 @@ function bucketTooltip(bucket: MonitorMatrixBucket): string {
   ].join(' · ')
 }
 
+/**
+ * 该区间是否“无流量”:没有记录,或(可见吞吐时)确认零请求零 RPM/TPM。
+ * showThroughput=false 时请求数是被脱敏的 0,不能当作无流量。
+ */
+function isIdleSlot(slot: AlignedSlot): boolean {
+  if (!slot.bucket) return true
+  if (!props.showThroughput) return false
+  const metrics = slot.bucket.metrics
+  const noCount = metrics.request_count <= 0
+  const noThroughput = (metrics.rpm || 0) <= 0 && (metrics.tpm || 0) <= 0
+  return noCount && noThroughput
+}
+
+function cellClassFor(slot: AlignedSlot): string {
+  if (isIdleSlot(slot) || !slot.bucket) return 'health-idle'
+  return cellClass(slot.bucket.health, slot.bucket.metrics.request_count)
+}
+
+function slotTooltip(slot: AlignedSlot): string {
+  if (isIdleSlot(slot)) {
+    return t('channelMonitorV2.matrix.noTrafficAt', {
+      time: formatBucketTime(slot.bucket?.bucket_start || slot.start),
+    })
+  }
+  return bucketTooltip(slot.bucket!)
+}
+
 function showTooltip(event: MouseEvent | FocusEvent, slot: AlignedSlot) {
-  floatingTooltip.text = slot.bucket
-    ? bucketTooltip(slot.bucket)
-    : t('channelMonitorV2.matrix.noTraffic')
+  floatingTooltip.text = slotTooltip(slot)
   floatingTooltip.visible = true
   positionTooltip(event)
 }
@@ -531,7 +562,7 @@ function formatBucketTime(value: string) {
   }
 }
 .relay-pulse-cell.has-data { cursor: crosshair; }
-.relay-pulse-cell.is-empty { opacity: 0.7; }
+.relay-pulse-cell.is-empty:not(.health-idle) { opacity: 0.7; }
 .relay-pulse-cell.health-score10,
 .relay-pulse-cell.health-score9,
 .relay-pulse-cell.health-score8,
@@ -548,6 +579,15 @@ function formatBucketTime(value: string) {
 .relay-pulse-cell.health-critical { background: #ef4444; }
 .relay-pulse-cell.health-unknown {
   @apply bg-gray-300 dark:bg-slate-600;
+}
+/* 无流量占位:浅绿满高柱 + 斜纹,和饱和的健康绿区分开 */
+.relay-pulse-cell.health-idle {
+  @apply bg-green-200 dark:bg-emerald-900/60;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(255 255 255 / 0.28) 0 2px,
+    rgb(255 255 255 / 0) 2px 4px
+  );
 }
 .relay-pulse-cell:hover,
 .relay-pulse-cell:focus-visible {

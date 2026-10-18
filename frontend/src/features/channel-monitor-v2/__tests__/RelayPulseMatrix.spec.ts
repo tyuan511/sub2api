@@ -266,6 +266,7 @@ describe('RelayPulseMatrix privacy-safe bars and platform order', () => {
     const dataCell = wrapper.find('.pulse-cell.has-data')
     expect(dataCell.exists()).toBe(true)
     expect(dataCell.attributes('style')).toContain('height: 52%')
+    expect(dataCell.classes()).not.toContain('health-idle')
   })
 
   it('orders platforms as OpenAI, Claude, Grok, then Gemini', () => {
@@ -291,5 +292,102 @@ describe('RelayPulseMatrix privacy-safe bars and platform order', () => {
     })
     const headings = wrapper.findAll('h3').map((node) => node.text())
     expect(headings).toEqual(['OpenAI', 'Claude', 'Grok', 'Gemini'])
+  })
+
+  it('sorts cards within one platform by rate multiplier, lowest first', () => {
+    const row = (platform: string, name: string, groupId: number | null) => ({
+      platform,
+      group_id: groupId,
+      group_name: name,
+      metrics: metrics(10),
+      health,
+      buckets: [] as { bucket_start: string; metrics: ReturnType<typeof metrics>; health: typeof health }[],
+    })
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [
+          row('openai', '贵的', 3),
+          row('openai', '无倍率', null),
+          row('grok', 'grok-高', 21),
+          row('openai', '中', 2),
+          row('grok', 'grok-低', 20),
+          row('openai', '便宜的', 1),
+        ],
+        coverage,
+        healthMode: 'overall',
+        ratesByGroupId: { 1: 0.02, 2: 0.1, 3: 0.5, 20: 0.3, 21: 0.8 },
+      },
+    })
+    const titles = wrapper.findAll('.relay-card-item h4').map((card) => card.text())
+    expect(titles).toEqual(['便宜的', '中', '贵的', '无倍率', 'grok-低', 'grok-高'])
+  })
+
+  it('keeps the incoming order when no rate multipliers are loaded', () => {
+    const row = (name: string, groupId: number) => ({
+      platform: 'openai',
+      group_id: groupId,
+      group_name: name,
+      metrics: metrics(10),
+      health,
+      buckets: [] as { bucket_start: string; metrics: ReturnType<typeof metrics>; health: typeof health }[],
+    })
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [row('A', 1), row('B', 2), row('C', 3)],
+        coverage,
+        healthMode: 'overall',
+      },
+    })
+    expect(wrapper.findAll('.relay-card-item h4').map((node) => node.text())).toEqual(['A', 'B', 'C'])
+  })
+})
+
+describe('RelayPulseMatrix idle bars', () => {
+  const row = (buckets: { bucket_start: string; metrics: ReturnType<typeof metrics>; health: typeof health }[]) => ({
+    platform: 'openai',
+    group_id: 7,
+    group_name: '默认组',
+    metrics: metrics(10),
+    health,
+    buckets,
+  })
+  /** 真正零流量：请求数为 0 且 RPM/TPM 也为 0。 */
+  const idleMetrics = () => ({ ...metrics(0), rpm: 0, tpm: 0, token_count: 0 })
+
+  it('fills missing intervals with a full-height idle bar instead of blank space', () => {
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [row([{ bucket_start: '2026-08-01T00:02:00Z', metrics: metrics(10), health }])],
+        coverage,
+        healthMode: 'overall',
+      },
+    })
+    const cells = wrapper.findAll('.pulse-cell')
+    expect(cells).toHaveLength(18)
+    const idle = wrapper.findAll('.pulse-cell.health-idle')
+    expect(idle).toHaveLength(17)
+    expect(idle[0].attributes('style')).toContain('height: 100%')
+    expect(idle[0].attributes('title')).toContain('无流量')
+    expect(wrapper.find('.pulse-cell.has-data').classes()).not.toContain('health-idle')
+  })
+
+  it('marks buckets that reported zero traffic as idle too', () => {
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [row([
+          { bucket_start: '2026-08-01T00:00:00Z', metrics: idleMetrics(), health },
+          { bucket_start: '2026-08-01T00:01:00Z', metrics: metrics(10), health },
+          { bucket_start: '2026-08-01T00:02:00Z', metrics: metrics(10), health },
+        ])],
+        coverage,
+        healthMode: 'overall',
+      },
+    })
+    const cells = wrapper.findAll('.pulse-cell')
+    expect(cells[15].classes()).toContain('health-idle')
+    expect(cells[15].attributes('style')).toContain('height: 100%')
+    expect(cells[15].attributes('title')).toContain('无流量')
+    expect(cells[16].classes()).not.toContain('health-idle')
+    expect(wrapper.findAll('.pulse-cell.health-idle')).toHaveLength(16)
   })
 })
