@@ -231,8 +231,8 @@ func TestChannelMonitorV2ErrorTaxonomyPriority(t *testing.T) {
 }
 
 func TestChannelMonitorV2HealthBlendsErrorAndTTFTNotCache(t *testing.T) {
-	// error 3%/5% → 40; ttft p50 2s → 100; cache 50% → 50 (display only)
-	// overall = (0.6*40 + 0.2*100) / 0.8 = 55 → warning; cache must not pull this down
+	// error 3%/2%..5% → 70; ttft p50 2s → 100; cache 50% → 50 (display only)
+	// overall = (0.6*70 + 0.2*100) / 0.8 = 77.5 → warning; cache must not pull this down
 	p50 := int64(2000)
 	p95 := int64(9000)
 	thresholds := ChannelMonitorV2HealthThresholds{
@@ -262,14 +262,14 @@ func TestChannelMonitorV2HealthBlendsErrorAndTTFTNotCache(t *testing.T) {
 	require.NotNil(t, health.Score)
 	require.NotNil(t, health.CacheScore)
 	require.InDelta(t, 50.0, *health.CacheScore, 0.01)
-	require.InDelta(t, 55.0, *health.Score, 0.01)
+	require.InDelta(t, 77.5, *health.Score, 0.01)
 	require.Equal(t, "warning", health.Overall)
 
 	// Zero cache must not change overall (cache is display-only).
 	metrics.CacheRate = 0
 	health = ChannelMonitorV2HealthForWithThresholds(metrics, thresholds)
 	require.InDelta(t, 0.0, *health.CacheScore, 0.01)
-	require.InDelta(t, 55.0, *health.Score, 0.01)
+	require.InDelta(t, 77.5, *health.Score, 0.01)
 	require.Equal(t, "warning", health.Overall)
 
 	// Perfect signals → 100
@@ -390,6 +390,22 @@ func TestChannelMonitorV2HealthSufficientHighErrorIsCritical(t *testing.T) {
 	require.Zero(t, *health.Score)
 }
 
+// 回归：可用率 80%（error rate == critical 0.2）不应渲染成与完全宕机相同的红色矮柱。
+// 修复后 error 轴得分 50，与健康的 TTFT 混合后总分 62.5 → warning（橙色中等高度柱）。
+func TestChannelMonitorV2HealthAvailability80IsDegradedNotDead(t *testing.T) {
+	p50 := int64(1500)
+	health := ChannelMonitorV2BucketHealthForWithThresholds(ChannelMonitorV2Metric{
+		RequestCount: 30,
+		ErrorRate:    0.2,
+		TTFT:         ChannelMonitorV2Latency{SampleCount: 30, P50Ms: &p50},
+	}, DefaultChannelMonitorV2HealthThresholds())
+	require.Equal(t, "critical", health.ErrorRate)
+	require.NotNil(t, health.Score)
+	require.InDelta(t, 62.5, *health.Score, 0.01)
+	require.Equal(t, "warning", health.Overall)
+	require.Greater(t, *health.Score, float64(50))
+}
+
 func TestChannelMonitorV2HealthLeavesMissingTTFTUnknown(t *testing.T) {
 	health := ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{
 		RequestCount:         200,
@@ -422,9 +438,14 @@ func TestChannelMonitorV2DefaultHealthThresholdsAreTolerant(t *testing.T) {
 }
 
 func TestErrorRateTTFTAndCacheScoreHelpers(t *testing.T) {
-	require.InDelta(t, 100.0, errorRateScore(0, 0.05), 0.001)
-	require.InDelta(t, 0.0, errorRateScore(0.05, 0.05), 0.001)
-	require.InDelta(t, 40.0, errorRateScore(0.03, 0.05), 0.001)
+	require.InDelta(t, 100.0, errorRateScore(0, 0.05, 0.2), 0.001)
+	require.InDelta(t, 80.0, errorRateScore(0.05, 0.05, 0.2), 0.001)
+	require.InDelta(t, 88.0, errorRateScore(0.03, 0.05, 0.2), 0.001)
+	// At the critical boundary the channel is degraded, not dead: score 50
+	// (bar renders amber mid-height instead of a red stub).
+	require.InDelta(t, 50.0, errorRateScore(0.2, 0.05, 0.2), 0.001)
+	require.InDelta(t, 31.25, errorRateScore(0.5, 0.05, 0.2), 0.001)
+	require.InDelta(t, 0.0, errorRateScore(1, 0.05, 0.2), 0.001)
 
 	require.InDelta(t, 100.0, ttftP50Score(2500, 2500, 6000), 0.001)
 	require.InDelta(t, 100.0, ttftP50Score(1000, 2500, 6000), 0.001)

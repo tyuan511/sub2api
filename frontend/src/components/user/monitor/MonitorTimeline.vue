@@ -82,7 +82,16 @@ const displayBars = computed<Bar[]>(() => {
   // Real points come newest-first; convert to oldest-first so the rightmost
   // bar represents "now". Pad the left with empty placeholders to keep the
   // bar count stable at `length`.
+  // The API currently returns newest-first, but sort here as a defensive
+  // boundary so the rightmost bar always represents the latest check.
   const real = [...(props.buckets ?? [])]
+    .sort((a, b) => {
+      const aTime = Date.parse(a.checked_at)
+      const bTime = Date.parse(b.checked_at)
+      if (!Number.isFinite(aTime)) return Number.isFinite(bTime) ? 1 : 0
+      if (!Number.isFinite(bTime)) return -1
+      return bTime - aTime
+    })
     .slice(0, props.length)
     .reverse()
 

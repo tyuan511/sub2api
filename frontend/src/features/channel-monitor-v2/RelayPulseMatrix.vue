@@ -59,23 +59,23 @@
                   </div>
                 </div>
               </div>
-              <span :class="['relay-health-pill bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', cellClass(entry.row.health, entry.row.metrics.request_count)]">
-                {{ healthLabel(entry.row.health, entry.row.metrics.request_count) }}
+              <span :class="['relay-health-pill bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', cellClass(entry.latest.health, entry.latest.metrics.request_count)]">
+                {{ healthLabel(entry.latest.health, entry.latest.metrics.request_count) }}
               </span>
             </header>
 
             <div class="mt-5 grid grid-cols-3 gap-2">
               <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
                 <span>{{ t('channelMonitorV2.metrics.cacheRate') }}</span>
-                <strong>{{ formatPercent(entry.row.metrics.cache_rate) }}</strong>
+                <strong>{{ formatPercent(entry.latest.metrics.cache_rate) }}</strong>
               </div>
               <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
                 <span>{{ t('channelMonitorV2.metrics.availability') }}</span>
-                <strong :class="metricTone(entry.row.health.error_rate)">{{ availability(entry.row.metrics) }}</strong>
+                <strong :class="metricTone(entry.latest.health.error_rate)">{{ availability(entry.latest.metrics) }}</strong>
               </div>
               <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
                 <span>{{ t('channelMonitorV2.metrics.ttft') }}</span>
-                <strong :class="metricTone(entry.row.health.ttft)">{{ formatMs(entry.row.metrics.ttft.p50_ms) }}</strong>
+                <strong :class="metricTone(entry.latest.health.ttft)">{{ formatMs(entry.latest.metrics.ttft.p50_ms) }}</strong>
               </div>
             </div>
 
@@ -197,7 +197,8 @@ const props = withDefaults(
 )
 
 type AlignedSlot = { start: string; bucket?: MonitorMatrixBucket }
-type AlignedRow = { row: MonitorMatrixRow; slots: AlignedSlot[] }
+type LatestSample = { metrics: MonitorMetric; health: MonitorHealth }
+type AlignedRow = { row: MonitorMatrixRow; slots: AlignedSlot[]; latest: LatestSample }
 
 const floatingTooltip = reactive({
   visible: false,
@@ -253,9 +254,30 @@ const alignedRows = computed<AlignedRow[]>(() => {
       const index = indexByStart.get(key)
       if (index != null) slots[index] = { start: starts[index], bucket }
     }
-    return { row, slots }
+    return { row, slots, latest: latestSample(row) }
   })
 })
+
+/**
+ * 卡片统计数字与 健康 pill 描述「最近一次」的数据：取最新一个有流量的 bucket
+ * （与脉冲图最右侧柱同源）；区间聚合仍留在 tooltip/图例中。无任何 bucket 时
+ * 回退到行级聚合（空行/刚播种的分组行）。showThroughput=false 时请求数被脱敏
+ * 为 0，不能据此判断无流量，此时任意存在的 bucket 都视为最近一次。
+ */
+function latestSample(row: MonitorMatrixRow): LatestSample {
+  const buckets = [...(row.buckets || [])]
+    .filter((bucket) => !isIdleBucket(bucket))
+    .sort((a, b) => Date.parse(b.bucket_start) - Date.parse(a.bucket_start))
+  const latest = buckets[0]
+  if (!latest) return { metrics: row.metrics, health: row.health }
+  return { metrics: latest.metrics, health: latest.health }
+}
+
+function isIdleBucket(bucket: MonitorMatrixBucket): boolean {
+  if (!props.showThroughput) return false
+  const metrics = bucket.metrics
+  return metrics.request_count <= 0 && (metrics.rpm || 0) <= 0 && (metrics.tpm || 0) <= 0
+}
 
 const platformGroups = computed(() => {
   const groups = new Map<string, AlignedRow[]>()

@@ -585,6 +585,7 @@ export default {
     latencyEmpty: '-',
     metricEmpty: '-',
     availabilityPrefix: '可用性',
+    latestAvailability: '最近一次',
     cacheHitRate: '缓存命中率',
     firstToken: '首字 / TTFT',
     tokenSpeed: 'Token 速度',

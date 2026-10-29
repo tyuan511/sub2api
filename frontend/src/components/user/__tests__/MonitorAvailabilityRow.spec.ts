@@ -40,4 +40,24 @@ describe('MonitorAvailabilityRow', () => {
     expect(values[1].classes()).toContain('text-emerald-600')
     expect(values[2].classes()).toContain('text-gray-400')
   })
+
+  it('keeps an 80 percent rate healthy and fills the bar to the same value', () => {
+    const wrapper = mountRow(80, null, null)
+    const value = wrapper.findAll('.font-mono')[0]
+    const bar = wrapper.findAll('span').find((node) => node.attributes('style')?.includes('width: 80%'))
+
+    expect(value.classes()).toContain('text-emerald-600')
+    expect(value.text()).toBe('80.00')
+    expect(bar).toBeDefined()
+  })
+
+  it('normalizes legacy fractional rates before rendering', () => {
+    const wrapper = mountRow(0.8, null, null)
+    const value = wrapper.findAll('.font-mono')[0]
+    const bar = wrapper.findAll('span').find((node) => node.attributes('style')?.includes('width: 80%'))
+
+    expect(value.text()).toBe('80.00')
+    expect(value.classes()).toContain('text-emerald-600')
+    expect(bar).toBeDefined()
+  })
 })

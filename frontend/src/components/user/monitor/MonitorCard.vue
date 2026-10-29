@@ -129,8 +129,7 @@ const quotaVisible = computed(
 )
 
 const availabilityLabel = computed(() => {
-  const win = t(`channelStatus.windowTab.${props.window}`)
-  return `${t('monitorCommon.availabilityPrefix')} · ${win}`
+  return `${t('monitorCommon.availabilityPrefix')} · ${t('monitorCommon.latestAvailability')}`
 })
 
 const extraModelsCountLabel = computed(() => {

@@ -100,17 +100,19 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const displayValue = computed(() => {
-  if (props.value === null || Number.isNaN(props.value)) return t('monitorCommon.latencyEmpty')
-  return props.value.toFixed(2)
+  const value = normalizePercentage(props.value)
+  if (value === null) return t('monitorCommon.latencyEmpty')
+  return value.toFixed(2)
 })
 
 const cacheDisplayValue = computed(() => {
-  if (props.cacheHitRate === null || Number.isNaN(props.cacheHitRate)) return t('monitorCommon.metricEmpty')
-  return props.cacheHitRate.toFixed(2)
+  const value = normalizePercentage(props.cacheHitRate)
+  if (value === null) return t('monitorCommon.metricEmpty')
+  return value.toFixed(2)
 })
 
-const availabilitySeverity = computed(() => rateSeverity(props.value))
-const cacheSeverity = computed(() => rateSeverity(props.cacheHitRate))
+const availabilitySeverity = computed(() => rateSeverity(normalizePercentage(props.value)))
+const cacheSeverity = computed(() => rateSeverity(normalizePercentage(props.cacheHitRate)))
 
 const availabilityTextClass = computed(() =>
   availabilitySeverity.value ? LATENCY_TEXT_CLASSES[availabilitySeverity.value] : 'text-gray-400 dark:text-gray-500',
@@ -129,11 +131,11 @@ const cacheBarClass = computed(() =>
 )
 
 const availabilityBarStyle = computed(() => ({
-  width: percentageWidth(props.value),
+  width: percentageWidth(normalizePercentage(props.value)),
 }))
 
 const cacheBarStyle = computed(() => ({
-  width: percentageWidth(props.cacheHitRate),
+  width: percentageWidth(normalizePercentage(props.cacheHitRate)),
 }))
 
 const firstTokenDisplayValue = computed(() => {
@@ -160,5 +162,11 @@ const firstTokenBarClass = computed(() => {
 function percentageWidth(value: number | null): string {
   if (value === null || Number.isNaN(value)) return '0%'
   return `${Math.max(0, Math.min(100, value))}%`
+}
+
+/** Accept both API percentage values (80) and legacy fraction values (0.8). */
+function normalizePercentage(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null
+  return value >= 0 && value <= 1 ? value * 100 : value
 }
 </script>

@@ -176,6 +176,56 @@ describe('RelayPulseMatrix', () => {
     await cells[0].trigger('click')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
+
+  it('shows the latest bucket in the card stats and renders 80% availability as degraded, not dead', () => {
+    const bucketHealth: MonitorHealth = {
+      ...health,
+      overall: 'warning',
+      error_rate: 'critical',
+      score: 62.5,
+      error_rate_score: 50,
+    }
+    const bucketMetrics = metrics(10)
+    bucketMetrics.error_rate = 0.2 // 80% availability
+    const aggregateMetrics = metrics(200)
+    aggregateMetrics.error_rate = 0.35 // 65% over the whole range
+    const wrapper = mount(RelayPulseMatrix, {
+      props: {
+        rows: [{
+          platform: 'openai',
+          group_id: 7,
+          group_name: '默认组',
+          metrics: aggregateMetrics,
+          health,
+          buckets: [
+            { bucket_start: '2026-08-01T00:00:00Z', metrics: bucketMetrics, health: bucketHealth },
+            { bucket_start: '2026-08-01T00:01:00Z', metrics: bucketMetrics, health: bucketHealth },
+          ],
+        }],
+        coverage,
+        healthMode: 'overall',
+        countdownSeconds: 8,
+      },
+      global: {
+        stubs: { MonitorIdentityProbeView: true },
+      },
+    })
+
+    // 卡片统计取最新一个 bucket（最近一次），而不是整个区间的聚合值
+    const stats = wrapper.findAll('.relay-stat strong')
+    expect(stats[1].text()).toBe('80.0%')
+    expect(stats[1].classes()).not.toContain('health-unknown')
+
+    // 健康 pill 同样取自最新 bucket
+    expect(wrapper.find('.relay-health-pill').classes()).toContain('health-score6')
+
+    // 可用率 80%（score 62.5）→ 橙色、中高柱，而不是红色矮柱
+    const bars = wrapper.findAll('.pulse-cell.has-data')
+    expect(bars).toHaveLength(2)
+    expect(bars[1].classes()).toContain('health-score6')
+    expect(bars[1].classes()).not.toContain('health-critical')
+    expect(bars[1].attributes('style')).toContain('height: 63%')
+  })
 })
 
 describe('RelayPulseMatrix axis range', () => {

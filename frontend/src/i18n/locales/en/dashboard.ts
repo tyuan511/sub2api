@@ -580,6 +580,7 @@ export default {
     latencyEmpty: '-',
     metricEmpty: '-',
     availabilityPrefix: 'Availability',
+    latestAvailability: 'Latest check',
     cacheHitRate: 'Cache hit rate',
     firstToken: 'First token / TTFT',
     tokenSpeed: 'Token speed',

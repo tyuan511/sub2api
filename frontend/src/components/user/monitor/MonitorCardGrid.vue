@@ -43,7 +43,7 @@
         :key="item.id"
         :item="item"
         :window="window"
-        :availability-value="resolveAvailability(item)"
+        :availability-value="resolveLatestAvailability(item)"
         :cache-hit-rate="resolveCacheHitRate(item)"
         :countdown-seconds="countdownSeconds"
         @click="emit('cardClick', item)"
@@ -72,18 +72,24 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-function resolveAvailability(item: UserMonitorView): number | null {
-  if (props.window === '3d') {
-    return item.availability_3d ?? null
+/**
+ * The card is a live status summary, so its primary rate must describe the
+ * latest check. Windowed availability remains available in the detail dialog.
+ * A degraded check is still available and is represented by the same 80-point
+ * boundary used by the monitor health legend.
+ */
+function resolveLatestAvailability(item: UserMonitorView): number | null {
+  switch (item.primary_status) {
+    case 'operational':
+      return 100
+    case 'degraded':
+      return 80
+    case 'failed':
+    case 'error':
+      return 0
+    default:
+      return null
   }
-  if (props.window === '7d') {
-    return item.availability_7d ?? null
-  }
-  const detail = props.detailCache[item.id]
-  if (!detail) return null
-  const primary = detail.models.find(m => m.model === item.primary_model)
-  if (!primary) return null
-  return props.window === '15d' ? primary.availability_15d ?? null : primary.availability_30d ?? null
 }
 
 function resolveCacheHitRate(item: UserMonitorView): number | null {

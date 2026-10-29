@@ -1053,7 +1053,7 @@ func channelMonitorV2Health(metrics ChannelMonitorV2Metric, thresholds ChannelMo
 	parts := make([]scored, 0, 3)
 
 	if metrics.RequestCount > 0 {
-		s := errorRateScore(metrics.ErrorRate, thresholds.CriticalErrorRate)
+		s := errorRateScore(metrics.ErrorRate, thresholds.WarningErrorRate, thresholds.CriticalErrorRate)
 		result.ErrorRateScore = &s
 		result.ErrorRate = healthBand(metrics.ErrorRate, thresholds.WarningErrorRate, thresholds.CriticalErrorRate)
 		parts = append(parts, scored{score: s, weight: thresholds.ErrorWeight, band: result.ErrorRate})
@@ -1101,18 +1101,32 @@ func channelMonitorV2Health(metrics ChannelMonitorV2Metric, thresholds ChannelMo
 	return result
 }
 
-// errorRateScore maps error rate to 0–100. 0% → 100; at/above critical → 0 (linear).
-func errorRateScore(errorRate, critical float64) float64 {
-	if critical <= 0 {
-		critical = 0.05
-	}
+// errorRateScore maps error rate to 0–100 aligned with the threshold bands:
+// 0% error → 100; warning → 80 (healthy floor); critical → 50 (warning floor);
+// 100% error → 0. Past critical the score keeps sliding instead of flatlining
+// at zero, so an 80%-available channel (error rate == critical) never renders
+// identical to a fully dead one.
+func errorRateScore(errorRate, warning, critical float64) float64 {
 	if errorRate <= 0 {
 		return 100
 	}
-	if errorRate >= critical {
+	if errorRate >= 1 {
 		return 0
 	}
-	return 100 * (1 - errorRate/critical)
+	if warning <= 0 {
+		warning = 0.05
+	}
+	if critical < warning {
+		critical = warning
+	}
+	switch {
+	case errorRate <= warning:
+		return 100 - 20*(errorRate/warning)
+	case errorRate <= critical:
+		return 80 - 30*((errorRate-warning)/(critical-warning))
+	default:
+		return 50 - 50*((errorRate-critical)/(1-critical))
+	}
 }
 
 // ttftP50Score maps TTFT p50 ms to 0–100.
