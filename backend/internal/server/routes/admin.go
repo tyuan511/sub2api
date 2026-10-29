@@ -129,10 +129,25 @@ func RegisterAdminRoutes(
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
 
+		// 余额退款申请审核
+		registerRefundRoutes(admin, h)
+
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
 
 		registerSupportRoutes(admin, h)
+	}
+}
+
+// registerRefundRoutes 注册余额退款申请的管理端路由。
+func registerRefundRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	refunds := admin.Group("/refund-requests")
+	{
+		refunds.GET("", h.Admin.Refund.ListRequests)
+		refunds.GET("/:id", h.Admin.Refund.GetDetail)
+		refunds.POST("/:id/complete", h.Admin.Refund.Complete)
+		refunds.POST("/:id/reject", h.Admin.Refund.Reject)
+		refunds.GET("/:id/qr", h.Admin.Refund.QR)
 	}
 }
 

@@ -61,14 +61,25 @@
             <div class="grid gap-3 sm:grid-cols-3">
               <div
                 data-testid="profile-overview-metric-balance"
-                class="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
+                class="flex items-center justify-between gap-3 rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/70 dark:bg-dark-900/60 dark:ring-dark-700"
               >
-                <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
-                  {{ t('profile.accountBalance') }}
-                </p>
-                <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                  {{ formatCurrency(user?.balance || 0) }}
-                </p>
+                <div class="min-w-0">
+                  <p class="text-xs font-medium uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">
+                    {{ t('profile.accountBalance') }}
+                  </p>
+                  <p class="mt-1 truncate text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ formatCurrency(user?.balance || 0) }}
+                  </p>
+                </div>
+                <button
+                  v-if="showRefundEntry"
+                  type="button"
+                  class="btn btn-secondary shrink-0 whitespace-nowrap !px-2.5 !py-1 text-xs"
+                  data-testid="profile-refund-open"
+                  @click="refundDialogOpen = true"
+                >
+                  {{ t('refund.entry') }}
+                </button>
               </div>
               <div
                 data-testid="profile-overview-metric-concurrency"
@@ -176,13 +187,22 @@
         </section>
       </div>
     </div>
+
+    <RefundRequestDialog
+      :show="refundDialogOpen"
+      @close="refundDialogOpen = false"
+      @success="handleRefundSubmitted"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import RefundRequestDialog from '@/components/user/profile/RefundRequestDialog.vue'
+import { DEFAULT_REFUND_MIN_AMOUNT } from '@/api/refunds'
+import { useAuthStore } from '@/stores/auth'
 import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
 import ProfileEditForm from '@/components/user/profile/ProfileEditForm.vue'
 import ProfileIdentityBindingsSection from '@/components/user/profile/ProfileIdentityBindingsSection.vue'
@@ -197,6 +217,7 @@ const props = withDefaults(defineProps<{
   wechatEnabled?: boolean
   wechatOpenEnabled?: boolean
   wechatMpEnabled?: boolean
+  refundMinAmount?: number
 }>(), {
   linuxdoEnabled: false,
   dingtalkEnabled: false,
@@ -205,9 +226,24 @@ const props = withDefaults(defineProps<{
   wechatEnabled: false,
   wechatOpenEnabled: undefined,
   wechatMpEnabled: undefined,
+  refundMinAmount: DEFAULT_REFUND_MIN_AMOUNT,
 })
 
 const { t } = useI18n()
+const authStore = useAuthStore()
+
+// 退款申请提交后余额口径会变化（管理员完成退款即清零），重新拉一次账户信息。
+const refundDialogOpen = ref(false)
+
+// 起退点以下不显示入口：金额太小走一次人工打款不划算，用户点了也只会看到"不能退"。
+const showRefundEntry = computed(() => {
+  const min = props.refundMinAmount ?? DEFAULT_REFUND_MIN_AMOUNT
+  return (props.user?.balance ?? 0) >= min
+})
+
+function handleRefundSubmitted(): void {
+  void authStore.refreshUser()
+}
 
 function normalizeBindingStatus(binding: boolean | UserAuthBindingStatus | undefined): boolean | null {
   if (typeof binding === 'boolean') {

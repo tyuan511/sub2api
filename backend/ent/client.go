@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/balancerefundrequest"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageitem"
 	"github.com/Wei-Shaw/sub2api/ent/batchimagejob"
@@ -97,6 +98,8 @@ type Client struct {
 	AuthIdentity *AuthIdentityClient
 	// AuthIdentityChannel is the client for interacting with the AuthIdentityChannel builders.
 	AuthIdentityChannel *AuthIdentityChannelClient
+	// BalanceRefundRequest is the client for interacting with the BalanceRefundRequest builders.
+	BalanceRefundRequest *BalanceRefundRequestClient
 	// BatchImageEvent is the client for interacting with the BatchImageEvent builders.
 	BatchImageEvent *BatchImageEventClient
 	// BatchImageItem is the client for interacting with the BatchImageItem builders.
@@ -199,6 +202,7 @@ func (c *Client) init() {
 	c.AnnouncementRead = NewAnnouncementReadClient(c.config)
 	c.AuthIdentity = NewAuthIdentityClient(c.config)
 	c.AuthIdentityChannel = NewAuthIdentityChannelClient(c.config)
+	c.BalanceRefundRequest = NewBalanceRefundRequestClient(c.config)
 	c.BatchImageEvent = NewBatchImageEventClient(c.config)
 	c.BatchImageItem = NewBatchImageItemClient(c.config)
 	c.BatchImageJob = NewBatchImageJobClient(c.config)
@@ -342,6 +346,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
+		BalanceRefundRequest:          NewBalanceRefundRequestClient(cfg),
 		BatchImageEvent:               NewBatchImageEventClient(cfg),
 		BatchImageItem:                NewBatchImageItemClient(cfg),
 		BatchImageJob:                 NewBatchImageJobClient(cfg),
@@ -412,6 +417,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
+		BalanceRefundRequest:          NewBalanceRefundRequestClient(cfg),
 		BatchImageEvent:               NewBatchImageEventClient(cfg),
 		BatchImageItem:                NewBatchImageItemClient(cfg),
 		BatchImageJob:                 NewBatchImageJobClient(cfg),
@@ -483,9 +489,9 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.APIKeyGroupRoute, c.APIKeyRouteConfigOutbox, c.Account,
 		c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding, c.Announcement,
-		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
-		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
-		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel,
+		c.BalanceRefundRequest, c.BatchImageEvent, c.BatchImageItem, c.BatchImageJob,
+		c.ChannelMonitor, c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
@@ -507,9 +513,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.APIKeyGroupRoute, c.APIKeyRouteConfigOutbox, c.Account,
 		c.AccountGroup, c.AccountProxy, c.AdminTelegramBinding, c.Announcement,
-		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent,
-		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
-		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel,
+		c.BalanceRefundRequest, c.BatchImageEvent, c.BatchImageItem, c.BatchImageJob,
+		c.ChannelMonitor, c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
@@ -550,6 +556,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AuthIdentity.mutate(ctx, m)
 	case *AuthIdentityChannelMutation:
 		return c.AuthIdentityChannel.mutate(ctx, m)
+	case *BalanceRefundRequestMutation:
+		return c.BalanceRefundRequest.mutate(ctx, m)
 	case *BatchImageEventMutation:
 		return c.BatchImageEvent.mutate(ctx, m)
 	case *BatchImageItemMutation:
@@ -2433,6 +2441,139 @@ func (c *AuthIdentityChannelClient) mutate(ctx context.Context, m *AuthIdentityC
 		return (&AuthIdentityChannelDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AuthIdentityChannel mutation op: %q", m.Op())
+	}
+}
+
+// BalanceRefundRequestClient is a client for the BalanceRefundRequest schema.
+type BalanceRefundRequestClient struct {
+	config
+}
+
+// NewBalanceRefundRequestClient returns a client for the BalanceRefundRequest from the given config.
+func NewBalanceRefundRequestClient(c config) *BalanceRefundRequestClient {
+	return &BalanceRefundRequestClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `balancerefundrequest.Hooks(f(g(h())))`.
+func (c *BalanceRefundRequestClient) Use(hooks ...Hook) {
+	c.hooks.BalanceRefundRequest = append(c.hooks.BalanceRefundRequest, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `balancerefundrequest.Intercept(f(g(h())))`.
+func (c *BalanceRefundRequestClient) Intercept(interceptors ...Interceptor) {
+	c.inters.BalanceRefundRequest = append(c.inters.BalanceRefundRequest, interceptors...)
+}
+
+// Create returns a builder for creating a BalanceRefundRequest entity.
+func (c *BalanceRefundRequestClient) Create() *BalanceRefundRequestCreate {
+	mutation := newBalanceRefundRequestMutation(c.config, OpCreate)
+	return &BalanceRefundRequestCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of BalanceRefundRequest entities.
+func (c *BalanceRefundRequestClient) CreateBulk(builders ...*BalanceRefundRequestCreate) *BalanceRefundRequestCreateBulk {
+	return &BalanceRefundRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *BalanceRefundRequestClient) MapCreateBulk(slice any, setFunc func(*BalanceRefundRequestCreate, int)) *BalanceRefundRequestCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &BalanceRefundRequestCreateBulk{err: fmt.Errorf("calling to BalanceRefundRequestClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*BalanceRefundRequestCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &BalanceRefundRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for BalanceRefundRequest.
+func (c *BalanceRefundRequestClient) Update() *BalanceRefundRequestUpdate {
+	mutation := newBalanceRefundRequestMutation(c.config, OpUpdate)
+	return &BalanceRefundRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *BalanceRefundRequestClient) UpdateOne(_m *BalanceRefundRequest) *BalanceRefundRequestUpdateOne {
+	mutation := newBalanceRefundRequestMutation(c.config, OpUpdateOne, withBalanceRefundRequest(_m))
+	return &BalanceRefundRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *BalanceRefundRequestClient) UpdateOneID(id int64) *BalanceRefundRequestUpdateOne {
+	mutation := newBalanceRefundRequestMutation(c.config, OpUpdateOne, withBalanceRefundRequestID(id))
+	return &BalanceRefundRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for BalanceRefundRequest.
+func (c *BalanceRefundRequestClient) Delete() *BalanceRefundRequestDelete {
+	mutation := newBalanceRefundRequestMutation(c.config, OpDelete)
+	return &BalanceRefundRequestDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *BalanceRefundRequestClient) DeleteOne(_m *BalanceRefundRequest) *BalanceRefundRequestDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *BalanceRefundRequestClient) DeleteOneID(id int64) *BalanceRefundRequestDeleteOne {
+	builder := c.Delete().Where(balancerefundrequest.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &BalanceRefundRequestDeleteOne{builder}
+}
+
+// Query returns a query builder for BalanceRefundRequest.
+func (c *BalanceRefundRequestClient) Query() *BalanceRefundRequestQuery {
+	return &BalanceRefundRequestQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeBalanceRefundRequest},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a BalanceRefundRequest entity by its id.
+func (c *BalanceRefundRequestClient) Get(ctx context.Context, id int64) (*BalanceRefundRequest, error) {
+	return c.Query().Where(balancerefundrequest.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *BalanceRefundRequestClient) GetX(ctx context.Context, id int64) *BalanceRefundRequest {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *BalanceRefundRequestClient) Hooks() []Hook {
+	return c.hooks.BalanceRefundRequest
+}
+
+// Interceptors returns the client interceptors.
+func (c *BalanceRefundRequestClient) Interceptors() []Interceptor {
+	return c.inters.BalanceRefundRequest
+}
+
+func (c *BalanceRefundRequestClient) mutate(ctx context.Context, m *BalanceRefundRequestMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&BalanceRefundRequestCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&BalanceRefundRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&BalanceRefundRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&BalanceRefundRequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown BalanceRefundRequest mutation op: %q", m.Op())
 	}
 }
 
@@ -8750,8 +8891,8 @@ type (
 	hooks struct {
 		APIKey, APIKeyGroupRoute, APIKeyRouteConfigOutbox, Account, AccountGroup,
 		AccountProxy, AdminTelegramBinding, Announcement, AnnouncementRead,
-		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
-		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		AuthIdentity, AuthIdentityChannel, BalanceRefundRequest, BatchImageEvent,
+		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
@@ -8765,8 +8906,8 @@ type (
 	inters struct {
 		APIKey, APIKeyGroupRoute, APIKeyRouteConfigOutbox, Account, AccountGroup,
 		AccountProxy, AdminTelegramBinding, Announcement, AnnouncementRead,
-		AuthIdentity, AuthIdentityChannel, BatchImageEvent, BatchImageItem,
-		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		AuthIdentity, AuthIdentityChannel, BalanceRefundRequest, BatchImageEvent,
+		BatchImageItem, BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,

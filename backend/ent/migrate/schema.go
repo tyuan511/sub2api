@@ -618,6 +618,54 @@ var (
 			},
 		},
 	}
+	// BalanceRefundRequestsColumns holds the columns for the "balance_refund_requests" table.
+	BalanceRefundRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "balance", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "rebate_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "fee_rate_percent", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(5,2)"}},
+		{Name: "fee_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "refundable_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "frozen_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "qr_storage_key", Type: field.TypeString, Size: 500},
+		{Name: "qr_content_type", Type: field.TypeString, Size: 64, Default: "image/png"},
+		{Name: "qr_size", Type: field.TypeInt64, Default: 0},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "pending"},
+		{Name: "user_note", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "reject_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "admin_note", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "reviewed_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "reviewed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// BalanceRefundRequestsTable holds the schema information for the "balance_refund_requests" table.
+	BalanceRefundRequestsTable = &schema.Table{
+		Name:       "balance_refund_requests",
+		Columns:    BalanceRefundRequestsColumns,
+		PrimaryKey: []*schema.Column{BalanceRefundRequestsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "balance_refund_requests_pending_uq",
+				Unique:  true,
+				Columns: []*schema.Column{BalanceRefundRequestsColumns[3]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "status = 'pending'",
+				},
+			},
+			{
+				Name:    "balancerefundrequest_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{BalanceRefundRequestsColumns[13], BalanceRefundRequestsColumns[1]},
+			},
+			{
+				Name:    "balancerefundrequest_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{BalanceRefundRequestsColumns[3], BalanceRefundRequestsColumns[1]},
+			},
+		},
+	}
 	// BatchImageEventsColumns holds the columns for the "batch_image_events" table.
 	BatchImageEventsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2660,6 +2708,7 @@ var (
 		AnnouncementReadsTable,
 		AuthIdentitiesTable,
 		AuthIdentityChannelsTable,
+		BalanceRefundRequestsTable,
 		BatchImageEventsTable,
 		BatchImageItemsTable,
 		BatchImageJobsTable,
@@ -2751,6 +2800,9 @@ func init() {
 	AuthIdentityChannelsTable.ForeignKeys[0].RefTable = AuthIdentitiesTable
 	AuthIdentityChannelsTable.Annotation = &entsql.Annotation{
 		Table: "auth_identity_channels",
+	}
+	BalanceRefundRequestsTable.Annotation = &entsql.Annotation{
+		Table: "balance_refund_requests",
 	}
 	BatchImageEventsTable.Annotation = &entsql.Annotation{
 		Table: "batch_image_events",

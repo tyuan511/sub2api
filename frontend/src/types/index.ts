@@ -266,6 +266,8 @@ export interface PublicSettings {
   balance_low_notify_enabled: boolean
   account_quota_notify_enabled: boolean
   balance_low_notify_threshold: number
+  /** 余额退款起退点：可退金额低于它就不显示「申请退款」入口。缺失时前端按 20 兜底。 */
+  balance_refund_min_amount?: number
   channel_monitor_enabled: boolean
   /** Exclusive mode: v1 active probes or v2 passive aggregation. Default v2. */
   channel_monitor_mode?: 'v1' | 'v2'

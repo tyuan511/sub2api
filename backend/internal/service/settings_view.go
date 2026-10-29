@@ -393,6 +393,9 @@ type PublicSettings struct {
 	BalanceLowNotifyThreshold   float64
 	BalanceLowNotifyRechargeURL string
 
+	// BalanceRefundMinAmount 是余额退款起退点，前端据此决定是否显示「申请退款」入口。
+	BalanceRefundMinAmount float64
+
 	// Channel Monitor feature
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorMode                   string `json:"channel_monitor_mode"`

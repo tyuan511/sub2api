@@ -5,6 +5,7 @@ import channelMonitorV2 from './channelMonitorV2'
 import batchImage from './batchImage'
 import imageStudio from './imageStudio'
 import admin from './admin'
+import refund from './refund'
 import misc from './misc'
 
 export default {
@@ -15,5 +16,6 @@ export default {
   ...batchImage,
   ...imageStudio,
   admin,
+  ...refund,
   ...misc,
 }

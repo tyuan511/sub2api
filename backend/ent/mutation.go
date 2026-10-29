@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/balancerefundrequest"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageitem"
 	"github.com/Wei-Shaw/sub2api/ent/batchimagejob"
@@ -87,6 +88,7 @@ const (
 	TypeAnnouncementRead              = "AnnouncementRead"
 	TypeAuthIdentity                  = "AuthIdentity"
 	TypeAuthIdentityChannel           = "AuthIdentityChannel"
+	TypeBalanceRefundRequest          = "BalanceRefundRequest"
 	TypeBatchImageEvent               = "BatchImageEvent"
 	TypeBatchImageItem                = "BatchImageItem"
 	TypeBatchImageJob                 = "BatchImageJob"
@@ -13757,6 +13759,1611 @@ func (m *AuthIdentityChannelMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AuthIdentityChannel edge %s", name)
+}
+
+// BalanceRefundRequestMutation represents an operation that mutates the BalanceRefundRequest nodes in the graph.
+type BalanceRefundRequestMutation struct {
+	config
+	op                   Op
+	typ                  string
+	id                   *int64
+	created_at           *time.Time
+	updated_at           *time.Time
+	user_id              *int64
+	adduser_id           *int64
+	balance              *float64
+	addbalance           *float64
+	rebate_amount        *float64
+	addrebate_amount     *float64
+	fee_rate_percent     *float64
+	addfee_rate_percent  *float64
+	fee_amount           *float64
+	addfee_amount        *float64
+	refundable_amount    *float64
+	addrefundable_amount *float64
+	frozen_amount        *float64
+	addfrozen_amount     *float64
+	qr_storage_key       *string
+	qr_content_type      *string
+	qr_size              *int64
+	addqr_size           *int64
+	status               *string
+	user_note            *string
+	reject_reason        *string
+	admin_note           *string
+	reviewed_by          *int64
+	addreviewed_by       *int64
+	reviewed_at          *time.Time
+	clearedFields        map[string]struct{}
+	done                 bool
+	oldValue             func(context.Context) (*BalanceRefundRequest, error)
+	predicates           []predicate.BalanceRefundRequest
+}
+
+var _ ent.Mutation = (*BalanceRefundRequestMutation)(nil)
+
+// balancerefundrequestOption allows management of the mutation configuration using functional options.
+type balancerefundrequestOption func(*BalanceRefundRequestMutation)
+
+// newBalanceRefundRequestMutation creates new mutation for the BalanceRefundRequest entity.
+func newBalanceRefundRequestMutation(c config, op Op, opts ...balancerefundrequestOption) *BalanceRefundRequestMutation {
+	m := &BalanceRefundRequestMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeBalanceRefundRequest,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withBalanceRefundRequestID sets the ID field of the mutation.
+func withBalanceRefundRequestID(id int64) balancerefundrequestOption {
+	return func(m *BalanceRefundRequestMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *BalanceRefundRequest
+		)
+		m.oldValue = func(ctx context.Context) (*BalanceRefundRequest, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().BalanceRefundRequest.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withBalanceRefundRequest sets the old BalanceRefundRequest of the mutation.
+func withBalanceRefundRequest(node *BalanceRefundRequest) balancerefundrequestOption {
+	return func(m *BalanceRefundRequestMutation) {
+		m.oldValue = func(context.Context) (*BalanceRefundRequest, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m BalanceRefundRequestMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m BalanceRefundRequestMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *BalanceRefundRequestMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *BalanceRefundRequestMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().BalanceRefundRequest.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *BalanceRefundRequestMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *BalanceRefundRequestMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *BalanceRefundRequestMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *BalanceRefundRequestMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *BalanceRefundRequestMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *BalanceRefundRequestMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *BalanceRefundRequestMutation) SetUserID(i int64) {
+	m.user_id = &i
+	m.adduser_id = nil
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *BalanceRefundRequestMutation) UserID() (r int64, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// AddUserID adds i to the "user_id" field.
+func (m *BalanceRefundRequestMutation) AddUserID(i int64) {
+	if m.adduser_id != nil {
+		*m.adduser_id += i
+	} else {
+		m.adduser_id = &i
+	}
+}
+
+// AddedUserID returns the value that was added to the "user_id" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedUserID() (r int64, exists bool) {
+	v := m.adduser_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *BalanceRefundRequestMutation) ResetUserID() {
+	m.user_id = nil
+	m.adduser_id = nil
+}
+
+// SetBalance sets the "balance" field.
+func (m *BalanceRefundRequestMutation) SetBalance(f float64) {
+	m.balance = &f
+	m.addbalance = nil
+}
+
+// Balance returns the value of the "balance" field in the mutation.
+func (m *BalanceRefundRequestMutation) Balance() (r float64, exists bool) {
+	v := m.balance
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalance returns the old "balance" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldBalance(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalance is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalance requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalance: %w", err)
+	}
+	return oldValue.Balance, nil
+}
+
+// AddBalance adds f to the "balance" field.
+func (m *BalanceRefundRequestMutation) AddBalance(f float64) {
+	if m.addbalance != nil {
+		*m.addbalance += f
+	} else {
+		m.addbalance = &f
+	}
+}
+
+// AddedBalance returns the value that was added to the "balance" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedBalance() (r float64, exists bool) {
+	v := m.addbalance
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBalance resets all changes to the "balance" field.
+func (m *BalanceRefundRequestMutation) ResetBalance() {
+	m.balance = nil
+	m.addbalance = nil
+}
+
+// SetRebateAmount sets the "rebate_amount" field.
+func (m *BalanceRefundRequestMutation) SetRebateAmount(f float64) {
+	m.rebate_amount = &f
+	m.addrebate_amount = nil
+}
+
+// RebateAmount returns the value of the "rebate_amount" field in the mutation.
+func (m *BalanceRefundRequestMutation) RebateAmount() (r float64, exists bool) {
+	v := m.rebate_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRebateAmount returns the old "rebate_amount" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldRebateAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRebateAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRebateAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRebateAmount: %w", err)
+	}
+	return oldValue.RebateAmount, nil
+}
+
+// AddRebateAmount adds f to the "rebate_amount" field.
+func (m *BalanceRefundRequestMutation) AddRebateAmount(f float64) {
+	if m.addrebate_amount != nil {
+		*m.addrebate_amount += f
+	} else {
+		m.addrebate_amount = &f
+	}
+}
+
+// AddedRebateAmount returns the value that was added to the "rebate_amount" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedRebateAmount() (r float64, exists bool) {
+	v := m.addrebate_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRebateAmount resets all changes to the "rebate_amount" field.
+func (m *BalanceRefundRequestMutation) ResetRebateAmount() {
+	m.rebate_amount = nil
+	m.addrebate_amount = nil
+}
+
+// SetFeeRatePercent sets the "fee_rate_percent" field.
+func (m *BalanceRefundRequestMutation) SetFeeRatePercent(f float64) {
+	m.fee_rate_percent = &f
+	m.addfee_rate_percent = nil
+}
+
+// FeeRatePercent returns the value of the "fee_rate_percent" field in the mutation.
+func (m *BalanceRefundRequestMutation) FeeRatePercent() (r float64, exists bool) {
+	v := m.fee_rate_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFeeRatePercent returns the old "fee_rate_percent" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldFeeRatePercent(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFeeRatePercent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFeeRatePercent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFeeRatePercent: %w", err)
+	}
+	return oldValue.FeeRatePercent, nil
+}
+
+// AddFeeRatePercent adds f to the "fee_rate_percent" field.
+func (m *BalanceRefundRequestMutation) AddFeeRatePercent(f float64) {
+	if m.addfee_rate_percent != nil {
+		*m.addfee_rate_percent += f
+	} else {
+		m.addfee_rate_percent = &f
+	}
+}
+
+// AddedFeeRatePercent returns the value that was added to the "fee_rate_percent" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedFeeRatePercent() (r float64, exists bool) {
+	v := m.addfee_rate_percent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFeeRatePercent resets all changes to the "fee_rate_percent" field.
+func (m *BalanceRefundRequestMutation) ResetFeeRatePercent() {
+	m.fee_rate_percent = nil
+	m.addfee_rate_percent = nil
+}
+
+// SetFeeAmount sets the "fee_amount" field.
+func (m *BalanceRefundRequestMutation) SetFeeAmount(f float64) {
+	m.fee_amount = &f
+	m.addfee_amount = nil
+}
+
+// FeeAmount returns the value of the "fee_amount" field in the mutation.
+func (m *BalanceRefundRequestMutation) FeeAmount() (r float64, exists bool) {
+	v := m.fee_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFeeAmount returns the old "fee_amount" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldFeeAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFeeAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFeeAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFeeAmount: %w", err)
+	}
+	return oldValue.FeeAmount, nil
+}
+
+// AddFeeAmount adds f to the "fee_amount" field.
+func (m *BalanceRefundRequestMutation) AddFeeAmount(f float64) {
+	if m.addfee_amount != nil {
+		*m.addfee_amount += f
+	} else {
+		m.addfee_amount = &f
+	}
+}
+
+// AddedFeeAmount returns the value that was added to the "fee_amount" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedFeeAmount() (r float64, exists bool) {
+	v := m.addfee_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFeeAmount resets all changes to the "fee_amount" field.
+func (m *BalanceRefundRequestMutation) ResetFeeAmount() {
+	m.fee_amount = nil
+	m.addfee_amount = nil
+}
+
+// SetRefundableAmount sets the "refundable_amount" field.
+func (m *BalanceRefundRequestMutation) SetRefundableAmount(f float64) {
+	m.refundable_amount = &f
+	m.addrefundable_amount = nil
+}
+
+// RefundableAmount returns the value of the "refundable_amount" field in the mutation.
+func (m *BalanceRefundRequestMutation) RefundableAmount() (r float64, exists bool) {
+	v := m.refundable_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRefundableAmount returns the old "refundable_amount" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldRefundableAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRefundableAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRefundableAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRefundableAmount: %w", err)
+	}
+	return oldValue.RefundableAmount, nil
+}
+
+// AddRefundableAmount adds f to the "refundable_amount" field.
+func (m *BalanceRefundRequestMutation) AddRefundableAmount(f float64) {
+	if m.addrefundable_amount != nil {
+		*m.addrefundable_amount += f
+	} else {
+		m.addrefundable_amount = &f
+	}
+}
+
+// AddedRefundableAmount returns the value that was added to the "refundable_amount" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedRefundableAmount() (r float64, exists bool) {
+	v := m.addrefundable_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRefundableAmount resets all changes to the "refundable_amount" field.
+func (m *BalanceRefundRequestMutation) ResetRefundableAmount() {
+	m.refundable_amount = nil
+	m.addrefundable_amount = nil
+}
+
+// SetFrozenAmount sets the "frozen_amount" field.
+func (m *BalanceRefundRequestMutation) SetFrozenAmount(f float64) {
+	m.frozen_amount = &f
+	m.addfrozen_amount = nil
+}
+
+// FrozenAmount returns the value of the "frozen_amount" field in the mutation.
+func (m *BalanceRefundRequestMutation) FrozenAmount() (r float64, exists bool) {
+	v := m.frozen_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFrozenAmount returns the old "frozen_amount" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldFrozenAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFrozenAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFrozenAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFrozenAmount: %w", err)
+	}
+	return oldValue.FrozenAmount, nil
+}
+
+// AddFrozenAmount adds f to the "frozen_amount" field.
+func (m *BalanceRefundRequestMutation) AddFrozenAmount(f float64) {
+	if m.addfrozen_amount != nil {
+		*m.addfrozen_amount += f
+	} else {
+		m.addfrozen_amount = &f
+	}
+}
+
+// AddedFrozenAmount returns the value that was added to the "frozen_amount" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedFrozenAmount() (r float64, exists bool) {
+	v := m.addfrozen_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFrozenAmount resets all changes to the "frozen_amount" field.
+func (m *BalanceRefundRequestMutation) ResetFrozenAmount() {
+	m.frozen_amount = nil
+	m.addfrozen_amount = nil
+}
+
+// SetQrStorageKey sets the "qr_storage_key" field.
+func (m *BalanceRefundRequestMutation) SetQrStorageKey(s string) {
+	m.qr_storage_key = &s
+}
+
+// QrStorageKey returns the value of the "qr_storage_key" field in the mutation.
+func (m *BalanceRefundRequestMutation) QrStorageKey() (r string, exists bool) {
+	v := m.qr_storage_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldQrStorageKey returns the old "qr_storage_key" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldQrStorageKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldQrStorageKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldQrStorageKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldQrStorageKey: %w", err)
+	}
+	return oldValue.QrStorageKey, nil
+}
+
+// ResetQrStorageKey resets all changes to the "qr_storage_key" field.
+func (m *BalanceRefundRequestMutation) ResetQrStorageKey() {
+	m.qr_storage_key = nil
+}
+
+// SetQrContentType sets the "qr_content_type" field.
+func (m *BalanceRefundRequestMutation) SetQrContentType(s string) {
+	m.qr_content_type = &s
+}
+
+// QrContentType returns the value of the "qr_content_type" field in the mutation.
+func (m *BalanceRefundRequestMutation) QrContentType() (r string, exists bool) {
+	v := m.qr_content_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldQrContentType returns the old "qr_content_type" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldQrContentType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldQrContentType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldQrContentType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldQrContentType: %w", err)
+	}
+	return oldValue.QrContentType, nil
+}
+
+// ResetQrContentType resets all changes to the "qr_content_type" field.
+func (m *BalanceRefundRequestMutation) ResetQrContentType() {
+	m.qr_content_type = nil
+}
+
+// SetQrSize sets the "qr_size" field.
+func (m *BalanceRefundRequestMutation) SetQrSize(i int64) {
+	m.qr_size = &i
+	m.addqr_size = nil
+}
+
+// QrSize returns the value of the "qr_size" field in the mutation.
+func (m *BalanceRefundRequestMutation) QrSize() (r int64, exists bool) {
+	v := m.qr_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldQrSize returns the old "qr_size" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldQrSize(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldQrSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldQrSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldQrSize: %w", err)
+	}
+	return oldValue.QrSize, nil
+}
+
+// AddQrSize adds i to the "qr_size" field.
+func (m *BalanceRefundRequestMutation) AddQrSize(i int64) {
+	if m.addqr_size != nil {
+		*m.addqr_size += i
+	} else {
+		m.addqr_size = &i
+	}
+}
+
+// AddedQrSize returns the value that was added to the "qr_size" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedQrSize() (r int64, exists bool) {
+	v := m.addqr_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetQrSize resets all changes to the "qr_size" field.
+func (m *BalanceRefundRequestMutation) ResetQrSize() {
+	m.qr_size = nil
+	m.addqr_size = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *BalanceRefundRequestMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *BalanceRefundRequestMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *BalanceRefundRequestMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetUserNote sets the "user_note" field.
+func (m *BalanceRefundRequestMutation) SetUserNote(s string) {
+	m.user_note = &s
+}
+
+// UserNote returns the value of the "user_note" field in the mutation.
+func (m *BalanceRefundRequestMutation) UserNote() (r string, exists bool) {
+	v := m.user_note
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserNote returns the old "user_note" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldUserNote(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserNote is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserNote requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserNote: %w", err)
+	}
+	return oldValue.UserNote, nil
+}
+
+// ResetUserNote resets all changes to the "user_note" field.
+func (m *BalanceRefundRequestMutation) ResetUserNote() {
+	m.user_note = nil
+}
+
+// SetRejectReason sets the "reject_reason" field.
+func (m *BalanceRefundRequestMutation) SetRejectReason(s string) {
+	m.reject_reason = &s
+}
+
+// RejectReason returns the value of the "reject_reason" field in the mutation.
+func (m *BalanceRefundRequestMutation) RejectReason() (r string, exists bool) {
+	v := m.reject_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRejectReason returns the old "reject_reason" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldRejectReason(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRejectReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRejectReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRejectReason: %w", err)
+	}
+	return oldValue.RejectReason, nil
+}
+
+// ClearRejectReason clears the value of the "reject_reason" field.
+func (m *BalanceRefundRequestMutation) ClearRejectReason() {
+	m.reject_reason = nil
+	m.clearedFields[balancerefundrequest.FieldRejectReason] = struct{}{}
+}
+
+// RejectReasonCleared returns if the "reject_reason" field was cleared in this mutation.
+func (m *BalanceRefundRequestMutation) RejectReasonCleared() bool {
+	_, ok := m.clearedFields[balancerefundrequest.FieldRejectReason]
+	return ok
+}
+
+// ResetRejectReason resets all changes to the "reject_reason" field.
+func (m *BalanceRefundRequestMutation) ResetRejectReason() {
+	m.reject_reason = nil
+	delete(m.clearedFields, balancerefundrequest.FieldRejectReason)
+}
+
+// SetAdminNote sets the "admin_note" field.
+func (m *BalanceRefundRequestMutation) SetAdminNote(s string) {
+	m.admin_note = &s
+}
+
+// AdminNote returns the value of the "admin_note" field in the mutation.
+func (m *BalanceRefundRequestMutation) AdminNote() (r string, exists bool) {
+	v := m.admin_note
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAdminNote returns the old "admin_note" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldAdminNote(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAdminNote is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAdminNote requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAdminNote: %w", err)
+	}
+	return oldValue.AdminNote, nil
+}
+
+// ResetAdminNote resets all changes to the "admin_note" field.
+func (m *BalanceRefundRequestMutation) ResetAdminNote() {
+	m.admin_note = nil
+}
+
+// SetReviewedBy sets the "reviewed_by" field.
+func (m *BalanceRefundRequestMutation) SetReviewedBy(i int64) {
+	m.reviewed_by = &i
+	m.addreviewed_by = nil
+}
+
+// ReviewedBy returns the value of the "reviewed_by" field in the mutation.
+func (m *BalanceRefundRequestMutation) ReviewedBy() (r int64, exists bool) {
+	v := m.reviewed_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedBy returns the old "reviewed_by" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldReviewedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedBy: %w", err)
+	}
+	return oldValue.ReviewedBy, nil
+}
+
+// AddReviewedBy adds i to the "reviewed_by" field.
+func (m *BalanceRefundRequestMutation) AddReviewedBy(i int64) {
+	if m.addreviewed_by != nil {
+		*m.addreviewed_by += i
+	} else {
+		m.addreviewed_by = &i
+	}
+}
+
+// AddedReviewedBy returns the value that was added to the "reviewed_by" field in this mutation.
+func (m *BalanceRefundRequestMutation) AddedReviewedBy() (r int64, exists bool) {
+	v := m.addreviewed_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearReviewedBy clears the value of the "reviewed_by" field.
+func (m *BalanceRefundRequestMutation) ClearReviewedBy() {
+	m.reviewed_by = nil
+	m.addreviewed_by = nil
+	m.clearedFields[balancerefundrequest.FieldReviewedBy] = struct{}{}
+}
+
+// ReviewedByCleared returns if the "reviewed_by" field was cleared in this mutation.
+func (m *BalanceRefundRequestMutation) ReviewedByCleared() bool {
+	_, ok := m.clearedFields[balancerefundrequest.FieldReviewedBy]
+	return ok
+}
+
+// ResetReviewedBy resets all changes to the "reviewed_by" field.
+func (m *BalanceRefundRequestMutation) ResetReviewedBy() {
+	m.reviewed_by = nil
+	m.addreviewed_by = nil
+	delete(m.clearedFields, balancerefundrequest.FieldReviewedBy)
+}
+
+// SetReviewedAt sets the "reviewed_at" field.
+func (m *BalanceRefundRequestMutation) SetReviewedAt(t time.Time) {
+	m.reviewed_at = &t
+}
+
+// ReviewedAt returns the value of the "reviewed_at" field in the mutation.
+func (m *BalanceRefundRequestMutation) ReviewedAt() (r time.Time, exists bool) {
+	v := m.reviewed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedAt returns the old "reviewed_at" field's value of the BalanceRefundRequest entity.
+// If the BalanceRefundRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalanceRefundRequestMutation) OldReviewedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedAt: %w", err)
+	}
+	return oldValue.ReviewedAt, nil
+}
+
+// ClearReviewedAt clears the value of the "reviewed_at" field.
+func (m *BalanceRefundRequestMutation) ClearReviewedAt() {
+	m.reviewed_at = nil
+	m.clearedFields[balancerefundrequest.FieldReviewedAt] = struct{}{}
+}
+
+// ReviewedAtCleared returns if the "reviewed_at" field was cleared in this mutation.
+func (m *BalanceRefundRequestMutation) ReviewedAtCleared() bool {
+	_, ok := m.clearedFields[balancerefundrequest.FieldReviewedAt]
+	return ok
+}
+
+// ResetReviewedAt resets all changes to the "reviewed_at" field.
+func (m *BalanceRefundRequestMutation) ResetReviewedAt() {
+	m.reviewed_at = nil
+	delete(m.clearedFields, balancerefundrequest.FieldReviewedAt)
+}
+
+// Where appends a list predicates to the BalanceRefundRequestMutation builder.
+func (m *BalanceRefundRequestMutation) Where(ps ...predicate.BalanceRefundRequest) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the BalanceRefundRequestMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *BalanceRefundRequestMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.BalanceRefundRequest, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *BalanceRefundRequestMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *BalanceRefundRequestMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (BalanceRefundRequest).
+func (m *BalanceRefundRequestMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *BalanceRefundRequestMutation) Fields() []string {
+	fields := make([]string, 0, 18)
+	if m.created_at != nil {
+		fields = append(fields, balancerefundrequest.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, balancerefundrequest.FieldUpdatedAt)
+	}
+	if m.user_id != nil {
+		fields = append(fields, balancerefundrequest.FieldUserID)
+	}
+	if m.balance != nil {
+		fields = append(fields, balancerefundrequest.FieldBalance)
+	}
+	if m.rebate_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldRebateAmount)
+	}
+	if m.fee_rate_percent != nil {
+		fields = append(fields, balancerefundrequest.FieldFeeRatePercent)
+	}
+	if m.fee_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldFeeAmount)
+	}
+	if m.refundable_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldRefundableAmount)
+	}
+	if m.frozen_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldFrozenAmount)
+	}
+	if m.qr_storage_key != nil {
+		fields = append(fields, balancerefundrequest.FieldQrStorageKey)
+	}
+	if m.qr_content_type != nil {
+		fields = append(fields, balancerefundrequest.FieldQrContentType)
+	}
+	if m.qr_size != nil {
+		fields = append(fields, balancerefundrequest.FieldQrSize)
+	}
+	if m.status != nil {
+		fields = append(fields, balancerefundrequest.FieldStatus)
+	}
+	if m.user_note != nil {
+		fields = append(fields, balancerefundrequest.FieldUserNote)
+	}
+	if m.reject_reason != nil {
+		fields = append(fields, balancerefundrequest.FieldRejectReason)
+	}
+	if m.admin_note != nil {
+		fields = append(fields, balancerefundrequest.FieldAdminNote)
+	}
+	if m.reviewed_by != nil {
+		fields = append(fields, balancerefundrequest.FieldReviewedBy)
+	}
+	if m.reviewed_at != nil {
+		fields = append(fields, balancerefundrequest.FieldReviewedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *BalanceRefundRequestMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case balancerefundrequest.FieldCreatedAt:
+		return m.CreatedAt()
+	case balancerefundrequest.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case balancerefundrequest.FieldUserID:
+		return m.UserID()
+	case balancerefundrequest.FieldBalance:
+		return m.Balance()
+	case balancerefundrequest.FieldRebateAmount:
+		return m.RebateAmount()
+	case balancerefundrequest.FieldFeeRatePercent:
+		return m.FeeRatePercent()
+	case balancerefundrequest.FieldFeeAmount:
+		return m.FeeAmount()
+	case balancerefundrequest.FieldRefundableAmount:
+		return m.RefundableAmount()
+	case balancerefundrequest.FieldFrozenAmount:
+		return m.FrozenAmount()
+	case balancerefundrequest.FieldQrStorageKey:
+		return m.QrStorageKey()
+	case balancerefundrequest.FieldQrContentType:
+		return m.QrContentType()
+	case balancerefundrequest.FieldQrSize:
+		return m.QrSize()
+	case balancerefundrequest.FieldStatus:
+		return m.Status()
+	case balancerefundrequest.FieldUserNote:
+		return m.UserNote()
+	case balancerefundrequest.FieldRejectReason:
+		return m.RejectReason()
+	case balancerefundrequest.FieldAdminNote:
+		return m.AdminNote()
+	case balancerefundrequest.FieldReviewedBy:
+		return m.ReviewedBy()
+	case balancerefundrequest.FieldReviewedAt:
+		return m.ReviewedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *BalanceRefundRequestMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case balancerefundrequest.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case balancerefundrequest.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case balancerefundrequest.FieldUserID:
+		return m.OldUserID(ctx)
+	case balancerefundrequest.FieldBalance:
+		return m.OldBalance(ctx)
+	case balancerefundrequest.FieldRebateAmount:
+		return m.OldRebateAmount(ctx)
+	case balancerefundrequest.FieldFeeRatePercent:
+		return m.OldFeeRatePercent(ctx)
+	case balancerefundrequest.FieldFeeAmount:
+		return m.OldFeeAmount(ctx)
+	case balancerefundrequest.FieldRefundableAmount:
+		return m.OldRefundableAmount(ctx)
+	case balancerefundrequest.FieldFrozenAmount:
+		return m.OldFrozenAmount(ctx)
+	case balancerefundrequest.FieldQrStorageKey:
+		return m.OldQrStorageKey(ctx)
+	case balancerefundrequest.FieldQrContentType:
+		return m.OldQrContentType(ctx)
+	case balancerefundrequest.FieldQrSize:
+		return m.OldQrSize(ctx)
+	case balancerefundrequest.FieldStatus:
+		return m.OldStatus(ctx)
+	case balancerefundrequest.FieldUserNote:
+		return m.OldUserNote(ctx)
+	case balancerefundrequest.FieldRejectReason:
+		return m.OldRejectReason(ctx)
+	case balancerefundrequest.FieldAdminNote:
+		return m.OldAdminNote(ctx)
+	case balancerefundrequest.FieldReviewedBy:
+		return m.OldReviewedBy(ctx)
+	case balancerefundrequest.FieldReviewedAt:
+		return m.OldReviewedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown BalanceRefundRequest field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BalanceRefundRequestMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case balancerefundrequest.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case balancerefundrequest.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case balancerefundrequest.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case balancerefundrequest.FieldBalance:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalance(v)
+		return nil
+	case balancerefundrequest.FieldRebateAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRebateAmount(v)
+		return nil
+	case balancerefundrequest.FieldFeeRatePercent:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFeeRatePercent(v)
+		return nil
+	case balancerefundrequest.FieldFeeAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFeeAmount(v)
+		return nil
+	case balancerefundrequest.FieldRefundableAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRefundableAmount(v)
+		return nil
+	case balancerefundrequest.FieldFrozenAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFrozenAmount(v)
+		return nil
+	case balancerefundrequest.FieldQrStorageKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetQrStorageKey(v)
+		return nil
+	case balancerefundrequest.FieldQrContentType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetQrContentType(v)
+		return nil
+	case balancerefundrequest.FieldQrSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetQrSize(v)
+		return nil
+	case balancerefundrequest.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case balancerefundrequest.FieldUserNote:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserNote(v)
+		return nil
+	case balancerefundrequest.FieldRejectReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRejectReason(v)
+		return nil
+	case balancerefundrequest.FieldAdminNote:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAdminNote(v)
+		return nil
+	case balancerefundrequest.FieldReviewedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedBy(v)
+		return nil
+	case balancerefundrequest.FieldReviewedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown BalanceRefundRequest field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *BalanceRefundRequestMutation) AddedFields() []string {
+	var fields []string
+	if m.adduser_id != nil {
+		fields = append(fields, balancerefundrequest.FieldUserID)
+	}
+	if m.addbalance != nil {
+		fields = append(fields, balancerefundrequest.FieldBalance)
+	}
+	if m.addrebate_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldRebateAmount)
+	}
+	if m.addfee_rate_percent != nil {
+		fields = append(fields, balancerefundrequest.FieldFeeRatePercent)
+	}
+	if m.addfee_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldFeeAmount)
+	}
+	if m.addrefundable_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldRefundableAmount)
+	}
+	if m.addfrozen_amount != nil {
+		fields = append(fields, balancerefundrequest.FieldFrozenAmount)
+	}
+	if m.addqr_size != nil {
+		fields = append(fields, balancerefundrequest.FieldQrSize)
+	}
+	if m.addreviewed_by != nil {
+		fields = append(fields, balancerefundrequest.FieldReviewedBy)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *BalanceRefundRequestMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case balancerefundrequest.FieldUserID:
+		return m.AddedUserID()
+	case balancerefundrequest.FieldBalance:
+		return m.AddedBalance()
+	case balancerefundrequest.FieldRebateAmount:
+		return m.AddedRebateAmount()
+	case balancerefundrequest.FieldFeeRatePercent:
+		return m.AddedFeeRatePercent()
+	case balancerefundrequest.FieldFeeAmount:
+		return m.AddedFeeAmount()
+	case balancerefundrequest.FieldRefundableAmount:
+		return m.AddedRefundableAmount()
+	case balancerefundrequest.FieldFrozenAmount:
+		return m.AddedFrozenAmount()
+	case balancerefundrequest.FieldQrSize:
+		return m.AddedQrSize()
+	case balancerefundrequest.FieldReviewedBy:
+		return m.AddedReviewedBy()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BalanceRefundRequestMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case balancerefundrequest.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddUserID(v)
+		return nil
+	case balancerefundrequest.FieldBalance:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalance(v)
+		return nil
+	case balancerefundrequest.FieldRebateAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRebateAmount(v)
+		return nil
+	case balancerefundrequest.FieldFeeRatePercent:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFeeRatePercent(v)
+		return nil
+	case balancerefundrequest.FieldFeeAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFeeAmount(v)
+		return nil
+	case balancerefundrequest.FieldRefundableAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRefundableAmount(v)
+		return nil
+	case balancerefundrequest.FieldFrozenAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFrozenAmount(v)
+		return nil
+	case balancerefundrequest.FieldQrSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddQrSize(v)
+		return nil
+	case balancerefundrequest.FieldReviewedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReviewedBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown BalanceRefundRequest numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *BalanceRefundRequestMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(balancerefundrequest.FieldRejectReason) {
+		fields = append(fields, balancerefundrequest.FieldRejectReason)
+	}
+	if m.FieldCleared(balancerefundrequest.FieldReviewedBy) {
+		fields = append(fields, balancerefundrequest.FieldReviewedBy)
+	}
+	if m.FieldCleared(balancerefundrequest.FieldReviewedAt) {
+		fields = append(fields, balancerefundrequest.FieldReviewedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *BalanceRefundRequestMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *BalanceRefundRequestMutation) ClearField(name string) error {
+	switch name {
+	case balancerefundrequest.FieldRejectReason:
+		m.ClearRejectReason()
+		return nil
+	case balancerefundrequest.FieldReviewedBy:
+		m.ClearReviewedBy()
+		return nil
+	case balancerefundrequest.FieldReviewedAt:
+		m.ClearReviewedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown BalanceRefundRequest nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *BalanceRefundRequestMutation) ResetField(name string) error {
+	switch name {
+	case balancerefundrequest.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case balancerefundrequest.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case balancerefundrequest.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case balancerefundrequest.FieldBalance:
+		m.ResetBalance()
+		return nil
+	case balancerefundrequest.FieldRebateAmount:
+		m.ResetRebateAmount()
+		return nil
+	case balancerefundrequest.FieldFeeRatePercent:
+		m.ResetFeeRatePercent()
+		return nil
+	case balancerefundrequest.FieldFeeAmount:
+		m.ResetFeeAmount()
+		return nil
+	case balancerefundrequest.FieldRefundableAmount:
+		m.ResetRefundableAmount()
+		return nil
+	case balancerefundrequest.FieldFrozenAmount:
+		m.ResetFrozenAmount()
+		return nil
+	case balancerefundrequest.FieldQrStorageKey:
+		m.ResetQrStorageKey()
+		return nil
+	case balancerefundrequest.FieldQrContentType:
+		m.ResetQrContentType()
+		return nil
+	case balancerefundrequest.FieldQrSize:
+		m.ResetQrSize()
+		return nil
+	case balancerefundrequest.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case balancerefundrequest.FieldUserNote:
+		m.ResetUserNote()
+		return nil
+	case balancerefundrequest.FieldRejectReason:
+		m.ResetRejectReason()
+		return nil
+	case balancerefundrequest.FieldAdminNote:
+		m.ResetAdminNote()
+		return nil
+	case balancerefundrequest.FieldReviewedBy:
+		m.ResetReviewedBy()
+		return nil
+	case balancerefundrequest.FieldReviewedAt:
+		m.ResetReviewedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown BalanceRefundRequest field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *BalanceRefundRequestMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *BalanceRefundRequestMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *BalanceRefundRequestMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *BalanceRefundRequestMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *BalanceRefundRequestMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *BalanceRefundRequestMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *BalanceRefundRequestMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown BalanceRefundRequest unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *BalanceRefundRequestMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown BalanceRefundRequest edge %s", name)
 }
 
 // BatchImageEventMutation represents an operation that mutates the BatchImageEvent nodes in the graph.

@@ -36,6 +36,23 @@ const (
 	AdminRechargeRebateEnabledDefault   = false // 管理员充值默认不产生返利
 )
 
+// Balance refund (余额退款申请) settings
+const (
+	BalanceRefundStatusPending   = domain.BalanceRefundStatusPending
+	BalanceRefundStatusCompleted = domain.BalanceRefundStatusCompleted
+	BalanceRefundStatusRejected  = domain.BalanceRefundStatusRejected
+
+	// RefundFeeRatePercentDefault 是退款手续费的默认费率（3%），与需求口径一致。
+	RefundFeeRatePercentDefault = 3.0
+	RefundFeeRatePercentMin     = 0.0
+	RefundFeeRatePercentMax     = 100.0
+
+	// RefundMinAmountDefault 是起退点（可退金额低于它就不给退，也不显示入口）。
+	// 门槛卡在可退金额而不是余额上：可退 ≤ 余额，所以余额不足同样被挡住，
+	// 而"余额够但被返利扣完不够"的情况也能一并覆盖。
+	RefundMinAmountDefault = 20.0
+)
+
 // Platform constants
 const (
 	PlatformAnthropic   = domain.PlatformAnthropic
@@ -184,6 +201,7 @@ const (
 // Admin adjustment type constants
 const (
 	AdjustmentTypeAdminBalance     = domain.AdjustmentTypeAdminBalance     // 管理员调整余额
+	AdjustmentTypeBalanceRefund    = domain.AdjustmentTypeBalanceRefund    // 余额退款冻结/解冻
 	AdjustmentTypeAdminConcurrency = domain.AdjustmentTypeAdminConcurrency // 管理员调整并发数
 )
 
@@ -233,6 +251,8 @@ const (
 	SettingKeyAffiliateRebateDurationDays         = "affiliate_rebate_duration_days"   // 返利有效期（天，0=永久）
 	SettingKeyAffiliateRebatePerInviteeCap        = "affiliate_rebate_per_invitee_cap" // 单人返利上限（0=无上限）
 	SettingKeyAffiliateAdminRechargeEnabled       = "affiliate_admin_recharge_enabled" // 管理员充值是否产生返利
+	SettingKeyRefundFeeRatePercent                = "balance_refund_fee_rate_percent"  // 余额退款手续费比例（百分比，默认 3）
+	SettingKeyRefundMinAmount                     = "balance_refund_min_amount"        // 余额退款起退点（默认 20）
 	SettingKeyRiskControlEnabled                  = "risk_control_enabled"             // 是否启用风控中心入口与审计链路
 	SettingKeyContentModerationConfig             = "content_moderation_config"        // 内容审计配置（JSON）
 	SettingKeyCyberSessionBlockEnabled            = "cyber_session_block_enabled"      // cyber 命中后会话级自动屏蔽总开关(默认关)

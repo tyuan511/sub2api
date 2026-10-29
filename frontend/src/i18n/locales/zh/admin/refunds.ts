@@ -1,0 +1,51 @@
+export default {
+  refunds: {
+    pageDescription: '审核用户的余额退款申请，可查看收款二维码并标记完成或拒绝。',
+    searchPlaceholder: '搜索邮箱 / 用户名',
+    statusLabel: '状态',
+    statusAll: '全部状态',
+    status: {
+      pending: '待处理',
+      completed: '已完成',
+      rejected: '已拒绝'
+    },
+    applicant: '申请人',
+    compositionTitle: '余额来源构成',
+    compositionHint: '以上是能归因的入账；余额是流动的，线下收款不会有支付订单，所以系统不做拦截，请结合实际情况判断。',
+    compositionNoCash: '注意：该用户线上实付为 0，账上余额全部来自发放（卡密/后台调整/赠送）。退现金前请确认是否有线下付款依据。',
+    composition: {
+      paidOnline: '线上支付实付净额',
+      redeemCodes: '卡密兑换',
+      adminAdjusted: '管理员调整（净）',
+      promoBonus: '优惠码赠送',
+      rebateTransferred: '推广返利转入',
+      unattributed: '无法归因（首登赠送/改库等）',
+      attributedTotal: '可归因入账合计',
+      referenceBalance: '申请时账户余额',
+      currentBalance: '当前余额'
+    },
+    submittedAt: '提交时间',
+    detailTitle: '退款申请详情',
+    frozen: '已冻结余额',
+    frozenNote: '完成只结清冻结额；申请之后新到账的余额不受影响。',
+    qrCode: '收款二维码',
+    qrUnavailable: '二维码加载失败，可能已被清理',
+    qrLoadFailed: '获取收款二维码失败',
+    loadFailed: '获取退款申请列表失败',
+    complete: '标记已完成',
+    completeConfirm: '确认已向 {email} 线下打款 {amount}？确认后系统会把该用户的账户余额清零（含手续费与返利零头）。',
+    completedToast: '已标记为完成，用户余额已清零',
+    completeFailed: '标记完成失败',
+    reject: '拒绝',
+    adminNote: '管理员备注',
+    adminNoteInput: '完成备注（可选，会展示给用户）',
+    adminNotePlaceholder: '例如：支付宝已转，流水号 20261023xxxx',
+    adminNoteHint: '用于记录打款流水号或渠道单号，用户能在自己的退款记录里看到。',
+    rejectReason: '拒绝原因',
+    rejectReasonInput: '拒绝原因（必填）',
+    rejectReasonPlaceholder: '例如：二维码无法识别，请重新上传',
+    rejectReasonRequired: '请填写拒绝原因',
+    rejectedToast: '已拒绝该退款申请',
+    rejectFailed: '拒绝申请失败'
+  }
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikeyrouteconfigoutbox"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/balancerefundrequest"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageitem"
 	"github.com/Wei-Shaw/sub2api/ent/batchimagejob"
@@ -670,6 +671,97 @@ func init() {
 	authidentitychannelDescMetadata := authidentitychannelFields[6].Descriptor()
 	// authidentitychannel.DefaultMetadata holds the default value on creation for the metadata field.
 	authidentitychannel.DefaultMetadata = authidentitychannelDescMetadata.Default.(func() map[string]interface{})
+	balancerefundrequestMixin := schema.BalanceRefundRequest{}.Mixin()
+	balancerefundrequestMixinFields0 := balancerefundrequestMixin[0].Fields()
+	_ = balancerefundrequestMixinFields0
+	balancerefundrequestFields := schema.BalanceRefundRequest{}.Fields()
+	_ = balancerefundrequestFields
+	// balancerefundrequestDescCreatedAt is the schema descriptor for created_at field.
+	balancerefundrequestDescCreatedAt := balancerefundrequestMixinFields0[0].Descriptor()
+	// balancerefundrequest.DefaultCreatedAt holds the default value on creation for the created_at field.
+	balancerefundrequest.DefaultCreatedAt = balancerefundrequestDescCreatedAt.Default.(func() time.Time)
+	// balancerefundrequestDescUpdatedAt is the schema descriptor for updated_at field.
+	balancerefundrequestDescUpdatedAt := balancerefundrequestMixinFields0[1].Descriptor()
+	// balancerefundrequest.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	balancerefundrequest.DefaultUpdatedAt = balancerefundrequestDescUpdatedAt.Default.(func() time.Time)
+	// balancerefundrequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	balancerefundrequest.UpdateDefaultUpdatedAt = balancerefundrequestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// balancerefundrequestDescRebateAmount is the schema descriptor for rebate_amount field.
+	balancerefundrequestDescRebateAmount := balancerefundrequestFields[2].Descriptor()
+	// balancerefundrequest.DefaultRebateAmount holds the default value on creation for the rebate_amount field.
+	balancerefundrequest.DefaultRebateAmount = balancerefundrequestDescRebateAmount.Default.(float64)
+	// balancerefundrequestDescFeeRatePercent is the schema descriptor for fee_rate_percent field.
+	balancerefundrequestDescFeeRatePercent := balancerefundrequestFields[3].Descriptor()
+	// balancerefundrequest.DefaultFeeRatePercent holds the default value on creation for the fee_rate_percent field.
+	balancerefundrequest.DefaultFeeRatePercent = balancerefundrequestDescFeeRatePercent.Default.(float64)
+	// balancerefundrequestDescFeeAmount is the schema descriptor for fee_amount field.
+	balancerefundrequestDescFeeAmount := balancerefundrequestFields[4].Descriptor()
+	// balancerefundrequest.DefaultFeeAmount holds the default value on creation for the fee_amount field.
+	balancerefundrequest.DefaultFeeAmount = balancerefundrequestDescFeeAmount.Default.(float64)
+	// balancerefundrequestDescRefundableAmount is the schema descriptor for refundable_amount field.
+	balancerefundrequestDescRefundableAmount := balancerefundrequestFields[5].Descriptor()
+	// balancerefundrequest.DefaultRefundableAmount holds the default value on creation for the refundable_amount field.
+	balancerefundrequest.DefaultRefundableAmount = balancerefundrequestDescRefundableAmount.Default.(float64)
+	// balancerefundrequestDescFrozenAmount is the schema descriptor for frozen_amount field.
+	balancerefundrequestDescFrozenAmount := balancerefundrequestFields[6].Descriptor()
+	// balancerefundrequest.DefaultFrozenAmount holds the default value on creation for the frozen_amount field.
+	balancerefundrequest.DefaultFrozenAmount = balancerefundrequestDescFrozenAmount.Default.(float64)
+	// balancerefundrequestDescQrStorageKey is the schema descriptor for qr_storage_key field.
+	balancerefundrequestDescQrStorageKey := balancerefundrequestFields[7].Descriptor()
+	// balancerefundrequest.QrStorageKeyValidator is a validator for the "qr_storage_key" field. It is called by the builders before save.
+	balancerefundrequest.QrStorageKeyValidator = func() func(string) error {
+		validators := balancerefundrequestDescQrStorageKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(qr_storage_key string) error {
+			for _, fn := range fns {
+				if err := fn(qr_storage_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// balancerefundrequestDescQrContentType is the schema descriptor for qr_content_type field.
+	balancerefundrequestDescQrContentType := balancerefundrequestFields[8].Descriptor()
+	// balancerefundrequest.DefaultQrContentType holds the default value on creation for the qr_content_type field.
+	balancerefundrequest.DefaultQrContentType = balancerefundrequestDescQrContentType.Default.(string)
+	// balancerefundrequest.QrContentTypeValidator is a validator for the "qr_content_type" field. It is called by the builders before save.
+	balancerefundrequest.QrContentTypeValidator = balancerefundrequestDescQrContentType.Validators[0].(func(string) error)
+	// balancerefundrequestDescQrSize is the schema descriptor for qr_size field.
+	balancerefundrequestDescQrSize := balancerefundrequestFields[9].Descriptor()
+	// balancerefundrequest.DefaultQrSize holds the default value on creation for the qr_size field.
+	balancerefundrequest.DefaultQrSize = balancerefundrequestDescQrSize.Default.(int64)
+	// balancerefundrequestDescStatus is the schema descriptor for status field.
+	balancerefundrequestDescStatus := balancerefundrequestFields[10].Descriptor()
+	// balancerefundrequest.DefaultStatus holds the default value on creation for the status field.
+	balancerefundrequest.DefaultStatus = balancerefundrequestDescStatus.Default.(string)
+	// balancerefundrequest.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	balancerefundrequest.StatusValidator = func() func(string) error {
+		validators := balancerefundrequestDescStatus.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(status string) error {
+			for _, fn := range fns {
+				if err := fn(status); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// balancerefundrequestDescUserNote is the schema descriptor for user_note field.
+	balancerefundrequestDescUserNote := balancerefundrequestFields[11].Descriptor()
+	// balancerefundrequest.DefaultUserNote holds the default value on creation for the user_note field.
+	balancerefundrequest.DefaultUserNote = balancerefundrequestDescUserNote.Default.(string)
+	// balancerefundrequestDescAdminNote is the schema descriptor for admin_note field.
+	balancerefundrequestDescAdminNote := balancerefundrequestFields[13].Descriptor()
+	// balancerefundrequest.DefaultAdminNote holds the default value on creation for the admin_note field.
+	balancerefundrequest.DefaultAdminNote = balancerefundrequestDescAdminNote.Default.(string)
 	batchimageeventFields := schema.BatchImageEvent{}.Fields()
 	_ = batchimageeventFields
 	// batchimageeventDescJobID is the schema descriptor for job_id field.

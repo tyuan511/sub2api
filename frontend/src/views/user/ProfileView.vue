@@ -13,6 +13,7 @@
         :wechat-enabled="wechatOAuthEnabled"
         :wechat-open-enabled="wechatOAuthOpenEnabled"
         :wechat-mp-enabled="wechatOAuthMPEnabled"
+        :refund-min-amount="refundMinAmount"
       />
 
       <div
@@ -56,6 +57,7 @@ import { Icon } from '@/components/icons'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ProfileBalanceNotifyCard from '@/components/user/profile/ProfileBalanceNotifyCard.vue'
 import ProfileInfoCard from '@/components/user/profile/ProfileInfoCard.vue'
+import { DEFAULT_REFUND_MIN_AMOUNT } from '@/api/refunds'
 import ProfilePasswordForm from '@/components/user/profile/ProfilePasswordForm.vue'
 import ProfileTotpCard from '@/components/user/profile/ProfileTotpCard.vue'
 import ProfilePasskeyCard from '@/components/user/profile/ProfilePasskeyCard.vue'
@@ -70,6 +72,8 @@ const user = computed(() => authStore.user)
 
 const contactInfo = ref('')
 const balanceLowNotifyEnabled = ref(false)
+// 退款起退点：余额低于它就干脆不显示入口，省得用户点了才发现不能退。
+const refundMinAmount = ref(DEFAULT_REFUND_MIN_AMOUNT)
 const systemDefaultThreshold = ref(0)
 const linuxdoOAuthEnabled = ref(false)
 const dingtalkOAuthEnabled = ref(false)
@@ -93,6 +97,7 @@ onMounted(async () => {
       contactInfo.value = settings.contact_info || ''
       balanceLowNotifyEnabled.value = settings.balance_low_notify_enabled ?? false
       systemDefaultThreshold.value = settings.balance_low_notify_threshold ?? 0
+      refundMinAmount.value = settings.balance_refund_min_amount ?? DEFAULT_REFUND_MIN_AMOUNT
       linuxdoOAuthEnabled.value = settings.linuxdo_oauth_enabled ?? false
       dingtalkOAuthEnabled.value = settings.dingtalk_oauth_enabled ?? false
       wechatOAuthEnabled.value = isWeChatWebOAuthEnabled(settings)

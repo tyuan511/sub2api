@@ -16,6 +16,13 @@ const (
 	RoleUser  = "user"
 )
 
+// BalanceRefundStatus 是余额退款申请的三个状态：待处理 / 已完成 / 已拒绝。
+const (
+	BalanceRefundStatusPending   = "pending"
+	BalanceRefundStatusCompleted = "completed"
+	BalanceRefundStatusRejected  = "rejected"
+)
+
 // Platform constants
 const (
 	PlatformAnthropic   = "anthropic"
@@ -86,7 +93,10 @@ const (
 
 // Admin adjustment type constants
 const (
-	AdjustmentTypeAdminBalance     = "admin_balance"     // 管理员调整余额
+	AdjustmentTypeAdminBalance = "admin_balance" // 管理员调整余额
+	// AdjustmentTypeBalanceRefund 是余额退款引起的冻结/解冻记录。单独一个类型，
+	// 是为了让"管理员调整"这个口径不被退款流水污染（构成分析要靠它算现金来源）。
+	AdjustmentTypeBalanceRefund    = "balance_refund"
 	AdjustmentTypeAdminConcurrency = "admin_concurrency" // 管理员调整并发数
 )
 

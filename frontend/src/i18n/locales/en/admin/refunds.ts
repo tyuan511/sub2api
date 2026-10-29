@@ -1,0 +1,51 @@
+export default {
+  refunds: {
+    pageDescription: 'Review balance refund requests, open the payment QR code, then mark them completed or rejected.',
+    searchPlaceholder: 'Search email / username',
+    statusLabel: 'Status',
+    statusAll: 'All statuses',
+    status: {
+      pending: 'Pending',
+      completed: 'Completed',
+      rejected: 'Rejected'
+    },
+    applicant: 'Applicant',
+    compositionTitle: 'Balance composition',
+    compositionHint: 'Attributable credits only. Balance is fungible and offline payments leave no order, so nothing is blocked automatically — judge it against reality.',
+    compositionNoCash: 'Heads up: this user paid nothing online — every credit comes from grants (redeem codes, admin adjustments, bonuses). Confirm an offline payment basis before refunding.',
+    composition: {
+      paidOnline: 'Paid online (net)',
+      redeemCodes: 'Redeem codes',
+      adminAdjusted: 'Admin adjustments (net)',
+      promoBonus: 'Promo code bonuses',
+      rebateTransferred: 'Affiliate rebate transferred',
+      unattributed: 'Unattributed (signup grants, direct DB edits, etc.)',
+      attributedTotal: 'Attributable credits total',
+      referenceBalance: 'Balance at request time',
+      currentBalance: 'Current balance'
+    },
+    submittedAt: 'Submitted at',
+    detailTitle: 'Refund request details',
+    frozen: 'Frozen balance',
+    frozenNote: 'Completing settles only the frozen amount; balance added after the request is untouched.',
+    qrCode: 'Payment QR code',
+    qrUnavailable: 'The QR code could not be loaded; it may have been removed',
+    qrLoadFailed: 'Failed to load the payment QR code',
+    loadFailed: 'Failed to load refund requests',
+    complete: 'Mark as completed',
+    completeConfirm: 'Confirm that you paid {amount} to {email} offline? The user\'s balance will be cleared to zero (including the handling fee and rebate remainder).',
+    completedToast: 'Marked as completed; the user balance has been cleared',
+    completeFailed: 'Failed to mark the request as completed',
+    reject: 'Reject',
+    adminNote: 'Admin note',
+    adminNoteInput: 'Completion note (optional, visible to the user)',
+    adminNotePlaceholder: 'e.g. Alipay paid, transaction id 20261023xxxx',
+    adminNoteHint: 'Records the payout reference; the user sees it in their own refund history.',
+    rejectReason: 'Rejection reason',
+    rejectReasonInput: 'Rejection reason (required)',
+    rejectReasonPlaceholder: 'e.g. QR code is unreadable, please upload another one',
+    rejectReasonRequired: 'A rejection reason is required',
+    rejectedToast: 'Refund request rejected',
+    rejectFailed: 'Failed to reject the request'
+  }
+}

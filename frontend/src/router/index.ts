@@ -712,6 +712,18 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'admin.affiliates.transfersDescription'
     }
   },
+  {
+    path: '/admin/refunds',
+    name: 'AdminRefundRequests',
+    component: () => import('@/views/admin/refunds/AdminRefundRequestsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Refund Requests',
+      titleKey: 'nav.refundRequests',
+      descriptionKey: 'admin.refunds.pageDescription'
+    }
+  },
 
 
   // ==================== Payment Admin Routes ====================

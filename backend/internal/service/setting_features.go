@@ -161,6 +161,44 @@ func (s *SettingService) GetAffiliateRebatePerInviteeCap(ctx context.Context) fl
 	return cap
 }
 
+// GetRefundFeeRatePercent 读取并 clamp 余额退款手续费比例（百分比）。
+// 缺失、解析失败或越界都回退到 RefundFeeRatePercentDefault（3%）——该费率从不抛错，
+// 调用方只需要一个可用的数值。
+func (s *SettingService) GetRefundFeeRatePercent(ctx context.Context) float64 {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyRefundFeeRatePercent)
+	if err != nil {
+		return RefundFeeRatePercentDefault
+	}
+	rate, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || math.IsNaN(rate) || math.IsInf(rate, 0) {
+		return RefundFeeRatePercentDefault
+	}
+	if rate < RefundFeeRatePercentMin {
+		return RefundFeeRatePercentMin
+	}
+	if rate > RefundFeeRatePercentMax {
+		return RefundFeeRatePercentMax
+	}
+	return rate
+}
+
+// GetRefundMinAmount 读取并兜底退款起退点。缺失或解析失败回退到 RefundMinAmountDefault，
+// 配成 0 或负数表示不设门槛（运营想放开时不必改代码）。
+func (s *SettingService) GetRefundMinAmount(ctx context.Context) float64 {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyRefundMinAmount)
+	if err != nil {
+		return RefundMinAmountDefault
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+		return RefundMinAmountDefault
+	}
+	if value <= 0 {
+		return 0
+	}
+	return value
+}
+
 // IsPasswordResetEnabled 检查是否启用密码重置功能
 // 要求：必须同时开启邮件验证
 func (s *SettingService) IsPasswordResetEnabled(ctx context.Context) bool {

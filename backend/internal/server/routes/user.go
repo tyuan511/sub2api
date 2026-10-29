@@ -34,6 +34,11 @@ func RegisterUserRoutes(
 			user.GET("/profile", h.User.GetProfile)
 			user.PUT("/password", h.User.ChangePassword)
 			user.PUT("", h.User.UpdateProfile)
+			// 余额退款：报价、提交申请、查看自己的申请、读取收款二维码
+			user.GET("/refunds/quote", h.Refund.GetQuote)
+			user.POST("/refund-requests", middleware.RequestBodyLimit(service.RefundMaxRequestBodyBytes), h.Refund.CreateRequest)
+			user.GET("/refund-requests", h.Refund.ListMyRequests)
+			user.GET("/refund-requests/:id/qr", h.Refund.QR)
 			user.GET("/aff", h.User.GetAffiliate)
 			user.POST("/aff/transfer", h.User.TransferAffiliateQuota)
 			user.POST("/account-bindings/email/send-code", h.User.SendEmailBindingCode)
