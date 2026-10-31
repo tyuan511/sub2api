@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"maps"
 	"sort"
 	"strings"
@@ -14,6 +16,7 @@ import (
 // 订阅 vs 标准（SubscriptionType）、默认倍率（RateMultiplier）与高峰倍率规则。
 // 用户专属倍率不在这里暴露，前端自己通过 /groups/rates 拉取，和 API 密钥页面保持一致。
 type AvailableGroupRef struct {
+	I18n               domain.GroupI18n
 	ID                 int64
 	Name               string
 	Platform           string

@@ -20,11 +20,7 @@ const (
 	grokObservedModelsTimeout  = 15 * time.Second
 )
 
-type grokObservedModelsSnapshot struct {
-	Models    []string `json:"models"`
-	FetchedAt string   `json:"fetched_at"`
-	Source    string   `json:"source,omitempty"`
-}
+type grokObservedModelsSnapshot = GrokObservedModelsSnapshot
 
 var grokObservedModelsFlight sync.Map // accountID -> *singleflight-ish in-flight
 
@@ -173,6 +169,16 @@ func extractGrokModelIDsFromModelsBody(body []byte) []string {
 		return true
 	})
 	return out
+}
+
+func parseGrokCatalogTimestamp(value string) (time.Time, bool) {
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339} {
+		parsed, err := time.Parse(layout, strings.TrimSpace(value))
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func parseGrokObservedModels(extra map[string]any) *grokObservedModelsSnapshot {

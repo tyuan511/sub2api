@@ -889,6 +889,27 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 	return normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized)
 }
 
+func (a *Account) isModelMappingSupported(requestedModel string) bool {
+	if a.IsOpenAIPassthroughEnabled() {
+		return true
+	}
+	mapping := a.GetModelMapping()
+	if len(mapping) == 0 {
+		if a.IsOpenAIOAuth() {
+			return isOpenAIOAuthServableModel(requestedModel)
+		}
+		if a.Platform == PlatformDeepseek {
+			return isDeepseekServableModel(requestedModel)
+		}
+		return true
+	}
+	if mappingSupportsRequestedModel(mapping, requestedModel) {
+		return true
+	}
+	normalized := normalizeRequestedModelForLookup(a.Platform, requestedModel)
+	return normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized)
+}
+
 // GetMappedModel 获取映射后的模型名（支持通配符，最长优先匹配）
 // 如果未配置 mapping，返回原始模型名
 func (a *Account) GetMappedModel(requestedModel string) string {
@@ -1328,6 +1349,19 @@ func (a *Account) IsBedrockAPIKey() bool {
 // IsAPIKeyOrBedrock 返回账号类型是否支持配额和池模式等特性
 func (a *Account) IsAPIKeyOrBedrock() bool {
 	return a.Type == AccountTypeAPIKey || a.Type == AccountTypeBedrock
+}
+
+func AccountTypeSupportsQuota(accountType string) bool {
+	switch strings.ToLower(accountType) {
+	case AccountTypeAPIKey, AccountTypeBedrock, AccountTypeServiceAccount:
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *Account) SupportsAccountQuota() bool {
+	return a != nil && AccountTypeSupportsQuota(a.Type)
 }
 
 func (a *Account) IsOpenAI() bool {

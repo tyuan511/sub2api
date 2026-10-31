@@ -2640,6 +2640,21 @@ func isGeminiInsufficientScope(headers http.Header, body []byte) bool {
 	return strings.Contains(lower, "insufficient authentication scopes") || strings.Contains(lower, "access_token_scope_insufficient")
 }
 
+// isGeminiCachedContentNotFound 识别请求引用的显式缓存不存在（含已过期、已删除、不属于当前项目）时上游的响应。
+func isGeminiCachedContentNotFound(statusCode int, body []byte) bool {
+	lower := strings.ToLower(string(body))
+	switch statusCode {
+	case http.StatusForbidden:
+		return strings.Contains(lower, "cachedcontent not found")
+	case http.StatusBadRequest:
+		return strings.Contains(lower, "invalid resource state for cache content")
+	case http.StatusNotFound:
+		return strings.Contains(lower, "cached content") && strings.Contains(lower, "not found")
+	default:
+		return false
+	}
+}
+
 func estimateGeminiCountTokens(reqBody []byte) int {
 	total := 0
 

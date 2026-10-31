@@ -369,7 +369,18 @@ func buildOpenAIWSHTTPBridgeErrorEvent(statusCode int, message string) []byte {
 	return body
 }
 
-func buildOpenAIWSHTTPBridgeFailedEvent(responseID, model string, source []byte, fallbackMessage string) []byte {
+func buildOpenAIWSHTTPBridgeFailedEvent(responseID, model string, args ...any) []byte {
+	var source []byte
+	var fallbackMessage string
+	var createdAt int
+	if len(args) == 2 {
+		source, _ = args[0].([]byte)
+		fallbackMessage, _ = args[1].(string)
+	} else if len(args) >= 3 {
+		createdAt, _ = args[0].(int)
+		source, _ = args[1].([]byte)
+		fallbackMessage, _ = args[2].(string)
+	}
 	errorType := strings.TrimSpace(gjson.GetBytes(source, "error.type").String())
 	if errorType == "" {
 		errorType = strings.TrimSpace(gjson.GetBytes(source, "response.error.type").String())
@@ -398,6 +409,9 @@ func buildOpenAIWSHTTPBridgeFailedEvent(responseID, model string, source []byte,
 	}
 	if model = strings.TrimSpace(model); model != "" {
 		response["model"] = model
+	}
+	if createdAt > 0 {
+		response["created_at"] = createdAt
 	}
 	body, err := json.Marshal(map[string]any{"type": "response.failed", "sequence_number": 0, "response": response})
 	if err != nil {

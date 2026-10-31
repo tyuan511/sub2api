@@ -62,6 +62,48 @@ const (
 	OpsClientBusinessLimitedReasonLocalModelConfiguration = "local_model_configuration"
 )
 
+const OpsRequestScopedErrorKey = "ops_request_scoped_error"
+
+func MarkOpsRequestScopedError(c *gin.Context, errType string) {
+	if c == nil {
+		return
+	}
+	c.Set(OpsRequestScopedErrorKey, errType)
+}
+
+func IsOpsRequestScopedError(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	_, ok := c.Get(OpsRequestScopedErrorKey)
+	return ok
+}
+
+const OpsLocalErrorTypeKey = "ops_local_error_type"
+const OpsLocalErrorCodeKey = "ops_local_error_code"
+
+func SetOpsLocalErrorType(c *gin.Context, errType, code string) {
+	if c == nil {
+		return
+	}
+	if strings.TrimSpace(errType) == "" {
+		c.Set(OpsLocalErrorTypeKey, "")
+		c.Set(OpsLocalErrorCodeKey, "")
+		c.Set(OpsRequestScopedErrorKey, false)
+		return
+	}
+	c.Set(OpsLocalErrorTypeKey, strings.TrimSpace(errType))
+	c.Set(OpsLocalErrorCodeKey, strings.TrimSpace(code))
+	c.Set(OpsRequestScopedErrorKey, false)
+}
+
+func OpsLocalErrorType(c *gin.Context) (string, string) {
+	if c == nil {
+		return "", ""
+	}
+	return c.GetString(OpsLocalErrorTypeKey), c.GetString(OpsLocalErrorCodeKey)
+}
+
 func MarkResponseCommitted(c *gin.Context) { c.Set(ResponseCommittedKey, true) }
 
 func IsResponseCommitted(c *gin.Context) bool {

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,9 @@ const (
 	UpstreamModelMetadataExtraKey             = "upstream_model_metadata"
 	UpstreamModelMetadataIncompleteCode       = "upstream_model_metadata_incomplete"
 	UpstreamModelMetadataPartialCode          = "upstream_model_metadata_partial"
+	vertexPublisherModelsMaxPages             = 20
+	vertexPublisherModelsPageSize             = 300
+	vertexGooglePublisherModelPrefix          = "publishers/google/models/"
 )
 
 type UpstreamModelMetadata struct {
@@ -48,9 +52,11 @@ type UpstreamModelMetadataSnapshot struct {
 }
 
 type UpstreamModelCatalog struct {
-	Models   []string                         `json:"models"`
-	Metadata map[string]UpstreamModelMetadata `json:"metadata,omitempty"`
-	Warnings []UpstreamModelSyncWarning       `json:"warnings,omitempty"`
+	Models               []string                         `json:"models"`
+	Metadata             map[string]UpstreamModelMetadata `json:"metadata,omitempty"`
+	Warnings             []UpstreamModelSyncWarning       `json:"warnings,omitempty"`
+	DiscoverySource      string                           `json:"discovery_source,omitempty"`
+	GrokModelDiagnostics *GrokModelDiagnostics            `json:"grok_model_diagnostics,omitempty"`
 }
 
 type UpstreamModelSyncWarning struct {
@@ -225,6 +231,13 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
 		)
 	}
 	catalog := &UpstreamModelCatalog{Models: models, Metadata: make(map[string]UpstreamModelMetadata)}
+	if account != nil && account.IsGrok() {
+		if liveListAvailable {
+			catalog.DiscoverySource = "upstream"
+		} else {
+			catalog.DiscoverySource = "configured_fallback"
+		}
+	}
 	if len(body) > 0 {
 		_, directMetadata, parseErr := extractUpstreamModelCatalog(body, account != nil && account.IsGrok())
 		if parseErr == nil {
@@ -1216,6 +1229,67 @@ func buildV1ModelsURL(base string) string {
 
 func buildOpenAIModelsURL(base string) string {
 	return buildOpenAIEndpointURL(base, "/v1/models")
+}
+
+func buildVertexPublisherModelsURL(location, pageToken string) (string, error) {
+	location = strings.TrimSpace(location)
+	if location == "" {
+		location = vertexDefaultLocation
+	}
+	if !vertexLocationPattern.MatchString(location) {
+		return "", fmt.Errorf("invalid vertex location: %s", location)
+	}
+	host := location + "-aiplatform.googleapis.com"
+	if location == "global" {
+		host = vertexGlobalHost
+	}
+	query := url.Values{"pageSize": []string{strconv.Itoa(vertexPublisherModelsPageSize)}}
+	if pageToken != "" {
+		query.Set("pageToken", pageToken)
+	}
+	return fmt.Sprintf("https://%s/v1beta1/publishers/google/models?%s", host, query.Encode()), nil
+}
+
+func listVertexGeminiPublisherModels(location string, fetchPage func(page int, listURL string) ([]byte, error)) ([]string, error) {
+	models := make([]string, 0)
+	pageToken := ""
+	for page := 0; page < vertexPublisherModelsMaxPages; page++ {
+		listURL, err := buildVertexPublisherModelsURL(location, pageToken)
+		if err != nil {
+			return nil, newUpstreamModelSyncConfigError("Invalid Vertex location", err)
+		}
+		body, err := fetchPage(page, listURL)
+		if err != nil {
+			return nil, err
+		}
+		var response struct {
+			PublisherModels []struct {
+				Name string `json:"name"`
+			} `json:"publisherModels"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, newUpstreamModelSyncUpstreamError("Upstream model list response was not valid JSON", err)
+		}
+		for _, entry := range response.PublisherModels {
+			name := strings.TrimSpace(entry.Name)
+			if !strings.HasPrefix(name, vertexGooglePublisherModelPrefix) {
+				continue
+			}
+			modelID := strings.TrimPrefix(name, vertexGooglePublisherModelPrefix)
+			if strings.HasPrefix(modelID, "gemini-") && len(modelID) > len("gemini-") {
+				models = append(models, modelID)
+			}
+		}
+		pageToken = strings.TrimSpace(response.NextPageToken)
+		if pageToken == "" {
+			if len(models) == 0 {
+				return nil, newUpstreamModelSyncUpstreamError("Upstream returned no supported models", nil)
+			}
+			return dedupeAndSortModelIDs(models), nil
+		}
+	}
+	return nil, newUpstreamModelSyncUpstreamError("Upstream model list pagination did not finish", fmt.Errorf("more than %d pages", vertexPublisherModelsMaxPages))
 }
 
 func buildGeminiModelsURL(base string) string {

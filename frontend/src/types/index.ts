@@ -292,6 +292,8 @@ export interface PublicSettings {
   service_quota_enabled: boolean
   affiliate_enabled: boolean
   allow_user_view_error_requests?: boolean
+  /** True when the deployment configures MCP_PUBLIC_URL; MCP is disabled otherwise. */
+  mcp_enabled?: boolean
 }
 
 export interface AuthResponse {
@@ -569,6 +571,13 @@ export interface ReasoningEffortMapping {
   model?: string
 }
 
+export interface GroupLocaleText {
+  name?: string
+  description?: string
+}
+
+export type GroupI18n = Record<string, GroupLocaleText>
+
 export interface Group {
   id: number
   name: string
@@ -581,6 +590,7 @@ export interface Group {
   reasoning_effort_mappings?: ReasoningEffortMapping[]
   is_exclusive: boolean
   status: 'active' | 'inactive'
+  i18n?: GroupI18n
   subscription_type: SubscriptionType
   daily_limit_usd: number | null
   weekly_limit_usd: number | null
@@ -1248,6 +1258,22 @@ export interface OpenCodeGoUsageSettings {
   interval_minutes: number
   /** Trailing quiet period after the latest model request (minutes). */
   debounce_minutes: number
+}
+
+export interface GrokModelDiagnosticItem {
+  requested: string
+  upstream?: string
+  status: string
+}
+
+export interface GrokModelDiagnostics {
+  state: string
+  endpoint?: string
+  fetched_at?: string
+  expires_at?: string
+  models: string[]
+  last_attempt?: { started_at: string; finished_at: string; status: string; error_code?: string }
+  mappings: GrokModelDiagnosticItem[]
 }
 
 export interface Account {

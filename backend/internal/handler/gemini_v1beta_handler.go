@@ -982,6 +982,21 @@ type pathParseError struct{ msg string }
 
 func (e *pathParseError) Error() string { return e.msg }
 
+func googlePlatformError(c *gin.Context, status int, message string) {
+	c.JSON(status, gin.H{"error": gin.H{"code": status, "message": message, "status": googleapi.HTTPStatusToGoogleStatus(status), "details": []any{gin.H{"@type": "type.googleapis.com/google.rpc.ErrorInfo", "reason": "PLATFORM_ERROR"}}}})
+}
+
+func googleErrorWithType(c *gin.Context, status int, errType, code, message string) {
+	if errType == "" {
+		errType = googleapi.HTTPStatusToGoogleStatus(status)
+	}
+	err := gin.H{"code": status, "message": message, "status": errType}
+	if code != "" {
+		err["reason"] = code
+	}
+	c.JSON(status, gin.H{"error": err})
+}
+
 func googleError(c *gin.Context, status int, message string) {
 	c.JSON(status, gin.H{
 		"error": gin.H{

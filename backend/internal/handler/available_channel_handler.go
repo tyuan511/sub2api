@@ -3,6 +3,7 @@ package handler
 import (
 	"sort"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -52,16 +53,17 @@ func (h *AvailableChannelHandler) featureEnabled(c *gin.Context) bool {
 // 订阅视觉加深），并展示默认倍率与高峰倍率规则；用户专属倍率前端走
 // /groups/rates，和 API 密钥页面保持一致。
 type userAvailableGroup struct {
-	ID                 int64   `json:"id"`
-	Name               string  `json:"name"`
-	Platform           string  `json:"platform"`
-	SubscriptionType   string  `json:"subscription_type"`
-	RateMultiplier     float64 `json:"rate_multiplier"`
-	PeakRateEnabled    bool    `json:"peak_rate_enabled"`
-	PeakStart          string  `json:"peak_start"`
-	PeakEnd            string  `json:"peak_end"`
-	PeakRateMultiplier float64 `json:"peak_rate_multiplier"`
-	IsExclusive        bool    `json:"is_exclusive"`
+	ID                 int64            `json:"id"`
+	Name               string           `json:"name"`
+	Platform           string           `json:"platform"`
+	SubscriptionType   string           `json:"subscription_type"`
+	RateMultiplier     float64          `json:"rate_multiplier"`
+	PeakRateEnabled    bool             `json:"peak_rate_enabled"`
+	PeakStart          string           `json:"peak_start"`
+	PeakEnd            string           `json:"peak_end"`
+	PeakRateMultiplier float64          `json:"peak_rate_multiplier"`
+	IsExclusive        bool             `json:"is_exclusive"`
+	I18n               domain.GroupI18n `json:"-"`
 }
 
 // userSupportedModelPricing 用户可见的定价字段白名单。
@@ -160,6 +162,7 @@ func (h *AvailableChannelHandler) List(c *gin.Context) {
 			continue
 		}
 		visibleGroups := filterUserVisibleGroups(ch.Groups, allowedGroupIDs)
+		localizeUserAvailableGroups(visibleGroups, c.GetHeader("Accept-Language"))
 		if len(visibleGroups) == 0 {
 			continue
 		}
@@ -269,9 +272,16 @@ func filterUserVisibleGroups(
 			PeakEnd:            g.PeakEnd,
 			PeakRateMultiplier: g.PeakRateMultiplier,
 			IsExclusive:        g.IsExclusive,
+			I18n:               g.I18n,
 		})
 	}
 	return visible
+}
+
+func localizeUserAvailableGroups(groups []userAvailableGroup, acceptLanguage string) {
+	for i := range groups {
+		groups[i].Name, _ = groups[i].I18n.Localize(acceptLanguage, groups[i].Name, "")
+	}
 }
 
 // toUserSupportedModels 将 service 层支持模型转换为用户 DTO（字段白名单）。

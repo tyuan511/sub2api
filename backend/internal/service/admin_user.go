@@ -891,12 +891,13 @@ func mergeBalanceHistoryCodes(redeemCodes, affiliateCodes []RedeemCode, params p
 		return redeemCodeHistoryTime(combined[i]).After(redeemCodeHistoryTime(combined[j]))
 	})
 	offset := params.Offset()
-	if offset >= len(combined) {
+	limit := params.Limit()
+	if offset < 0 || limit <= 0 || offset >= len(combined) {
 		return []RedeemCode{}
 	}
-	end := offset + params.Limit()
-	if end > len(combined) {
-		end = len(combined)
+	end := len(combined)
+	if limit <= len(combined)-offset {
+		end = offset + limit
 	}
 	return combined[offset:end]
 }

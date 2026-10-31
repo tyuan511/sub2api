@@ -141,7 +141,7 @@ func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
 
 func (p *postUsageBillingParams) shouldUpdateAccountQuota() bool {
 	accountCost := p.accountCost()
-	return p != nil && accountCost != nil && accountCost.TotalCost > 0 && p.Account != nil && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
+	return p != nil && accountCost != nil && accountCost.TotalCost > 0 && p.Account != nil && p.Account.SupportsAccountQuota() && p.Account.HasAnyQuotaLimit()
 }
 
 func (p *postUsageBillingParams) accountCost() *CostBreakdown {
@@ -329,6 +329,11 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		if usageLog.SubscriptionID != nil {
 			cmd.SubscriptionID = usageLog.SubscriptionID
 		}
+	}
+
+	if p.Account != nil {
+		cmd.AccountQuotaHasDailyLimit = p.Account.GetQuotaDailyLimit() > 0
+		cmd.AccountQuotaHasWeeklyLimit = p.Account.GetQuotaWeeklyLimit() > 0
 	}
 
 	if p.SimpleModeKeyRateLimitOnly {
@@ -996,8 +1001,91 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	return nil
 }
 
-// calculateRecordUsageCost 根据请求类型计算费用。
+func (s *GatewayService) cacheStoragePrice(result *ForwardResult, billingModel string) float64 {
+	if s == nil || s.billingService == nil || result == nil {
+		return 0
+	}
+	for _, model := range []string{billingModel, result.UpstreamModel, result.Model} {
+		if strings.TrimSpace(model) == "" {
+			continue
+		}
+		if price := s.billingService.CacheStoragePricePerTokenHour(model); price > 0 {
+			return price
+		}
+	}
+	return 0
+}
+
+func (s *GatewayService) CacheStoragePriced(ctx context.Context, input *RecordUsageInput) bool {
+	if input == nil || input.Result == nil {
+		return false
+	}
+	model := forwardResultBillingModel(input.Result.Model, input.Result.UpstreamModel)
+	model = s.billableModelWithFallback(ctx, input.APIKey, model, input.Result.UpstreamModel, input.Result.Model)
+	return s.cacheStoragePrice(input.Result, model) > 0
+}
+
+func (s *GatewayService) QuoteUsageCost(ctx context.Context, input *RecordUsageInput) float64 {
+	if input == nil || input.Result == nil || input.APIKey == nil {
+		return 0
+	}
+	pricingAt := input.PricingAt
+	if pricingAt.IsZero() {
+		pricingAt = timezone.Now()
+	}
+	multiplier := 1.0
+	if s.cfg != nil {
+		multiplier = s.cfg.Default.RateMultiplier
+	}
+	if input.APIKey.GroupID != nil && input.APIKey.Group != nil {
+		userID := int64(0)
+		if input.User != nil {
+			userID = input.User.ID
+		} else if input.APIKey.User != nil {
+			userID = input.APIKey.User.ID
+		}
+		if userID != 0 {
+			multiplier = s.ResolveUserGroupRateMultiplier(ctx, userID, *input.APIKey.GroupID, input.APIKey.Group.RateMultiplier)
+		}
+	}
+	multiplier, imageMultiplier := computePeakAwareMultipliers(input.APIKey, multiplier, pricingAt)
+	model := forwardResultBillingModel(input.Result.Model, input.Result.UpstreamModel)
+	model = s.billableModelWithFallback(ctx, input.APIKey, model, input.Result.UpstreamModel, input.Result.Model)
+	cost := s.calculateRecordUsageCost(ctx, input.Result, input.APIKey, model, multiplier, imageMultiplier, pricingAt)
+	if cost == nil {
+		return 0
+	}
+	return cost.ActualCost
+}
+
+// calculateRecordUsageCost adds explicit cache storage charges to the regular usage cost.
 func (s *GatewayService) calculateRecordUsageCost(
+	ctx context.Context,
+	result *ForwardResult,
+	apiKey *APIKey,
+	billingModel string,
+	multiplier float64,
+	imageMultiplier float64,
+	pricingAt time.Time,
+) *CostBreakdown {
+	base := s.calculateRecordUsageCostBase(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, pricingAt)
+	if result == nil || result.CacheStorageTokenHours <= 0 {
+		return base
+	}
+	storage := result.CacheStorageTokenHours * s.cacheStoragePrice(result, billingModel) * multiplier
+	if storage <= 0 {
+		return base
+	}
+	if base == nil {
+		base = &CostBreakdown{}
+	}
+	base.TotalCost += storage
+	base.ActualCost += storage
+	return base
+}
+
+// calculateRecordUsageCostBase 根据请求类型计算 token、图片、音频等常规费用。
+func (s *GatewayService) calculateRecordUsageCostBase(
 	ctx context.Context,
 	result *ForwardResult,
 	apiKey *APIKey,

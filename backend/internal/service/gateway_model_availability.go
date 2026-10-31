@@ -20,7 +20,8 @@ type ModelAvailabilityDiagnosis struct {
 	HasAccountsInPool bool
 	// HasModelSupport is true if at least one account's model mapping admits
 	// the requested model.
-	HasModelSupport bool
+	HasModelSupport             bool
+	HasRetiredSubscriptionModel bool
 }
 
 // ModelAvailabilityDiagnoser is implemented by gateway services that can
@@ -97,6 +98,7 @@ func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 	}
 
 	diag := ModelAvailabilityDiagnosis{}
+	diag.HasRetiredSubscriptionModel = openAIModelRetiredForAccounts(accounts, requestedModel)
 	for i := range accounts {
 		if useMixed && accounts[i].Platform == PlatformAntigravity && !accounts[i].IsMixedSchedulingEnabled() {
 			continue

@@ -139,10 +139,7 @@ func (h *ModelPlazaHandler) Get(c *gin.Context) {
 
 	visible := filterPlazaVisibleGroups(groups, allowedGroups, restrictPublicGroups)
 
-	out := make([]modelPlazaGroup, 0, len(visible))
-	for i := range visible {
-		out = append(out, toModelPlazaGroupDTO(&visible[i], userRates))
-	}
+	out := toLocalizedModelPlazaGroups(visible, userRates, c.GetHeader("Accept-Language"))
 	response.Success(c, modelPlazaResponse{
 		Description: rt.Description,
 		Groups:      out,
@@ -171,6 +168,16 @@ func filterPlazaVisibleGroups(
 		visible = append(visible, g)
 	}
 	return visible
+}
+
+func toLocalizedModelPlazaGroups(visible []service.PlazaGroup, userRates map[int64]float64, acceptLanguage string) []modelPlazaGroup {
+	out := make([]modelPlazaGroup, 0, len(visible))
+	for i := range visible {
+		group := toModelPlazaGroupDTO(&visible[i], userRates)
+		group.Name, group.Description = visible[i].I18n.Localize(acceptLanguage, group.Name, group.Description)
+		out = append(out, group)
+	}
+	return out
 }
 
 // toModelPlazaGroupDTO 将 service 层广场分组映射为白名单 DTO,并合并用户专属倍率。

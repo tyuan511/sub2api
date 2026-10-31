@@ -211,6 +211,11 @@ func (s *BillingCacheService) InflightReservationFailClosedOnUnpriced() bool {
 	return ok && cfg.FailClosedOnUnpriced
 }
 
+// ReserveFixedCharge 为确定金额的固定费用登记在途预留。
+func (s *BillingCacheService) ReserveFixedCharge(ctx context.Context, user *User, _ *APIKey, group *Group, subscription *UserSubscription, amount float64) (*InflightReservation, error) {
+	return s.ReserveInflight(ctx, user, group, subscription, amount)
+}
+
 // ReserveInflightBalance 简化封装：返回释放函数，不续期、不做计费交接（预留最长存活 TTL）。
 func (s *BillingCacheService) ReserveInflightBalance(ctx context.Context, user *User, group *Group, subscription *UserSubscription, estimate float64) (func(), error) {
 	r, err := s.reserveInflight(ctx, user, group, subscription, estimate, false)

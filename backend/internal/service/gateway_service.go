@@ -640,15 +640,16 @@ type ForwardResult struct {
 	ServiceTier *string
 
 	// 图片生成计费字段（图片生成模型使用）
-	ImageCount         int    // 生成的图片数量
-	ImageSize          string // 最终计费尺寸 "1K", "2K", "4K"
-	ImageInputSize     string // 请求中的原始图片尺寸
-	ImageOutputSize    string // 上游响应中的图片尺寸
-	ImageOutputSizes   []string
-	ImageSizeSource    string
-	ImageSizeBreakdown map[string]int
-	SearchCount        int
-	AudioUsage         *AudioUsage
+	ImageCount             int    // 生成的图片数量
+	ImageSize              string // 最终计费尺寸 "1K", "2K", "4K"
+	ImageInputSize         string // 请求中的原始图片尺寸
+	ImageOutputSize        string // 上游响应中的图片尺寸
+	ImageOutputSizes       []string
+	ImageSizeSource        string
+	ImageSizeBreakdown     map[string]int
+	SearchCount            int
+	AudioUsage             *AudioUsage
+	CacheStorageTokenHours float64
 }
 
 // GatewayFailureStage identifies which request stage failed. The zero value is
@@ -695,6 +696,7 @@ type UpstreamFailoverError struct {
 	SameAccountRetryDeadline time.Time     // 同账号重试截止时间；零值表示仅受 retryLimit 限制
 	SameAccountRetryMax      int           // 可选的错误级同账号重试上限，低于 handler 默认预算时优先采用
 	RequestScopedTransient   bool          // 故障因素与账号无关（如上游按客户端身份/模型容量降载）：可同账号重试，但不得据此对账号做临时封禁
+	BoundUpstreamPassthrough bool          // 绑定显式缓存的上游网关账号错误可原样透传
 	SafeToFailoverAfterWrite bool          // 仅写出 SSE 注释等非语义字节时，仍可在同一客户端流中切换账号
 	Stage                    GatewayFailureStage
 	Scope                    GatewayFailureScope

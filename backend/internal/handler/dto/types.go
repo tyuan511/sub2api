@@ -110,6 +110,9 @@ type Group struct {
 	IsExclusive    bool    `json:"is_exclusive"`
 	Status         string  `json:"status"`
 
+	// I18n 名称与描述的各语言译文。
+	I18n domain.GroupI18n `json:"i18n,omitempty"`
+
 	SubscriptionType          string   `json:"subscription_type"`
 	DailyLimitUSD             *float64 `json:"daily_limit_usd"`
 	WeeklyLimitUSD            *float64 `json:"weekly_limit_usd"`
@@ -334,8 +337,9 @@ type Account struct {
 	Proxy         *Proxy         `json:"proxy,omitempty"`
 	AccountGroups []AccountGroup `json:"account_groups,omitempty"`
 
-	GroupIDs []int64  `json:"group_ids,omitempty"`
-	Groups   []*Group `json:"groups,omitempty"`
+	GroupIDs             []int64                       `json:"group_ids,omitempty"`
+	Groups               []*Group                      `json:"groups,omitempty"`
+	GrokModelDiagnostics *service.GrokModelDiagnostics `json:"grok_model_diagnostics,omitempty"`
 }
 
 // AccountListItem is the compact representation returned by the admin account

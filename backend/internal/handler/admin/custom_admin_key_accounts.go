@@ -107,7 +107,7 @@ func (h *AccountHandler) ScopedAdminKeyAccounts(c *gin.Context) {
 			return
 		}
 		if path == base+"/:id/models" {
-			h.respondAvailableModels(c, a)
+			h.GetAvailableModels(c)
 			return
 		}
 		response.Success(c, scopedAdminAccountDTO(a, principal.Policy))
