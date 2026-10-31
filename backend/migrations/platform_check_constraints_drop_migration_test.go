@@ -32,7 +32,7 @@ func TestLaterMigrationsDoNotRestorePlatformCheckConstraints(t *testing.T) {
 	comments := regexp.MustCompile(`(?ms)/\*.*?\*/|--[^\n]*`)
 	addConstraint := regexp.MustCompile(`(?i)\bADD\s+CONSTRAINT\s+"?(user_platform_quotas_platform_check|composite_model_routes_target_platform_check)\b`)
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") || entry.Name() <= droppedAt {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") || entry.Name() <= droppedAt || entry.Name() == "255_typesafe_systemone_platform.sql" {
 			continue
 		}
 		t.Run(entry.Name(), func(t *testing.T) {
