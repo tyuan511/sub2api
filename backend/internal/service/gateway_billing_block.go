@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"unicode/utf16"
 
 	"github.com/tidwall/gjson"
 )
@@ -26,15 +27,17 @@ const fingerprintSalt = "59cf53e54c78"
 func computeClaudeCodeFingerprint(body []byte, version string) string {
 	firstText := extractFirstUserText(body)
 	indices := []int{4, 7, 20}
-	chars := make([]byte, 0, 3)
+	units := utf16.Encode([]rune(firstText))
+	sampled := make([]uint16, 0, len(indices))
 	for _, i := range indices {
-		if i < len(firstText) {
-			chars = append(chars, firstText[i])
+		if i < len(units) {
+			sampled = append(sampled, units[i])
 		} else {
-			chars = append(chars, '0')
+			sampled = append(sampled, uint16('0'))
 		}
 	}
-	sum := sha256.Sum256([]byte(fingerprintSalt + string(chars) + version))
+	chars := string(utf16.Decode(sampled))
+	sum := sha256.Sum256([]byte(fingerprintSalt + chars + version))
 	return hex.EncodeToString(sum[:])[:3]
 }
 

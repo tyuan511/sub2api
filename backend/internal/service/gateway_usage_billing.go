@@ -567,7 +567,7 @@ func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *Us
 	if accountCostBreakdown != nil {
 		accountTotalCost = accountCostBreakdown.TotalCost
 	}
-	if accountTotalCost <= 0 || p.Account == nil || !p.Account.IsAPIKeyOrBedrock() || deps.balanceNotifyService == nil {
+	if accountTotalCost <= 0 || p.Account == nil || !p.Account.SupportsAccountQuota() || !p.Account.HasAnyQuotaLimit() || deps.balanceNotifyService == nil {
 		slog.Debug("notifyAccountQuota: skipped",
 			"total_cost", accountTotalCost,
 			"account_nil", p.Account == nil,
@@ -580,6 +580,9 @@ func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *Us
 	var quotaState *AccountQuotaState
 	if result != nil {
 		quotaState = result.QuotaState
+		if quotaState == nil && p.shouldUpdateAccountQuota() {
+			return
+		}
 	}
 	slog.Debug("notifyAccountQuota: calling CheckAccountQuotaAfterIncrement",
 		"account_id", p.Account.ID,

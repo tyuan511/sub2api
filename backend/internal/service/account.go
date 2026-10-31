@@ -737,6 +737,42 @@ func modelMappingSignature(rawMapping map[string]any) uint64 {
 	return h.Sum64()
 }
 
+func (a *Account) isAntigravityInjectedDefaultPassthrough(key, target string) bool {
+	if a == nil || a.Platform != domain.PlatformAntigravity || key != target {
+		return false
+	}
+	defaultModel := false
+	for _, model := range []string{
+		"gemini-3-flash", "gemini-3.1-pro-high", "gemini-3.1-pro-low",
+		"gemini-3.6-flash", "gemini-3.6-flash-high", "gemini-3.6-flash-low",
+		"gemini-3.6-flash-medium", "gemini-3.6-flash-tiered", "gemini-3.7-flash",
+		"gemini-3.7-flash-high", "gemini-3.7-flash-low", "gemini-3.7-flash-medium",
+		"gemini-3.7-flash-tiered", "gemini-3.8-flash", "gemini-3.8-flash-high",
+		"gemini-3.8-flash-low", "gemini-3.8-flash-medium", "gemini-3.8-flash-tiered",
+	} {
+		if key == model {
+			defaultModel = true
+			break
+		}
+	}
+	if !defaultModel {
+		return false
+	}
+	rawMapping, _ := a.Credentials["model_mapping"].(map[string]any)
+	hasExplicitEntry := false
+	for _, value := range rawMapping {
+		if _, ok := value.(string); ok {
+			hasExplicitEntry = true
+			break
+		}
+	}
+	if !hasExplicitEntry {
+		return false
+	}
+	_, configured := rawMapping[key].(string)
+	return !configured
+}
+
 func ensureAntigravityDefaultPassthrough(mapping map[string]string, model string) {
 	if mapping == nil || model == "" {
 		return
@@ -1616,7 +1652,7 @@ func (a *Account) GetCodingPlanProvider() string {
 	}
 	baseURL := strings.ToLower(a.GetOpenAIBaseURL())
 	switch {
-	case strings.Contains(baseURL, "api.kimi.com/coding"):
+	case isKimiCodingBaseURL(a.GetOpenAIBaseURL()):
 		return PlatformKimi
 	case strings.Contains(baseURL, "bigmodel.cn"), strings.Contains(baseURL, "api.z.ai"):
 		return PlatformZhipu
@@ -1626,6 +1662,24 @@ func (a *Account) GetCodingPlanProvider() string {
 		return PlatformMiniMax
 	default:
 		return ""
+	}
+}
+
+func isKimiCodingBaseURL(baseURL string) bool {
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Opaque != "" ||
+		parsed.RawQuery != "" || parsed.ForceQuery || strings.Contains(baseURL, "#") {
+		return false
+	}
+	host := strings.ToLower(parsed.Host)
+	if host != "api.kimi.com" && host != "api.kimi.ai" && host != "api.kimi.com:443" && host != "api.kimi.ai:443" {
+		return false
+	}
+	switch parsed.EscapedPath() {
+	case "/coding", "/coding/", "/coding/v1", "/coding/v1/":
+		return true
+	default:
+		return false
 	}
 }
 

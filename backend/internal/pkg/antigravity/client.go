@@ -737,9 +737,58 @@ func (c *Client) FetchAvailableModels(ctx context.Context, accessToken, projectI
 	return nil, nil, lastErr
 }
 
+// FetchAvailableModelsFromURL 获取指定端点的模型目录，不回退到其他端点。
+func (c *Client) FetchAvailableModelsFromURL(ctx context.Context, baseURL, accessToken, projectID string, bodyLimit int64) (*FetchAvailableModelsResponse, map[string]any, error) {
+	if c == nil || c.httpClient == nil {
+		return nil, nil, errors.New("antigravity client is not configured")
+	}
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if baseURL == "" || bodyLimit <= 0 {
+		return nil, nil, errors.New("fetchAvailableModels URL and body limit are required")
+	}
+	bodyBytes, err := json.Marshal(FetchAvailableModelsRequest{Project: projectID})
+	if err != nil {
+		return nil, nil, fmt.Errorf("序列化请求失败: %w", err)
+	}
+	apiURL := baseURL + "/v1internal:fetchAvailableModels"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		return nil, nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", GetUserAgentForContext(ctx))
+	fetchClient := *c.httpClient
+	fetchClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := servertiming.Do(&fetchClient, req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetchAvailableModels 请求失败: %w", err)
+	}
+	respBodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, bodyLimit+1))
+	_ = resp.Body.Close()
+	if err != nil {
+		return nil, nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+	if int64(len(respBodyBytes)) > bodyLimit {
+		return nil, nil, fmt.Errorf("响应超过 %d 字节", bodyLimit)
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, nil, &ForbiddenError{StatusCode: resp.StatusCode, Body: string(respBodyBytes)}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("fetchAvailableModels 失败 (HTTP %d): %s", resp.StatusCode, string(respBodyBytes))
+	}
+	var modelsResp FetchAvailableModelsResponse
+	if err := json.Unmarshal(respBodyBytes, &modelsResp); err != nil {
+		return nil, nil, fmt.Errorf("响应解析失败: %w", err)
+	}
+	var rawResp map[string]any
+	_ = json.Unmarshal(respBodyBytes, &rawResp)
+	return &modelsResp, rawResp, nil
+}
+
 func (c *Client) fetchAvailableModelsHTTPClient() *http.Client {
 	fetchClient := *c.httpClient
-	fetchClient.CheckRedirect = checkFetchAvailableModelsRedirect
 	return &fetchClient
 }
 
