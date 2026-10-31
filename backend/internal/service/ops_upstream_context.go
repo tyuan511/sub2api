@@ -68,15 +68,12 @@ func MarkOpsRequestScopedError(c *gin.Context, errType string) {
 	if c == nil {
 		return
 	}
-	c.Set(OpsRequestScopedErrorKey, errType)
+	SetOpsLocalErrorType(c, errType, "")
+	c.Set(OpsRequestScopedErrorKey, true)
 }
 
 func IsOpsRequestScopedError(c *gin.Context) bool {
-	if c == nil {
-		return false
-	}
-	_, ok := c.Get(OpsRequestScopedErrorKey)
-	return ok
+	return c != nil && c.GetBool(OpsRequestScopedErrorKey)
 }
 
 const OpsLocalErrorTypeKey = "ops_local_error_type"
@@ -84,12 +81,6 @@ const OpsLocalErrorCodeKey = "ops_local_error_code"
 
 func SetOpsLocalErrorType(c *gin.Context, errType, code string) {
 	if c == nil {
-		return
-	}
-	if strings.TrimSpace(errType) == "" {
-		c.Set(OpsLocalErrorTypeKey, "")
-		c.Set(OpsLocalErrorCodeKey, "")
-		c.Set(OpsRequestScopedErrorKey, false)
 		return
 	}
 	c.Set(OpsLocalErrorTypeKey, strings.TrimSpace(errType))

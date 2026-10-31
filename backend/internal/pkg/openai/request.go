@@ -262,8 +262,32 @@ func canonicalizeCodexOriginator(name string) string {
 // CodexCLIOriginator 是 codex-rs 客户端的历史默认 originator，保留用于兼容识别。
 const CodexCLIOriginator = "codex_cli_rs"
 
-// CodexDefaultOriginator 是网关默认使用的 Codex TUI originator。
-const CodexDefaultOriginator = "codex-tui"
+// CodexTUIOriginator 是交互式 Codex TUI 使用的 originator。
+const CodexTUIOriginator = "codex-tui"
+
+// CodexDefaultOriginator 是网关默认发送的 Codex originator。
+const CodexDefaultOriginator = CodexCLIOriginator
+
+// NormalizeCodexClientIdentityToCLI 将已配对的 TUI 身份归一为 CLI 身份。
+func NormalizeCodexClientIdentityToCLI(originator, userAgent string) (string, string, bool) {
+	if !strings.EqualFold(strings.TrimSpace(originator), CodexTUIOriginator) {
+		return originator, userAgent, false
+	}
+
+	ua := strings.TrimSpace(userAgent)
+	slash := strings.IndexByte(ua, '/')
+	if slash <= 0 {
+		return CodexCLIOriginator, ua, true
+	}
+
+	rest := ua[slash:]
+	if trailer := codexUATrailerName(ua); trailer != "" && IsCodexOfficialClientOriginator(trailer) {
+		if open := strings.LastIndex(rest, "("); open > 0 {
+			rest = strings.TrimRight(rest[:open], " ")
+		}
+	}
+	return CodexCLIOriginator, CodexCLIOriginator + rest, true
+}
 
 // CodexUserAgentVersion 提取 Codex UA 的完整版本段，即 `{client}/{version} (...` 中的 version。
 // 与 ParseCodexEngineVersion 的区别：后者只取三段数字用于引擎版本比较（会丢掉 -alpha.4

@@ -666,6 +666,7 @@ type PublicSettingsInjectionPayload struct {
 	ServerUTCOffset             string  `json:"server_utc_offset"`
 	BalanceLowNotifyEnabled     bool    `json:"balance_low_notify_enabled"`
 	AccountQuotaNotifyEnabled   bool    `json:"account_quota_notify_enabled"`
+	BalanceRefundMinAmount      float64 `json:"balance_refund_min_amount"`
 	BalanceLowNotifyThreshold   float64 `json:"balance_low_notify_threshold"`
 	BalanceLowNotifyRechargeURL string  `json:"balance_low_notify_recharge_url"`
 
@@ -764,6 +765,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ServerUTCOffset:                     timezone.UTCOffset(),
 		BalanceLowNotifyEnabled:             settings.BalanceLowNotifyEnabled,
 		AccountQuotaNotifyEnabled:           settings.AccountQuotaNotifyEnabled,
+		BalanceRefundMinAmount:              settings.BalanceRefundMinAmount,
 		BalanceLowNotifyThreshold:           settings.BalanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:         settings.BalanceLowNotifyRechargeURL,
 

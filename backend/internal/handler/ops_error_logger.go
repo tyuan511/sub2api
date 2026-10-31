@@ -1183,6 +1183,13 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			}
 		}
 
+		if errType, code := service.OpsLocalErrorType(c); errType != "" && !parsed.StreamFailure &&
+			(parsed.ErrorType == "" || parsed.ErrorType == "api_error") {
+			parsed.ErrorType = errType
+			if code != "" {
+				parsed.Code = code
+			}
+		}
 		normalizedType := normalizeOpsErrorType(parsed.ErrorType, parsed.Code)
 
 		phase, isBusinessLimited, errorOwner, errorSource := classifyOpsErrorLog(c, normalizedType, parsed.Message, parsed.Code, status)
@@ -2214,6 +2221,10 @@ func classifyOpsSeverity(errType string, status int) string {
 
 func classifyOpsErrorLog(c *gin.Context, errType, message, code string, status int) (phase string, isBusinessLimited bool, errorOwner string, errorSource string) {
 	phase = classifyOpsPhase(errType, message, code)
+	if service.IsOpsRequestScopedError(c) {
+		isBusinessLimited = classifyOpsIsBusinessLimited(errType, phase, code, status, message, false)
+		return phase, isBusinessLimited, classifyOpsErrorOwner(phase, message), classifyOpsErrorSource(phase, message)
+	}
 	routingCapacityLimited := isOpsRoutingCapacityLimited(c)
 	clientBusinessLimited := service.HasOpsClientBusinessLimited(c)
 	localModelConfiguration := clientBusinessLimited && service.OpsClientBusinessLimitedReason(c) == service.OpsClientBusinessLimitedReasonLocalModelConfiguration

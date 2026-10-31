@@ -53,7 +53,7 @@ func (h *GatewayHandler) ImageGenerationGroups(c *gin.Context) {
 		}
 		if len(models) > 0 {
 			out = append(out, imageGenerationGroup{
-				Group:       *dto.GroupFromService(group),
+				Group:       *dto.GroupFromService(group).Localized(c.GetHeader("Accept-Language")),
 				ImageModels: models,
 				ImagePrices: h.gatewayService.PreviewStudioImagePrices(c.Request.Context(), group, models),
 			})

@@ -982,36 +982,43 @@ type pathParseError struct{ msg string }
 
 func (e *pathParseError) Error() string { return e.msg }
 
+func googleClientErrorType(status int) string {
+	switch status {
+	case http.StatusBadRequest, http.StatusRequestEntityTooLarge:
+		return "invalid_request_error"
+	case http.StatusUnauthorized:
+		return "authentication_error"
+	case http.StatusForbidden:
+		return "permission_error"
+	case http.StatusNotFound:
+		return "not_found_error"
+	default:
+		return ""
+	}
+}
+
+func googleError(c *gin.Context, status int, message string) {
+	googleErrorWithType(c, status, googleClientErrorType(status), "", message)
+}
+
 func googlePlatformError(c *gin.Context, status int, message string) {
-	c.JSON(status, gin.H{"error": gin.H{"code": status, "message": message, "status": googleapi.HTTPStatusToGoogleStatus(status), "details": []any{gin.H{"@type": "type.googleapis.com/google.rpc.ErrorInfo", "reason": "PLATFORM_ERROR"}}}})
+	googleErrorWithType(c, status, "", "", message)
 }
 
 func googleErrorWithType(c *gin.Context, status int, errType, code, message string) {
-	if errType == "" {
-		errType = googleapi.HTTPStatusToGoogleStatus(status)
-	}
-	err := gin.H{"code": status, "message": message, "status": errType}
+	service.SetOpsLocalErrorType(c, errType, code)
+	err := gin.H{"code": status, "message": message, "status": googleapi.HTTPStatusToGoogleStatus(status)}
 	if code != "" {
 		err["reason"] = code
 	}
 	c.JSON(status, gin.H{"error": err})
 }
 
-func googleError(c *gin.Context, status int, message string) {
-	c.JSON(status, gin.H{
-		"error": gin.H{
-			"code":    status,
-			"message": message,
-			"status":  googleapi.HTTPStatusToGoogleStatus(status),
-		},
-	})
-}
-
 // googleConcurrencyError 以 Google 错误格式回写并发槽获取失败，状态码与文案
 // 沿用 concurrencyErrorResponse 的统一映射（客户端断开为 499）。
 func googleConcurrencyError(c *gin.Context, err error, slotType string) {
-	status, _, _, message := concurrencyErrorResponse(err, slotType)
-	googleError(c, status, message)
+	status, errType, code, message := concurrencyErrorResponse(err, slotType)
+	googleErrorWithType(c, status, errType, code, message)
 }
 
 func writeUpstreamResponse(c *gin.Context, res *service.UpstreamHTTPResult) {

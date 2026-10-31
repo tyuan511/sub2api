@@ -737,6 +737,61 @@ func normalizeModelRegistryBaseURL(raw string) string {
 	return strings.ToLower(parsed.Scheme) + "://" + strings.ToLower(parsed.Host) + path
 }
 
+func (s *AccountTestService) fetchVertexGeminiUpstreamModels(ctx context.Context, account *Account) ([]string, error) {
+	if account.IsVertexAPIKey() {
+		return nil, newUpstreamModelSyncUnsupportedError("Vertex API key accounts do not support upstream model listing", nil)
+	}
+	if _, err := parseVertexServiceAccountKey(account); err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid Vertex service account credentials", err)
+	}
+	location := account.VertexLocation("")
+	if _, err := buildVertexPublisherModelsURL(location, ""); err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid Vertex location", err)
+	}
+	if s.geminiTokenProvider == nil {
+		return nil, newUpstreamModelSyncConfigError("Gemini token provider is not configured", nil)
+	}
+	accessToken, err := s.geminiTokenProvider.GetAccessToken(ctx, account)
+	if err != nil {
+		return nil, newUpstreamModelSyncUpstreamError("Failed to get Vertex access token", err)
+	}
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return nil, newUpstreamModelSyncConfigError("No Vertex access token is available", nil)
+	}
+
+	return listVertexGeminiPublisherModels(location, func(page int, listURL string) ([]byte, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
+		if err != nil {
+			return nil, newUpstreamModelSyncConfigError("Invalid Vertex model list URL", err)
+		}
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		resp, err := s.doUpstreamModelsRequest(req, upstreamModelsProxyURL(account), account)
+		if err != nil {
+			return nil, newUpstreamModelSyncUpstreamError("Failed to request upstream model list", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		body, err := io.ReadAll(io.LimitReader(resp.Body, resolveModelsListReadLimit(s.cfg)+1))
+		if err != nil {
+			return nil, newUpstreamModelSyncUpstreamError("Failed to read upstream model list", err)
+		}
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			syncErr := &UpstreamModelSyncError{
+				Kind:       UpstreamModelSyncErrorUpstream,
+				Message:    fmt.Sprintf("Upstream model list request failed with HTTP %d", resp.StatusCode),
+				StatusCode: resp.StatusCode,
+				Err:        fmt.Errorf("upstream model list returned HTTP %d", resp.StatusCode),
+			}
+			if page > 0 {
+				syncErr.StatusCode = 0
+			}
+			return nil, syncErr
+		}
+		return body, nil
+	})
+}
+
 func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account *Account) ([]string, []byte, error) {
 	if s == nil {
 		return nil, nil, newUpstreamModelSyncConfigError("Account test service is not configured", nil)
@@ -752,6 +807,10 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 
 	if s.httpUpstream == nil {
 		return nil, nil, newUpstreamModelSyncConfigError("Upstream HTTP client is not configured", nil)
+	}
+	if account.IsGemini() && account.IsVertexServiceAccount() {
+		models, err := s.fetchVertexGeminiUpstreamModels(ctx, account)
+		return models, nil, err
 	}
 
 	req, err := s.buildUpstreamModelsRequest(ctx, account)

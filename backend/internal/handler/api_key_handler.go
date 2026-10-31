@@ -150,7 +150,7 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 
 	out := make([]dto.APIKey, 0, len(keys))
 	for i := range keys {
-		out = append(out, *userAPIKeyFromService(&keys[i]))
+		out = append(out, *userAPIKeyFromService(&keys[i], c.GetHeader("Accept-Language")))
 	}
 	response.Paginated(c, out, result.Total, page, pageSize)
 }
@@ -182,7 +182,7 @@ func (h *APIKeyHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, userAPIKeyFromService(key))
+	response.Success(c, userAPIKeyFromService(key, c.GetHeader("Accept-Language")))
 }
 
 // Create handles creating a new API key
@@ -237,7 +237,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
-		return userAPIKeyFromService(key), nil
+		return userAPIKeyFromService(key, c.GetHeader("Accept-Language")), nil
 	})
 }
 
@@ -313,14 +313,14 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, userAPIKeyFromService(key))
+	response.Success(c, userAPIKeyFromService(key, c.GetHeader("Accept-Language")))
 }
 
 // userAPIKeyFromService keeps the user-facing key contract from exposing the
 // hydrated User object that is now needed internally for candidate-specific
 // prices and routing explanations. Admin mappers continue to receive it.
-func userAPIKeyFromService(key *service.APIKey) *dto.APIKey {
-	out := dto.APIKeyFromService(key)
+func userAPIKeyFromService(key *service.APIKey, acceptLanguage string) *dto.APIKey {
+	out := dto.APIKeyFromService(key).Localized(acceptLanguage)
 	if out != nil {
 		out.User = nil
 	}
@@ -368,7 +368,7 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
 
 	out := make([]dto.Group, 0, len(groups))
 	for i := range groups {
-		out = append(out, *dto.GroupFromService(&groups[i]))
+		out = append(out, *dto.GroupFromService(&groups[i]).Localized(c.GetHeader("Accept-Language")))
 	}
 	response.Success(c, out)
 }

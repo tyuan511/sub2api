@@ -917,6 +917,9 @@ func (s *AntigravityGatewayService) collectClaudeStreamResponse(c *gin.Context, 
 			if err := json.Unmarshal(inner, &parsed); err != nil {
 				continue
 			}
+			if strings.TrimSpace(extractGeminiFinishReason(parsed)) == "MALFORMED_FUNCTION_CALL" {
+				return nil, nil, antigravity.ErrMalformedFunctionCall
+			}
 
 			last = parsed
 
@@ -1006,7 +1009,10 @@ func (s *AntigravityGatewayService) handleClaudeStreamToNonStreaming(c *gin.Cont
 
 		errMsg := "Failed to parse upstream response"
 		errType := "upstream_error"
-		if strings.Contains(err.Error(), "stream data interval timeout") {
+		if errors.Is(err, antigravity.ErrMalformedFunctionCall) {
+			errMsg = "Upstream returned MALFORMED_FUNCTION_CALL"
+			errType = "malformed_function_call"
+		} else if strings.Contains(err.Error(), "stream data interval timeout") {
 			errMsg = "Upstream stream data interval timeout"
 			errType = "upstream_timeout"
 		} else if errors.Is(err, bufio.ErrTooLong) {

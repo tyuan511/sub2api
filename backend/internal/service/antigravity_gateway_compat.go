@@ -603,6 +603,9 @@ func (s *AntigravityGatewayService) mapAntigravityCompatCollectionError(c *gin.C
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
+	if errors.Is(err, antigravity.ErrMalformedFunctionCall) {
+		return s.writeAntigravityCompatError(c, http.StatusBadGateway, "malformed_function_call", "Upstream returned MALFORMED_FUNCTION_CALL")
+	}
 	if strings.Contains(err.Error(), "stream data interval timeout") {
 		return s.writeAntigravityCompatError(c, http.StatusBadGateway, "upstream_timeout", "Upstream stream data interval timeout")
 	}

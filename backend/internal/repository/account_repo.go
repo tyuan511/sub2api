@@ -688,7 +688,9 @@ func lockAndMergeAccountProbeExtra(
 				false
 			),
 			extra -> 'opencode_go_usage_auto_refresh',
-			extra -> 'opencode_go_usage_snapshot'
+			extra -> 'opencode_go_usage_snapshot',
+			extra -> 'grok_observed_models',
+			extra -> 'upstream_model_metadata'
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
@@ -717,6 +719,8 @@ func lockAndMergeAccountProbeExtra(
 		currentOllamaSnapshot          []byte
 		currentOpenCodeAutoRefresh     []byte
 		currentOpenCodeSnapshot        []byte
+		currentGrokObservedModels      []byte
+		currentUpstreamModelMetadata   []byte
 	)
 	if err := rows.Scan(
 		&identityUnchanged,
@@ -731,6 +735,8 @@ func lockAndMergeAccountProbeExtra(
 		&opencodeGroupIdentityUnchanged,
 		&currentOpenCodeAutoRefresh,
 		&currentOpenCodeSnapshot,
+		&currentGrokObservedModels,
+		&currentUpstreamModelMetadata,
 	); err != nil {
 		return nil, err
 	}
@@ -748,6 +754,8 @@ func lockAndMergeAccountProbeExtra(
 		service.OllamaCloudUsageSnapshotExtraKey,
 		service.OpenCodeGoUsageAutoRefreshExtraKey,
 		service.OpenCodeGoUsageSnapshotExtraKey,
+		"grok_observed_models",
+		service.UpstreamModelMetadataExtraKey,
 	} {
 		delete(extra, key)
 	}
@@ -842,6 +850,18 @@ func lockAndMergeAccountProbeExtra(
 			} else if ok {
 				extra[service.OpenCodeGoUsageSnapshotExtraKey] = snapshot
 			}
+		}
+	}
+	for key, raw := range map[string][]byte{
+		"grok_observed_models":                currentGrokObservedModels,
+		service.UpstreamModelMetadataExtraKey: currentUpstreamModelMetadata,
+	} {
+		value, ok, err := decodeAccountExtraJSON(raw)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			extra[key] = value
 		}
 	}
 	return extra, nil

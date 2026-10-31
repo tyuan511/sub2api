@@ -21,15 +21,13 @@ func paginateSlice[T any](items []T, params pagination.PaginationParams) []T {
 	}
 
 	offset := params.Offset()
-	if offset >= len(items) {
+	limit := params.Limit()
+	if offset < 0 || limit <= 0 || offset >= len(items) {
 		return []T{}
 	}
-
-	limit := params.Limit()
-	end := offset + limit
-	if end > len(items) {
-		end = len(items)
+	end := len(items)
+	if limit <= len(items)-offset {
+		end = offset + limit
 	}
-
 	return items[offset:end]
 }

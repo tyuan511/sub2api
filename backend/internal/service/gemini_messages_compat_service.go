@@ -2889,6 +2889,16 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 		return nil, errors.New("invalid path")
 	}
 	path = sanitizedPath
+	if account.IsVertexServiceAccount() {
+		if path == "/v1beta/models" {
+			return s.ForwardListModels(ctx, account)
+		}
+		const prefix = "/v1beta/models/"
+		if strings.HasPrefix(path, prefix) {
+			return s.ForwardGetModel(ctx, account, strings.TrimPrefix(path, prefix))
+		}
+		return nil, errors.New("invalid path")
+	}
 
 	baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)

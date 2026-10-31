@@ -238,6 +238,13 @@ type RefundQueryProvider interface {
 	QueryRefund(ctx context.Context, req RefundQueryRequest) (*RefundResponse, error)
 }
 
+// NotificationConfirmer extends Provider for gateways whose verified
+// notifications are not sufficient proof of payment on their own.
+type NotificationConfirmer interface {
+	Provider
+	ConfirmNotification(ctx context.Context, n *PaymentNotification) error
+}
+
 // CancelableProvider extends Provider with the ability to cancel pending payments.
 type CancelableProvider interface {
 	Provider
