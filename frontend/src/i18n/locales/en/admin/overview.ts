@@ -849,6 +849,10 @@ export default {
     groups: {
       title: 'Group Management',
       description: 'Manage API key groups and rate multipliers',
+      i18nField: {
+        default: 'Default',
+        placeholder: 'Enter {language} name'
+      },
       searchGroups: 'Search groups...',
       createGroup: 'Create Group',
       editGroup: 'Edit Group',

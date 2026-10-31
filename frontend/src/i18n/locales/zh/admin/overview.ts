@@ -846,6 +846,10 @@ export default {
     groups: {
       title: '分组管理',
       description: '管理 API 密钥分组和费率配置',
+      i18nField: {
+        default: '默认',
+        placeholder: '请输入{language}名称'
+      },
       searchGroups: '搜索分组...',
       createGroup: '创建分组',
       editGroup: '编辑分组',
