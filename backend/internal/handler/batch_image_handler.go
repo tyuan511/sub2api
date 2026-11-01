@@ -93,6 +93,10 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 		}
 		actualAPIKey, _, changed, routeErr := h.openAI.apiKeyRouteRuntime().ensureInitial(c, batchCandidateCheck)
 		if routeErr != nil {
+			if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, routeErr); ok {
+				batchImageError(c, infraerrors.New(status, strings.ToUpper(code), message))
+				return
+			}
 			batchImageError(c, service.ErrBatchImageNoAccountAvailable)
 			return
 		}

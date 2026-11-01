@@ -82,6 +82,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		routingModel = resolvedModel
 	}
 	if !compositeTargetPlatformAllowed(c, apiKey, requestModel, service.PlatformOpenAI) {
+		markOpsModelNotAvailableForGroup(c)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
 	}
@@ -189,6 +190,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
+			h.handleStreamingAwareError(c, status, code, message, streamStarted)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, err); ok {
 			h.handleStreamingAwareError(c, status, code, message, streamStarted)
 			return
 		}

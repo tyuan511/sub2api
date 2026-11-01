@@ -285,6 +285,44 @@ func TestOpsErrorLoggerMiddleware_HardSkipsIngressRejection(t *testing.T) {
 	require.Zero(t, OpsErrorLogEnqueuedTotal(), "ingress rejection must not enter the error queue")
 }
 
+// 多分组 key 的所有分组都不支持请求模型时，请求按入口拒绝处理：返回
+// model_not_found，且不进入错误看板（既不归因到某个分组，也不算上游故障）。
+// 判定与文案必须与单分组分类器完全一致。
+func TestOpsErrorLoggerMiddleware_SkipsAllGroupsModelNotSupported(t *testing.T) {
+	setupOpsErrorLogTestQueue(t, 4)
+	gin.SetMode(gin.TestMode)
+
+	settings := &ingressRejectSettingRepo{}
+	repo := &ingressRejectOpsRepo{}
+	ops := service.NewOpsService(repo, settings, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	settings.getValueCalls = 0
+
+	expected := newModelNotSupportedClassification("grok-4.7")
+
+	router := gin.New()
+	router.Use(OpsErrorLoggerMiddleware(ops))
+	router.POST("/v1/responses", func(c *gin.Context) {
+		status, errType, message, ok := apiKeyRouteModelNotSupportedResponse(c, &apiKeyRouteAdvanceError{
+			Last: &apiKeyRouteModelUnsupportedError{Model: "grok-4.7"},
+		})
+		require.True(t, ok)
+		require.Equal(t, expected, noAccountErrorClassification{
+			Status: status, ErrType: errType, Message: message, ModelNotFound: true,
+		}, "多分组必须复用单分组的 model_not_found 判定与文案")
+		c.JSON(status, gin.H{"error": gin.H{"code": errType, "message": message}})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Contains(t, w.Body.String(), "grok-4.7")
+	require.Zero(t, settings.getValueCalls, "ingress rejection must bypass monitoring settings reads")
+	require.Zero(t, repo.insertCalls, "ingress rejection must bypass inserts")
+	require.Zero(t, OpsErrorLogEnqueuedTotal(), "ingress rejection must not enter the error queue")
+}
+
 func TestOpsErrorLoggerMiddleware_DedicatedCyberSessionBlockRecordsExactlyOnce(t *testing.T) {
 	setupOpsErrorLogTestQueue(t, 3)
 	gin.SetMode(gin.TestMode)

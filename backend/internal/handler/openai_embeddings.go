@@ -74,6 +74,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 	reqModel := modelResult.String()
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	if !compositeTargetPlatformAllowed(c, apiKey, reqModel, service.PlatformOpenAI) {
+		markOpsModelNotAvailableForGroup(c)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
 	}
@@ -129,6 +130,10 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, err); ok {
 			h.errorResponse(c, status, code, message)
 			return
 		}

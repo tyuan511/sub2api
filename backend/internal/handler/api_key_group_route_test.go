@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -196,6 +198,85 @@ func TestAPIKeyRouteRuntimeEnsureInitialSkipsGroupsWithoutRequestedModel(t *test
 	require.Zero(t, state.SwitchCount)
 }
 
+func TestAPIKeyRouteRuntimeEnsureInitialReportsModelUnsupportedWithoutGroupAttribution(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	primaryID, secondaryID := int64(51), int64(52)
+	routes := []service.APIKeyGroupRoute{
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: secondaryID, Priority: 1, Enabled: true, Group: &service.Group{ID: secondaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+	}
+	apiKey := &service.APIKey{ID: 52, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 50}, RouteVersion: 6, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	diag := routeModelAvailabilityStub{unsupported: map[int64]struct{}{primaryID: {}, secondaryID: {}}}
+	actual, _, _, err := (apiKeyRouteRuntime{}).ensureInitial(c, func(candidate *service.APIKey) error {
+		return rejectAPIKeyRouteUnsupportedModel(c, diag, candidate, "grok-4.7")
+	})
+	require.Error(t, err)
+	require.Nil(t, actual)
+	require.ErrorIs(t, err, errAPIKeyRouteAllGroupsModelUnsupported)
+	require.NotErrorIs(t, err, errAPIKeyRouteModelUnsupported)
+	require.NotContains(t, err.Error(), "group 51")
+	require.NotContains(t, err.Error(), "group 52")
+
+	status, errType, message, ok := apiKeyRouteModelNotSupportedResponse(c, err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusNotFound, status)
+	require.Equal(t, "model_not_found", errType)
+	require.Contains(t, message, "grok-4.7")
+	// 多分组与单分组必须给出同一份判定：同一个分类器、同一句文案，
+	// 通道监控也据此把这类错误归到 model_unsupported。
+	require.Equal(t, newModelNotSupportedClassification("grok-4.7").Message, message)
+	require.Equal(t, middleware2.IngressRejectModelNotAllowed, mustIngressRejectReason(t, c))
+	require.True(t, service.HasOpsClientBusinessLimited(c))
+	require.Equal(t, service.OpsClientBusinessLimitedReasonLocalModelConfiguration, service.OpsClientBusinessLimitedReason(c))
+}
+
+func mustIngressRejectReason(t *testing.T, c *gin.Context) middleware2.IngressRejectReason {
+	t.Helper()
+	reason, rejected := middleware2.GetIngressRejectReason(c)
+	require.True(t, rejected, "expected the request to be marked as an ingress rejection")
+	return reason
+}
+
+func TestAPIKeyRouteRuntimeEnsureInitialKeepsGroupAttributionWhenOtherCandidatesFailDifferently(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	primaryID, secondaryID := int64(61), int64(62)
+	routes := []service.APIKeyGroupRoute{
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: secondaryID, Priority: 1, Enabled: true, Group: &service.Group{ID: secondaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+	}
+	apiKey := &service.APIKey{ID: 62, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 60}, RouteVersion: 7, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	diag := routeModelAvailabilityStub{unsupported: map[int64]struct{}{primaryID: {}}}
+	actual, _, _, err := (apiKeyRouteRuntime{}).ensureInitial(c, func(candidate *service.APIKey) error {
+		if candidate.Group.ID == secondaryID {
+			return errors.New("candidate group 62 breaker is open")
+		}
+		return rejectAPIKeyRouteUnsupportedModel(c, diag, candidate, "grok-4.7")
+	})
+	require.Error(t, err)
+	require.Nil(t, actual)
+	require.NotErrorIs(t, err, errAPIKeyRouteAllGroupsModelUnsupported)
+	require.Contains(t, err.Error(), "breaker is open")
+
+	_, _, _, ok := apiKeyRouteModelNotSupportedResponse(c, err)
+	require.False(t, ok)
+	_, rejected := middleware2.GetIngressRejectReason(c)
+	require.False(t, rejected)
+}
+
 func TestRejectAPIKeyRouteUnsupportedModelSkipsOtherPlatforms(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	openaiID, grokID := int64(41), int64(42)
@@ -249,6 +330,37 @@ func TestAPIKeyRouteRuntimeValidateInitialNeverMovesStateOwnedContinuation(t *te
 	require.Equal(t, []int{0, 1}, state.Order)
 	require.Equal(t, primaryID, state.InitialGroupID)
 	require.Zero(t, state.SwitchCount)
+}
+
+func TestAPIKeyRouteRuntimeValidateInitialReportsModelUnsupported(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	primaryID, secondaryID := int64(71), int64(72)
+	routes := []service.APIKeyGroupRoute{
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: secondaryID, Priority: 1, Enabled: true, Group: &service.Group{ID: secondaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+	}
+	apiKey := &service.APIKey{ID: 72, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 70}, RouteVersion: 8, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	diag := routeModelAvailabilityStub{unsupported: map[int64]struct{}{primaryID: {}, secondaryID: {}}}
+	// routeLocked continuation：不能换组，但模型不可用仍须给出与可换组路径一致的判定。
+	actual, _, err := (apiKeyRouteRuntime{}).validateInitial(c, func(candidate *service.APIKey) error {
+		return rejectAPIKeyRouteUnsupportedModel(c, diag, candidate, "grok-4.7")
+	})
+	require.Error(t, err)
+	require.Nil(t, actual)
+	require.ErrorIs(t, err, errAPIKeyRouteAllGroupsModelUnsupported)
+
+	status, errType, message, ok := apiKeyRouteModelNotSupportedResponse(c, err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusNotFound, status)
+	require.Equal(t, "model_not_found", errType)
+	require.Equal(t, newModelNotSupportedClassification("grok-4.7").Message, message)
 }
 
 func TestActivateAPIKeyRouteOwnedGroupPinsConfiguredPhysicalGroup(t *testing.T) {

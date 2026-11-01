@@ -80,6 +80,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	bindRequestedReasoningEffort(c, body, reqModel)
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
+		markOpsModelNotAvailableForGroup(c)
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
@@ -180,6 +181,8 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
+			h.chatCompletionsErrorResponse(c, status, code, message)
+		} else if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, initialRouteErr); ok {
 			h.chatCompletionsErrorResponse(c, status, code, message)
 		} else {
 			h.chatCompletionsErrorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")

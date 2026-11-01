@@ -220,6 +220,10 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			apiKey, subscription, initialRouteChanged, initialRouteErr = h.apiKeyRouteRuntime().ensureInitial(c, grokMediaCandidateCheck)
 		}
 		if initialRouteErr != nil {
+			if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, initialRouteErr); ok {
+				h.errorResponse(c, status, code, message)
+				return
+			}
 			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
 			return
 		}

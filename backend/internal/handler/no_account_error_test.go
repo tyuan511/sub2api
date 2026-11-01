@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -130,6 +131,25 @@ func TestClassifyNoAccountError_ModelNotSupported_Returns404(t *testing.T) {
 	require.Equal(t, int64(42), *fd.calls[0].GroupID)
 	require.True(t, service.HasOpsClientBusinessLimited(c))
 	require.Equal(t, service.OpsClientBusinessLimitedReasonLocalModelConfiguration, service.OpsClientBusinessLimitedReason(c))
+	reason, rejected := middleware2.GetIngressRejectReason(c)
+	require.True(t, rejected, "单分组模型不可用属于入口拒绝，不应写入错误看板")
+	require.Equal(t, middleware2.IngressRejectModelNotAllowed, reason)
+}
+
+// 分组已经发生过上游失败时，这条失败必须继续留在错误看板里：
+// 模型判定不能覆盖真实的运营事件。
+func TestClassifyNoAccountErrorFromGin_KeepsMonitoringAfterUpstreamFailure(t *testing.T) {
+	c := newTestGinContextWithRequest()
+	c.Set(service.OpsUpstreamStatusCodeKey, http.StatusBadGateway)
+	fd := &fakeDiagnoser{resp: service.ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: false}}
+	apiKey := &service.APIKey{GroupID: ptrInt64(44)}
+
+	cls := classifyNoAccountErrorFromGin(c, fd, apiKey, "gpt-5.1-codex-mini", "gpt-5.1-codex-mini", service.PlatformOpenAI)
+
+	require.True(t, cls.ModelNotFound)
+	_, rejected := middleware2.GetIngressRejectReason(c)
+	require.False(t, rejected, "已有上游错误的请求仍须落库")
+	require.False(t, service.HasOpsClientBusinessLimited(c))
 }
 
 func TestClassifyOpenAICompatibleNoAccountError_GrokUsesGrokPlatform(t *testing.T) {

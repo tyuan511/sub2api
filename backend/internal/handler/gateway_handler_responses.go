@@ -80,6 +80,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	bindRequestedReasoningEffort(c, body, reqModel)
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
+		markOpsModelNotAvailableForGroup(c)
 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
@@ -204,6 +205,10 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
+			h.responsesErrorResponse(c, status, code, message)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, err); ok {
 			h.responsesErrorResponse(c, status, code, message)
 			return
 		}

@@ -79,6 +79,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	reqModel := modelResult.String()
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	if !openAICompatibleTextTargetAllowed(c, apiKey, reqModel) {
+		markOpsModelNotAvailableForGroup(c)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
 	}
@@ -196,6 +197,10 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		var policyErr *service.ReasoningEffortOverLimitError
 		if errors.As(err, &policyErr) {
 			respondOpenAIReasoningEffortPolicyError(c, policyErr, h.errorResponse)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, err); ok {
+			h.handleStreamingAwareError(c, status, code, message, streamStarted)
 			return
 		}
 		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)

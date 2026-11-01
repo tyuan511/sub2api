@@ -140,6 +140,10 @@ func (h *AsyncImageHandler) Submit(c *gin.Context) {
 		}
 		actualAPIKey, _, changed, routeErr := h.openAI.apiKeyRouteRuntime().ensureInitial(c, asyncCandidateCheck)
 		if routeErr != nil {
+			if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, routeErr); ok {
+				imageTaskJSONError(c, status, code, message)
+				return
+			}
 			imageTaskJSONError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
 			return
 		}

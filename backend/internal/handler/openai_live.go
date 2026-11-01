@@ -46,6 +46,7 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 	}
 	model := strings.TrimSpace(gjson.GetBytes(request.Session, "model").String())
 	if !compositeTargetPlatformAllowed(c, apiKey, model, service.PlatformOpenAI) {
+		markOpsModelNotAvailableForGroup(c)
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Live only supports OpenAI models for Composite groups")
 		return
 	}
@@ -111,6 +112,10 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
+			h.errorResponse(c, status, code, message)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, err); ok {
 			h.errorResponse(c, status, code, message)
 			return
 		}

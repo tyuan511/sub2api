@@ -80,6 +80,10 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	if apiKeyMultiGroupRoutingActive(c) {
 		actualAPIKey, actualSubscription, changed, routeErr := h.apiKeyRouteRuntime().ensureInitial(c, grokRealtimeCandidateCheck)
 		if routeErr != nil {
+			if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, routeErr); ok {
+				h.errorResponse(c, status, code, message)
+				return
+			}
 			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
 			return
 		}
@@ -310,6 +314,10 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 	if apiKeyMultiGroupRoutingActive(c) {
 		actualAPIKey, actualSubscription, changed, routeErr := h.apiKeyRouteRuntime().ensureInitial(c, grokVoiceCandidateCheck)
 		if routeErr != nil {
+			if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, routeErr); ok {
+				h.errorResponse(c, status, code, message)
+				return
+			}
 			h.errorResponse(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
 			return
 		}

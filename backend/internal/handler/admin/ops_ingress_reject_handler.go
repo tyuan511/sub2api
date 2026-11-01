@@ -16,7 +16,8 @@ var ingressRejectReasons = map[string]struct{}{
 	"invalid_auth_rate_limited": {},
 	"api_key_auth_overloaded":   {},
 	"api_key_disabled":          {}, "ip_restricted": {}, "user_inactive": {}, "group_deleted": {},
-	"group_disabled": {}, "group_not_allowed": {}, "group_unassigned": {}, "other": {},
+	"group_disabled": {}, "group_not_allowed": {}, "group_unassigned": {},
+	"model_not_allowed": {}, "other": {},
 }
 
 var ingressRejectRouteFamilies = map[string]struct{}{

@@ -102,6 +102,7 @@ func writeRetrievedModel(c *gin.Context, body []byte) {
 			return
 		}
 	}
+	markOpsModelNotAvailableForGroup(c)
 	c.JSON(http.StatusNotFound, gin.H{"error": gin.H{
 		"type": "invalid_request_error", "code": "model_not_found", "param": "model",
 		"message": fmt.Sprintf("Model %q does not exist or is not available for this group", modelID),

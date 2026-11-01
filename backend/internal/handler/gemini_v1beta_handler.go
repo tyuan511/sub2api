@@ -416,6 +416,8 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
 			googleError(c, status, message)
+		} else if status, _, message, ok := apiKeyRouteModelNotSupportedResponse(c, initialRouteErr); ok {
+			googleError(c, status, message)
 		} else {
 			googleError(c, http.StatusServiceUnavailable, "No eligible candidate groups")
 		}

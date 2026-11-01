@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -123,14 +124,46 @@ func classifyNoAccountError(
 
 	result := diag.DiagnoseModelAvailabilityForPlatform(ctx, apiKey.GroupID, routingModel, platform)
 	if result.HasAccountsInPool && !result.HasModelSupport {
-		return noAccountErrorClassification{
-			Status:        http.StatusNotFound,
-			ErrType:       "model_not_found",
-			Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
-			ModelNotFound: true,
-		}
+		return newModelNotSupportedClassification(displayModel)
 	}
 	return fallback
+}
+
+// newModelNotSupportedClassification is the single source of truth for
+// "the requested model is not served here". Both the single-group account
+// selection path and the multi-group route-selection path answer with it, so a
+// key answers model-availability questions the same way regardless of how many
+// groups it has. The wording is also what channel monitoring keys off to
+// classify the row as model_unsupported, so keep it intact.
+func newModelNotSupportedClassification(model string) noAccountErrorClassification {
+	return noAccountErrorClassification{
+		Status:        http.StatusNotFound,
+		ErrType:       "model_not_found",
+		Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", model),
+		ModelNotFound: true,
+	}
+}
+
+// markOpsModelNotAvailableForGroup classifies a request-model mismatch as a
+// local configuration problem instead of an operational error.
+//
+// These failures are decided before any upstream call: the caller asked for a
+// model that the group (or every group of the key) cannot serve, so there is no
+// account, group, or provider health signal to attribute. Marking the request as
+// an ingress rejection keeps it out of ops_error_logs (it stays visible in the
+// ingress-reject aggregates by reason), and the client business-limit marker
+// keeps it out of SLA denominators.
+func markOpsModelNotAvailableForGroup(c *gin.Context) {
+	if c == nil {
+		return
+	}
+	// A group that already produced an upstream failure is a genuine operational
+	// event. Keep that row visible rather than hiding it behind the model verdict.
+	if hasOpsUpstreamErrorContext(c) {
+		return
+	}
+	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+	middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotAllowed)
 }
 
 // classifyNoAccountErrorFromGin is a thin wrapper that forwards the gin
@@ -150,7 +183,7 @@ func classifyNoAccountErrorFromGin(
 	}
 	classification := classifyNoAccountError(ctx, diag, apiKey, routingModel, displayModel, platform)
 	if classification.ModelNotFound {
-		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+		markOpsModelNotAvailableForGroup(c)
 	}
 	return classification
 }

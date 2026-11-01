@@ -171,6 +171,10 @@ func (h *ImageStudioHandler) Submit(c *gin.Context) {
 	}
 	routed, routeErr := h.async.activateImageStudioRoute(c, key, parsed.Model, body)
 	if routeErr != nil {
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, routeErr); ok {
+			imageTaskJSONError(c, status, code, message)
+			return
+		}
 		imageTaskJSONError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups")
 		return
 	}

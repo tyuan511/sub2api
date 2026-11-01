@@ -11,7 +11,65 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var errAPIKeyRouteModelUnsupported = errors.New("candidate group does not support requested model")
+var (
+	errAPIKeyRouteModelUnsupported          = errors.New("candidate group does not support requested model")
+	errAPIKeyRouteAllGroupsModelUnsupported = errors.New("no candidate group supports the requested model")
+)
+
+// apiKeyRouteGroupModelError is the per-candidate rejection reason: the group
+// itself is healthy, its accounts simply cannot serve the requested model.
+type apiKeyRouteGroupModelError struct {
+	GroupID int64
+	Model   string
+}
+
+func (e *apiKeyRouteGroupModelError) Error() string {
+	if e == nil {
+		return errAPIKeyRouteModelUnsupported.Error()
+	}
+	return fmt.Sprintf("%s: group %d model %s", errAPIKeyRouteModelUnsupported, e.GroupID, e.Model)
+}
+
+func (e *apiKeyRouteGroupModelError) Is(target error) bool {
+	return target == errAPIKeyRouteModelUnsupported
+}
+
+// apiKeyRouteModelUnsupportedError reports a request whose model no candidate
+// group of the API key can serve. It deliberately carries no group identity:
+// every group was rejected for the same client-side reason, so blaming the
+// group the request happened to start on misleads both the caller and ops.
+type apiKeyRouteModelUnsupportedError struct {
+	Model string
+}
+
+func (e *apiKeyRouteModelUnsupportedError) Error() string {
+	if e == nil {
+		return errAPIKeyRouteAllGroupsModelUnsupported.Error()
+	}
+	return fmt.Sprintf("%s: model %s", errAPIKeyRouteAllGroupsModelUnsupported, e.Model)
+}
+
+func (e *apiKeyRouteModelUnsupportedError) Is(target error) bool {
+	return target == errAPIKeyRouteAllGroupsModelUnsupported
+}
+
+// apiKeyRouteModelNotSupportedResponse builds the protocol-agnostic answer for
+// apiKeyRouteModelUnsupportedError. It reports ok=false for every other failure.
+//
+// The verdict is the same one single-group keys reach through
+// classifyNoAccountError: 404 model_not_found carrying the shared message that
+// channel monitoring classifies as model_unsupported. Keeping both paths on one
+// classifier is the point — a key with several groups must not answer a
+// model-availability question differently from a key with one.
+func apiKeyRouteModelNotSupportedResponse(c *gin.Context, err error) (status int, errType, message string, ok bool) {
+	var modelErr *apiKeyRouteModelUnsupportedError
+	if !errors.As(err, &modelErr) {
+		return 0, "", "", false
+	}
+	cls := newModelNotSupportedClassification(modelErr.Model)
+	markOpsModelNotAvailableForGroup(c)
+	return cls.Status, cls.ErrType, cls.Message, true
+}
 
 // apiKeyRouteRuntime owns the dependencies needed to activate a secondary
 // candidate. It is intentionally small so every protocol can share identical
@@ -50,7 +108,7 @@ func rejectAPIKeyRouteUnsupportedModel(c *gin.Context, diag service.ModelAvailab
 	if diagnosis.HasModelSupport {
 		return nil
 	}
-	return fmt.Errorf("%w: group %d model %s", errAPIKeyRouteModelUnsupported, groupID, model)
+	return &apiKeyRouteGroupModelError{GroupID: groupID, Model: model}
 }
 
 // activateAPIKeyRouteOwnedGroup resolves upstream state whose identity is
@@ -118,6 +176,13 @@ func (r apiKeyRouteRuntime) ensureInitialWithFallback(c *gin.Context, candidateC
 	changed := false
 	var lastErr error
 	lastErrBilling := false
+	// allRejectedForModel tracks whether *every* candidate visited so far was
+	// rejected only because the requested model is absent from that group. When
+	// the whole key is exhausted that way, the failure belongs to the request
+	// rather than to any single group, and callers answer with a plain
+	// model_not_found instead of a group-attributed routing error.
+	allRejectedForModel := true
+	rejectedModel := ""
 	for {
 		lastErr = nil
 		lastErrBilling = false
@@ -139,11 +204,31 @@ func (r apiKeyRouteRuntime) ensureInitialWithFallback(c *gin.Context, candidateC
 			return apiKey, subscription, changed, nil
 		}
 
+		var groupModelErr *apiKeyRouteGroupModelError
+		if errors.As(lastErr, &groupModelErr) {
+			rejectedModel = groupModelErr.Model
+		} else {
+			allRejectedForModel = false
+		}
+
 		if !allowFallback {
+			// A pinned continuation group cannot move, but the reason is still a
+			// request/model mismatch rather than a group failure, so it answers
+			// with the same model_not_found the other paths produce.
+			if allRejectedForModel {
+				return nil, nil, changed, &apiKeyRouteAdvanceError{
+					Last: &apiKeyRouteModelUnsupportedError{Model: rejectedModel},
+				}
+			}
 			return nil, nil, changed, &apiKeyRouteAdvanceError{Last: lastErr, Billing: lastErrBilling}
 		}
 		next, advanced := middleware2.RejectInitialAPIKeyRoute(c)
 		if !advanced {
+			if allRejectedForModel {
+				return nil, nil, changed, &apiKeyRouteAdvanceError{
+					Last: &apiKeyRouteModelUnsupportedError{Model: rejectedModel},
+				}
+			}
 			return nil, nil, changed, &apiKeyRouteAdvanceError{Last: lastErr, Billing: lastErrBilling}
 		}
 		apiKey = next

@@ -478,6 +478,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	reqModel := modelResult.String()
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	if !openAICompatibleTextTargetAllowed(c, apiKey, reqModel) {
+		markOpsModelNotAvailableForGroup(c)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
 	}
@@ -697,6 +698,10 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		var policyErr *service.ReasoningEffortOverLimitError
 		if errors.As(initialRouteErr, &policyErr) {
 			respondOpenAIReasoningEffortPolicyError(c, policyErr, h.errorResponse)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, initialRouteErr); ok {
+			h.handleStreamingAwareError(c, status, code, message, streamStarted)
 			return
 		}
 		h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "server_error", "No eligible candidate groups", streamStarted)
@@ -1428,6 +1433,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	reqModel := modelResult.String()
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	if !openAICompatibleTextTargetAllowed(c, apiKey, reqModel) {
+		markOpsModelNotAvailableForGroup(c)
 		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
 		return
 	}
@@ -1531,6 +1537,10 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
+			h.anthropicStreamingAwareError(c, status, code, message, streamStarted)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, err); ok {
 			h.anthropicStreamingAwareError(c, status, code, message, streamStarted)
 			return
 		}
@@ -3144,6 +3154,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	if initialRouteErr != nil {
 		if isAPIKeyRouteAdvanceBillingError(initialRouteErr) {
 			closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "billing check failed")
+		} else if _, _, message, ok := apiKeyRouteModelNotSupportedResponse(c, initialRouteErr); ok {
+			closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, message)
 		} else {
 			closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "no eligible candidate groups")
 		}

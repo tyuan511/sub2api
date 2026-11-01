@@ -224,6 +224,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
+		markOpsModelNotAvailableForGroup(c)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
@@ -322,6 +323,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			if retryAfter > 0 {
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
 			}
+			h.handleStreamingAwareError(c, status, code, message, streamStarted)
+			return
+		}
+		if status, code, message, ok := apiKeyRouteModelNotSupportedResponse(c, err); ok {
 			h.handleStreamingAwareError(c, status, code, message, streamStarted)
 			return
 		}
@@ -2529,6 +2534,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 		return
 	}
 	if !compositeTargetPlatformResolved(c, apiKey, parsedReq.Model) {
+		markOpsModelNotAvailableForGroup(c)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
