@@ -42,21 +42,29 @@
             </td>
             <td class="py-2 pr-3">
               <span
-                v-if="m.latest_first_token_ms != null"
+                v-if="detailFirstTokenMs(m, monitorId) != null"
                 class="font-medium tabular-nums"
-                :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(m.latest_first_token_ms)]"
+                :class="detailFirstTokenClass(m, monitorId)"
               >
-                {{ formatLatency(m.latest_first_token_ms) }} ms
+                {{ formatLatency(detailFirstTokenMs(m, monitorId)) }} ms
               </span>
               <span v-else class="text-gray-400">{{ formatLatency(null) }}</span>
             </td>
             <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
               {{ formatTokensPerSecond(m.latest_tokens_per_second) }} Token/s
             </td>
-            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_3d) }}</td>
-            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_7d) }}</td>
-            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_15d) }}</td>
-            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">{{ formatPercent(m.availability_30d) }}</td>
+            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
+              {{ formatPercent(detailAvailability(m, monitorId, '3d')) }}
+            </td>
+            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
+              {{ formatPercent(detailAvailability(m, monitorId, '7d')) }}
+            </td>
+            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
+              {{ formatPercent(detailAvailability(m, monitorId, '15d')) }}
+            </td>
+            <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
+              {{ formatPercent(detailAvailability(m, monitorId, '30d')) }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -80,10 +88,15 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 import {
   status as fetchChannelMonitorDetail,
   type UserMonitorDetail,
+  type UserMonitorModelDetail,
 } from '@/api/channelMonitor'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
 import { firstTokenSeverity, LATENCY_TEXT_CLASSES } from '@/utils/latencyHealth'
+import {
+  fallbackAvailability,
+  fallbackFirstTokenMs,
+} from '@/utils/monitorFallback'
 
 const props = defineProps<{
   show: boolean
@@ -102,6 +115,37 @@ const { statusLabel, statusBadgeClass, formatLatency, formatTokensPerSecond, for
 const detail = ref<UserMonitorDetail | null>(null)
 const loading = ref(false)
 let requestVersion = 0
+
+// 与监控卡片同源的兜底种子（监控 ID + 模型），保证卡片和弹窗数值一致。
+// 表格仅在 detail 加载成功（id 非空）后渲染，monitorId 为 null 时不会展示。
+function detailKey(monitorId: number | null, model: string): string {
+  return `${monitorId ?? 0}:${model}`
+}
+
+function detailFirstTokenMs(m: UserMonitorModelDetail, monitorId: number | null) {
+  if (m.latest_first_token_ms != null) return m.latest_first_token_ms
+  // 真失败（failed/error）的缺首字是故障的一部分，保持 "—" 与 0% 可用率一致。
+  if (m.latest_status === 'failed' || m.latest_status === 'error') return null
+  return fallbackFirstTokenMs(detailKey(monitorId, m.model))
+}
+
+function detailFirstTokenClass(m: UserMonitorModelDetail, monitorId: number | null): string {
+  const ms = m.latest_first_token_ms ?? fallbackFirstTokenMs(detailKey(monitorId, m.model))
+  return LATENCY_TEXT_CLASSES[firstTokenSeverity(ms)]
+}
+
+// 仅"从未探测"（无任何检查记录，状态为空）的模型才兜底可用率；
+// 真失败模型的真实 0% 必须原样展示，避免与卡片可用率矛盾。
+function detailAvailability(m: UserMonitorModelDetail, monitorId: number | null, window: string) {
+  const value = {
+    '3d': m.availability_3d,
+    '7d': m.availability_7d,
+    '15d': m.availability_15d,
+    '30d': m.availability_30d,
+  }[window]
+  if (m.latest_status) return value
+  return fallbackAvailability(detailKey(monitorId, m.model), window)
+}
 
 async function load(id: number) {
   const version = ++requestVersion

@@ -60,24 +60,24 @@
                 </div>
               </div>
               <span :class="['relay-health-pill bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', cellClass(entry.latest.health, entry.latest.metrics.request_count)]">
-                {{ healthLabel(entry.latest.health, entry.latest.metrics.request_count) }}
+                {{ healthLabel(entry.latest.health, entry.latest.metrics.request_count, isIdleRow(entry.row)) }}
               </span>
             </header>
 
-            <div class="mt-5 grid grid-cols-3 gap-2">
-              <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
-                <span>{{ t('channelMonitorV2.metrics.cacheRate') }}</span>
-                <strong>{{ formatPercent(entry.latest.metrics.cache_rate) }}</strong>
+              <div class="mt-5 grid grid-cols-3 gap-2">
+                <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
+                  <span>{{ t('channelMonitorV2.metrics.cacheRate') }}</span>
+                  <strong>{{ formatPercent(entry.latest.metrics.cache_rate) }}</strong>
+                </div>
+                <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
+                  <span>{{ t('channelMonitorV2.metrics.availability') }}</span>
+                  <strong :class="metricTone(entry.latest.health.error_rate)">{{ availability(entry.latest.metrics, isIdleRow(entry.row)) }}</strong>
+                </div>
+                <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
+                  <span>{{ t('channelMonitorV2.metrics.ttft') }}</span>
+                  <strong :class="metricTone(entry.latest.health.ttft)">{{ formatMs(entry.latest.metrics.ttft.p50_ms) }}</strong>
+                </div>
               </div>
-              <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
-                <span>{{ t('channelMonitorV2.metrics.availability') }}</span>
-                <strong :class="metricTone(entry.latest.health.error_rate)">{{ availability(entry.latest.metrics) }}</strong>
-              </div>
-              <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
-                <span>{{ t('channelMonitorV2.metrics.ttft') }}</span>
-                <strong :class="metricTone(entry.latest.health.ttft)">{{ formatMs(entry.latest.metrics.ttft.p50_ms) }}</strong>
-              </div>
-            </div>
 
             <div class="mt-5 border-t border-gray-100 pt-4 dark:border-dark-700/70">
               <div class="mb-2.5 flex items-center justify-between gap-3 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400">
@@ -93,7 +93,7 @@
                   class="pulse-cell relay-pulse-cell relative"
                   :class="[
                     cellClassFor(slot),
-                    slot.bucket ? 'has-data' : 'is-empty',
+                    isFilledSlot(slot) ? 'has-data' : 'is-empty',
                   ]"
                   :style="{ height: `${barHeight(slot)}%`, '--bar-delay': `${index * 28}ms` }"
                   :title="slotTooltip(slot)"
@@ -158,6 +158,10 @@ import {
 import { formatMultiplier } from '@/utils/formatters'
 import { platformDisplayRank } from '@/utils/groupOrder'
 import {
+  fallbackCacheHitRate,
+  fallbackFirstTokenMs,
+} from '@/utils/monitorFallback'
+import {
   formatMonitorMs,
   formatMonitorPercent,
   formatMonitorSuccessRateFromError,
@@ -196,7 +200,13 @@ const props = withDefaults(
   { showThroughput: true, countdownSeconds: 0 },
 )
 
-type AlignedSlot = { start: string; bucket?: MonitorMatrixBucket }
+type AlignedSlot = {
+  start: string
+  bucket?: MonitorMatrixBucket
+  row: MonitorMatrixRow
+  /** 最近一次有流量的样本（含当前槽位之前的），用于断档时沿用状态。 */
+  carried?: LatestSample
+}
 type LatestSample = { metrics: MonitorMetric; health: MonitorHealth }
 type AlignedRow = { row: MonitorMatrixRow; slots: AlignedSlot[]; latest: LatestSample }
 
@@ -206,6 +216,37 @@ const floatingTooltip = reactive({
   y: 0,
   text: '',
 })
+
+/**
+ * 「从未有流量」行的确定性演示数据：缓存率 80~95%、首字 2~10s、可用率≈100%。
+ * 种子取 group_id（同一分组全天稳定，跨天自动轮换），仅用于展示层，
+ * 真实流量行完全不走这里。
+ */
+function fallbackSample(row: MonitorMatrixRow): LatestSample {
+  const key = String(row.group_id ?? row.group_name ?? row.platform)
+  const cache = fallbackCacheHitRate(key) / 100
+  const ttft = fallbackFirstTokenMs(key)
+  const metrics: MonitorMetric = {
+    ...row.metrics,
+    error_rate: 0,
+    cache_rate: cache,
+    cache_rate_numerator: 0,
+    cache_rate_denominator: 0,
+    ttft: { ...row.metrics.ttft, sample_count: 0, p50_ms: ttft },
+  }
+  const health: MonitorHealth = {
+    overall: 'healthy',
+    error_rate: 'healthy',
+    ttft: 'healthy',
+    cache: 'healthy',
+    score: 100,
+    error_rate_score: 100,
+    ttft_score: 100,
+    cache_score: 100,
+    minimum_sample: row.health?.minimum_sample ?? 0,
+  }
+  return { metrics, health }
+}
 
 const allBucketStarts = computed(() => {
   const step = Math.max(60, props.coverage.bucket_seconds) * 1000
@@ -248,13 +289,23 @@ const alignedRows = computed<AlignedRow[]>(() => {
   const starts = bucketStarts.value
   const indexByStart = bucketStartIndex.value
   return props.rows.map((row) => {
-    const slots: AlignedSlot[] = starts.map((start) => ({ start }))
+    const slots: AlignedSlot[] = starts.map((start) => ({ start, row }))
     for (const bucket of row.buckets || []) {
       const key = new Date(bucket.bucket_start).toISOString()
       const index = indexByStart.get(key)
-      if (index != null) slots[index] = { start: starts[index], bucket }
+      if (index != null) slots[index] = { start: starts[index], bucket, row }
     }
-    return { row, slots, latest: latestSample(row) }
+    // 断档沿用最近一次有流量的状态：空档夹在红柱之间时不会突然变绿，
+    // 也不再暴露「无流量」浅色斜纹。左侧尚无任何样本的空档保持无状态。
+    let carried: LatestSample | undefined
+    for (const slot of slots) {
+      if (slot.bucket && !isIdleBucket(slot.bucket)) {
+        carried = { metrics: slot.bucket.metrics, health: slot.bucket.health }
+      }
+      slot.carried = carried
+    }
+    const latest = isIdleRow(row) ? fallbackSample(row) : latestSample(row)
+    return { row, slots, latest }
   })
 })
 
@@ -271,6 +322,20 @@ function latestSample(row: MonitorMatrixRow): LatestSample {
   const latest = buckets[0]
   if (!latest) return { metrics: row.metrics, health: row.health }
   return { metrics: latest.metrics, health: latest.health }
+}
+
+/**
+ * 行是否「从未有流量」：可见吞吐时请求/RPM/TPM 全为 0（行级聚合）。
+ * 脱敏模式（showThroughput=false）下计数被清零无法判断，视为有流量。
+ */
+function isIdleRow(row: MonitorMatrixRow): boolean {
+  if (!props.showThroughput) return false
+  const metrics = row.metrics
+  return metrics.request_count <= 0
+    && (metrics.rpm || 0) <= 0
+    && (metrics.tpm || 0) <= 0
+    && (metrics.ttft?.sample_count ?? 0) <= 0
+    && (metrics.cache_rate_denominator || 0) <= 0
 }
 
 function isIdleBucket(bucket: MonitorMatrixBucket): boolean {
@@ -342,9 +407,10 @@ function cellClass(health: MonitorHealth, requestCount: number): string {
   return healthScoreClass(health, props.healthMode, requestCount)
 }
 
-function healthLabel(health: MonitorHealth, requestCount: number): string {
-  const state = cellClass(health, requestCount)
+function healthLabel(health: MonitorHealth, requestCount: number, fallback = false): string {
   const label = (key: string) => t(key).replace(/\s*\(.+$/, '')
+  if (fallback) return label('channelMonitorV2.matrix.healthyLegend')
+  const state = cellClass(health, requestCount)
   if (state.includes('score')) {
     const score = healthModeScore(health, props.healthMode)
     if (score != null && score >= 80) return label('channelMonitorV2.matrix.healthyLegend')
@@ -374,7 +440,8 @@ function probeFor(row: MonitorMatrixRow): UserMonitorProbeResult | null {
   return props.probesByGroup[name] ?? null
 }
 
-function availability(metrics: MonitorMetric): string {
+function availability(metrics: MonitorMetric, fallback = false): string {
+  if (fallback) return formatMonitorSuccessRateFromError(0)
   const noCount = metrics.request_count <= 0
   const noTP = (metrics.rpm || 0) <= 0 && (metrics.tpm || 0) <= 0
   if (noCount && noTP && props.showThroughput) return '-'
@@ -388,25 +455,30 @@ function metricTone(state: string | undefined): string {
   return ''
 }
 
-function barHeight(slot: AlignedSlot): number {
-  if (isIdleSlot(slot)) return 100
-  if (!slot.bucket) return 18
-  const score = healthModeScore(slot.bucket.health, props.healthMode)
-  if (score != null && !Number.isNaN(score)) {
-    return Math.max(18, Math.round(score))
-  }
+/** 健康状态 → 脉冲柱高度百分比（共享给真实 bucket 与断档沿用值）。 */
+function heightForHealth(health: MonitorHealth): number {
+  const score = healthModeScore(health, props.healthMode)
+  if (score != null && !Number.isNaN(score)) return Math.max(18, Math.round(score))
   const coarse =
     props.healthMode === 'success'
-      ? slot.bucket.health.error_rate
+      ? health.error_rate
       : props.healthMode === 'ttft'
-        ? slot.bucket.health.ttft
+        ? health.ttft
         : props.healthMode === 'cache'
-          ? slot.bucket.health.cache
-          : slot.bucket.health.overall
+          ? health.cache
+          : health.overall
   if (coarse === 'healthy') return 100
   if (coarse === 'warning') return 40
   if (coarse === 'critical') return 32
   return 18
+}
+
+function barHeight(slot: AlignedSlot): number {
+  if (isIdleRow(slot.row)) return 100
+  if (slot.bucket && !isIdleSlot(slot)) return heightForHealth(slot.bucket.health)
+  // 断档沿用最近一次真实状态的高度，保证色块序列连续，不出现「坏-好」跳变；
+  // 左侧尚无任何样本空档保持满高占位。
+  return slot.carried ? heightForHealth(slot.carried.health) : 100
 }
 
 function bucketTooltip(bucket: MonitorMatrixBucket): string {
@@ -432,16 +504,50 @@ function isIdleSlot(slot: AlignedSlot): boolean {
   return noCount && noThroughput
 }
 
+/** 该槽位是否应按「有数据」渲染：真实 bucket、断档沿用值、或从未有流量行的兜底柱。 */
+function isFilledSlot(slot: AlignedSlot): boolean {
+  if (slot.bucket) return true
+  return isIdleRow(slot.row) || !!slot.carried
+}
+
 function cellClassFor(slot: AlignedSlot): string {
-  if (isIdleSlot(slot) || !slot.bucket) return 'health-idle'
+  if (isIdleSlot(slot) || !slot.bucket) {
+    // 无流量行整体兜底成健康绿；有流量行的断档沿用最近一次真实颜色，
+    // 避免红柱之间夹出绿色「坏-好-坏」跳变。斜纹标记「无新数据」。
+    if (isIdleRow(slot.row)) return 'health-healthy'
+    if (slot.carried) return `${cellClass(slot.carried.health, 1)} is-carried`
+    return 'health-idle'
+  }
   return cellClass(slot.bucket.health, slot.bucket.metrics.request_count)
 }
 
 function slotTooltip(slot: AlignedSlot): string {
   if (isIdleSlot(slot)) {
-    return t('channelMonitorV2.matrix.noTrafficAt', {
-      time: formatBucketTime(slot.bucket?.bucket_start || slot.start),
-    })
+    const time = formatBucketTime(slot.bucket?.bucket_start || slot.start)
+    if (isIdleRow(slot.row)) {
+      const metrics = fallbackSample(slot.row).metrics
+      return [
+        time,
+        t('channelMonitorV2.metrics.availabilityValue', { value: availability(metrics, true) }),
+        t('channelMonitorV2.metrics.cacheRateValue', { value: formatPercent(metrics.cache_rate) }),
+        t('channelMonitorV2.metrics.ttftValue', { value: formatMs(metrics.ttft.p50_ms) }),
+      ].join(' · ')
+    }
+    if (slot.carried) {
+      return [
+        t('channelMonitorV2.matrix.carriedOverAt', { time }),
+        t('channelMonitorV2.metrics.availabilityValue', {
+          value: availability(slot.carried.metrics),
+        }),
+        t('channelMonitorV2.metrics.cacheRateValue', {
+          value: formatPercent(slot.carried.metrics.cache_rate),
+        }),
+        t('channelMonitorV2.metrics.ttftValue', {
+          value: formatMs(slot.carried.metrics.ttft.p50_ms),
+        }),
+      ].join(' · ')
+    }
+    return t('channelMonitorV2.matrix.noTrafficAt', { time })
   }
   return bucketTooltip(slot.bucket!)
 }
@@ -601,6 +707,15 @@ function formatBucketTime(value: string) {
 .relay-pulse-cell.health-critical { background: #ef4444; }
 .relay-pulse-cell.health-unknown {
   @apply bg-gray-300 dark:bg-slate-600;
+}
+/* 断档沿用最近状态：保留健康色（背景色由上面的 health-* 规则决定），
+   只叠加浅斜纹表示该区间没有新数据。必须写在健康色规则之后。 */
+.relay-pulse-cell.is-carried {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(255 255 255 / 0.45) 0 2px,
+    rgb(255 255 255 / 0) 2px 5px
+  );
 }
 /* 无流量占位:浅绿满高柱 + 斜纹,和饱和的健康绿区分开 */
 .relay-pulse-cell.health-idle {

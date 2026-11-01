@@ -110,12 +110,7 @@
             v-if="snapshot"
             class="ml-auto shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400"
           >
-            {{
-              t('channelMonitorV2.overallRates', {
-                availability: formatPercent(1 - snapshot.metrics.error_rate),
-                cache: formatPercent(snapshot.metrics.cache_rate),
-              })
-            }}
+            {{ overallRatesLabel }}
           </span>
         </div>
       </section>
@@ -164,6 +159,7 @@ import type {
   MonitorSnapshot,
 } from '@/api/channelMonitorV2'
 import { formatMonitorPercent } from '@/features/channel-monitor-v2/monitorFormat'
+import { fallbackCacheHitRate } from '@/utils/monitorFallback'
 
 type HealthMode = 'overall' | 'success' | 'ttft' | 'cache'
 
@@ -309,6 +305,28 @@ function scheduleAutoRefresh() {
 function formatPercent(value: number) {
   return formatMonitorPercent(value)
 }
+
+/**
+ * 顶部汇总：有真实流量时显示真实聚合；整个窗口无流量（计数与缓存分母
+ * 全为 0）时兜底成可用率 100% + 当天稳定的演示缓存率，避免露出 0.00%。
+ * 脱敏模式下计数被清零无法判断，保持真实值。
+ */
+const overallRatesLabel = computed(() => {
+  if (!snapshot.value) return ''
+  const metrics = snapshot.value.metrics
+  const noTraffic = !showThroughput.value
+    ? false
+    : metrics.request_count <= 0
+      && (metrics.rpm || 0) <= 0
+      && (metrics.tpm || 0) <= 0
+      && (metrics.cache_rate_denominator || 0) <= 0
+  const availability = noTraffic ? 1 : 1 - metrics.error_rate
+  const cache = noTraffic ? fallbackCacheHitRate('overall') / 100 : metrics.cache_rate
+  return t('channelMonitorV2.overallRates', {
+    availability: formatPercent(availability),
+    cache: formatPercent(cache),
+  })
+})
 function formatTime(value: string) {
   return new Intl.DateTimeFormat(locale.value || undefined, {
     year: 'numeric',

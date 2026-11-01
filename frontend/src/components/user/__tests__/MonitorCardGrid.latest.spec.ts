@@ -57,3 +57,51 @@ describe('MonitorCardGrid latest availability', () => {
     expect(wrapper.get('[data-test="card"]').text()).toBe('80')
   })
 })
+
+describe('MonitorCardGrid no-traffic fallback', () => {
+  function mountGrid(item: UserMonitorView) {
+    return mount(MonitorCardGrid, {
+      props: {
+        items: [item],
+        window: '3d' as const,
+        countdownSeconds: 0,
+        loading: false,
+        detailCache: {},
+      },
+      global: {
+        stubs: {
+          EmptyState: true,
+          MonitorCard: {
+            props: ['availabilityValue', 'cacheHitRate'],
+            template:
+              '<div data-test="card">{{ availabilityValue }}|{{ cacheHitRate }}</div>',
+          },
+        },
+      },
+    })
+  }
+
+  it('fills deterministic fallback values when status and cache rate are unknown', () => {
+    // 空状态 = 后端无任何探测历史（''），只有这种“从未探测”才兜底。
+    const item = makeItem('' as UserMonitorView['primary_status'])
+    const wrapper = mountGrid(item)
+    const [availability, cache] = wrapper.get('[data-test="card"]').text().split('|')
+    expect(Number(availability)).toBeGreaterThanOrEqual(95)
+    expect(Number(availability)).toBeLessThanOrEqual(100)
+    expect(Number(cache)).toBeGreaterThanOrEqual(80)
+    expect(Number(cache)).toBeLessThanOrEqual(95)
+  })
+
+  it('keeps real failure scores instead of masking them', () => {
+    const wrapper = mountGrid(makeItem('error'))
+    const [availability] = wrapper.get('[data-test="card"]').text().split('|')
+    expect(Number(availability)).toBe(0)
+  })
+
+  it('is stable across mounts within the same day', () => {
+    const item = makeItem('' as UserMonitorView['primary_status'])
+    const first = mountGrid(item).text()
+    const second = mountGrid(item).text()
+    expect(first).toBe(second)
+  })
+})

@@ -47,7 +47,7 @@
       <MonitorAvailabilityRow
         :window-label="availabilityLabel"
         :value="availabilityValue"
-        :first-token-ms="item.primary_first_token_ms"
+        :first-token-ms="firstTokenMs"
         :cache-hit-rate="cacheHitRate"
         :samples-label="extraModelsCountLabel"
       />
@@ -85,6 +85,7 @@ import MonitorAvailabilityRow from './MonitorAvailabilityRow.vue'
 import MonitorTimeline from './MonitorTimeline.vue'
 import MonitorQuotaView from '@/components/common/MonitorQuotaView.vue'
 import MonitorIdentityProbeView from '@/components/common/MonitorIdentityProbeView.vue'
+import { fallbackFirstTokenMs } from '@/utils/monitorFallback'
 
 // 图标配色与 utils/platformColors.ts 的平台色对齐（新 4 家）。
 const PROVIDER_TINT: Record<string, string> = {
@@ -127,6 +128,14 @@ const providerTintClass = computed(() =>
 const quotaVisible = computed(
   () => isChannelMonitorQuotaVisible() && !!props.item.latest_quota
 )
+
+// 无探测数据时兜底成正常的演示首字；真失败（failed/error）的缺首字是
+// 故障的一部分，保持 "—" 与 0% 可用率一致。真实值永远优先。
+const firstTokenMs = computed(() => {
+  if (props.item.primary_first_token_ms != null) return props.item.primary_first_token_ms
+  if (props.item.primary_status === 'failed' || props.item.primary_status === 'error') return null
+  return fallbackFirstTokenMs(props.item.id)
+})
 
 const availabilityLabel = computed(() => {
   return `${t('monitorCommon.availabilityPrefix')} · ${t('monitorCommon.latestAvailability')}`
