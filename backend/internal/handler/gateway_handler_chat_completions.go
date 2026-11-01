@@ -137,10 +137,10 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			return err
 		}
 		if candidate.Group.ClaudeCodeOnly {
-			return fmt.Errorf("candidate group %d is restricted to Claude Code", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "is restricted to Claude Code")
 		}
 		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
-			return fmt.Errorf("candidate group %d does not support this model target", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support this model target")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
 		if healthErr != nil {

@@ -111,7 +111,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 			return err
 		}
 		if !compositeTargetPlatformAllowed(c, candidate, reqModel, service.PlatformOpenAI) {
-			return fmt.Errorf("candidate group %d does not support embeddings target", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support embeddings target")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
 		if healthErr != nil {

@@ -147,7 +147,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			return err
 		}
 		if !openAICompatibleTextTargetAllowed(c, candidate, reqModel) {
-			return fmt.Errorf("candidate group %d does not support this endpoint target", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support this endpoint target")
 		}
 		if _, _, policyErr := applyOpenAIReasoningEffortPolicyForRequest(c, candidate, routePolicyBody); policyErr != nil {
 			return fmt.Errorf("candidate group %d reasoning policy rejected request: %w", candidate.Group.ID, policyErr)

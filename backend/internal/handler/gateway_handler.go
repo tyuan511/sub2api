@@ -280,7 +280,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			return err
 		}
 		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
-			return fmt.Errorf("candidate group %d does not support model %s", candidate.Group.ID, reqModel)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, fmt.Sprintf("does not support model %s", reqModel))
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
 		if healthErr != nil {

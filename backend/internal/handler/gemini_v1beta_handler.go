@@ -374,7 +374,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 			return err
 		}
 		if !middleware.HasForcePlatform(c) && effectiveAPIKeyPlatform(c, candidate) != service.PlatformGemini {
-			return fmt.Errorf("candidate group %d is not Gemini-compatible", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "is not Gemini-compatible")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
 		if healthErr != nil {

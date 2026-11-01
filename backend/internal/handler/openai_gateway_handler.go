@@ -633,10 +633,10 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			return err
 		}
 		if !openAICompatibleTextTargetAllowed(c, candidate, reqModel) {
-			return fmt.Errorf("candidate group %d does not support this endpoint target", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support this endpoint target")
 		}
 		if imageIntent && !service.GroupAllowsImageGeneration(candidate.Group) {
-			return fmt.Errorf("candidate group %d does not allow image generation", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not allow image generation")
 		}
 		if _, _, policyErr := applyOpenAIReasoningEffortPolicyForRequest(c, candidate, routePolicyBody); policyErr != nil {
 			return fmt.Errorf("candidate group %d reasoning policy rejected request: %w", candidate.Group.ID, policyErr)
@@ -1490,10 +1490,10 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			return err
 		}
 		if !allowOpenAICompatibleMessagesDispatch(c, candidate) {
-			return fmt.Errorf("candidate group %d does not allow messages dispatch", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not allow messages dispatch")
 		}
 		if !openAICompatibleTextTargetAllowed(c, candidate, reqModel) {
-			return fmt.Errorf("candidate group %d does not support this endpoint target", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support this endpoint target")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
 		if healthErr != nil {
@@ -3078,10 +3078,10 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			return err
 		}
 		if !compositeTargetPlatformAllowed(c, candidate, reqModel, service.PlatformOpenAI, service.PlatformGrok) {
-			return fmt.Errorf("candidate group %d does not support Responses WebSocket target", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support Responses WebSocket target")
 		}
 		if imageIntent && !service.GroupAllowsImageGeneration(candidate.Group) {
-			return fmt.Errorf("candidate group %d does not allow image generation", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not allow image generation")
 		}
 		if maxEffort, mappings, overLimit, ok := openAIReasoningEffortPolicyForRequest(c, candidate); ok {
 			if _, _, policyErr := service.ApplyOpenAIReasoningEffortPolicy(firstMessage, maxEffort, mappings, overLimit); policyErr != nil {

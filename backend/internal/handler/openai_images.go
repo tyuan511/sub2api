@@ -146,10 +146,10 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			return err
 		}
 		if !compositeTargetPlatformAllowed(c, candidate, requestModel, service.PlatformOpenAI) {
-			return fmt.Errorf("candidate group %d does not support image target", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support image target")
 		}
 		if !service.GroupAllowsImageGeneration(candidate.Group) {
-			return fmt.Errorf("candidate group %d does not allow image generation", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not allow image generation")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, requestModel, routeEndpoint)
 		if healthErr != nil {

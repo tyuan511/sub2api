@@ -157,13 +157,13 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			return err
 		}
 		if !compositeTargetPlatformResolved(c, candidate, reqModel) {
-			return fmt.Errorf("candidate group %d does not support model %s", candidate.Group.ID, reqModel)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, fmt.Sprintf("does not support model %s", reqModel))
 		}
 		if candidate.Group.ClaudeCodeOnly {
-			return fmt.Errorf("candidate group %d is restricted to Claude Code", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "is restricted to Claude Code")
 		}
 		if imageIntent && !service.GroupAllowsImageGeneration(candidate.Group) {
-			return fmt.Errorf("candidate group %d does not allow image generation", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not allow image generation")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, reqModel, routeEndpoint)
 		if healthErr != nil {

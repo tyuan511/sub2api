@@ -198,6 +198,36 @@ func TestAPIKeyRouteRuntimeEnsureInitialSkipsGroupsWithoutRequestedModel(t *test
 	require.Zero(t, state.SwitchCount)
 }
 
+// 端点/平台层面的不兼容与"分组没有该模型"是同一类本地配置问题：请求在
+// 任何上游调用之前就被拒绝，所以整把 key 都这样拒绝时同样给出 404。
+func TestAPIKeyRouteRuntimeEnsureInitialTreatsIncompatibleGroupsAsModelUnsupported(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	primaryID, secondaryID := int64(55), int64(56)
+	routes := []service.APIKeyGroupRoute{
+		{GroupID: primaryID, Priority: 0, Enabled: true, Group: &service.Group{ID: primaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+		{GroupID: secondaryID, Priority: 1, Enabled: true, Group: &service.Group{ID: secondaryID, Status: service.StatusActive, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard}},
+	}
+	apiKey := &service.APIKey{ID: 56, GroupID: &primaryID, Group: routes[0].Group, User: &service.User{ID: 54}, RouteVersion: 9, GroupRoutes: routes}
+	plan, err := service.NewAPIKeyRouteCoordinator(true).BuildPlan(apiKey, nil)
+	require.NoError(t, err)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/messages", nil)
+	middleware2.SetAPIKeyRouteState(c, &middleware2.APIKeyRouteState{Plan: plan, Order: []int{0, 1}, InitialGroupID: primaryID})
+	c.Set(string(middleware2.ContextKeyAPIKey), apiKey)
+
+	actual, _, _, err := (apiKeyRouteRuntime{}).ensureInitial(c, func(candidate *service.APIKey) error {
+		return rejectAPIKeyRouteGroupIncompatible(candidate, "does not allow messages dispatch")
+	})
+	require.Error(t, err)
+	require.Nil(t, actual)
+	require.ErrorIs(t, err, errAPIKeyRouteAllGroupsModelUnsupported)
+
+	status, errType, _, ok := apiKeyRouteModelNotSupportedResponse(c, err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusNotFound, status)
+	require.Equal(t, "model_not_found", errType)
+}
+
 func TestAPIKeyRouteRuntimeEnsureInitialReportsModelUnsupportedWithoutGroupAttribution(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	primaryID, secondaryID := int64(51), int64(52)

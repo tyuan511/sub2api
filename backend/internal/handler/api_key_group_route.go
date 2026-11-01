@@ -34,6 +34,32 @@ func (e *apiKeyRouteGroupModelError) Is(target error) bool {
 	return target == errAPIKeyRouteModelUnsupported
 }
 
+// apiKeyRouteGroupIncompatibleError is the per-candidate rejection reason for a
+// request the group could never serve: wrong platform/endpoint family, image
+// generation disabled, Claude-Code-only, and so on. Both this and
+// apiKeyRouteGroupModelError describe a local configuration mismatch decided
+// before any upstream call, so route selection treats them the same way.
+type apiKeyRouteGroupIncompatibleError struct {
+	GroupID int64
+	Reason  string
+}
+
+func (e *apiKeyRouteGroupIncompatibleError) Error() string {
+	if e == nil {
+		return "candidate group cannot serve this request"
+	}
+	return fmt.Sprintf("candidate group %d %s", e.GroupID, e.Reason)
+}
+
+// rejectAPIKeyRouteGroupIncompatible reports that this candidate cannot serve
+// the request for a reason that is fixed by configuration, not by health.
+func rejectAPIKeyRouteGroupIncompatible(candidate *service.APIKey, reason string) error {
+	if candidate == nil || candidate.Group == nil {
+		return service.ErrNoEligibleAPIKeyRoute
+	}
+	return &apiKeyRouteGroupIncompatibleError{GroupID: candidate.Group.ID, Reason: reason}
+}
+
 // apiKeyRouteModelUnsupportedError reports a request whose model no candidate
 // group of the API key can serve. It deliberately carries no group identity:
 // every group was rejected for the same client-side reason, so blaming the
@@ -176,13 +202,18 @@ func (r apiKeyRouteRuntime) ensureInitialWithFallback(c *gin.Context, candidateC
 	changed := false
 	var lastErr error
 	lastErrBilling := false
-	// allRejectedForModel tracks whether *every* candidate visited so far was
-	// rejected only because the requested model is absent from that group. When
-	// the whole key is exhausted that way, the failure belongs to the request
-	// rather than to any single group, and callers answer with a plain
-	// model_not_found instead of a group-attributed routing error.
-	allRejectedForModel := true
+	// allRejectedForConfig tracks whether *every* candidate visited so far was
+	// rejected for a local configuration reason: it cannot serve the requested
+	// model, endpoint family, or media type. When the whole key is exhausted
+	// that way, the failure belongs to the request rather than to any single
+	// group, and callers answer with a plain model_not_found instead of a
+	// group-attributed routing error.
+	//
+	// Health and capacity rejections (open breaker, billing, subscription) do
+	// NOT qualify: those are owned by the platform and must stay visible.
+	allRejectedForConfig := true
 	rejectedModel := ""
+
 	for {
 		lastErr = nil
 		lastErrBilling = false
@@ -205,17 +236,23 @@ func (r apiKeyRouteRuntime) ensureInitialWithFallback(c *gin.Context, candidateC
 		}
 
 		var groupModelErr *apiKeyRouteGroupModelError
-		if errors.As(lastErr, &groupModelErr) {
+		var groupIncompatibleErr *apiKeyRouteGroupIncompatibleError
+		switch {
+		case errors.As(lastErr, &groupModelErr):
 			rejectedModel = groupModelErr.Model
-		} else {
-			allRejectedForModel = false
+		case errors.As(lastErr, &groupIncompatibleErr):
+		default:
+			// Something other than configuration rejected this candidate. Report
+			// that error: a healthy-but-exhausted group is a real event, and
+			// masking it with an earlier model mismatch would hide it.
+			allRejectedForConfig = false
 		}
 
 		if !allowFallback {
-			// A pinned continuation group cannot move, but the reason is still a
-			// request/model mismatch rather than a group failure, so it answers
-			// with the same model_not_found the other paths produce.
-			if allRejectedForModel {
+			// A pinned continuation group cannot move, but a configuration
+			// mismatch is still a request problem rather than a group failure,
+			// so it answers with the same model_not_found as the other paths.
+			if allRejectedForConfig {
 				return nil, nil, changed, &apiKeyRouteAdvanceError{
 					Last: &apiKeyRouteModelUnsupportedError{Model: rejectedModel},
 				}
@@ -224,7 +261,7 @@ func (r apiKeyRouteRuntime) ensureInitialWithFallback(c *gin.Context, candidateC
 		}
 		next, advanced := middleware2.RejectInitialAPIKeyRoute(c)
 		if !advanced {
-			if allRejectedForModel {
+			if allRejectedForConfig {
 				return nil, nil, changed, &apiKeyRouteAdvanceError{
 					Last: &apiKeyRouteModelUnsupportedError{Model: rejectedModel},
 				}

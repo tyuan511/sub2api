@@ -151,10 +151,10 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			return err
 		}
 		if candidate.Group.Platform != service.PlatformGrok && candidate.Group.Platform != service.PlatformComposite {
-			return fmt.Errorf("candidate group %d is not Grok", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "is not Grok")
 		}
 		if endpoint.IsGenerationRequest() && !service.GroupAllowsImageGeneration(candidate.Group) {
-			return fmt.Errorf("candidate group %d does not allow media generation", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not allow media generation")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, routingModel, routeEndpoint)
 		if healthErr != nil {

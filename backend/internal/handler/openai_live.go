@@ -71,7 +71,7 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 			return err
 		}
 		if !compositeTargetPlatformAllowed(c, candidate, model, service.PlatformOpenAI) {
-			return fmt.Errorf("candidate group %d does not support OpenAI Live", candidate.Group.ID)
+			return rejectAPIKeyRouteGroupIncompatible(candidate, "does not support OpenAI Live")
 		}
 		allowed, state, healthErr := h.gatewayService.AllowAPIKeyRoute(c.Request.Context(), candidate.ID, candidate.RouteVersion, candidate.Group.ID, model, routeEndpoint)
 		if healthErr != nil {
