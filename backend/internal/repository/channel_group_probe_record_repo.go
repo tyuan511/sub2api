@@ -36,6 +36,37 @@ func NewChannelGroupProbeRecordRepository(db *sql.DB) *ChannelGroupProbeRecordRe
 	return &ChannelGroupProbeRecordRepository{db: db}
 }
 
+// CreateOrGetRunning atomically claims the running slot or returns its current owner.
+// A conflicting row may finish between INSERT and SELECT, so retry in that case.
+func (r *ChannelGroupProbeRecordRepository) CreateOrGetRunning(ctx context.Context, groupID, userID int64, kind, model string) (*ChannelGroupProbeRecord, bool, error) {
+	if _, err := r.db.ExecContext(ctx, `UPDATE channel_group_probe_records SET status = 'failed', error_message = '检测任务已中断', completed_at = NOW()
+		WHERE group_id = $1 AND user_id = $2 AND status = 'running' AND created_at < NOW() - INTERVAL '5 minutes'`, groupID, userID); err != nil {
+		return nil, false, err
+	}
+	for {
+		record := &ChannelGroupProbeRecord{GroupID: groupID, UserID: userID, Kind: kind, Model: model, Status: "running"}
+		err := r.db.QueryRowContext(ctx, `INSERT INTO channel_group_probe_records (group_id, user_id, kind, model, status)
+			VALUES ($1, $2, $3, $4, 'running') ON CONFLICT (group_id, user_id) WHERE status = 'running' DO NOTHING RETURNING id, created_at`, groupID, userID, kind, model).Scan(&record.ID, &record.CreatedAt)
+		if err == nil {
+			return record, true, nil
+		}
+		if err != sql.ErrNoRows {
+			return nil, false, err
+		}
+		err = r.db.QueryRowContext(ctx, `SELECT id, kind, model, created_at FROM channel_group_probe_records
+			WHERE group_id = $1 AND user_id = $2 AND status = 'running'`, groupID, userID).Scan(&record.ID, &record.Kind, &record.Model, &record.CreatedAt)
+		if err == nil {
+			return record, false, nil
+		}
+		if err != sql.ErrNoRows {
+			return nil, false, err
+		}
+		if err = ctx.Err(); err != nil {
+			return nil, false, err
+		}
+	}
+}
+
 // Create inserts a running record.
 func (r *ChannelGroupProbeRecordRepository) Create(ctx context.Context, groupID, userID int64, kind, model string) (*ChannelGroupProbeRecord, error) {
 	row := r.db.QueryRowContext(ctx, `INSERT INTO channel_group_probe_records (group_id, user_id, kind, model, status)
@@ -120,7 +151,7 @@ func (r *ChannelGroupProbeRecordRepository) List(ctx context.Context, groupID, v
 					OR EXISTS (SELECT 1 FROM usage_billing_dedup_archive d WHERE d.request_id = u.request_id AND d.api_key_id = u.api_key_id))
 		) cost ON true
 		WHERE p.group_id = $1 AND (p.user_id = $2 OR p.status IN ('succeeded', 'failed'))
-		ORDER BY p.created_at DESC, p.id DESC LIMIT $3`, groupID, viewerUserID, limit)
+		ORDER BY (p.user_id = $2 AND p.status = 'running') DESC, p.created_at DESC, p.id DESC LIMIT $3`, groupID, viewerUserID, limit)
 	if err != nil {
 		return nil, err
 	}

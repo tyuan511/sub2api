@@ -225,37 +225,37 @@ type groupCheckResponse struct {
 	ActualCost   *float64  `json:"actual_cost"`
 }
 
-func (h *ChannelMonitorV2Handler) authorizeGroupCheck(c *gin.Context) (int64, int64, bool) {
+func (h *ChannelMonitorV2Handler) authorizeGroupCheck(c *gin.Context) (int64, int64, string, bool) {
 	groupID, err := strconv.ParseInt(c.Param("group_id"), 10, 64)
 	if err != nil || groupID <= 0 {
 		response.BadRequest(c, "invalid group_id")
-		return 0, 0, false
+		return 0, 0, "", false
 	}
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok || subject.UserID <= 0 {
 		response.Unauthorized(c, "user not found in context")
-		return 0, 0, false
+		return 0, 0, "", false
 	}
 	if h.apiKeyService == nil {
 		response.Error(c, http.StatusServiceUnavailable, "group authorization unavailable")
-		return 0, 0, false
+		return 0, 0, "", false
 	}
 	groups, err := h.apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
 	if err != nil {
 		response.ErrorFrom(c, err)
-		return 0, 0, false
+		return 0, 0, "", false
 	}
 	for _, group := range groups {
 		if group.ID == groupID {
-			return groupID, subject.UserID, true
+			return groupID, subject.UserID, group.Platform, true
 		}
 	}
 	response.Error(c, http.StatusForbidden, "group access denied")
-	return 0, 0, false
+	return 0, 0, "", false
 }
 
 func (h *ChannelMonitorV2Handler) ListGroupChecks(c *gin.Context) {
-	groupID, userID, ok := h.authorizeGroupCheck(c)
+	groupID, userID, _, ok := h.authorizeGroupCheck(c)
 	if !ok {
 		return
 	}
@@ -284,8 +284,19 @@ func (h *ChannelMonitorV2Handler) ListGroupChecks(c *gin.Context) {
 	response.Success(c, gin.H{"items": items})
 }
 
+func groupCheckModelAllowed(platform, model string) bool {
+	switch platform {
+	case service.PlatformOpenAI:
+		return model == "gpt-6-astra" || model == "gpt-6.1-sol"
+	case service.PlatformAnthropic:
+		return model == "claude-opus-5.5" || model == "claude-sonnet-5.5"
+	default:
+		return false
+	}
+}
+
 func (h *ChannelMonitorV2Handler) StartGroupCheck(c *gin.Context) {
-	groupID, userID, ok := h.authorizeGroupCheck(c)
+	groupID, userID, platform, ok := h.authorizeGroupCheck(c)
 	if !ok {
 		return
 	}
@@ -297,20 +308,34 @@ func (h *ChannelMonitorV2Handler) StartGroupCheck(c *gin.Context) {
 		response.BadRequest(c, "invalid group check request")
 		return
 	}
+	input.Model = strings.TrimSpace(input.Model)
+	if !groupCheckModelAllowed(platform, input.Model) {
+		response.BadRequest(c, "model not supported for group platform")
+		return
+	}
 	if h.probeRecords == nil || h.probeExecutor == nil || h.probeSlots == nil {
 		response.Error(c, http.StatusServiceUnavailable, "group check execution unavailable")
+		return
+	}
+	record, created, err := h.probeRecords.CreateOrGetRunning(c.Request.Context(), groupID, userID, input.Kind, input.Model)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "failed to create group check")
+		return
+	}
+	if !created {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": groupCheckResponse{ID: record.ID, GroupID: record.GroupID, Kind: record.Kind, Model: record.Model, Status: record.Status, IsMine: true, CreatedAt: record.CreatedAt}})
 		return
 	}
 	select {
 	case h.probeSlots <- struct{}{}:
 	default:
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		message := "检测失败"
+		if err := h.probeRecords.Complete(ctx, record.ID, groupID, userID, repository.ChannelGroupProbeResult{Status: "failed", ErrorMessage: &message}); err != nil {
+			fmt.Printf("group check %d completion failed: %v\n", record.ID, err)
+		}
 		response.Error(c, http.StatusTooManyRequests, "too many group checks")
-		return
-	}
-	record, err := h.probeRecords.Create(c.Request.Context(), groupID, userID, input.Kind, strings.TrimSpace(input.Model))
-	if err != nil {
-		<-h.probeSlots
-		response.Error(c, http.StatusInternalServerError, "failed to create group check")
 		return
 	}
 	go func() {

@@ -22,6 +22,20 @@ export type MonitorMatrixGroupBy = 'platform' | 'platform_group' | 'platform_mod
 export type GroupCheckType = 'connectivity' | 'pelican'
 export type GroupCheckStatus = 'pending' | 'running' | 'succeeded' | 'failed'
 
+export type GroupCheckModelOption = { value: string; label: string }
+
+/** Models offered by the check UI, selected from the row's actual platform. */
+export function groupCheckModelOptions(platform: string): GroupCheckModelOption[] {
+  const normalized = platform.trim().toLowerCase()
+  const values = normalized === 'openai'
+    ? ['gpt-6-astra', 'gpt-6.1-sol']
+    : normalized === 'anthropic' || normalized === 'claude'
+      ? ['claude-opus-5.5', 'claude-sonnet-5.5']
+      : []
+  return values.map(value => ({ value, label: value }))
+}
+
+
 export interface GroupCheckRecord {
   id: number
   group_id: number

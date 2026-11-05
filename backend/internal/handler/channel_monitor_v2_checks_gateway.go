@@ -55,7 +55,7 @@ func (a *groupCheckGatewayAdapter) RunGroupCheck(ctx context.Context, key *servi
 	r := gin.New()
 	r.POST("/v1/chat/completions", middleware.ClientRequestID(), InboundEndpointMiddleware(), auth, func(c *gin.Context) {
 		authKey, ok := middleware.GetAPIKeyFromContext(c)
-		if !ok || authKey == nil || authKey.ID != key.ID || authKey.UserID != key.UserID || authKey.GroupID == nil || *authKey.GroupID != groupID || authKey.Group == nil || authKey.Group.ID != groupID {
+		if !ok || authKey == nil || authKey.ID != key.ID || authKey.UserID != key.UserID || authKey.GroupID == nil || *authKey.GroupID != groupID || authKey.Group == nil || authKey.Group.ID != groupID || authKey.Group.Platform != key.Group.Platform || !groupCheckModelAllowed(authKey.Group.Platform, model) {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}

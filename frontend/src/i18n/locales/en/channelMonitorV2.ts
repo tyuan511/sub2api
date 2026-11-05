@@ -26,9 +26,10 @@ export default {
     ignored: 'Ignored',
     currentUser: 'Current user',
     groupCheck: {
-      open: 'Test', title: 'Group test · {group}', model: 'Model', modelPlaceholder: 'Enter a model name',
-      type: 'Test type', connectivity: 'Connectivity', pelican: 'Pelican SVG', start: 'Run test',
-      billing: 'Tests are billed for actual usage at the selected model and group rates.', history: 'Shared test history', mine: 'My test', others: 'Other user',
+      open: 'Test', title: 'Group test · {group}', model: 'Model', modelPlaceholder: 'Choose a model',
+      type: 'Test type', connectivity: 'Connectivity', pelican: 'Pelican SVG', start: 'Run test', starting: 'Starting…',
+      runTab: 'Run test', history: 'Shared history', tabsAria: 'Test content', inProgress: 'Testing · elapsed {elapsed}', platformUnavailable: 'The group platform is unavailable or does not support tests.',
+      billing: 'Tests are billed for actual usage at the selected model and group rates.', mine: 'My test', others: 'Other user',
       running: 'Testing', success: 'Succeeded', failed: 'Failed', empty: 'No test records yet', loading: 'Loading…',
       loadFailed: 'Could not load test records', startFailed: 'Could not start test', invalidSvg: 'SVG cannot be safely previewed',
       duration: 'Duration {value}', cost: 'Actual cost {value}', refresh: 'Refresh history', close: 'Close',

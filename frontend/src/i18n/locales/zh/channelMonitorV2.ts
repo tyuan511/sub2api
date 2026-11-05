@@ -26,9 +26,10 @@ export default {
     ignored: '忽略',
     currentUser: '当前用户',
     groupCheck: {
-      open: '检测', title: '分组检测 · {group}', model: '模型', modelPlaceholder: '输入模型名称',
-      type: '检测类型', connectivity: '连通性检测', pelican: '鹈鹕测试', start: '开始检测',
-      billing: '检测按所选模型和分组的实际用量计费。', history: '共享检测记录', mine: '我的检测', others: '其他人的检测',
+      open: '检测', title: '分组检测 · {group}', model: '模型', modelPlaceholder: '选择模型',
+      type: '检测类型', connectivity: '连通性检测', pelican: '鹈鹕测试', start: '开始检测', starting: '正在发起…',
+      runTab: '发起检测', history: '共享历史', tabsAria: '检测内容', inProgress: '正在检测 · 已耗时 {elapsed}', platformUnavailable: '无法获取分组平台或该平台暂不支持检测。',
+      billing: '检测按所选模型和分组的实际用量计费。', mine: '我的检测', others: '其他人的检测',
       running: '检测中', success: '成功', failed: '失败', empty: '暂无检测记录', loading: '加载中…',
       loadFailed: '加载检测记录失败', startFailed: '发起检测失败', invalidSvg: '无法安全预览 SVG',
       duration: '耗时 {value}', cost: '实际费用 {value}', refresh: '刷新记录', close: '关闭',
