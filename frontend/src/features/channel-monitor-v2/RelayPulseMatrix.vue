@@ -79,6 +79,12 @@
                 </div>
               </div>
 
+            <div v-if="entry.row.group_id" class="mt-4 flex flex-wrap justify-end gap-2">
+              <GroupCheckHistoryPopover :group-id="entry.row.group_id" />
+              <button type="button" class="btn btn-secondary !px-3 !py-1.5 text-xs" @click="selectedCheckRow = entry.row">
+                {{ t('channelMonitorV2.groupCheck.open') }}
+              </button>
+            </div>
             <div class="mt-5 border-t border-gray-100 pt-4 dark:border-dark-700/70">
               <div class="mb-2.5 flex items-center justify-between gap-3 text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400">
                 <span>{{ t('monitorCommon.history60pts', { n: PULSE_RECORD_COUNT }) }}</span>
@@ -124,6 +130,14 @@
       {{ t('channelMonitorV2.matrix.emptyTitle') }}
     </div>
 
+    <GroupCheckDialog
+      v-if="selectedCheckRow?.group_id"
+      :show="true"
+      :group-id="selectedCheckRow.group_id"
+      :group-name="cardTitle(selectedCheckRow)"
+      :initial-model="selectedCheckRow.model"
+      @close="selectedCheckRow = null"
+    />
     <Teleport to="body">
       <div
         v-if="floatingTooltip.visible"
@@ -139,7 +153,9 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import GroupCheckDialog from './GroupCheckDialog.vue'
+import GroupCheckHistoryPopover from './GroupCheckHistoryPopover.vue'
 import type {
   MonitorCoverage,
   MonitorHealth,
@@ -210,6 +226,7 @@ type AlignedSlot = {
 type LatestSample = { metrics: MonitorMetric; health: MonitorHealth }
 type AlignedRow = { row: MonitorMatrixRow; slots: AlignedSlot[]; latest: LatestSample }
 
+const selectedCheckRow = ref<MonitorMatrixRow | null>(null)
 const floatingTooltip = reactive({
   visible: false,
   x: 0,

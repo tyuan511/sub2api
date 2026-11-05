@@ -928,6 +928,10 @@ func (s *GatewayService) resolveGatewayGroup(ctx context.Context, groupID *int64
 	}
 
 	currentID := *groupID
+	pinned := GroupCheckPinnedGroup(ctx)
+	if pinned > 0 && currentID != pinned {
+		return nil, nil, fmt.Errorf("group check group mismatch")
+	}
 	visited := map[int64]struct{}{}
 	for {
 		if _, seen := visited[currentID]; seen {
@@ -944,7 +948,7 @@ func (s *GatewayService) resolveGatewayGroup(ctx context.Context, groupID *int64
 			return group, &currentID, nil
 		}
 
-		if group.FallbackGroupID == nil {
+		if pinned > 0 || group.FallbackGroupID == nil {
 			return nil, nil, ErrClaudeCodeOnly
 		}
 		currentID = *group.FallbackGroupID

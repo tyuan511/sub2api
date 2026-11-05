@@ -196,7 +196,7 @@ func insertAPIKeyRouteConfigOutbox(ctx context.Context, client *dbent.Client, ap
 
 func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIKey, error) {
 	m, err := r.activeQuery().
-		Where(apikey.IDEQ(id)).
+		Where(apikey.IDEQ(id), apikey.Not(apikey.KeyHasPrefix(ProbeInternalKeyPrefix))).
 		WithUser().
 		WithGroup().
 		WithGroupRoutes(func(q *dbent.APIKeyGroupRouteQuery) {
@@ -219,7 +219,7 @@ func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIK
 //   - 适用于删除等只需 key 与用户 ID 的场景
 func (r *apiKeyRepository) GetKeyAndOwnerID(ctx context.Context, id int64) (string, int64, error) {
 	m, err := r.activeQuery().
-		Where(apikey.IDEQ(id)).
+		Where(apikey.IDEQ(id), apikey.Not(apikey.KeyHasPrefix(ProbeInternalKeyPrefix))).
 		Select(apikey.FieldKey, apikey.FieldUserID).
 		Only(ctx)
 	if err != nil {
@@ -232,6 +232,9 @@ func (r *apiKeyRepository) GetKeyAndOwnerID(ctx context.Context, id int64) (stri
 }
 
 func (r *apiKeyRepository) GetByKey(ctx context.Context, key string) (*service.APIKey, error) {
+	if strings.HasPrefix(key, ProbeInternalKeyPrefix) {
+		return nil, service.ErrAPIKeyNotFound
+	}
 	m, err := r.activeQuery().
 		Where(apikey.KeyEQ(key)).
 		WithUser(func(q *dbent.UserQuery) {
@@ -254,6 +257,9 @@ func (r *apiKeyRepository) GetByKey(ctx context.Context, key string) (*service.A
 }
 
 func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
+	if strings.HasPrefix(key, ProbeInternalKeyPrefix) {
+		return nil, service.ErrAPIKeyNotFound
+	}
 	m, err := r.activeQuery().
 		Where(apikey.KeyEQ(key)).
 		Select(
@@ -647,7 +653,7 @@ func (r *apiKeyRepository) deleteWithTombstone(ctx context.Context, exec *dbent.
 }
 
 func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service.APIKeyListFilters) *dbent.APIKeyQuery {
-	q := r.activeQuery().Where(apikey.UserIDEQ(userID))
+	q := r.activeQuery().Where(apikey.UserIDEQ(userID), apikey.Not(apikey.KeyHasPrefix(ProbeInternalKeyPrefix)))
 
 	if filters.Search != "" {
 		q = q.Where(apikey.Or(
@@ -833,7 +839,7 @@ func (r *apiKeyRepository) VerifyOwnership(ctx context.Context, userID int64, ap
 }
 
 func (r *apiKeyRepository) CountByUserID(ctx context.Context, userID int64) (int64, error) {
-	count, err := r.activeQuery().Where(apikey.UserIDEQ(userID)).Count(ctx)
+	count, err := r.activeQuery().Where(apikey.UserIDEQ(userID), apikey.Not(apikey.KeyHasPrefix(ProbeInternalKeyPrefix))).Count(ctx)
 	return int64(count), err
 }
 
@@ -1234,6 +1240,11 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		Window5hStart:            m.Window5hStart,
 		Window1dStart:            m.Window1dStart,
 		Window7dStart:            m.Window7dStart,
+	}
+	if strings.HasPrefix(m.Key, ProbeInternalKeyPrefix) {
+		// Usage-log associations use this mapper too; the billing identity is
+		// never a client-facing credential.
+		out.Key = ""
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)

@@ -19,6 +19,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// submitChatCompletionsUsage keeps paid group checks even when the usage queue is full.
+func (h *OpenAIGatewayHandler) submitChatCompletionsUsage(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) {
+	if parent != nil && service.GroupCheckPinnedGroup(parent) > 0 {
+		h.submitMandatoryUsageRecordTask(parent, task)
+		return
+	}
+	h.submitOpenAIUsageRecordTask(parent, result, task)
+}
+
 // ChatCompletions handles OpenAI Chat Completions API requests.
 // POST /v1/chat/completions
 func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
@@ -431,7 +440,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
 			cyberBlocked := service.GetOpsCyberPolicy(c) != nil
-			h.submitOpenAIUsageRecordTask(c.Request.Context(), res, func(ctx context.Context) {
+			h.submitChatCompletionsUsage(c.Request.Context(), res, func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 					Result:             res,
 					APIKey:             apiKey,

@@ -19,6 +19,33 @@ export type HealthScoreBand =
   | 'score10'
 export type MonitorMatrixGroupBy = 'platform' | 'platform_group' | 'platform_model' | 'platform_group_model'
 
+export type GroupCheckType = 'connectivity' | 'pelican'
+export type GroupCheckStatus = 'pending' | 'running' | 'succeeded' | 'failed'
+
+export interface GroupCheckRecord {
+  id: number
+  group_id: number
+  kind: GroupCheckType
+  model: string
+  status: GroupCheckStatus
+  is_mine: boolean
+  created_at: string
+  duration_ms?: number | null
+  svg?: string | null
+  error_message?: string | null
+  actual_cost?: number | null
+}
+
+export async function getGroupChecks(groupId: number, signal?: AbortSignal) {
+  const { data } = await apiClient.get<{ items: GroupCheckRecord[] }>(`/channel-monitor-v2/groups/${groupId}/checks`, { signal })
+  return data.items
+}
+
+export async function startGroupCheck(groupId: number, type: GroupCheckType, model: string) {
+  const { data } = await apiClient.post<GroupCheckRecord>(`/channel-monitor-v2/groups/${groupId}/checks`, { kind: type, model }, { timeout: 180000 })
+  return data
+}
+
 export interface MonitorFilter {
   range: MonitorRange
   platforms: string[]

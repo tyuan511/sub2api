@@ -727,7 +727,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	currentAPIKey := apiKey
 	currentSubscription := subscription
 	var fallbackGroupID *int64
-	if apiKey.Group != nil {
+	if apiKey.Group != nil && service.GroupCheckPinnedGroup(c.Request.Context()) == 0 {
 		fallbackGroupID = apiKey.Group.FallbackGroupIDOnInvalidRequest
 	}
 	fallbackUsed := false
@@ -2903,6 +2903,10 @@ func (h *GatewayHandler) maybeLogCompatibilityFallbackMetrics(reqLog *zap.Logger
 }
 
 func (h *GatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
+	if parent != nil && service.GroupCheckPinnedGroup(parent) > 0 {
+		h.submitMandatoryUsageRecordTask(parent, task)
+		return
+	}
 	if task == nil {
 		return
 	}

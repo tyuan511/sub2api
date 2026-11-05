@@ -97,6 +97,15 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			return
 		}
 
+		// Internal probe identities are database-only billing identifiers. Reject
+		// the reserved marker before lookup, including for cached credentials.
+		if strings.HasPrefix(apiKeyString, "sub2api-internal-probe-") {
+			recordInvalidAuthFailure(c, apiKeyService)
+			MarkIngressRejected(c, IngressRejectInvalidAPIKey)
+			AbortWithError(c, http.StatusUnauthorized, "INVALID_API_KEY", "Invalid API key")
+			return
+		}
+
 		// ── 2. 验证 Key 存在 ─────────────────────────────────────────
 
 		authLookupStarted := time.Now()
