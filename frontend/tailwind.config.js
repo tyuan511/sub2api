@@ -19,7 +19,7 @@ export default {
           900: '#1d376d',
           950: '#17274c'
         },
-        // 辅助色 - 深蓝灰
+        // 辅助色 - 深蓝灰（中性阶）
         accent: {
           50: '#f8fafc',
           100: '#f1f5f9',
@@ -33,12 +33,13 @@ export default {
           900: '#0f172a',
           950: '#020617'
         },
+        // 冷灰阶（玻璃风格的浅色中性面）
         gray: {
-          50: '#f6f8fb',
-          100: '#eef2f7',
-          200: '#cbd5e1',
-          300: '#aab6c5',
-          400: '#94a3b8',
+          50: '#f2f6fc',
+          100: '#e8eef6',
+          200: '#d7e0ec',
+          300: '#b6c2d4',
+          400: '#8fa0b5',
           500: '#64748b',
           600: '#475569',
           700: '#334155',
@@ -46,19 +47,37 @@ export default {
           900: '#111827',
           950: '#0c0f14'
         },
-        // FastVibe dark surfaces
+        // 暗色玻璃面（中性近黑、带一丝冷灰，与 tokens.css 的 --fv-* 对齐）
         dark: {
-          50: '#f3f6fb',
-          100: '#e8edf4',
-          200: '#d6dee8',
-          300: '#bac4d2',
-          400: '#98a5b5',
-          500: '#64748b',
-          600: '#2b3545',
-          700: '#1e2633',
-          800: '#171d27',
-          900: '#11161e',
-          950: '#0c0f14'
+          50: '#ecedf1',
+          100: '#d6d9df',
+          200: '#b9bdc6',
+          300: '#979ca7',
+          400: '#82868f',
+          500: '#62666e',
+          600: '#2e2e36',
+          700: '#1e1e25',
+          800: '#151519',
+          900: '#0f0f13',
+          950: '#0a0a0d'
+        },
+        // 语义令牌：跟随亮暗模式自动切换（映射 styles/tokens.css 的 --fv-* 变量）。
+        // 注意：纯 CSS 变量色值不支持 Tailwind 的透明度修饰符（bg-surface/50），
+        // 需要透明度时请用具体色阶（primary-N / dark-N）或 color-mix。
+        surface: {
+          DEFAULT: 'var(--fv-surface)',
+          2: 'var(--fv-surface-2)',
+          3: 'var(--fv-surface-3)',
+          solid: 'var(--fv-surface-solid)'
+        },
+        line: {
+          DEFAULT: 'var(--fv-line)',
+          soft: 'var(--fv-line-soft)'
+        },
+        content: {
+          DEFAULT: 'var(--fv-text)',
+          soft: 'var(--fv-text-soft)',
+          muted: 'var(--fv-muted)'
         }
       },
       fontFamily: {
@@ -79,12 +98,12 @@ export default {
         mono: ['DM Mono', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
       },
       boxShadow: {
-        glass: '0 14px 36px rgba(30, 64, 175, 0.08)',
-        'glass-sm': '0 8px 24px rgba(30, 64, 175, 0.06)',
-        glow: '0 10px 28px rgba(47, 111, 237, 0.18)',
-        'glow-lg': '0 14px 36px rgba(47, 111, 237, 0.2)',
-        card: 'none',
-        'card-hover': '0 8px 24px rgba(30, 64, 175, 0.08)',
+        glass: '0 6px 24px rgba(23, 58, 120, 0.10)',
+        'glass-sm': '0 2px 12px rgba(23, 58, 120, 0.06)',
+        glow: '0 10px 28px rgba(47, 111, 237, 0.25)',
+        'glow-lg': '0 14px 36px rgba(47, 111, 237, 0.28)',
+        card: '0 1px 2px rgba(23, 58, 120, 0.04)',
+        'card-hover': '0 12px 32px rgba(23, 58, 120, 0.14)',
         'inner-glow': 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
       },
       backgroundImage: {
@@ -136,16 +155,18 @@ export default {
         }
       },
       backdropBlur: {
-        xs: '2px'
+        xs: '2px',
+        glass: '16px',
+        'glass-strong': '24px'
       },
       borderRadius: {
-        DEFAULT: '4px',
-        sm: '4px',
-        md: '6px',
-        lg: '6px',
-        xl: '6px',
-        '2xl': '6px',
-        '3xl': '6px',
+        DEFAULT: '8px',
+        sm: '8px',
+        md: '9px',
+        lg: '9px',
+        xl: '10px',
+        '2xl': '14px',
+        '3xl': '18px',
         '4xl': '2rem'
       }
     }

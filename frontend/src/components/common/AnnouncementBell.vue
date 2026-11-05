@@ -27,7 +27,7 @@
           @click="closeModal"
         >
           <div
-            class="w-full max-w-[620px] overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
+            class="w-full max-w-[620px] overflow-hidden rounded-3xl bg-[var(--fv-overlay-surface)] shadow-[var(--fv-shadow-pop)] ring-1 ring-[var(--fv-line)] backdrop-blur-xl"
             @click.stop
           >
             <!-- Header with Gradient -->
@@ -84,7 +84,7 @@
                 <div
                   v-for="item in announcements"
                   :key="item.id"
-                  class="group relative flex items-center gap-4 border-b border-gray-100 px-6 py-4 transition-all hover:bg-gray-50 dark:border-dark-700 dark:hover:bg-dark-700/30"
+                  class="group relative flex items-center gap-4 border-b border-[var(--fv-line-soft)] px-6 py-4 transition-all hover:bg-[var(--fv-accent-wash)]"
                   :class="{ 'bg-blue-50/30 dark:bg-blue-900/5': !item.read_at }"
                   style="min-height: 72px"
                   @click="openDetail(item)"
@@ -187,7 +187,7 @@
           @click="closeDetail"
         >
           <div
-            class="w-full max-w-[780px] overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
+            class="w-full max-w-[780px] overflow-hidden rounded-3xl bg-[var(--fv-overlay-surface)] shadow-[var(--fv-shadow-pop)] ring-1 ring-[var(--fv-line)] backdrop-blur-xl"
             @click.stop
           >
             <!-- Header with Decorative Elements -->
@@ -258,7 +258,7 @@
             </div>
 
             <!-- Body with Enhanced Markdown -->
-            <div class="max-h-[60vh] overflow-y-auto bg-white px-8 py-8 dark:bg-dark-800">
+            <div class="max-h-[60vh] overflow-y-auto px-8 py-8">
               <!-- Content with decorative border -->
               <div class="relative">
                 <!-- Decorative left border -->
@@ -274,7 +274,7 @@
             </div>
 
             <!-- Footer with Actions -->
-            <div class="border-t border-gray-100 bg-gray-50/50 px-8 py-5 dark:border-dark-700 dark:bg-dark-900/30">
+            <div class="border-t border-[var(--fv-line-soft)] bg-[color-mix(in_srgb,var(--fv-surface-2)_60%,transparent)] px-8 py-5">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -285,7 +285,7 @@
                 <div class="flex items-center gap-3">
                   <button
                     @click="closeDetail"
-                    class="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:shadow dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+                    class="rounded-xl border border-[var(--fv-line)] bg-[var(--fv-input-bg)] px-5 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-[var(--fv-accent-wash)] dark:text-gray-300"
                   >
                     {{ t('common.close') }}
                   </button>

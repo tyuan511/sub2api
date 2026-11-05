@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
-import { nextTick } from 'vue'
 
 import HomeView from '../HomeView.vue'
 
-const { appStore, authStore, getModelPlaza } = vi.hoisted(() => ({
+const { appStore, authStore } = vi.hoisted(() => ({
   appStore: {
     cachedPublicSettings: {} as Record<string, unknown>,
     siteName: 'Fallback site',
@@ -19,7 +18,6 @@ const { appStore, authStore, getModelPlaza } = vi.hoisted(() => ({
     user: null as { email?: string } | null,
     checkAuth: vi.fn(),
   },
-  getModelPlaza: vi.fn().mockResolvedValue({ description: '', groups: [] }),
 }))
 
 vi.mock('@/stores', () => ({
@@ -29,10 +27,6 @@ vi.mock('@/stores', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => appStore,
-}))
-
-vi.mock('@/api/modelPlaza', () => ({
-  getModelPlaza,
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -79,8 +73,6 @@ describe('HomeView compact mode', () => {
     authStore.user = null
     authStore.checkAuth.mockClear()
     appStore.fetchPublicSettings.mockClear()
-    getModelPlaza.mockClear()
-    getModelPlaza.mockResolvedValue({ description: '', groups: [] })
     localStorage.clear()
     vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
   })
@@ -116,7 +108,7 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome(settings)
 
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
-    expect(wrapper.find('.terminal-container').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="default-home"]').exists()).toBe(true)
   })
 
   it('links unauthenticated visitors to login', () => {
@@ -188,89 +180,5 @@ describe('HomeView compact mode', () => {
     })
 
     expect(modelPlazaDestination(wrapper)).toBeUndefined()
-  })
-
-  it('merges duplicate model routes and keeps the lowest prices', async () => {
-    getModelPlaza.mockResolvedValueOnce({
-      description: '',
-      groups: [
-        {
-          id: 1,
-          name: 'expensive-route',
-          platform: 'openai',
-          rate_multiplier: 0.5,
-          models: [{ 
-            name: 'gpt-test',
-            platform: 'openai',
-            pricing: {
-              billing_mode: 'token',
-              input_price: 0.000005,
-              output_price: 0.00003,
-              cache_write_price: null,
-              cache_read_price: null,
-              image_input_price: null,
-              image_output_price: null,
-              per_request_price: null,
-              intervals: [],
-            },
-          }],
-        },
-        {
-          id: 2,
-          name: 'cheap-route',
-          platform: 'openai',
-          rate_multiplier: 0.2,
-          models: [{ 
-            name: 'gpt-test',
-            platform: 'openai',
-            pricing: {
-              billing_mode: 'token',
-              input_price: 0.000001,
-              output_price: 0.00001,
-              cache_write_price: null,
-              cache_read_price: null,
-              image_input_price: null,
-              image_output_price: null,
-              per_request_price: null,
-              intervals: [],
-            },
-          }],
-        },
-        {
-          id: 3,
-          name: 'CN',
-          platform: 'openai',
-          rate_multiplier: 0.12,
-          models: [{
-            name: 'gpt-test',
-            platform: 'openai',
-            pricing: {
-              billing_mode: 'token',
-              input_price: 0.0000005,
-              output_price: 0.000005,
-              cache_write_price: null,
-              cache_read_price: null,
-              image_input_price: null,
-              image_output_price: null,
-              per_request_price: null,
-              intervals: [],
-            },
-          }],
-        },
-      ],
-    })
-
-    const wrapper = mountHome({ model_plaza_enabled: true })
-    await nextTick()
-    await nextTick()
-
-    const cards = wrapper.findAll('article')
-    expect(cards).toHaveLength(1)
-    expect(cards[0].text()).toContain('gpt-test')
-    expect(cards[0].text()).toContain('$0.06')
-    expect(cards[0].text()).toContain('$0.60')
-    expect(cards[0].text()).toContain('1.2')
-    expect(cards[0].text()).not.toContain('expensive-route')
-    expect(cards[0].text()).not.toContain('cheap-route')
   })
 })

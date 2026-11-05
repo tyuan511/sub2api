@@ -11,13 +11,14 @@ function read(relativePath: string) {
 describe('FastVibe source theme', () => {
   it('loads the compiled theme from the frontend entrypoint', () => {
     const entrypoint = read('src/main.ts')
-    const theme = read('src/styles/fastvibe-theme.css')
+    const tokens = read('src/styles/tokens.css')
+    const components = read('src/style.css')
 
-    expect(entrypoint).toContain("import './styles/fastvibe-theme.css'")
-    expect(theme).toContain('--fv-accent: #2f6fed')
-    expect(theme).toContain(':root.dark')
-    expect(theme).toContain('.sidebar-link-active')
-    expect(theme).toContain('.auth-card')
+    expect(entrypoint).toContain("import './styles/tokens.css'")
+    expect(tokens).toContain('--fv-accent: #2f6fed')
+    expect(tokens).toContain(':root.dark')
+    expect(components).toContain('.sidebar-link-active')
+    expect(components).toContain('.auth-card')
   })
 
   it('defines the brand palette in Tailwind instead of overriding utility classes at the proxy', () => {

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Glassmorphism component layer.
+ *
+ * Visual tokens (colors, radius, shadows, blur) live in styles/tokens.css as
+ * `--fv-*` variables and switch automatically between light/dark, so most
+ * rules below use plain CSS declarations instead of `dark:` pairs.
+ * Class names are stable — hundreds of views depend on them.
+ */
+
 @layer base {
   * {
     @apply border-gray-200 dark:border-dark-700;
@@ -17,8 +26,8 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-gray-100;
     @apply min-h-screen;
+    @apply text-gray-900 dark:text-gray-100;
   }
 
   /* 自定义滚动条 - 仅针对 Firefox，避免 Chrome 取消 webkit 的全局定制 */
@@ -30,12 +39,7 @@
 
     *:hover,
     *:focus-within {
-      scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
-    }
-
-    .dark *:hover,
-    .dark *:focus-within {
-      scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+      scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
     }
   }
 
@@ -53,126 +57,174 @@
   }
 
   *:hover::-webkit-scrollbar-thumb {
-    @apply bg-gray-300/50 dark:bg-dark-600/50;
+    @apply bg-gray-300/60 dark:bg-dark-600/60;
   }
 
   *:hover::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-400 dark:bg-dark-500;
   }
-
-  /* 选中文本样式 */
-  ::selection {
-    @apply bg-primary-500/20 text-primary-900 dark:text-primary-100;
-  }
-
-
 }
 
 @layer components {
+  /* ============ 玻璃表面配方 ============ */
+  /* 背景加毛玻璃，不自带边框——边框由使用处（如 .card、顶栏的 border-b）自己控制 */
+  .glass {
+    background: var(--fv-surface);
+    backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+  }
+
   /* ============ 按钮样式 ============ */
   .btn {
     @apply inline-flex items-center justify-center gap-2;
-    @apply rounded-xl px-4 py-2.5 text-sm font-medium;
+    @apply px-4 py-2.5 text-sm font-medium;
+    border-radius: var(--fv-radius-ctl);
     @apply transition-all duration-200 ease-out;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2;
     @apply disabled:transform-none disabled:cursor-not-allowed disabled:opacity-50;
     @apply active:scale-[0.98];
   }
 
+  .btn:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--fv-page),
+      0 0 0 4px var(--fv-accent-outline);
+  }
+
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600;
-    @apply text-white shadow-md shadow-primary-500/25;
-    @apply hover:from-primary-600 hover:to-primary-700 hover:shadow-lg hover:shadow-primary-500/30;
-    @apply dark:shadow-primary-500/20;
+    color: #ffffff;
+    background: var(--fv-accent);
+    border: 1px solid transparent;
+    box-shadow: var(--fv-shadow-accent);
+  }
+
+  .dark .btn-primary {
+    color: var(--fv-on-accent);
+  }
+
+  .btn-primary:hover {
+    background: var(--fv-accent-hover);
+    box-shadow: var(--fv-shadow-accent);
   }
 
   .btn-secondary {
-    @apply bg-white dark:bg-dark-800;
-    @apply text-gray-700 dark:text-gray-200;
-    @apply border border-gray-200 dark:border-dark-600;
-    @apply shadow-sm hover:bg-gray-50 dark:hover:bg-dark-700;
-    @apply hover:border-gray-300 dark:hover:border-dark-500;
+    color: var(--fv-text);
+    background: color-mix(in srgb, var(--fv-surface-solid) 82%, transparent);
+    border: 1px solid var(--fv-line);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .btn-secondary:hover {
+    background: var(--fv-surface-solid);
+    border-color: color-mix(in srgb, var(--fv-line) 60%, var(--fv-text));
   }
 
   .btn-ghost {
-    @apply bg-transparent text-gray-600 dark:text-gray-300;
-    @apply hover:bg-gray-100 dark:hover:bg-dark-800;
+    @apply bg-transparent;
+    color: var(--fv-text-soft);
+    border: 1px solid transparent;
+  }
+
+  .btn-ghost:hover {
+    color: var(--fv-text);
+    background: var(--fv-accent-wash);
   }
 
   .btn-danger {
-    @apply bg-gradient-to-r from-red-500 to-red-600;
-    @apply text-white shadow-md shadow-red-500/25;
-    @apply hover:from-red-600 hover:to-red-700 hover:shadow-lg hover:shadow-red-500/30;
+    color: #ffffff;
+    background: #dc2626;
+    border: 1px solid transparent;
+    box-shadow: 0 6px 18px rgba(220, 38, 38, 0.25);
+  }
+
+  .btn-danger:hover {
+    background: #b91c1c;
   }
 
   .btn-success {
-    @apply bg-gradient-to-r from-emerald-500 to-emerald-600;
-    @apply text-white shadow-md shadow-emerald-500/25;
-    @apply hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg hover:shadow-emerald-500/30;
-    @apply dark:shadow-emerald-500/20;
+    color: #ffffff;
+    background: #059669;
+    border: 1px solid transparent;
+    box-shadow: 0 6px 18px rgba(5, 150, 105, 0.25);
+  }
+
+  .btn-success:hover {
+    background: #047857;
   }
 
   .btn-warning {
-    @apply bg-gradient-to-r from-amber-500 to-amber-600;
-    @apply text-white shadow-md shadow-amber-500/25;
-    @apply hover:from-amber-600 hover:to-amber-700 hover:shadow-lg hover:shadow-amber-500/30;
-    @apply dark:shadow-amber-500/20;
+    color: #ffffff;
+    background: #d97706;
+    border: 1px solid transparent;
+    box-shadow: 0 6px 18px rgba(217, 119, 6, 0.25);
+  }
+
+  .btn-warning:hover {
+    background: #b45309;
   }
 
   .btn-stripe {
-    @apply bg-[#635bff] text-white shadow-md shadow-[#635bff]/25;
-    @apply hover:bg-[#5851ea] hover:shadow-lg hover:shadow-[#635bff]/30;
-    @apply dark:bg-[#7a73ff] dark:shadow-[#7a73ff]/20;
-    @apply dark:hover:bg-[#635bff];
+    @apply bg-[#635bff] text-white;
+    box-shadow: 0 6px 18px rgba(99, 91, 255, 0.25);
+    @apply hover:bg-[#5851ea] dark:hover:bg-[#635bff];
   }
 
   .btn-airwallex {
-    @apply bg-[#14171A] text-white shadow-md shadow-emerald-500/20;
-    @apply hover:bg-[#20252a] hover:shadow-lg hover:shadow-emerald-500/25;
-    @apply dark:bg-[#7AF0C4] dark:text-gray-950 dark:shadow-emerald-500/20;
-    @apply dark:hover:bg-[#62d9ad];
+    @apply bg-[#14171A] text-white;
+    @apply hover:bg-[#20252a];
+    @apply dark:bg-[#7AF0C4] dark:text-gray-950 dark:hover:bg-[#62d9ad];
   }
 
   .btn-alipay {
-    @apply bg-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/25;
-    @apply hover:bg-[#009dd6] hover:shadow-lg hover:shadow-[#00AEEF]/30;
-    @apply active:bg-[#008cbe];
-    @apply dark:shadow-[#00AEEF]/20;
+    @apply bg-[#00AEEF] text-white;
+    @apply hover:bg-[#009dd6] active:bg-[#008cbe];
   }
 
   .btn-wxpay {
-    @apply bg-[#2BB741] text-white shadow-md shadow-[#2BB741]/25;
-    @apply hover:bg-[#24a038] hover:shadow-lg hover:shadow-[#2BB741]/30;
-    @apply active:bg-[#1d8a2f];
-    @apply dark:shadow-[#2BB741]/20;
+    @apply bg-[#2BB741] text-white;
+    @apply hover:bg-[#24a038] active:bg-[#1d8a2f];
   }
 
   .btn-sm {
-    @apply rounded-lg px-3 py-1.5 text-xs;
+    @apply px-3 py-1.5 text-xs;
   }
 
   .btn-md {
-    @apply rounded-xl px-4 py-2 text-sm;
+    @apply px-4 py-2 text-sm;
   }
 
   .btn-lg {
-    @apply rounded-2xl px-6 py-3 text-base;
+    @apply px-6 py-3 text-base;
   }
 
   .btn-icon {
-    @apply rounded-xl p-2.5;
+    @apply p-2.5;
+    border-radius: var(--fv-radius-ctl);
   }
 
   /* ============ 输入框样式 ============ */
   .input {
-    @apply w-full rounded-xl px-4 py-2.5 text-sm;
-    @apply bg-white dark:bg-dark-800;
-    @apply border border-gray-200 dark:border-dark-600;
-    @apply text-gray-900 dark:text-gray-100;
-    @apply placeholder:text-gray-400 dark:placeholder:text-dark-400;
+    @apply w-full px-4 py-2.5 text-sm;
+    border-radius: var(--fv-radius-ctl);
+    color: var(--fv-text);
+    background: var(--fv-input-bg);
+    border: 1px solid var(--fv-line);
     @apply transition-all duration-200;
-    @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
-    @apply disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-dark-900;
+  }
+
+  .input::placeholder {
+    color: color-mix(in srgb, var(--fv-muted) 80%, transparent);
+  }
+
+  .input:hover {
+    border-color: color-mix(in srgb, var(--fv-line) 55%, var(--fv-text));
+  }
+
+  .input:focus {
+    border-color: var(--fv-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--fv-accent-wash);
   }
 
   .dark .input[type='date'],
@@ -184,15 +236,22 @@
   }
 
   .input-error {
-    @apply border-red-500 focus:border-red-500 focus:ring-red-500/30;
+    border-color: #ef4444;
+  }
+
+  .input-error:focus {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
   }
 
   .input-label {
-    @apply mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300;
+    @apply mb-1.5 block text-sm font-medium;
+    color: var(--fv-text-soft);
   }
 
   .input-hint {
-    @apply mt-1 text-xs text-gray-500 dark:text-dark-400;
+    @apply mt-1 text-xs;
+    color: var(--fv-muted);
   }
 
   .input-error-text {
@@ -210,44 +269,63 @@
     -moz-appearance: textfield;
   }
 
-  /* ============ 玻璃效果 ============ */
-  .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-dark-800/80;
-  }
-
+  /* ============ 卡片样式（玻璃） ============ */
   .glass-card {
-    @apply bg-white/70 dark:bg-dark-800/70;
-    @apply backdrop-blur-xl;
     @apply rounded-2xl;
-    @apply border border-white/20 dark:border-dark-700/50;
-    @apply shadow-glass;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    box-shadow: var(--fv-shadow);
     @apply transition-all duration-300;
   }
 
-  /* ============ 卡片样式 ============ */
   .card {
-    @apply bg-white dark:bg-dark-800/50;
     @apply rounded-2xl;
-    @apply border border-gray-100 dark:border-dark-700/50;
-    @apply shadow-card;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    box-shadow: var(--fv-shadow);
     @apply transition-all duration-300;
   }
 
-  .card-hover {
-    @apply hover:-translate-y-0.5 hover:shadow-card-hover;
-    @apply hover:border-gray-200 dark:hover:border-dark-600;
+  .card-hover:hover {
+    @apply hover:-translate-y-0.5;
+    border-color: var(--fv-accent-outline);
+    box-shadow: var(--fv-shadow-hover);
   }
 
   .card-glass {
-    @apply bg-white/70 dark:bg-dark-800/70;
-    @apply backdrop-blur-xl;
-    @apply border border-white/20 dark:border-dark-700/50;
-    @apply shadow-glass;
+    @apply rounded-2xl;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    box-shadow: var(--fv-shadow);
+  }
+
+  /* 认证页主卡片：悬浮在光晕背景上，用更实的玻璃保证可读性 */
+  .auth-card {
+    @apply rounded-2xl;
+    background: var(--fv-overlay-surface);
+    border: 1px solid var(--fv-line);
+    backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    box-shadow: var(--fv-shadow-pop);
+  }
+
+  .sidebar-logo,
+  .sidebar-logo img,
+  .auth-logo,
+  .auth-logo img {
+    border-radius: var(--fv-radius-ctl);
+    box-shadow: none;
   }
 
   .card-header {
-    @apply border-b border-gray-100 dark:border-dark-700;
     @apply px-6 py-4;
+    border-bottom: 1px solid var(--fv-line-soft);
   }
 
   .card-body {
@@ -255,8 +333,8 @@
   }
 
   .card-footer {
-    @apply border-t border-gray-100 dark:border-dark-700;
     @apply px-6 py-4;
+    border-top: 1px solid var(--fv-line-soft);
   }
 
   /* ============ 统计卡片 ============ */
@@ -272,23 +350,25 @@
   }
 
   .stat-icon-primary {
-    @apply bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400;
+    @apply bg-primary-500/10 text-primary-600 dark:bg-primary-400/10 dark:text-primary-400;
   }
 
   .stat-icon-success {
-    @apply bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400;
+    @apply bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400;
   }
 
   .stat-icon-warning {
-    @apply bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400;
+    @apply bg-amber-500/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400;
   }
 
   .stat-icon-danger {
-    @apply bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400;
+    @apply bg-red-500/10 text-red-600 dark:bg-red-400/10 dark:text-red-400;
   }
 
   .stat-value {
     @apply text-2xl font-bold text-gray-900 dark:text-white truncate;
+    font-family: var(--fv-font-mono);
+    font-variant-numeric: tabular-nums;
   }
 
   .stat-label {
@@ -309,7 +389,12 @@
 
   /* ============ 表格样式 ============ */
   .table-container {
-    @apply overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-700;
+    @apply overflow-x-auto rounded-2xl;
+    background: var(--fv-surface);
+    border: 1px solid var(--fv-line);
+    backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    box-shadow: var(--fv-shadow);
   }
 
   .table {
@@ -318,15 +403,15 @@
 
   .table th {
     @apply px-4 py-3 text-left font-medium;
-    @apply text-gray-600 dark:text-dark-300;
-    @apply bg-gray-50 dark:bg-dark-800/50;
-    @apply border-b border-gray-200 dark:border-dark-700;
+    color: var(--fv-muted);
+    background: color-mix(in srgb, var(--fv-surface-2) 70%, transparent);
+    border-bottom: 1px solid var(--fv-line);
   }
 
   .table td {
     @apply px-4 py-3;
-    @apply text-gray-700 dark:text-gray-300;
-    @apply border-b border-gray-100 dark:border-dark-800;
+    color: var(--fv-text-soft);
+    border-bottom: 1px solid var(--fv-line-soft);
   }
 
   .table tr:last-child td {
@@ -335,7 +420,10 @@
 
   .table tbody tr {
     @apply transition-colors duration-150;
-    @apply hover:bg-gray-50 dark:hover:bg-dark-800/30;
+  }
+
+  .table tbody tr:hover {
+    background: var(--fv-accent-wash);
   }
 
   /* ============ 徽章样式 ============ */
@@ -345,69 +433,84 @@
   }
 
   .badge-primary {
-    @apply bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400;
+    @apply bg-primary-500/10 text-primary-700 dark:bg-primary-400/10 dark:text-primary-300;
   }
 
   .badge-success {
-    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400;
+    @apply bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300;
   }
 
   .badge-warning {
-    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+    @apply bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300;
   }
 
   .badge-danger {
-    @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400;
+    @apply bg-red-500/10 text-red-700 dark:bg-red-400/10 dark:text-red-300;
   }
 
   .badge-gray {
-    @apply bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-dark-300;
+    @apply bg-gray-500/10 text-gray-700 dark:bg-dark-600/60 dark:text-dark-300;
   }
 
   .badge-purple {
-    @apply bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400;
+    @apply bg-purple-500/10 text-purple-700 dark:bg-purple-400/10 dark:text-purple-300;
   }
 
   /* ============ 下拉菜单 ============ */
   .dropdown {
     @apply absolute z-50;
-    @apply bg-white dark:bg-dark-800;
-    @apply rounded-xl;
-    @apply border border-gray-200 dark:border-dark-700;
-    @apply shadow-lg;
     @apply py-1;
     @apply origin-top-right animate-scale-in;
+    background: var(--fv-overlay-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius-ctl);
+    backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    box-shadow: var(--fv-shadow-pop);
   }
 
   .dropdown-item {
     @apply px-4 py-2 text-sm;
-    @apply text-gray-700 dark:text-gray-300;
-    @apply hover:bg-gray-100 dark:hover:bg-dark-700;
-    @apply cursor-pointer transition-colors;
     @apply flex items-center gap-2;
+    @apply cursor-pointer transition-colors;
+    color: var(--fv-text-soft);
+  }
+
+  .dropdown-item:hover {
+    color: var(--fv-text);
+    background: var(--fv-accent-wash);
   }
 
   /* ============ 模态框 ============ */
   .modal-overlay {
     @apply fixed inset-0 z-50;
-    @apply bg-black/50 backdrop-blur-sm;
     @apply flex items-center justify-center p-2 sm:p-4;
+    background: rgba(10, 16, 32, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .dark .modal-overlay {
+    background: rgba(4, 8, 18, 0.55);
   }
 
   .modal-content {
     @apply w-full;
     @apply max-h-[95vh] sm:max-h-[90vh];
-    @apply bg-white dark:bg-dark-800;
-    @apply rounded-2xl shadow-2xl;
-    @apply border border-gray-200 dark:border-dark-700;
     @apply flex flex-col;
+    background: var(--fv-overlay-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius);
+    backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    box-shadow: var(--fv-shadow-pop);
   }
 
   .modal-header {
-    @apply border-b border-gray-200 px-4 py-3 dark:border-dark-700;
-    @apply sm:px-6 sm:py-4;
+    @apply px-4 py-3 sm:px-6 sm:py-4;
     @apply flex items-center justify-between;
     @apply flex-shrink-0;
+    border-bottom: 1px solid var(--fv-line-soft);
   }
 
   .modal-title {
@@ -415,16 +518,15 @@
   }
 
   .modal-body {
-    @apply px-4 py-3;
-    @apply sm:px-6 sm:py-4;
+    @apply px-4 py-3 sm:px-6 sm:py-4;
     @apply flex-1 overflow-y-auto;
   }
 
   .modal-footer {
-    @apply border-t border-gray-200 px-4 py-3 dark:border-dark-700;
-    @apply sm:px-6 sm:py-4;
+    @apply px-4 py-3 sm:px-6 sm:py-4;
     @apply flex items-center justify-end gap-3;
     @apply flex-shrink-0;
+    border-top: 1px solid var(--fv-line-soft);
   }
 
   /* 防止body滚动的工具类 */
@@ -483,20 +585,31 @@
   /* ============ Dialog ============ */
   .dialog-overlay {
     @apply fixed inset-0 z-50;
-    @apply bg-black/40 dark:bg-black/60;
     @apply flex items-center justify-center p-4;
+    background: rgba(10, 16, 32, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .dark .dialog-overlay {
+    background: rgba(4, 8, 18, 0.55);
   }
 
   .dialog-container {
     @apply flex w-full flex-col;
     @apply max-h-[90vh];
-    @apply rounded-2xl bg-white dark:bg-dark-800;
-    @apply shadow-xl;
+    background: var(--fv-overlay-surface);
+    border: 1px solid var(--fv-line);
+    border-radius: var(--fv-radius);
+    backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    box-shadow: var(--fv-shadow-pop);
   }
 
   .dialog-header {
-    @apply border-b border-gray-100 px-6 py-4 dark:border-dark-700;
+    @apply px-6 py-4;
     @apply flex items-center justify-between;
+    border-bottom: 1px solid var(--fv-line-soft);
   }
 
   .dialog-body {
@@ -504,20 +617,28 @@
   }
 
   .dialog-footer {
-    @apply border-t border-gray-100 px-6 py-4 dark:border-dark-700;
-    @apply bg-gray-50/60 dark:bg-dark-900/40;
+    @apply px-6 py-4;
     @apply flex items-center justify-end gap-3;
+    border-top: 1px solid var(--fv-line-soft);
+    background: color-mix(in srgb, var(--fv-surface-2) 45%, transparent);
+    border-radius: 0 0 var(--fv-radius) var(--fv-radius);
   }
 
   /* ============ Toast 通知 ============ */
   .toast {
     @apply fixed right-4 top-4 z-[100];
     @apply min-w-[320px] max-w-md;
-    @apply bg-white dark:bg-dark-800;
-    @apply rounded-xl shadow-lg;
     @apply border-l-4;
     @apply p-4;
     @apply animate-slide-in-right;
+    background: var(--fv-overlay-surface);
+    border-top: 1px solid var(--fv-line-soft);
+    border-right: 1px solid var(--fv-line-soft);
+    border-bottom: 1px solid var(--fv-line-soft);
+    border-radius: var(--fv-radius-ctl);
+    backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+    box-shadow: var(--fv-shadow-pop);
   }
 
   .toast-success {
@@ -539,17 +660,20 @@
   /* ============ 侧边栏 ============ */
   .sidebar {
     @apply fixed inset-y-0 left-0 z-40;
-    @apply w-64 bg-white dark:bg-dark-900;
-    @apply border-r border-gray-200 dark:border-dark-800;
+    @apply w-64;
     @apply flex flex-col;
     @apply transition-transform duration-300;
     transition-property: width, transform;
+    background: var(--fv-surface);
+    border-right: 1px solid var(--fv-line);
+    backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(140%);
   }
 
   .sidebar-header {
     @apply h-16 px-6;
     @apply flex items-center gap-3;
-    @apply border-b border-gray-100 dark:border-dark-800;
+    border-bottom: 1px solid var(--fv-line-soft);
     transition:
       padding 0.2s ease,
       gap 0.2s ease;
@@ -563,18 +687,26 @@
     @apply flex items-center gap-3 rounded-xl py-2.5;
     @apply overflow-hidden;
     @apply text-sm font-medium;
-    @apply text-gray-600 dark:text-dark-300;
     @apply transition-all duration-200;
-    @apply hover:bg-gray-100 dark:hover:bg-dark-800;
-    @apply hover:text-gray-900 dark:hover:text-white;
+    color: var(--fv-text-soft);
+    border-radius: var(--fv-radius-ctl);
     padding-left: 1.0625rem;
     padding-right: 0.875rem;
   }
 
+  .sidebar-link:hover {
+    color: var(--fv-text);
+    background: var(--fv-accent-wash);
+  }
+
   .sidebar-link-active {
-    @apply bg-primary-50 dark:bg-primary-900/20;
-    @apply text-primary-600 dark:text-primary-400;
-    @apply hover:bg-primary-100 dark:hover:bg-primary-900/30;
+    color: var(--fv-accent);
+    background: var(--fv-accent-soft);
+  }
+
+  .sidebar-link-active:hover {
+    color: var(--fv-accent);
+    background: var(--fv-accent-soft);
   }
 
   .sidebar-section {
@@ -584,7 +716,7 @@
   .sidebar-section-title {
     @apply mb-2 px-3;
     @apply text-xs font-semibold uppercase tracking-wider;
-    @apply text-gray-400 dark:text-dark-500;
+    color: var(--fv-muted);
   }
 
   /* ============ 页面头部 ============ */
@@ -594,6 +726,7 @@
 
   .page-title {
     @apply text-2xl font-bold text-gray-900 dark:text-white;
+    letter-spacing: -0.01em;
   }
 
   .page-description {
@@ -626,36 +759,45 @@
   }
 
   .skeleton {
-    @apply animate-pulse rounded bg-gray-200 dark:bg-dark-700;
+    @apply animate-pulse rounded;
+    background: color-mix(in srgb, var(--fv-surface-3) 80%, transparent);
   }
 
   /* ============ 分隔线 ============ */
   .divider {
-    @apply my-4 h-px bg-gray-200 dark:bg-dark-700;
+    @apply my-4 h-px;
+    background: var(--fv-line-soft);
   }
 
   /* ============ 标签页 ============ */
   .tabs {
     @apply flex gap-1 p-1;
-    @apply rounded-xl bg-gray-100 dark:bg-dark-800;
+    background: color-mix(in srgb, var(--fv-surface-2) 60%, transparent);
+    border: 1px solid var(--fv-line-soft);
+    border-radius: var(--fv-radius-ctl);
   }
 
   .tab {
-    @apply rounded-lg px-4 py-2 text-sm font-medium;
-    @apply text-gray-600 dark:text-dark-400;
+    @apply px-4 py-2 text-sm font-medium;
     @apply transition-all duration-200;
-    @apply hover:text-gray-900 dark:hover:text-white;
+    border-radius: calc(var(--fv-radius-ctl) - 3px);
+    color: var(--fv-muted);
+  }
+
+  .tab:hover {
+    color: var(--fv-text);
   }
 
   .tab-active {
-    @apply bg-white dark:bg-dark-700;
-    @apply text-gray-900 dark:text-white;
-    @apply shadow-sm;
+    color: var(--fv-text);
+    background: var(--fv-surface-solid);
+    box-shadow: 0 1px 3px rgba(23, 58, 120, 0.1);
   }
 
   /* ============ 进度条 ============ */
   .progress {
-    @apply h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700;
+    @apply h-2 overflow-hidden rounded-full;
+    background: color-mix(in srgb, var(--fv-surface-3) 80%, transparent);
   }
 
   .progress-bar {
@@ -666,12 +808,12 @@
   /* ============ 开关 ============ */
   .switch {
     @apply relative h-6 w-11 cursor-pointer rounded-full;
-    @apply bg-gray-300 dark:bg-dark-600;
     @apply transition-colors duration-200;
+    background: var(--fv-line);
   }
 
   .switch-active {
-    @apply bg-primary-500;
+    background: var(--fv-accent);
   }
 
   .switch-thumb {
@@ -687,15 +829,18 @@
   /* ============ 代码块 ============ */
   .code {
     @apply font-mono text-sm;
-    @apply bg-gray-100 dark:bg-dark-800;
-    @apply rounded px-1.5 py-0.5;
-    @apply text-primary-600 dark:text-primary-400;
+    @apply px-1.5 py-0.5;
+    border-radius: 6px;
+    color: var(--fv-accent);
+    background: var(--fv-accent-soft);
   }
 
   .code-block {
     @apply font-mono text-sm;
-    @apply bg-gray-900 text-gray-100;
     @apply overflow-x-auto rounded-xl p-4;
+    background: #101014;
+    color: #d8dbe2;
+    border: 1px solid rgba(164, 168, 179, 0.14);
   }
 
   /* ============ Tour Description ============ */
@@ -750,12 +895,7 @@
 @layer utilities {
   /* 文字渐变 */
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent;
-  }
-
-  /* 玻璃效果 */
-  .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-dark-800/80;
+    @apply bg-gradient-to-r from-primary-500 to-primary-400 bg-clip-text text-transparent;
   }
 
   /* 隐藏滚动条 */

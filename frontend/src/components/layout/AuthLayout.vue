@@ -4,20 +4,18 @@
     <div class="relative z-10 w-full max-w-md">
       <!-- Logo/Brand -->
       <div class="mb-8 text-center">
-        <!-- Custom Logo or Default Logo -->
-        <template v-if="settingsLoaded">
-          <div
-            class="auth-logo mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden"
-          >
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-          </div>
-          <h1 class="text-gradient mb-2 text-3xl font-bold">
-            {{ siteName }}
-          </h1>
-          <p class="text-sm text-gray-500 dark:text-dark-400">
-            {{ siteSubtitle }}
-          </p>
-        </template>
+        <!-- Custom Logo or Default Logo：始终渲染兜底品牌，公共设置加载成功后再替换为真实值 -->
+        <div
+          class="auth-logo mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden"
+        >
+          <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
+        </div>
+        <h1 class="text-gradient mb-2 text-3xl font-bold">
+          {{ siteName }}
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-dark-400">
+          {{ siteSubtitle }}
+        </p>
       </div>
 
       <!-- Card Container -->
@@ -48,7 +46,6 @@ const appStore = useAppStore()
 const siteName = computed(() => appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'Subscription to API Conversion Platform')
-const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 const currentYear = computed(() => new Date().getFullYear())
 

@@ -325,13 +325,16 @@ onUnmounted(() => {
 .date-picker-trigger {
   @apply flex items-center gap-2;
   @apply rounded-lg px-3 py-2 text-sm;
-  @apply bg-white dark:bg-dark-800;
-  @apply border border-gray-200 dark:border-dark-600;
   @apply text-gray-700 dark:text-gray-300;
   @apply transition-all duration-200;
   @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
-  @apply hover:border-gray-300 dark:hover:border-dark-500;
   @apply cursor-pointer;
+  background: var(--fv-input-bg);
+  border: 1px solid var(--fv-line);
+}
+
+.date-picker-trigger:hover:not(.date-picker-trigger-open) {
+  border-color: color-mix(in srgb, var(--fv-line) 55%, var(--fv-text));
 }
 
 .date-picker-trigger-open {
@@ -352,12 +355,14 @@ onUnmounted(() => {
 
 .date-picker-dropdown {
   @apply absolute left-0 z-[100] mt-2;
-  @apply bg-white dark:bg-dark-800;
   @apply rounded-xl;
-  @apply border border-gray-200 dark:border-dark-700;
-  @apply shadow-lg shadow-black/10 dark:shadow-black/30;
   @apply overflow-hidden;
   @apply min-w-[320px];
+  background: var(--fv-overlay-surface);
+  backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+  border: 1px solid var(--fv-line);
+  box-shadow: var(--fv-shadow-pop);
 }
 
 .date-picker-presets {
@@ -367,8 +372,11 @@ onUnmounted(() => {
 .date-picker-preset {
   @apply rounded-md px-3 py-1.5 text-xs font-medium;
   @apply text-gray-600 dark:text-gray-400;
-  @apply hover:bg-gray-100 dark:hover:bg-dark-700;
   @apply transition-colors duration-150;
+}
+
+.date-picker-preset:hover {
+  background: var(--fv-accent-wash);
 }
 
 .date-picker-preset-active {
@@ -377,7 +385,8 @@ onUnmounted(() => {
 }
 
 .date-picker-divider {
-  @apply border-t border-gray-100 dark:border-dark-700;
+  @apply border-t;
+  border-color: var(--fv-line-soft);
 }
 
 .date-picker-custom {
@@ -394,10 +403,10 @@ onUnmounted(() => {
 
 .date-picker-input {
   @apply w-full rounded-md px-2 py-1.5 text-sm;
-  @apply bg-gray-50 dark:bg-dark-700;
-  @apply border border-gray-200 dark:border-dark-600;
   @apply text-gray-900 dark:text-gray-100;
   @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
+  background: var(--fv-input-bg);
+  border: 1px solid var(--fv-line);
 }
 
 .date-picker-input::-webkit-calendar-picker-indicator {

@@ -58,9 +58,9 @@ onUnmounted(() => {
   @apply flex-1 min-h-0 flex flex-col;
 }
 
-/* 表格滚动容器 - 增强版表体滚动方案 */
+/* 表格滚动容器 - 增强版表体滚动方案（玻璃底由 .card 全局类提供） */
 .table-scroll-container {
-  @apply flex flex-col overflow-hidden h-full bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-dark-700 shadow-sm;
+  @apply flex flex-col overflow-hidden h-full rounded-2xl;
 }
 
 .table-scroll-container :deep(.table-wrapper) {
@@ -76,7 +76,8 @@ onUnmounted(() => {
 }
 
 .table-scroll-container :deep(thead) {
-  @apply bg-gray-50/80 dark:bg-dark-800/80 backdrop-blur-sm;
+  background: color-mix(in srgb, var(--fv-surface-2) 70%, transparent);
+  @apply backdrop-blur-sm;
 }
 
 .table-scroll-container :deep(tbody) {

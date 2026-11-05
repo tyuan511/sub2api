@@ -5,7 +5,6 @@ export default {
   },
   // Home Page
   home: {
-    viewOnGithub: '在 GitHub 上查看',
     logoAlt: 'Logo',
     defaultSubtitle: 'AI API 网关平台',
     viewDocs: '查看文档',
@@ -16,146 +15,18 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
-    eyebrow: '一个入口，连接你的 AI 工作流',
-    heroDescription: '通过清晰、可靠的统一 API，接入你需要的模型，让应用保持简单。',
-    viewModels: '浏览模型',
+    badge: '全协议兼容 AI 网关',
+    titleLead: '一个密钥，',
+    titleAccent: '畅用全部主流模型',
+    heroDesc: 'Claude、GPT、Gemini、DeepSeek…一份 OpenAI 兼容 API 全部调用。按量计费，现有代码零改造接入。',
+    browsePlaza: '浏览模型广场',
+    viewAllModels: '查看全部模型',
+    showcaseModels: 'Claude,GPT,Gemini,DeepSeek,Grok,Qwen',
+    marqueeLabel: '已接入模型',
     trust: {
-      singleKey: '一个 API 密钥',
       smartRouting: '智能路由',
-      livePricing: '实时价格'
-    },
-    console: {
-      title: 'request.preview',
-      routing: '// 正在选择最佳可用路由...',
-      response: '响应',
-      responseText: '随时准备就绪。'
-    },
-    stats: {
-      models: '模型',
-      platforms: '平台',
-      groups: '路由'
-    },
-    catalog: {
-      kicker: '模型广场',
-      title: '模型与价格，一目了然',
-      description: '浏览当前网关配置的模型和实时价格，数据来自模型广场。',
-      viewAll: '查看全部模型',
-      lowestPrice: '当前最低价格',
-      discountSuffix: '折',
-      input: '输入 / 百万 Token',
-      output: '输出 / 百万 Token',
-      perRequest: '每次请求',
-      perImage: '每张图片',
-      perVideo: '每段视频',
-      notAvailable: '—',
-      unavailable: '模型广场暂时不可用。',
-      empty: '暂时没有可展示的公开模型。'
-    },
-    valueProps: {
-      singleKey: '统一而熟悉的接口',
-      singleKeyDesc: '使用一个 API 接口，同时保留灵活的模型选择。',
-      smartRouting: '安静可靠的智能路由',
-      smartRoutingDesc: '在团队配置的路由之间保持请求顺畅运行。',
-      clearUsage: '清晰可懂的用量',
-      clearUsageDesc: '发送下一次请求前，先查看当前模型价格。'
-    },
-    // 新增：面向用户的价值主张
-    heroSubtitle: '一个密钥，畅用多个 AI 模型',
-    // Legacy content retained for other landing surfaces.
-    tags: {
-      subscriptionToApi: '订阅转 API',
-      stickySession: '会话保持',
-      realtimeBilling: '按量计费'
-    },
-    // 用户痛点区块
-    painPoints: {
-      title: '你是否也遇到这些问题？',
-      items: {
-        expensive: {
-          title: '订阅费用高',
-          desc: '每个 AI 服务都要单独订阅，每月支出越来越多'
-        },
-        complex: {
-          title: '多账号难管理',
-          desc: '不同平台的账号、密钥分散各处，管理起来很麻烦'
-        },
-        unstable: {
-          title: '服务不稳定',
-          desc: '单一账号容易触发限制，影响正常使用'
-        },
-        noControl: {
-          title: '用量无法控制',
-          desc: '不知道钱花在哪了，也无法限制团队成员的使用'
-        }
-      }
-    },
-    // 解决方案区块
-    solutions: {
-      title: '我们帮你解决',
-      subtitle: '简单三步，开始省心使用 AI'
-    },
-    features: {
-      unifiedGateway: '一键接入',
-      unifiedGatewayDesc: '获取一个 API 密钥，即可调用所有已接入的 AI 模型，无需分别申请。',
-      multiAccount: '稳定可靠',
-      multiAccountDesc: '智能调度多个上游账号，自动切换和负载均衡，告别频繁报错。',
-      balanceQuota: '用多少付多少',
-      balanceQuotaDesc: '按实际使用量计费，支持设置配额上限，团队用量一目了然。'
-    },
-    // 优势对比
-    comparison: {
-      title: '为什么选择我们？',
-      headers: {
-        feature: '对比项',
-        official: '官方订阅',
-        us: '本平台'
-      },
-      items: {
-        pricing: {
-          feature: '付费方式',
-          official: '固定月费，用不完也付',
-          us: '按量付费，用多少付多少'
-        },
-        models: {
-          feature: '模型选择',
-          official: '单一服务商',
-          us: '多模型随意切换'
-        },
-        management: {
-          feature: '账号管理',
-          official: '每个服务单独管理',
-          us: '统一密钥，一站管理'
-        },
-        stability: {
-          feature: '服务稳定性',
-          official: '单账号易触发限制',
-          us: '多账号池，自动切换'
-        },
-        control: {
-          feature: '用量控制',
-          official: '无法限制',
-          us: '可设配额、查明细'
-        }
-      }
-    },
-    terminal: {
-      title: '终端',
-      routing: '# 正在路由到上游...'
-    },
-    providers: {
-      title: '已支持的 AI 模型',
-      description: '一个 API，多种选择',
-      supported: '已支持',
-      soon: '即将推出',
-      gemini: 'Gemini',
-      antigravity: 'Antigravity',
-      more: '更多'
-    },
-    // CTA 区块
-    cta: {
-      title: '准备好开始了吗？',
-      description: '注册即可获得免费试用额度，体验一站式 AI 服务',
-      button: '免费注册'
+      payAsYouGo: '按量计费',
+      usageInsight: '用量透明'
     },
     footer: {
       allRightsReserved: '保留所有权利。'

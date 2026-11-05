@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
         v-show="show"
         role="tooltip"
         :class="[
-          'fixed z-[99999] max-h-[min(16rem,calc(100vh-2rem))] -translate-x-1/2 overflow-y-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 selection:bg-primary-200 selection:text-gray-900 dark:bg-gray-800 dark:selection:bg-primary-200 dark:selection:text-gray-900',
+          'fixed z-[99999] max-h-[min(16rem,calc(100vh-2rem))] -translate-x-1/2 overflow-y-auto rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-[var(--fv-shadow-pop)] ring-1 ring-white/10 selection:bg-primary-200 selection:text-gray-900 dark:bg-gray-800 dark:selection:bg-primary-200 dark:selection:text-gray-900',
           placement === 'above'
             ? '-translate-y-full before:absolute before:inset-x-0 before:top-full before:h-3'
             : 'before:absolute before:inset-x-0 before:bottom-full before:h-3',

@@ -14,7 +14,7 @@
   <div
     v-else-if="compactHomeEnabled"
     data-testid="compact-home"
-    class="flex min-h-screen flex-col bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-white"
+    class="flex min-h-screen flex-col bg-transparent text-gray-900 dark:text-white"
   >
     <header class="border-b border-gray-200 px-4 py-4 sm:px-6 dark:border-dark-800">
       <nav class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 sm:gap-4">
@@ -72,15 +72,23 @@
   <div
     v-else
     data-testid="default-home"
-    class="home-page relative flex min-h-screen flex-col overflow-hidden bg-[#f7faf9] text-gray-950 dark:bg-dark-950 dark:text-white"
+    class="home-page relative flex min-h-screen flex-col overflow-hidden bg-transparent text-gray-950 dark:text-white"
   >
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
       <div class="home-orb home-orb-primary"></div>
       <div class="home-orb home-orb-secondary"></div>
-      <div class="absolute inset-0 opacity-50 [background-image:linear-gradient(rgba(15,118,110,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(15,118,110,0.035)_1px,transparent_1px)] [background-size:72px_72px] dark:opacity-20"></div>
+      <DotFieldBackground
+        class="home-dotfield"
+        :dot-radius="2.6"
+        :dot-spacing="24"
+        :bulge-strength="60"
+        :gradient-from="dotFieldColors.from"
+        :gradient-to="dotFieldColors.to"
+        :glow-color="dotFieldColors.glow"
+      />
     </div>
 
-    <header class="relative z-20 border-b border-gray-900/5 bg-white/55 px-4 py-4 backdrop-blur-xl dark:border-white/5 dark:bg-dark-950/50 sm:px-6 lg:px-8">
+    <header class="relative z-20 px-4 py-4 sm:px-6 lg:px-8">
       <nav class="mx-auto flex max-w-7xl items-center justify-between gap-4">
         <router-link to="/" class="flex min-w-0 items-center gap-3" aria-label="Home">
           <span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10">
@@ -90,7 +98,7 @@
         </router-link>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
-          <div class="home-locale-pill border-gray-900/10 bg-white/80 dark:border-white/10 dark:bg-dark-800/80">
+          <div class="home-locale-pill">
             <Icon name="globe" size="sm" class="text-primary-600 dark:text-primary-400" />
             <LocaleSwitcher />
           </div>
@@ -118,132 +126,75 @@
       </nav>
     </header>
 
-    <main class="relative z-10 flex-1 px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
-      <div class="mx-auto max-w-7xl">
-        <section class="grid items-center gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] lg:gap-20">
-          <div class="max-w-2xl">
-            <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-500/20 bg-primary-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary-700 dark:text-primary-300">
-              <span class="h-1.5 w-1.5 rounded-full bg-primary-500 shadow-[0_0_0_4px_rgba(20,184,166,0.12)]"></span>
-              {{ t('home.eyebrow') }}
-            </div>
-            <h1 class="max-w-3xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-gray-950 dark:text-white sm:text-6xl lg:text-7xl">{{ siteName }}</h1>
-            <p class="mt-6 max-w-xl text-lg leading-8 text-gray-600 dark:text-dark-300 sm:text-xl">{{ siteSubtitle }}</p>
-            <p class="mt-4 max-w-xl text-sm leading-6 text-gray-500 dark:text-dark-400">{{ t('home.heroDescription') }}</p>
-            <div class="mt-8 flex flex-wrap items-center gap-3">
-              <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-600/20 transition hover:-translate-y-0.5 hover:bg-primary-700">
-                {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
-                <Icon name="arrowRight" size="sm" />
-              </router-link>
-              <router-link v-if="showModelPlazaEntry" to="/model-plaza" class="inline-flex items-center gap-2 rounded-xl border border-gray-900/10 bg-white/75 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-dark-800/70 dark:text-dark-100 dark:hover:bg-dark-800">
-                <Icon name="grid" size="sm" />
-                {{ t('home.viewModels') }}
-              </router-link>
-            </div>
-            <div class="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-gray-500 dark:text-dark-400">
-              <span class="inline-flex items-center gap-2"><Icon name="check" size="sm" class="text-primary-500" />{{ t('home.trust.singleKey') }}</span>
-              <span class="inline-flex items-center gap-2"><Icon name="check" size="sm" class="text-primary-500" />{{ t('home.trust.smartRouting') }}</span>
-              <span class="inline-flex items-center gap-2"><Icon name="check" size="sm" class="text-primary-500" />{{ t('home.trust.livePricing') }}</span>
-            </div>
-          </div>
+    <main class="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-14 text-center sm:px-6 lg:px-8">
+      <div class="hero-stage flex w-full max-w-3xl flex-col items-center">
+        <span class="eyebrow rise" style="--delay: 0ms">
+          <span class="eyebrow-dot"></span>{{ t('home.badge') }}
+        </span>
 
-          <div class="terminal-container mx-auto w-full max-w-xl lg:ml-auto">
-            <div class="home-console overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#101a1a] shadow-2xl shadow-primary-950/20">
-              <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                <div class="flex items-center gap-2">
-                  <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span><span class="h-2.5 w-2.5 rounded-full bg-amber-300"></span><span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
-                </div>
-                <span class="font-mono text-xs text-white/45">{{ t('home.console.title') }}</span>
-                <span class="text-[10px] uppercase tracking-[0.18em] text-primary-300/70">live</span>
-              </div>
-              <div class="p-5 sm:p-7">
-                <div class="font-mono text-xs leading-7 text-white/55 sm:text-sm">
-                  <div><span class="text-emerald-400">$</span> curl -X POST <span class="text-sky-300">/v1/messages</span></div>
-                  <div class="text-white/35">{{ t('home.console.routing') }}</div>
-                  <div class="mt-3 rounded-xl border border-white/10 bg-white/[0.04] p-4">
-                    <div class="flex items-center justify-between text-[11px] uppercase tracking-[0.16em] text-white/40"><span>{{ t('home.console.response') }}</span><span class="text-emerald-300">200 OK</span></div>
-                    <div class="mt-3 text-sm leading-6 text-white/85">{ "content": "{{ t('home.console.responseText') }}" }</div>
-                  </div>
-                </div>
-                <div class="mt-6 grid grid-cols-3 gap-2 border-t border-white/10 pt-5">
-                  <div><div class="text-xl font-semibold text-white">{{ modelCount || '—' }}</div><div class="mt-1 text-[10px] uppercase tracking-wider text-white/40">{{ t('home.stats.models') }}</div></div>
-                  <div><div class="text-xl font-semibold text-white">{{ platformCount || '—' }}</div><div class="mt-1 text-[10px] uppercase tracking-wider text-white/40">{{ t('home.stats.platforms') }}</div></div>
-                  <div><div class="text-xl font-semibold text-white">{{ groupCount || '—' }}</div><div class="mt-1 text-[10px] uppercase tracking-wider text-white/40">{{ t('home.stats.groups') }}</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <h1 class="hero-title rise" style="--delay: 60ms">
+          {{ t('home.titleLead') }}<span class="title-accent">{{ t('home.titleAccent') }}</span>
+        </h1>
 
-        <section data-testid="home-model-plaza" class="mt-20 sm:mt-28">
-          <div class="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-            <div>
-              <div class="text-xs font-semibold uppercase tracking-[0.18em] text-primary-600 dark:text-primary-400">{{ t('home.catalog.kicker') }}</div>
-              <h2 class="mt-3 text-3xl font-semibold tracking-[-0.03em] text-gray-950 dark:text-white sm:text-4xl">{{ t('home.catalog.title') }}</h2>
-              <p class="mt-3 max-w-2xl text-sm leading-6 text-gray-500 dark:text-dark-400">{{ t('home.catalog.description') }}</p>
-            </div>
-            <router-link v-if="showModelPlazaEntry" to="/model-plaza" class="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200">
-              {{ t('home.catalog.viewAll') }} <Icon name="arrowRight" size="sm" />
-            </router-link>
-          </div>
+        <p class="hero-lede rise" style="--delay: 120ms">{{ t('home.heroDesc') }}</p>
 
-          <div v-if="modelPlazaLoading" class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div v-for="index in 6" :key="index" class="rounded-2xl border border-gray-900/5 bg-white/70 p-5 shadow-sm dark:border-white/5 dark:bg-dark-800/50" :class="index ? 'h-40' : ''"><div class="h-3 w-20 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div><div class="mt-5 h-5 w-36 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div><div class="mt-4 h-3 w-full animate-pulse rounded bg-gray-100 dark:bg-dark-800"></div></div>
-          </div>
-          <div v-else-if="featuredModels.length" class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <article v-for="entry in featuredModels" :key="`${entry.platform}-${entry.name}`" class="group relative overflow-hidden rounded-2xl border border-gray-900/5 bg-white/80 p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-gray-900/5 dark:border-white/5 dark:bg-dark-800/55 dark:hover:shadow-black/20">
-              <div :class="['absolute inset-x-0 top-0 h-1', platformAccentBarClass(entry.platform)]"></div>
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span :class="['inline-flex rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider', platformBadgeLightClass(entry.platform)]">{{ platformLabel(entry.platform) }}</span>
-                    <span class="inline-flex rounded-md bg-primary-500/10 px-2 py-1 text-[10px] font-semibold tracking-wider text-primary-700 dark:text-primary-300">{{ formatDiscount(entry.discount) }}</span>
-                  </div>
-                  <h3 class="mt-4 truncate text-base font-semibold text-gray-950 dark:text-white" :title="entry.name">{{ entry.name }}</h3>
-                  <p class="mt-1 truncate text-xs text-gray-400 dark:text-dark-500">{{ t('home.catalog.lowestPrice') }}</p>
-                </div>
-                <Icon name="externalLink" size="sm" class="shrink-0 text-gray-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary-500 dark:text-dark-600" />
-              </div>
-              <div class="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4 dark:border-dark-700">
-                <div v-if="entry.billingMode === BILLING_MODE_TOKEN"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ t('home.catalog.input') }}</div><div class="mt-1 font-mono text-sm font-semibold text-gray-800 dark:text-dark-100">{{ formatPrice(entry.inputPrice, 1_000_000) }}</div></div>
-                <div v-if="entry.billingMode === BILLING_MODE_TOKEN"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ t('home.catalog.output') }}</div><div class="mt-1 font-mono text-sm font-semibold text-gray-800 dark:text-dark-100">{{ formatPrice(entry.outputPrice, 1_000_000) }}</div></div>
-                <div v-else class="col-span-2"><div class="text-[10px] uppercase tracking-wider text-gray-400 dark:text-dark-500">{{ billingLabel(entry.model) }}</div><div class="mt-1 font-mono text-lg font-semibold text-gray-800 dark:text-dark-100">{{ formatPrice(entry.requestPrice, 1) }}</div></div>
-              </div>
-            </article>
-          </div>
-          <div v-else class="mt-8 rounded-2xl border border-dashed border-gray-300 bg-white/50 px-6 py-12 text-center text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-900/30 dark:text-dark-400">
-            {{ modelPlazaFailed ? t('home.catalog.unavailable') : t('home.catalog.empty') }}
-          </div>
-        </section>
+        <div class="cta-row rise" style="--delay: 180ms">
+          <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="btn-primary-xl">
+            {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
+            <Icon name="arrowRight" size="sm" />
+          </router-link>
+          <router-link v-if="showModelPlazaEntry" to="/model-plaza" class="btn-glass-xl">
+            <Icon name="grid" size="sm" />{{ t('home.browsePlaza') }}
+          </router-link>
+        </div>
 
-        <section class="mt-20 grid gap-4 border-t border-gray-900/5 pt-8 sm:grid-cols-3 dark:border-white/5">
-          <div v-for="item in valueProps" :key="item.title" class="rounded-2xl px-1 py-3 sm:px-4">
-            <Icon :name="item.icon" size="md" class="text-primary-600 dark:text-primary-400" />
-            <h3 class="mt-4 text-sm font-semibold text-gray-950 dark:text-white">{{ t(item.title) }}</h3>
-            <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-dark-400">{{ t(item.description) }}</p>
+        <div
+          v-if="showModelPlazaEntry"
+          class="marquee rise"
+          style="--delay: 240ms"
+          role="img"
+          :aria-label="t('home.marqueeLabel')"
+        >
+          <div class="marquee-track">
+            <span v-for="copy in 2" :key="copy" class="marquee-group" :aria-hidden="copy === 2 ? 'true' : undefined">
+              <span v-for="item in showcaseItems" :key="`${copy}-${item.name}`" class="model-pill">
+                <PlatformIcon
+                  v-if="item.icon"
+                  :platform="item.icon.platform"
+                  size="sm"
+                  class="model-icon"
+                  :style="item.icon.color ? { color: item.icon.color } : undefined"
+                />
+                <span v-else class="model-dot" :style="{ background: modelDotColor(item.name) }"></span>{{ item.name }}
+              </span>
+            </span>
           </div>
-        </section>
+        </div>
+        <router-link v-if="showModelPlazaEntry" to="/model-plaza" class="view-all rise" style="--delay: 280ms">
+          {{ t('home.viewAllModels') }} <Icon name="arrowRight" size="sm" />
+        </router-link>
+
+        <div class="trust-row rise" style="--delay: 320ms">
+          <span class="trust-chip"><Icon name="check" size="sm" class="trust-check" />{{ t('home.trust.smartRouting') }}</span>
+          <span class="trust-chip"><Icon name="check" size="sm" class="trust-check" />{{ t('home.trust.payAsYouGo') }}</span>
+          <span class="trust-chip"><Icon name="check" size="sm" class="trust-check" />{{ t('home.trust.usageInsight') }}</span>
+        </div>
       </div>
     </main>
 
-    <footer class="relative z-10 border-t border-gray-900/5 px-4 py-8 dark:border-white/5 sm:px-6 lg:px-8">
-      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-center text-sm text-gray-500 dark:text-dark-400 sm:flex-row sm:text-left">
-        <p>&copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}</p>
-        <div class="flex items-center gap-4"><a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer" class="hover:text-gray-900 dark:hover:text-white">{{ t('home.docs') }}</a><a :href="githubUrl" target="_blank" rel="noopener noreferrer" class="hover:text-gray-900 dark:hover:text-white">GitHub</a></div>
-      </div>
-    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
+import { useTheme } from '@/composables/useTheme'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
+import PlatformIcon from '@/components/common/PlatformIcon.vue'
+import DotFieldBackground from '@/components/backgrounds/DotFieldBackground.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { getModelPlaza, type ModelPlazaGroup, type PlazaModel, type ModelPlazaResponse } from '@/api/modelPlaza'
-import { BILLING_MODE_TOKEN, BILLING_MODE_IMAGE, BILLING_MODE_VIDEO, type BillingMode } from '@/constants/channel'
-import { resolveIntervalPrices } from '@/utils/pricing'
-import { platformAccentBarClass, platformBadgeLightClass, platformLabel } from '@/utils/platformColors'
+import type { GroupPlatform } from '@/types'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
@@ -261,162 +212,84 @@ const compactHomeEnabled = computed(() => appStore.cachedPublicSettings?.compact
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
 const modelPlazaRequiresAuth = computed(() => appStore.cachedPublicSettings?.model_plaza_require_auth === true)
 const isHomeContentUrl = computed(() => /^https?:\/\//.test(homeContent.value.trim()))
-const isDark = ref(document.documentElement.classList.contains('dark'))
-const githubUrl = 'https://github.com/Wei-Shaw/sub2api'
+const { isDark, toggleTheme } = useTheme()
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const showModelPlazaEntry = computed(() => modelPlazaEnabled.value && (isAuthenticated.value || !modelPlazaRequiresAuth.value))
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
 const currentYear = computed(() => new Date().getFullYear())
 
-const modelPlaza = ref<ModelPlazaResponse | null>(null)
-const modelPlazaLoading = ref(false)
-const modelPlazaFailed = ref(false)
-
-interface FeaturedModel {
-  model: PlazaModel
-  platform: string
-  name: string
-  billingMode: BillingMode
-  inputPrice: number | null
-  outputPrice: number | null
-  requestPrice: number | null
-  discount: number | null
-  comparisonPrice: number | null
-}
-
-const plazaGroups = computed<ModelPlazaGroup[]>(() => modelPlaza.value?.groups ?? [])
-const modelCount = computed(() => new Set(plazaGroups.value.flatMap((group) => group.models.map((model) => model.name))).size)
-const platformCount = computed(() => new Set(plazaGroups.value.map((group) => group.platform).filter(Boolean)).size)
-const groupCount = computed(() => plazaGroups.value.length)
-
-const EXCHANGE_RATE = 6.7
-
-function effectiveGroupRate(group: ModelPlazaGroup, model: PlazaModel): number {
-  const baseRate = billingMode(model) === BILLING_MODE_IMAGE && group.image_rate_independent
-    ? group.image_rate_multiplier
-    : (group.user_rate_multiplier ?? group.rate_multiplier)
-  return typeof baseRate === 'number' && Number.isFinite(baseRate) && baseRate > 0 ? baseRate : 1
-}
-
-function isCnGroup(group: ModelPlazaGroup): boolean {
-  return group.name.trim().toLowerCase() === 'cn'
-}
-
-function lowerPrice(current: number | null, candidate: number | null): number | null {
-  if (current == null) return candidate
-  if (candidate == null) return current
-  return Math.min(current, candidate)
-}
-
-const featuredModels = computed<FeaturedModel[]>(() => {
-  const merged = new Map<string, FeaturedModel>()
-  for (const group of plazaGroups.value) {
-    for (const model of group.models) {
-      const platform = model.platform || group.platform
-      const key = `${platform}-${model.name}`
-      const pricing = effectivePricing(model)
-      const mode = billingMode(model)
-      const rate = effectiveGroupRate(group, model)
-      const current = merged.get(key)
-      const inputPrice = pricing?.input_price == null ? null : pricing.input_price * rate
-      const outputPrice = pricing?.output_price == null ? null : pricing.output_price * rate
-      const requestPrice = pricing?.per_request_price == null ? null : pricing.per_request_price * rate
-      const comparisonPrice = mode === BILLING_MODE_TOKEN
-        ? [inputPrice, outputPrice].filter((price): price is number => price != null).sort((a, b) => a - b)[0] ?? null
-        : requestPrice
-      const discount = rate / (isCnGroup(group) ? 1 : EXCHANGE_RATE) * 10
-      if (!current) {
-        merged.set(key, {
-          model,
-          platform,
-          name: model.name,
-          billingMode: mode,
-          inputPrice,
-          outputPrice,
-          requestPrice,
-          discount,
-          comparisonPrice
-        })
-        continue
+// 点阵背景配色随亮暗主题切换
+const dotFieldColors = computed(() =>
+  isDark.value
+    ? {
+        from: 'rgba(126, 166, 255, 0.75)',
+        to: 'rgba(167, 139, 250, 0.65)',
+        glow: 'rgba(126, 166, 255, 0.16)'
       }
-      current.inputPrice = lowerPrice(current.inputPrice, inputPrice)
-      current.outputPrice = lowerPrice(current.outputPrice, outputPrice)
-      current.requestPrice = lowerPrice(current.requestPrice, requestPrice)
-      if (comparisonPrice != null && (current.comparisonPrice == null || comparisonPrice < current.comparisonPrice)) {
-        current.discount = discount
-        current.comparisonPrice = comparisonPrice
+    : {
+        from: 'rgba(47, 111, 237, 0.75)',
+        to: 'rgba(139, 92, 246, 0.6)',
+        glow: 'rgba(47, 111, 237, 0.14)'
       }
-    }
-  }
-  return [...merged.values()].slice(0, 9)
-})
+)
 
-const valueProps = [
-  { icon: 'key', title: 'home.valueProps.singleKey', description: 'home.valueProps.singleKeyDesc' },
-  { icon: 'server', title: 'home.valueProps.smartRouting', description: 'home.valueProps.smartRoutingDesc' },
-  { icon: 'chart', title: 'home.valueProps.clearUsage', description: 'home.valueProps.clearUsageDesc' },
-] as const
+// 首页只展示模型名称（不展示价格），完整列表与价格在模型广场。
+const showcaseModels = computed(() =>
+  t('home.showcaseModels')
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean)
+)
 
-function effectivePricing(model: PlazaModel) {
-  const pricing = model.pricing
-  const interval = pricing?.intervals?.[0]
-  return interval && pricing ? resolveIntervalPrices(interval, pricing) : pricing
+// 模型名 → 平台官方 logo（路径来自 @lobehub/icons / 官方品牌素材，单色渲染）+ 品牌色。
+// 未收录的名字回退到平台色圆点。
+interface ShowcaseIcon {
+  platform: GroupPlatform
+  color?: string
 }
 
-function billingMode(model: PlazaModel): BillingMode {
-  return (model.pricing?.billing_mode || BILLING_MODE_TOKEN) as BillingMode
+const MODEL_ICONS: Record<string, ShowcaseIcon> = {
+  claude: { platform: 'anthropic', color: '#d97757' },
+  anthropic: { platform: 'anthropic', color: '#d97757' },
+  gpt: { platform: 'openai', color: '#10a37f' },
+  chatgpt: { platform: 'openai', color: '#10a37f' },
+  openai: { platform: 'openai', color: '#10a37f' },
+  gemini: { platform: 'gemini', color: '#4285f4' },
+  deepseek: { platform: 'deepseek', color: '#4d6bfe' },
+  grok: { platform: 'grok' },
+  qwen: { platform: 'qwen', color: '#615ced' },
+  kimi: { platform: 'kimi', color: '#5b6bfa' },
+  glm: { platform: 'zhipu', color: '#3859ff' },
+  zhipu: { platform: 'zhipu', color: '#3859ff' },
+  minimax: { platform: 'minimax', color: '#ef4444' }
 }
 
-function billingLabel(model: PlazaModel) {
-  const mode = billingMode(model)
-  if (mode === BILLING_MODE_IMAGE) return t('home.catalog.perImage')
-  if (mode === BILLING_MODE_VIDEO) return t('home.catalog.perVideo')
-  return t('home.catalog.perRequest')
+const showcaseItems = computed(() =>
+  showcaseModels.value.map((name) => ({ name, icon: MODEL_ICONS[name.toLowerCase()] }))
+)
+
+// 兜底圆点颜色：按平台着色，未识别的名字回退到品牌色。
+const MODEL_DOT_COLORS: Record<string, string> = {
+  claude: '#d97757',
+  gpt: '#10a37f',
+  chatgpt: '#10a37f',
+  openai: '#10a37f',
+  gemini: '#8e75f2',
+  deepseek: '#4d6bfe',
+  grok: '#94a3b8',
+  qwen: '#7c5cff',
+  kimi: '#5b6bfa',
+  glm: '#4a6cf7'
 }
 
-function formatPrice(value: number | null | undefined, scale: number) {
-  if (value == null) return t('home.catalog.notAvailable')
-  const amount = value * scale
-  return `$${amount < 0.01 ? amount.toPrecision(3) : amount.toFixed(amount >= 100 ? 0 : 2).replace(/\.00$/, '')}`
-}
-
-function formatDiscount(value: number | null | undefined) {
-  if (value == null) return t('home.catalog.notAvailable')
-  return `${value.toFixed(1)}${t('home.catalog.discountSuffix')}`
-}
-
-function toggleTheme() {
-  isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
-}
-
-function initTheme() {
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    isDark.value = true
-    document.documentElement.classList.add('dark')
-  }
-}
-
-async function loadModelPlaza() {
-  if (!modelPlazaEnabled.value || hasHomeContent.value || compactHomeEnabled.value) return
-  modelPlazaLoading.value = true
-  try {
-    modelPlaza.value = await getModelPlaza()
-  } catch {
-    modelPlazaFailed.value = true
-  } finally {
-    modelPlazaLoading.value = false
-  }
+function modelDotColor(name: string) {
+  return MODEL_DOT_COLORS[name.trim().toLowerCase()] || 'var(--fv-accent)'
 }
 
 onMounted(() => {
-  initTheme()
   authStore.checkAuth()
   if (!appStore.publicSettingsLoaded) void appStore.fetchPublicSettings()
-  void loadModelPlaza()
 })
 </script>
 
@@ -437,7 +310,7 @@ onMounted(() => {
   top: 5rem;
   width: 28rem;
   height: 28rem;
-  background: rgb(45 212 191 / 18%);
+  background: var(--fv-halo-1);
 }
 
 .home-orb-secondary {
@@ -445,16 +318,28 @@ onMounted(() => {
   left: -12rem;
   width: 30rem;
   height: 30rem;
-  background: rgb(125 211 252 / 13%);
+  background: var(--fv-halo-2);
+}
+
+.home-dotfield {
+  position: absolute;
+  inset: 0;
+  opacity: 0.8;
+}
+
+.dark .home-dotfield {
+  opacity: 0.85;
 }
 
 .home-locale-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
-  border: 1px solid rgb(17 24 39 / 8%);
+  border: 1px solid var(--fv-line);
   border-radius: 0.75rem;
-  background: rgb(255 255 255 / 70%);
+  background: color-mix(in srgb, var(--fv-surface-solid) 78%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding-left: 0.55rem;
   color: var(--fv-muted);
 }
@@ -476,17 +361,255 @@ onMounted(() => {
 
 .home-icon-button:hover {
   color: var(--fv-text);
-  background: rgb(255 255 255 / 75%);
+  background: var(--fv-accent-wash);
   transform: translateY(-1px);
 }
 
-.home-console {
-  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+/* ---------- 极简单屏 Hero ---------- */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(47, 111, 237, 0.25);
+  background: var(--fv-accent-wash);
+  color: var(--fv-accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
-.home-console:hover {
-  transform: perspective(1200px) rotateY(0deg) rotateX(0deg) translateY(-4px);
-  box-shadow: 0 30px 70px rgb(15 118 110 / 18%);
+.dark .eyebrow {
+  border-color: rgba(126, 166, 255, 0.3);
+}
+
+.eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fv-accent);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 111, 237, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(47, 111, 237, 0); }
+}
+
+.hero-title {
+  margin-top: 24px;
+  font-size: clamp(34px, 5.4vw, 58px);
+  line-height: 1.14;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--fv-text);
+}
+
+.title-accent {
+  display: block;
+  padding-bottom: 0.08em;
+  background: linear-gradient(94deg, var(--fv-accent) 18%, #8b5cf6 88%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-lede {
+  margin-top: 18px;
+  max-width: 34rem;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--fv-muted);
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.btn-primary-xl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  background: var(--fv-accent);
+  color: #ffffff;
+  font-size: 14.5px;
+  font-weight: 600;
+  box-shadow: 0 10px 28px rgba(47, 111, 237, 0.28);
+  transition: background-color 0.18s, transform 0.18s, box-shadow 0.18s;
+}
+
+.dark .btn-primary-xl {
+  color: var(--fv-on-accent);
+}
+
+.btn-primary-xl:hover {
+  background: var(--fv-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px rgba(47, 111, 237, 0.32);
+}
+
+.btn-glass-xl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: 1px solid var(--fv-line);
+  background: color-mix(in srgb, var(--fv-surface-solid) 78%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--fv-text-2);
+  font-size: 14.5px;
+  font-weight: 600;
+  transition: background-color 0.18s, color 0.18s, transform 0.18s;
+}
+
+.btn-glass-xl:hover {
+  background: var(--fv-surface-solid);
+  color: var(--fv-text);
+  transform: translateY(-1px);
+}
+
+/* ---------- 模型跑马灯（仅名称，无价格；完整列表在模型广场） ---------- */
+.marquee {
+  width: min(560px, 92vw);
+  margin-top: 36px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-move 36s linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-group {
+  display: flex;
+  gap: 10px;
+  padding-right: 10px;
+}
+
+@keyframes marquee-move {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.model-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--fv-line);
+  background: color-mix(in srgb, var(--fv-surface-solid) 62%, transparent);
+  color: var(--fv-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.model-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.model-icon {
+  opacity: 0.95;
+}
+
+.view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fv-accent);
+  transition: color 0.15s;
+}
+
+.view-all:hover {
+  color: var(--fv-accent-hover);
+}
+
+.trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 26px;
+  margin-top: 32px;
+}
+
+.trust-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--fv-muted);
+}
+
+.trust-check {
+  color: var(--fv-accent);
+}
+
+/* ---------- 入场动画 ---------- */
+.rise {
+  opacity: 0;
+  animation: rise-in 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 用户偏好减少动效：直接呈现静态布局（全局令牌层还会把时长压到 1ms，这里再保证结构不滚动） */
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+    opacity: 1;
+  }
+
+  .eyebrow-dot {
+    animation: none;
+  }
+
+  .marquee-track {
+    animation: none;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: 30px;
+  }
 }
 </style>

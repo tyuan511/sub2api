@@ -6,7 +6,7 @@
     </label>
     <div
       v-if="isSearchable"
-      class="flex items-center gap-2 rounded-t-lg border border-b-0 border-gray-200 bg-gray-50 px-3 py-2 dark:border-dark-600 dark:bg-dark-800"
+      class="flex items-center gap-2 rounded-t-lg border border-b-0 border-[var(--fv-line-soft)] bg-[color-mix(in_srgb,var(--fv-surface-2)_70%,transparent)] px-3 py-2"
     >
       <Icon name="search" size="sm" class="shrink-0 text-gray-400" />
       <input
@@ -20,14 +20,14 @@
       :class="[
         'grid max-h-32 grid-cols-2 gap-1 overflow-y-auto p-2',
         isSearchable
-          ? 'rounded-b-lg border border-t-0 border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-800'
-          : 'rounded-lg border border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-800'
+          ? 'rounded-b-lg border border-t-0 border-[var(--fv-line-soft)] bg-[color-mix(in_srgb,var(--fv-surface-2)_70%,transparent)]'
+          : 'rounded-lg border border-[var(--fv-line-soft)] bg-[color-mix(in_srgb,var(--fv-surface-2)_70%,transparent)]'
       ]"
     >
       <label
         v-for="group in filteredGroups"
         :key="group.id"
-        class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-white dark:hover:bg-dark-700"
+        class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-[var(--fv-accent-wash)]"
         :title="group.rate_multiplier == null ? group.name : t('admin.groups.rateAndAccounts', { rate: group.rate_multiplier, count: group.account_count || 0 })"
       >
         <input
