@@ -1,97 +1,96 @@
 /*
- * Glassmorphism design tokens (single source of truth for the visual skin).
+ * 温和圆润（Warm / Rounded）设计令牌 —— 全站视觉的唯一来源。
  *
- * Brand data such as the site name and logo stay in public settings; this
- * file owns the visuals. All `--fv-*` variables are consumed by style.css
- * and a handful of views (HomeView, ImageStudioView); keep the names stable.
+ * 品牌数据（站名、logo）仍在公共设置里；本文件只管视觉。所有 `--fv-*`
+ * 变量被 style.css 与部分视图（HomeView、ImageStudioView）消费，改名需谨慎。
  *
- * Direction: "玻璃拟态" — translucent frosted surfaces over a soft halo
- * background, hairline borders, 14px cards / 10px controls, pill badges.
+ * 方向：「温和圆润」——暖灰纸感底色、实底卡片、发丝暖边框、16px 卡片圆角 /
+ * 11px 控件圆角、胶囊徽章、克制的蓝色强调（品牌蓝保留）。
  */
 :root {
   /* Surfaces */
-  --fv-page: #eef3fb;
-  /* Translucent card surface (glass) */
-  --fv-surface: rgba(255, 255, 255, 0.62);
-  --fv-surface-2: #e4ebf6;
-  --fv-surface-3: #d9e3f2;
-  /* Near-opaque surface for overlays that must stay readable (modals, dropdowns, toasts) */
-  --fv-surface-solid: #f6f9fe;
-  --fv-overlay-surface: rgba(246, 249, 254, 0.86);
-  --fv-input-bg: rgba(255, 255, 255, 0.6);
+  --fv-page: #f7f5f2;
+  /* 卡面：接近实底的暖白，保留一丝通透 */
+  --fv-surface: rgba(255, 255, 255, 0.92);
+  --fv-surface-2: #f1eee9;
+  --fv-surface-3: #e7e2da;
+  /* 弹层（弹窗/下拉/toast）需要强可读性的近实底表面 */
+  --fv-surface-solid: #ffffff;
+  --fv-overlay-surface: rgba(255, 255, 255, 0.94);
+  --fv-input-bg: #ffffff;
 
   /* Lines */
-  --fv-line: rgba(13, 40, 90, 0.14);
-  --fv-line-soft: rgba(13, 40, 90, 0.08);
+  --fv-line: #e7e2da;
+  --fv-line-soft: #efece6;
 
   /* Text */
-  --fv-text: #0f172a;
-  --fv-text-soft: #33415c;
-  --fv-muted: #5c6b84;
+  --fv-text: #292524;
+  --fv-text-soft: #57534e;
+  --fv-muted: #78716c;
 
-  /* Accent (brand blue) */
+  /* Accent（品牌蓝） */
   --fv-accent: #2f6fed;
   --fv-accent-hover: #245bcc;
   /* Text color placed on top of the accent fill */
   --fv-on-accent: #ffffff;
-  --fv-accent-soft: #e0e9ff;
-  --fv-accent-wash: rgba(47, 111, 237, 0.1);
-  --fv-accent-outline: rgba(47, 111, 237, 0.28);
+  --fv-accent-soft: rgba(47, 111, 237, 0.09);
+  --fv-accent-wash: rgba(47, 111, 237, 0.08);
+  --fv-accent-outline: rgba(47, 111, 237, 0.25);
 
   /* Chrome */
-  --fv-topbar: rgba(238, 243, 251, 0.6);
-  --fv-halo-1: rgba(47, 111, 237, 0.16);
-  --fv-halo-2: rgba(124, 58, 237, 0.13);
+  --fv-topbar: rgba(247, 245, 242, 0.8);
+  --fv-halo-1: rgba(47, 111, 237, 0.1);
+  --fv-halo-2: rgba(124, 58, 237, 0.07);
 
-  /* Elevation */
-  --fv-shadow: 0 6px 24px rgba(23, 58, 120, 0.08);
-  --fv-shadow-hover: 0 12px 32px rgba(23, 58, 120, 0.14);
-  --fv-shadow-pop: 0 16px 44px rgba(23, 58, 120, 0.16);
-  --fv-shadow-accent: 0 8px 24px rgba(47, 111, 237, 0.25);
+  /* Elevation（暖黑基调的柔和阴影） */
+  --fv-shadow: 0 1px 2px rgba(41, 37, 36, 0.05);
+  --fv-shadow-hover: 0 8px 24px rgba(41, 37, 36, 0.1);
+  --fv-shadow-pop: 0 12px 32px rgba(41, 37, 36, 0.12);
+  --fv-shadow-accent: 0 6px 18px rgba(47, 111, 237, 0.22);
 
-  /* Glass */
-  --fv-blur: 16px;
-  --fv-blur-strong: 24px;
+  /* Glass（保留管线，但圆润风格下模糊强度调低） */
+  --fv-blur: 12px;
+  --fv-blur-strong: 20px;
 
   /* Geometry */
-  --fv-radius: 14px;
-  --fv-radius-ctl: 10px;
+  --fv-radius: 16px;
+  --fv-radius-ctl: 11px;
 
   --fv-font-sans: 'Noto Sans SC', 'PingFang SC', sans-serif;
   --fv-font-mono: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
 }
 
 :root.dark {
-  --fv-page: #0a0a0d;
-  --fv-surface: rgba(17, 17, 21, 0.55);
-  --fv-surface-2: rgba(255, 255, 255, 0.06);
-  --fv-surface-3: rgba(255, 255, 255, 0.1);
-  --fv-surface-solid: #121216;
-  --fv-overlay-surface: rgba(17, 17, 22, 0.86);
-  --fv-input-bg: rgba(255, 255, 255, 0.04);
+  --fv-page: #161412;
+  --fv-surface: rgba(30, 27, 24, 0.72);
+  --fv-surface-2: #272320;
+  --fv-surface-3: #332e29;
+  --fv-surface-solid: #1e1b18;
+  --fv-overlay-surface: rgba(30, 27, 24, 0.92);
+  --fv-input-bg: rgba(255, 255, 255, 0.05);
 
-  --fv-line: rgba(164, 168, 179, 0.16);
-  --fv-line-soft: rgba(164, 168, 179, 0.09);
+  --fv-line: rgba(214, 211, 209, 0.14);
+  --fv-line-soft: rgba(214, 211, 209, 0.08);
 
-  --fv-text: #f0f2f6;
-  --fv-text-soft: #c4c8d1;
-  --fv-muted: #8b909c;
+  --fv-text: #f5f5f4;
+  --fv-text-soft: #d6d3d1;
+  --fv-muted: #a8a29e;
 
-  --fv-accent: #7ea6ff;
-  --fv-accent-hover: #9abaff;
+  --fv-accent: #6f9dff;
+  --fv-accent-hover: #89b1ff;
   --fv-on-accent: #0a1530;
-  --fv-accent-soft: rgba(126, 166, 255, 0.15);
-  --fv-accent-wash: rgba(126, 166, 255, 0.1);
-  --fv-accent-outline: rgba(126, 166, 255, 0.28);
+  --fv-accent-soft: rgba(111, 157, 255, 0.13);
+  --fv-accent-wash: rgba(111, 157, 255, 0.1);
+  --fv-accent-outline: rgba(111, 157, 255, 0.26);
 
-  --fv-topbar: rgba(10, 10, 14, 0.6);
-  --fv-halo-1: rgba(47, 111, 237, 0.16);
-  --fv-halo-2: rgba(124, 58, 237, 0.12);
+  --fv-topbar: rgba(22, 20, 18, 0.8);
+  --fv-halo-1: rgba(47, 111, 237, 0.14);
+  --fv-halo-2: rgba(124, 58, 237, 0.1);
 
   --fv-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
   --fv-shadow-hover: 0 14px 36px rgba(0, 0, 0, 0.45);
   --fv-shadow-pop: 0 20px 50px rgba(0, 0, 0, 0.5);
-  --fv-shadow-accent: 0 10px 28px rgba(126, 166, 255, 0.18);
+  --fv-shadow-accent: 0 10px 28px rgba(111, 157, 255, 0.18);
 }
 
 html {
@@ -105,8 +104,7 @@ body {
   letter-spacing: 0;
 }
 
-/* Soft halo backdrop behind the whole app (fixed so it glows on every scroll
- * position). Painted above the body fill, below all content. */
+/* 背景光晕：固定层，随滚动始终在视口顶部发亮，位于页面底色之上、内容之下 */
 body::before {
   content: '';
   position: fixed;
@@ -137,14 +135,14 @@ body::before {
 /* Shared glass surface recipe. Components opt in by composing these two. */
 .glass-surface {
   background: var(--fv-surface);
-  backdrop-filter: blur(var(--fv-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(140%);
+  backdrop-filter: blur(var(--fv-blur)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--fv-blur)) saturate(120%);
 }
 
 .glass-overlay {
   background: var(--fv-overlay-surface);
-  backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(140%);
+  backdrop-filter: blur(var(--fv-blur-strong)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--fv-blur-strong)) saturate(120%);
 }
 
 @media (max-width: 640px) {

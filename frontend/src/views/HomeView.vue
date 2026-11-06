@@ -219,18 +219,18 @@ const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
 const currentYear = computed(() => new Date().getFullYear())
 
-// 点阵背景配色随亮暗主题切换
+// 点阵背景配色随亮暗主题切换（暖底上保留蓝紫点缀，但更收敛）
 const dotFieldColors = computed(() =>
   isDark.value
     ? {
-        from: 'rgba(126, 166, 255, 0.75)',
-        to: 'rgba(167, 139, 250, 0.65)',
-        glow: 'rgba(126, 166, 255, 0.16)'
+        from: 'rgba(111, 157, 255, 0.6)',
+        to: 'rgba(167, 139, 250, 0.5)',
+        glow: 'rgba(111, 157, 255, 0.12)'
       }
     : {
-        from: 'rgba(47, 111, 237, 0.75)',
-        to: 'rgba(139, 92, 246, 0.6)',
-        glow: 'rgba(47, 111, 237, 0.14)'
+        from: 'rgba(47, 111, 237, 0.65)',
+        to: 'rgba(139, 92, 246, 0.5)',
+        glow: 'rgba(47, 111, 237, 0.12)'
       }
 )
 
@@ -381,7 +381,7 @@ onMounted(() => {
 }
 
 .dark .eyebrow {
-  border-color: rgba(126, 166, 255, 0.3);
+  border-color: rgba(111, 157, 255, 0.3);
 }
 
 .eyebrow-dot {

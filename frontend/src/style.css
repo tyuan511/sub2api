@@ -791,7 +791,7 @@
   .tab-active {
     color: var(--fv-text);
     background: var(--fv-surface-solid);
-    box-shadow: 0 1px 3px rgba(23, 58, 120, 0.1);
+    box-shadow: 0 1px 3px rgba(41, 37, 36, 0.08);
   }
 
   /* ============ 进度条 ============ */
@@ -838,9 +838,9 @@
   .code-block {
     @apply font-mono text-sm;
     @apply overflow-x-auto rounded-xl p-4;
-    background: #101014;
-    color: #d8dbe2;
-    border: 1px solid rgba(164, 168, 179, 0.14);
+    background: #1c1917;
+    color: #ddd8d2;
+    border: 1px solid rgba(214, 211, 209, 0.12);
   }
 
   /* ============ Tour Description ============ */
