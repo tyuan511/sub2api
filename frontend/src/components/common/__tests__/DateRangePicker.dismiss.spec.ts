@@ -1,12 +1,13 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
+import { DOMWrapper } from '@vue/test-utils'
 import DateRangePicker from '../DateRangePicker.vue'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key, locale: ref('en') }) }))
 let wrapper: ReturnType<typeof mount<typeof DateRangePicker>>
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 8, 13, 12)) })
-afterEach(() => { wrapper?.unmount(); vi.useRealTimers() })
+afterEach(() => { wrapper?.unmount(); document.body.innerHTML = ''; vi.useRealTimers() })
 
 async function chooseDraft() {
   wrapper = mount(DateRangePicker, {
@@ -17,8 +18,14 @@ async function chooseDraft() {
     },
   })
   await wrapper.get('.date-picker-trigger').trigger('click')
-  await wrapper.findAll('.date-picker-preset').find(node => node.text() === 'dates.last7Days')!.trigger('click')
+  // 面板 teleport 到 body，需从 document 中查询
+  const preset = Array.from(document.body.querySelectorAll<HTMLElement>('.date-picker-preset'))
+    .find(node => node.textContent === 'dates.last7Days')!
+  await new DOMWrapper(preset).trigger('click')
 }
+
+const draftDateInputs = () =>
+  Array.from(document.body.querySelectorAll<HTMLInputElement>('input[type="date"]')).map(input => input.value)
 
 describe('DateRangePicker unapplied changes', () => {
   it.each(['outside', 'escape', 'toggle'])('discards draft dates when dismissed with %s', async (method) => {
@@ -30,18 +37,16 @@ describe('DateRangePicker unapplied changes', () => {
     expect(wrapper.emitted('change')).toBeUndefined()
     expect(wrapper.get('.date-picker-trigger').text()).toContain('dates.today')
     await wrapper.get('.date-picker-trigger').trigger('click')
-    expect(wrapper.findAll<HTMLInputElement>('input[type="date"]').map(input => input.element.value))
-      .toEqual(['2026-09-13', '2026-09-13'])
+    expect(draftDateInputs()).toEqual(['2026-09-13', '2026-09-13'])
   })
 
   it('retains a newly applied range after the parent accepts both updates', async () => {
     await chooseDraft()
-    await wrapper.get('.date-picker-apply').trigger('click')
+    await new DOMWrapper(document.body.querySelector<HTMLElement>('.date-picker-apply')!).trigger('click')
     await nextTick()
     expect(wrapper.emitted('change')).toEqual([[{ startDate: '2026-09-07', endDate: '2026-09-13', preset: '7days' }]])
     expect(wrapper.get('.date-picker-trigger').text()).toContain('dates.last7Days')
     await wrapper.get('.date-picker-trigger').trigger('click')
-    expect(wrapper.findAll<HTMLInputElement>('input[type="date"]').map(input => input.element.value))
-      .toEqual(['2026-09-07', '2026-09-13'])
+    expect(draftDateInputs()).toEqual(['2026-09-07', '2026-09-13'])
   })
 })

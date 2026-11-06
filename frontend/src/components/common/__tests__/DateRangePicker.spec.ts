@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, expect, it, vi, afterEach } from 'vitest'
+import { DOMWrapper, mount } from '@vue/test-utils'
 import { ref } from 'vue'
 
 import DateRangePicker from '../DateRangePicker.vue'
@@ -34,6 +34,10 @@ const formatLocalDate = (date: Date): string => {
 }
 
 describe('DateRangePicker', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
   it('uses last 24 hours as the default recognized preset', () => {
     const now = new Date()
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
@@ -70,13 +74,13 @@ describe('DateRangePicker', () => {
     })
 
     await wrapper.find('.date-picker-trigger').trigger('click')
-    const presetButton = wrapper.findAll('.date-picker-preset').find((node) =>
-      node.text().includes('Last 24 Hours')
-    )
+    // 面板 teleport 到 body，需从 document 中查询
+    const presetButton = Array.from(document.body.querySelectorAll<HTMLElement>('.date-picker-preset'))
+      .find((node) => node.textContent?.includes('Last 24 Hours'))
     expect(presetButton).toBeDefined()
 
-    await presetButton!.trigger('click')
-    await wrapper.find('.date-picker-apply').trigger('click')
+    await new DOMWrapper(presetButton!).trigger('click')
+    await new DOMWrapper(document.body.querySelector<HTMLElement>('.date-picker-apply')!).trigger('click')
 
     const nowAfterClick = new Date()
     const yesterdayAfterClick = new Date(nowAfterClick.getTime() - 24 * 60 * 60 * 1000)
