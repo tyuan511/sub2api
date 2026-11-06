@@ -48,9 +48,12 @@
         @update:search="searchQuery = $event"
       />
 
-      <!-- 分组分节的模型清单(默认按生效倍率升序) -->
-      <div v-if="filteredGroups.length > 0" class="space-y-5">
-        <PlazaGroupSection v-for="g in filteredGroups" :key="g.id" :group="g" />
+      <!-- 每个模型一张卡片：展示最低价与最低倍率，点击展开所有分组明细 -->
+      <div
+        v-if="filteredModels.length > 0"
+        class="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]"
+      >
+        <PlazaModelCard v-for="item in filteredModels" :key="item.key" :item="item" @open="selectedModel = item" />
       </div>
       <div
         v-else
@@ -59,6 +62,9 @@
         {{ searchActive ? t('modelPlaza.noSearchResult') : t('modelPlaza.empty') }}
       </div>
     </template>
+
+    <!-- 分组明细弹窗 -->
+    <PlazaModelGroupsDialog :item="selectedModel" :show="!!selectedModel" @close="selectedModel = null" />
   </div>
 </template>
 
@@ -69,7 +75,9 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
 import PlazaFilterBar from './PlazaFilterBar.vue'
-import PlazaGroupSection from './PlazaGroupSection.vue'
+import PlazaModelCard from './PlazaModelCard.vue'
+import PlazaModelGroupsDialog from './PlazaModelGroupsDialog.vue'
+import { aggregateModels, type AggregatedModel } from './aggregate'
 import type { ModelPlazaGroup, ModelPlazaResponse } from '@/api/modelPlaza'
 import { sortByPlatformDisplayOrder, sortGroupsForDisplay } from '@/utils/groupOrder'
 import { useAuthStore } from '@/stores/auth'
@@ -90,6 +98,8 @@ const selectedPlatform = ref<string>('all')
 const selectedGroupId = ref<number | 'all'>('all')
 const selectedRate = ref<number | 'all'>('all')
 const searchQuery = ref('')
+/** 点击卡片后打开的分组明细弹窗。 */
+const selectedModel = ref<AggregatedModel | null>(null)
 
 const searchActive = computed(() => searchQuery.value.trim() !== '')
 
@@ -132,26 +142,26 @@ watch(rates, (list) => {
   }
 })
 
-const filteredGroups = computed(() => {
-  let groups = props.response?.groups ?? []
+/** 按模型聚合（跨分组合并,取最低价/最低倍率）。 */
+const aggregatedModels = computed(() => aggregateModels(props.response?.groups ?? []))
+
+/** 筛选后喂给卡片的模型列表。 */
+const filteredModels = computed(() => {
+  let items = aggregatedModels.value
   if (selectedPlatform.value !== 'all') {
-    groups = groups.filter((g) => g.platform === selectedPlatform.value)
+    items = items.filter((item) => item.platform === selectedPlatform.value)
   }
   if (selectedGroupId.value !== 'all') {
-    groups = groups.filter((g) => g.id === selectedGroupId.value)
+    items = items.filter((item) => item.offers.some((offer) => offer.group.id === selectedGroupId.value))
   }
   if (selectedRate.value !== 'all') {
-    groups = groups.filter((g) => effectiveRate(g) === selectedRate.value)
+    items = items.filter((item) => item.offers.some((offer) => offer.effectiveRate === selectedRate.value))
   }
-  // 模型名搜索:分组内只留命中的模型,整组无命中则隐藏该分组。
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
-    groups = groups
-      .map((g) => ({ ...g, models: g.models.filter((m) => m.name.toLowerCase().includes(q)) }))
-      .filter((g) => g.models.length > 0)
+    items = items.filter((item) => item.name.toLowerCase().includes(q))
   }
-  // 专属倍率会改变生效值,不能只依赖后端按默认倍率的排序。
-  return sortGroupsForDisplay(groups, { rateOf: effectiveRate })
+  return items
 })
 </script>
 

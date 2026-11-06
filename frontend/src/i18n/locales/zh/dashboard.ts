@@ -698,7 +698,7 @@ export default {
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
     title: '模型广场',
-    description: '按分组浏览可用模型与价格',
+    description: '浏览可用模型与最低价格',
     loading: '加载中...',
     empty: '暂无可展示的分组',
     loadFailed: '加载模型广场失败',
@@ -722,8 +722,17 @@ export default {
       peakNote: '高峰时段 {window} 计费倍率 ×{multiplier}',
       longContextDisabledNote: '该分组未启用长上下文阶梯计费，超阈值请求仍按基础档计费'
     },
+    card: {
+      routes: '{n} 个分组',
+      viewGroups: '查看分组',
+      lowestRate: '全部分组中的最低倍率'
+    },
+    dialog: {
+      groups: '提供该模型的分组'
+    },
     table: {
       model: '模型',
+      tierLabel: '档位',
       input: '输入',
       output: '输出',
       cache: '缓存',

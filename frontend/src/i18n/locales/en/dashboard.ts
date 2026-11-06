@@ -693,7 +693,7 @@ export default {
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
     title: 'Model Plaza',
-    description: 'Browse available models and pricing by group',
+    description: 'Browse available models with their lowest prices',
     loading: 'Loading...',
     empty: 'No groups to display',
     loadFailed: 'Failed to load model plaza',
@@ -717,8 +717,17 @@ export default {
       peakNote: 'Peak hours {window}: billing rate ×{multiplier}',
       longContextDisabledNote: 'Long-context tier pricing is disabled for this group: requests above the threshold are billed at the base tier'
     },
+    card: {
+      routes: '{n} groups',
+      viewGroups: 'View groups',
+      lowestRate: 'Lowest rate across all groups'
+    },
+    dialog: {
+      groups: 'Groups offering this model'
+    },
     table: {
       model: 'Model',
+      tierLabel: 'Tier',
       input: 'Input',
       output: 'Output',
       cache: 'Cache',
