@@ -79,7 +79,7 @@
                 </div>
               </div>
 
-            <div v-if="entry.row.group_id" class="mt-4 flex flex-wrap justify-end gap-2">
+            <div v-if="entry.row.group_id && authStore.isAdmin" class="mt-4 flex flex-wrap justify-end gap-2">
               <button type="button" class="btn btn-secondary !px-3 !py-1.5 text-xs" @click="selectedCheckRow = entry.row">
                 {{ t('channelMonitorV2.groupCheck.open') }}
               </button>
@@ -154,6 +154,7 @@
 import { useI18n } from 'vue-i18n'
 import { computed, reactive, ref } from 'vue'
 import GroupCheckDialog from './GroupCheckDialog.vue'
+import { useAuthStore } from '@/stores/auth'
 import type {
   MonitorCoverage,
   MonitorHealth,
@@ -187,6 +188,7 @@ const PULSE_RECORD_COUNT = 18
 
 type HealthMode = 'overall' | 'success' | 'ttft' | 'cache'
 const { t } = useI18n()
+const authStore = useAuthStore()
 const { providerLabel, providerBadgeClass } = useChannelMonitorFormat()
 
 const PROVIDER_TINT: Record<string, string> = {

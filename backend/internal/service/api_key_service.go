@@ -1163,6 +1163,11 @@ func (s *APIKeyService) canUserBindGroupInternal(user *User, group *Group, subsc
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
+// GetGroupByID 按 ID 获取分组（供分组检测等内部授权流程使用）。
+func (s *APIKeyService) GetGroupByID(ctx context.Context, groupID int64) (*Group, error) {
+	return s.groupRepo.GetByID(ctx, groupID)
+}
+
 func (s *APIKeyService) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]APIKey, error) {
 	keys, err := s.apiKeyRepo.SearchAPIKeys(ctx, userID, keyword, limit)
 	if err != nil {

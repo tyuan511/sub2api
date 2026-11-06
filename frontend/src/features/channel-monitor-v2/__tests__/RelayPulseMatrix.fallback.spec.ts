@@ -24,6 +24,10 @@ const i18nT = (key: string, params?: Record<string, unknown>) => {
   return (map[key] || key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? ''))
 }
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ isAdmin: false }),
+}))
+
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {

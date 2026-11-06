@@ -31,6 +31,15 @@ func (p *groupCheckKeyProvider) GroupCheckInternalKey(ctx context.Context, userI
 	if err != nil || user == nil || !user.IsActive() {
 		return nil, errors.New("user unavailable")
 	}
+	// 管理员：可检测任意活跃分组（含专属/订阅分组，订阅资格仍由网关计费校验把关）。
+	if user.Role == service.RoleAdmin {
+		group, err := p.groups.GetGroupByID(ctx, groupID)
+		if err != nil || group == nil || !group.IsActive() {
+			return nil, errors.New("group unavailable")
+		}
+		return p.buildInternalKey(ctx, user, group, userID, groupID)
+	}
+	// 普通用户：仅限自己可用的分组。
 	groups, err := p.groups.GetAvailableGroups(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -40,13 +49,17 @@ func (p *groupCheckKeyProvider) GroupCheckInternalKey(ctx context.Context, userI
 		if group.ID != groupID || !group.IsActive() {
 			continue
 		}
-		id, err := p.identities.GetOrCreate(ctx, userID, groupID)
-		if err != nil || id <= 0 {
-			return nil, errors.New("internal identity unavailable")
-		}
-		return &service.APIKey{ID: id, UserID: userID, GroupID: &groupID, Group: group, User: user, Status: service.StatusAPIKeyDisabled, Name: "分组检测"}, nil
+		return p.buildInternalKey(ctx, user, group, userID, groupID)
 	}
 	return nil, errors.New("group unavailable")
+}
+
+func (p *groupCheckKeyProvider) buildInternalKey(ctx context.Context, user *service.User, group *service.Group, userID, groupID int64) (*service.APIKey, error) {
+	id, err := p.identities.GetOrCreate(ctx, userID, groupID)
+	if err != nil || id <= 0 {
+		return nil, errors.New("internal identity unavailable")
+	}
+	return &service.APIKey{ID: id, UserID: userID, GroupID: &groupID, Group: group, User: user, Status: service.StatusAPIKeyDisabled, Name: "分组检测"}, nil
 }
 
 type groupCheckSubscriptions interface {

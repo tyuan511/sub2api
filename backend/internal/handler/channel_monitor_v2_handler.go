@@ -24,6 +24,7 @@ type ChannelMonitorV2Handler struct {
 
 type channelMonitorV2GroupAuthorizer interface {
 	GetAvailableGroups(ctx context.Context, userID int64) ([]service.Group, error)
+	GetGroupByID(ctx context.Context, groupID int64) (*service.Group, error)
 }
 
 func NewChannelMonitorV2Handler(svc *service.ChannelMonitorV2Service, apiKeyService *service.APIKeyService) *ChannelMonitorV2Handler {

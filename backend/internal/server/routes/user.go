@@ -189,8 +189,9 @@ func RegisterUserRoutes(
 			monitorV2.GET("/matrix", h.ChannelMonitorV2.Matrix)
 			monitorV2.GET("/errors", h.ChannelMonitorV2.Errors)
 			monitorV2.GET("/users", h.ChannelMonitorV2.Users)
-			monitorV2.GET("/groups/:group_id/checks", h.ChannelMonitorV2.ListGroupChecks)
-			monitorV2.POST("/groups/:group_id/checks", h.ChannelMonitorV2.StartGroupCheck)
+			// 分组检测仅管理员可用（前端入口同样按角色隐藏）。
+			monitorV2.GET("/groups/:group_id/checks", middleware.AdminOnly(), h.ChannelMonitorV2.ListGroupChecks)
+			monitorV2.POST("/groups/:group_id/checks", middleware.AdminOnly(), h.ChannelMonitorV2.StartGroupCheck)
 		}
 	}
 }
