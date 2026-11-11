@@ -58,14 +58,16 @@ func studioExtension(mime string) string {
 		return ".jpg"
 	case "image/webp":
 		return ".webp"
+	case "image/gif":
+		return ".gif"
 	default:
 		return ".png"
 	}
 }
 func (s *ImageStudioService) saveFile(ctx context.Context, profile *StudioStorageProfile, storage StudioObjectStorage, creationID, kind string, position int, name, mime string, data []byte) (*StudioFile, error) {
 	detected := http.DetectContentType(data)
-	if detected != "image/png" && detected != "image/jpeg" && detected != "image/webp" {
-		return nil, infraerrors.BadRequest("INVALID_IMAGE", "仅支持 PNG、JPEG 和 WebP 图片")
+	if detected != "image/png" && detected != "image/jpeg" && detected != "image/webp" && detected != "image/gif" {
+		return nil, infraerrors.BadRequest("INVALID_IMAGE", "仅支持 PNG、JPEG、WebP 和 GIF 图片")
 	}
 	if int64(len(data)) > profile.Config.MaxDownloadBytes {
 		return nil, infraerrors.BadRequest("IMAGE_TOO_LARGE", "图片超出存储大小上限")

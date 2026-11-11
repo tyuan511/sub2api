@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	_ "image/gif" // 动图生成（如 gpt-image 的 GIF 输出）需要能解码首帧做缩略图。
 	_ "image/jpeg"
 	_ "image/png"
 	"time"

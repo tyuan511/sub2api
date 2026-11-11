@@ -504,7 +504,7 @@ async function download(picture: StudioImage & { id?: string }, id: string, inde
     if (!response.ok) throw new Error('Download failed')
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
-    const extension = blob.type.includes('webp') ? 'webp' : blob.type.includes('jpeg') ? 'jpg' : 'png'
+    const extension = blob.type.includes('webp') ? 'webp' : blob.type.includes('jpeg') ? 'jpg' : blob.type.includes('gif') ? 'gif' : 'png'
     const link = document.createElement('a')
     link.href = url; link.download = `image-${id}-${index + 1}.${extension}`
     document.body.appendChild(link); link.click(); link.remove()
