@@ -15,8 +15,8 @@
 
 - 任何发布、部署、回滚动作都必须显式携带版本号，禁止只发布 `latest`。
 - 镜像 tag 固定为 `vYYYYMMDD.HHMM`（以本地构建时刻为准），例如 `v20260831.0959`；一个 tag 只对应一次构建，已发布或已部署的 tag 不得复用、不得覆盖重建。
-- 本地构建时同时打版本 tag 与 `latest`：
-  `docker build -t sub2api:vYYYYMMDD.HHMM -t sub2api:latest ...`
+- 本地构建时同时打版本 tag 与 `latest`，并且**必须传 `VERSION` 构建参数**（否则应用内版本为空/回退旧值，管理界面侧边栏角标和 `/settings/public` 的 `version` 字段不会跟着发布走）：
+  `docker build --build-arg VERSION=vYYYYMMDD.HHMM -t sub2api:vYYYYMMDD.HHMM -t sub2api:latest ...`
 - 注意 `deploy/build_image.sh` 目前只产出 `sub2api:latest`；用它构建后必须补打版本 tag 再发布：
   `docker tag sub2api:latest sub2api:vYYYYMMDD.HHMM`
 - 拷贝镜像到服务器、修改 `deploy/docker-compose*.yml` 的 `image:` 字段、执行部署或回滚命令时，一律引用明确的版本 tag，不要写 `latest`。
@@ -25,6 +25,7 @@
   2. compose **override 文件**（如 `/root/sub2api-deploy/docker-compose.override.yml`）的 `image:` 字段；
   3. 实际运行容器：`docker ps --format '{{.Names}} {{.Image}}' | grep sub2api`。
   两处 compose 的版本必须同步更新为本次发布 tag，禁止只改其中一处；发布前用 `docker compose config | grep -m1 'image: sub2api'` 确认最终生效版本。
+- **发布后必须核对应用内版本与镜像 tag 一致**（接口无鉴权可直接验证）：`curl -s http://127.0.0.1:<端口>/api/v1/settings/public | grep -o '"version":"[^"]*"'` 应返回本次版本号。
 - 发布完成后，交付说明必须写明本次版本号，并附上核对命令（如 `docker images | grep sub2api`）。
 
 <!-- CODEGRAPH_START -->
