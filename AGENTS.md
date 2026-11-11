@@ -28,6 +28,13 @@
 - **发布后必须核对应用内版本与镜像 tag 一致**（接口无鉴权可直接验证）：`curl -s http://127.0.0.1:<端口>/api/v1/settings/public | grep -o '"version":"[^"]*"'` 应返回本次版本号。
 - 发布完成后，交付说明必须写明本次版本号，并附上核对命令（如 `docker images | grep sub2api`）。
 
+### 版本号的坑（2026-11-11 实际踩过）
+
+- **镜像 tag ≠ 应用内版本号，是两套东西**。应用内版本靠构建时 `--build-arg VERSION` 经 ldflags（`-X main.Version`）注入 Go 二进制，展示在管理界面侧边栏角标和 `/api/v1/settings/public` 的 `version` 字段。只把镜像 tag 打对，界面版本不会变。
+- **不传 `VERSION` 参数会静默回退到错误的值**：Dockerfile 此时调用 `scripts/resolve-version.sh` 兜底，但**该脚本在仓库里并不存在**，且 `.git` 被 `.dockerignore` 排除（容器里也没有 git 元数据可用），结果应用内版本为空或回退到 `backend/cmd/server/VERSION` 里的陈旧值（曾长期是 `0.2.19`）。没有任何构建报错，只有发布后核对接口才能发现——所以上面的「发布后核对应用内版本」是必做步骤，不可省略。
+- **compose 有基础文件 + override 两个文件都带 `image:`**：只改 override 时容器虽然跑的新版本，但基础文件会停留在数月前的老 tag，查配置会被误导，不带 override 启动会静默回滚。两处必须同步改。
+- 时间线记录：`v20261111.1544`～`v20261111.1612` 三次发布镜像 tag 全部正确，但界面版本号始终不对/不更新；`v20261111.1618` 传了 `--build-arg VERSION` 后才恢复一致。
+
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 
