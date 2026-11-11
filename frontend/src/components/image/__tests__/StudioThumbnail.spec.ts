@@ -16,8 +16,8 @@ function visibility() {
   })
   return () => callbacks.forEach(callback => callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver))
 }
-const render = (id: string, thumbnail_url?: string) => mount(StudioThumbnail, {
-  props: { image: { id, url: `https://images.test/${id}.png`, thumbnail_url }, alt: 'Image' },
+const render = (id: string, thumbnail_url?: string, content_type?: string) => mount(StudioThumbnail, {
+  props: { image: { id, url: `https://images.test/${id}.png`, thumbnail_url, content_type }, alt: 'Image' },
   global: { stubs: { Icon: true } },
 })
 
@@ -60,6 +60,14 @@ describe('studio thumbnails', () => {
     show(); await flushPromises()
     expect(wrapper.find('img').exists()).toBe(false)
     expect(wrapper.find('[role="img"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+  it('renders animated GIFs from the original URL instead of the static first-frame thumbnail', async () => {
+    const show = visibility()
+    const wrapper = render('gif', 'https://images.test/gif.thumb.webp', 'image/gif')
+    show(); await flushPromises()
+    expect(wrapper.get('img').attributes('src')).toBe('https://images.test/gif.png')
+    expect(ensure).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 })

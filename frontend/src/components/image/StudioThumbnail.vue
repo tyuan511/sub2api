@@ -12,7 +12,7 @@ import Icon from '@/components/icons/Icon.vue'
 import type { StudioImage } from '@/api/imageStudio'
 import { studioThumbnailUrl } from '@/utils/studioThumbnail'
 
-const props = defineProps<{ image: StudioImage & { id?: string }; alt: string }>()
+const props = defineProps<{ image: StudioImage & { id?: string; content_type?: string }; alt: string }>()
 const { t } = useI18n()
 const container = ref<HTMLElement>()
 const visible = ref(false)
