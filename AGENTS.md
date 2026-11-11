@@ -20,6 +20,11 @@
 - 注意 `deploy/build_image.sh` 目前只产出 `sub2api:latest`；用它构建后必须补打版本 tag 再发布：
   `docker tag sub2api:latest sub2api:vYYYYMMDD.HHMM`
 - 拷贝镜像到服务器、修改 `deploy/docker-compose*.yml` 的 `image:` 字段、执行部署或回滚命令时，一律引用明确的版本 tag，不要写 `latest`。
+- **每次发布前必须核对版本号三处一致**（历史教训：只改 override 导致基础 compose 文件停留在几个月前的老版本）：
+  1. 服务器 compose **基础文件**（如 us02 `/root/sub2api-deploy/docker-compose.yml`）的 `image:` 字段；
+  2. compose **override 文件**（如 `/root/sub2api-deploy/docker-compose.override.yml`）的 `image:` 字段；
+  3. 实际运行容器：`docker ps --format '{{.Names}} {{.Image}}' | grep sub2api`。
+  两处 compose 的版本必须同步更新为本次发布 tag，禁止只改其中一处；发布前用 `docker compose config | grep -m1 'image: sub2api'` 确认最终生效版本。
 - 发布完成后，交付说明必须写明本次版本号，并附上核对命令（如 `docker images | grep sub2api`）。
 
 <!-- CODEGRAPH_START -->
