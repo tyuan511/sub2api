@@ -57,10 +57,6 @@ import { useI18n } from 'vue-i18n'
 import type { UserMonitorView, UserMonitorDetail } from '@/api/channelMonitor'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MonitorCard from './MonitorCard.vue'
-import {
-  fallbackAvailability,
-  fallbackCacheHitRate,
-} from '@/utils/monitorFallback'
 
 const props = defineProps<{
   items: UserMonitorView[]
@@ -92,7 +88,8 @@ function resolveLatestAvailability(item: UserMonitorView): number | null {
     case 'error':
       return 0
     default:
-      return fallbackAvailability(item.id)
+      // 尚无探测记录的监控没有可用率数据，展示 "—"。
+      return null
   }
 }
 
@@ -105,7 +102,7 @@ function resolveCacheHitRate(item: UserMonitorView): number | null {
         : props.window === '15d'
           ? item.cache_hit_rate_15d
           : item.cache_hit_rate_30d
-  // 无用量记录时后端为 null；兜底成正常的演示值，避免卡片露出 "—"。
-  return windowed ?? fallbackCacheHitRate(item.id, props.window)
+  // 无用量记录时后端为 null，如实展示 "—"。
+  return windowed ?? null
 }
 </script>

@@ -60,7 +60,7 @@
                 </div>
               </div>
               <span :class="['relay-health-pill bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', cellClass(entry.latest.health, entry.latest.metrics.request_count)]">
-                {{ healthLabel(entry.latest.health, entry.latest.metrics.request_count, isIdleRow(entry.row)) }}
+                {{ healthLabel(entry.latest.health, entry.latest.metrics.request_count) }}
               </span>
             </header>
 
@@ -71,7 +71,7 @@
                 </div>
                 <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
                   <span>{{ t('channelMonitorV2.metrics.availability') }}</span>
-                  <strong :class="metricTone(entry.latest.health.error_rate)">{{ availability(entry.latest.metrics, isIdleRow(entry.row)) }}</strong>
+                  <strong :class="metricTone(entry.latest.health.error_rate)">{{ availability(entry.latest.metrics) }}</strong>
                 </div>
                 <div class="relay-stat rounded-2xl bg-gray-50 px-2.5 py-2.5 dark:bg-dark-900/70">
                   <span>{{ t('channelMonitorV2.metrics.ttft') }}</span>
@@ -173,10 +173,6 @@ import {
 import { formatMultiplier } from '@/utils/formatters'
 import { platformDisplayRank } from '@/utils/groupOrder'
 import {
-  fallbackCacheHitRate,
-  fallbackFirstTokenMs,
-} from '@/utils/monitorFallback'
-import {
   formatMonitorMs,
   formatMonitorPercent,
   formatMonitorSuccessRateFromError,
@@ -234,37 +230,6 @@ const floatingTooltip = reactive({
   text: '',
 })
 
-/**
- * 「从未有流量」行的确定性演示数据：缓存率 80~95%、首字 2~10s、可用率≈100%。
- * 种子取 group_id（同一分组全天稳定，跨天自动轮换），仅用于展示层，
- * 真实流量行完全不走这里。
- */
-function fallbackSample(row: MonitorMatrixRow): LatestSample {
-  const key = String(row.group_id ?? row.group_name ?? row.platform)
-  const cache = fallbackCacheHitRate(key) / 100
-  const ttft = fallbackFirstTokenMs(key)
-  const metrics: MonitorMetric = {
-    ...row.metrics,
-    error_rate: 0,
-    cache_rate: cache,
-    cache_rate_numerator: 0,
-    cache_rate_denominator: 0,
-    ttft: { ...row.metrics.ttft, sample_count: 0, p50_ms: ttft },
-  }
-  const health: MonitorHealth = {
-    overall: 'healthy',
-    error_rate: 'healthy',
-    ttft: 'healthy',
-    cache: 'healthy',
-    score: 100,
-    error_rate_score: 100,
-    ttft_score: 100,
-    cache_score: 100,
-    minimum_sample: row.health?.minimum_sample ?? 0,
-  }
-  return { metrics, health }
-}
-
 const allBucketStarts = computed(() => {
   const step = Math.max(60, props.coverage.bucket_seconds) * 1000
   const requestedStart = new Date(props.coverage.requested_start).getTime()
@@ -321,7 +286,7 @@ const alignedRows = computed<AlignedRow[]>(() => {
       }
       slot.carried = carried
     }
-    const latest = isIdleRow(row) ? fallbackSample(row) : latestSample(row)
+    const latest = latestSample(row)
     return { row, slots, latest }
   })
 })
@@ -339,20 +304,6 @@ function latestSample(row: MonitorMatrixRow): LatestSample {
   const latest = buckets[0]
   if (!latest) return { metrics: row.metrics, health: row.health }
   return { metrics: latest.metrics, health: latest.health }
-}
-
-/**
- * 行是否「从未有流量」：可见吞吐时请求/RPM/TPM 全为 0（行级聚合）。
- * 脱敏模式（showThroughput=false）下计数被清零无法判断，视为有流量。
- */
-function isIdleRow(row: MonitorMatrixRow): boolean {
-  if (!props.showThroughput) return false
-  const metrics = row.metrics
-  return metrics.request_count <= 0
-    && (metrics.rpm || 0) <= 0
-    && (metrics.tpm || 0) <= 0
-    && (metrics.ttft?.sample_count ?? 0) <= 0
-    && (metrics.cache_rate_denominator || 0) <= 0
 }
 
 function isIdleBucket(bucket: MonitorMatrixBucket): boolean {
@@ -424,9 +375,8 @@ function cellClass(health: MonitorHealth, requestCount: number): string {
   return healthScoreClass(health, props.healthMode, requestCount)
 }
 
-function healthLabel(health: MonitorHealth, requestCount: number, fallback = false): string {
+function healthLabel(health: MonitorHealth, requestCount: number): string {
   const label = (key: string) => t(key).replace(/\s*\(.+$/, '')
-  if (fallback) return label('channelMonitorV2.matrix.healthyLegend')
   const state = cellClass(health, requestCount)
   if (state.includes('score')) {
     const score = healthModeScore(health, props.healthMode)
@@ -457,8 +407,7 @@ function probeFor(row: MonitorMatrixRow): UserMonitorProbeResult | null {
   return props.probesByGroup[name] ?? null
 }
 
-function availability(metrics: MonitorMetric, fallback = false): string {
-  if (fallback) return formatMonitorSuccessRateFromError(0)
+function availability(metrics: MonitorMetric): string {
   const noCount = metrics.request_count <= 0
   const noTP = (metrics.rpm || 0) <= 0 && (metrics.tpm || 0) <= 0
   if (noCount && noTP && props.showThroughput) return '-'
@@ -491,7 +440,6 @@ function heightForHealth(health: MonitorHealth): number {
 }
 
 function barHeight(slot: AlignedSlot): number {
-  if (isIdleRow(slot.row)) return 100
   if (slot.bucket && !isIdleSlot(slot)) return heightForHealth(slot.bucket.health)
   // 断档沿用最近一次真实状态的高度，保证色块序列连续，不出现「坏-好」跳变；
   // 左侧尚无任何样本空档保持满高占位。
@@ -521,17 +469,16 @@ function isIdleSlot(slot: AlignedSlot): boolean {
   return noCount && noThroughput
 }
 
-/** 该槽位是否应按「有数据」渲染：真实 bucket、断档沿用值、或从未有流量行的兜底柱。 */
+/** 该槽位是否应按「有数据」渲染：真实 bucket 或断档沿用值。 */
 function isFilledSlot(slot: AlignedSlot): boolean {
   if (slot.bucket) return true
-  return isIdleRow(slot.row) || !!slot.carried
+  return !!slot.carried
 }
 
 function cellClassFor(slot: AlignedSlot): string {
   if (isIdleSlot(slot) || !slot.bucket) {
-    // 无流量行整体兜底成健康绿；有流量行的断档沿用最近一次真实颜色，
-    // 避免红柱之间夹出绿色「坏-好-坏」跳变。斜纹标记「无新数据」。
-    if (isIdleRow(slot.row)) return 'health-healthy'
+    // 有流量行的断档沿用最近一次真实颜色，避免红柱之间夹出绿色
+    // 「坏-好-坏」跳变。斜纹标记「无新数据」。
     if (slot.carried) return `${cellClass(slot.carried.health, 1)} is-carried`
     return 'health-idle'
   }
@@ -541,15 +488,6 @@ function cellClassFor(slot: AlignedSlot): string {
 function slotTooltip(slot: AlignedSlot): string {
   if (isIdleSlot(slot)) {
     const time = formatBucketTime(slot.bucket?.bucket_start || slot.start)
-    if (isIdleRow(slot.row)) {
-      const metrics = fallbackSample(slot.row).metrics
-      return [
-        time,
-        t('channelMonitorV2.metrics.availabilityValue', { value: availability(metrics, true) }),
-        t('channelMonitorV2.metrics.cacheRateValue', { value: formatPercent(metrics.cache_rate) }),
-        t('channelMonitorV2.metrics.ttftValue', { value: formatMs(metrics.ttft.p50_ms) }),
-      ].join(' · ')
-    }
     if (slot.carried) {
       return [
         t('channelMonitorV2.matrix.carriedOverAt', { time }),

@@ -90,8 +90,8 @@ function mountMatrix(rows: Parameters<typeof RelayPulseMatrix>[0]['rows'] extend
   })
 }
 
-describe('RelayPulseMatrix no-traffic fallback', () => {
-  it('renders deterministic healthy stats for rows that never had traffic', () => {
+describe('RelayPulseMatrix no-traffic rows show real data', () => {
+  it('renders raw idle stats instead of fabricated demo values', () => {
     const wrapper = mountMatrix([{
       platform: 'openai',
       group_id: 7,
@@ -102,31 +102,16 @@ describe('RelayPulseMatrix no-traffic fallback', () => {
     }])
 
     const stats = wrapper.findAll('.relay-stat strong')
-    const cache = Number.parseFloat(stats[0].text())
-    expect(cache).toBeGreaterThanOrEqual(80)
-    expect(cache).toBeLessThanOrEqual(95)
-    expect(stats[1].text()).toBe('100.0%')
-    const ttft = stats[2].text()
-    expect(ttft).toMatch(/s$/)
-    expect(wrapper.find('.relay-health-pill').text()).toContain('健康')
-    expect(wrapper.find('.relay-health-pill').text()).not.toContain('样本不足')
+    // 真实行级聚合：缓存率 0%、无请求可用率 "-"、无首字样本 "-"
+    expect(stats[0].text()).toBe('0.00%')
+    expect(stats[1].text()).toBe('-')
+    expect(stats[2].text()).toBe('-')
+    // 健康 pill 展示真实「样本不足」，不再兜底成「健康」
+    expect(wrapper.find('.relay-health-pill').text()).toContain('样本不足')
+    expect(wrapper.find('.relay-health-pill').text()).not.toContain('健康')
   })
 
-  it('is stable across mounts within the same day', () => {
-    const rows = [{
-      platform: 'openai',
-      group_id: 9,
-      group_name: '空组B',
-      metrics: idleRowMetrics(),
-      health,
-      buckets: [],
-    }]
-    const first = mountMatrix(rows).findAll('.relay-stat strong').map((s) => s.text()).join('|')
-    const second = mountMatrix(rows).findAll('.relay-stat strong').map((s) => s.text()).join('|')
-    expect(first).toBe(second)
-  })
-
-  it('paints empty slots of idle rows as healthy bars instead of striped idle bars', () => {
+  it('renders idle stripes and no-traffic tooltips for rows that never had traffic', () => {
     const wrapper = mountMatrix([{
       platform: 'openai',
       group_id: 11,
@@ -135,9 +120,12 @@ describe('RelayPulseMatrix no-traffic fallback', () => {
       health,
       buckets: [],
     }])
-    expect(wrapper.findAll('.pulse-cell')).toHaveLength(18)
-    expect(wrapper.findAll('.pulse-cell.health-idle')).toHaveLength(0)
-    expect(wrapper.findAll('.pulse-cell.health-healthy')).toHaveLength(18)
+    const cells = wrapper.findAll('.pulse-cell')
+    expect(cells).toHaveLength(18)
+    // 无流量行与其它空档一致：斜纹占位，不再画成健康绿柱
+    expect(cells.filter((c) => c.classes().includes('health-idle'))).toHaveLength(18)
+    expect(cells.filter((c) => c.classes().includes('health-healthy'))).toHaveLength(0)
+    expect(cells[0].attributes('title')).toContain('无流量')
   })
 
   it('keeps real idle stripes for rows that have traffic but an idle latest bucket', () => {
